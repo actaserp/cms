@@ -1,0 +1,524 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>스토리보드 설정</h2>
+                <!--                <a title="북마크" class="bookmark toggle">-->
+                <!--                    내메뉴-->
+                <!--                </a>-->
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>시스템설정</li>
+                <li>시스템관리</li>
+                <li>스토리보드설정</li>
+            </ul>
+        </div>
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap"></div>
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <button type="button" class="btn-excellt btn-default" id="btnAddMenu" title="메뉴 항목 추가"
+                                    data-labelCd="메뉴 항목 추가" style="height: 36px; width:115px;">메뉴 항목 추가
+                            </button>
+                        </li>
+                        <li>
+                            <button type="button" class="btn-delete btn-danger" id="btnDel" style="height: 36px; width:115px;">
+                                <i class="fas fa-trash"></i>삭제
+                            </button>
+                        </li>
+                        <li>
+                            <button type="button" class="btn-excellt btn-default" id="btnAddHmi" title="HMI 양식 추가"
+                                    data-labelCd="HMI 양식 추가" style="height: 36px; width:115px;">HMI 양식 추가
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div> <!--//section-top end -->
+            <div class="container-fluid">
+                <p id="selectedItem"></p>
+                <div id="theGrid" style="height: 720px; max-height: 720px;"></div>
+            </div>
+            <div class="btn-wrap">
+            </div>
+        </section>
+    </div> <!--//layout-contents end -->
+
+    <footer style="margin-top: 24px;">
+        <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+    </footer>
+
+    <!--스토리보드 메뉴항목추가 스크립트-->
+    <script type="text/x-tmpl" id="createMenuItemTemplate">
+        <div class="content_wrap popup">
+            <!--<header>
+                <h4 id="popTitle">메뉴항목 추가</h4>
+                <div class="popup_close_box"><button class="btn_popup_close" id="modal-close"><i class="fas fa-times"></i></button></div>
+            </header>-->
+
+
+            <div class="table-wrap">
+                  <form id="bomForm">
+                    <table class="write-table">
+                         <input type="hidden" id="edit-id" name="edit-id" value="" />
+                        <caption>주문등록 테이블</caption>
+                        <tbody>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="cboMenuCode">메뉴선택</label>
+                                </th>
+                                <td>
+                                    <select class="form-control2 " type="text" id="cboMenuCode" name="MenuCode" ></select>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="Duration">지속 시간 (초)</label>
+                                </th>
+                                <td>
+                                     <input class="form-control2 " type="number" id="Duration" name="Duration" value="10"/>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+
+            <div class="popup-button">
+               <button type="button" class="btn-popup y_write_auth" id="btnSaveMenuItem" ><span data-labelCd="저장">저장</span></button>
+               <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+            </div>
+
+            <!--<section class="pt-2">
+                <form id="bomForm">
+                    <div class="table_box sub">
+                        <div class="row">
+
+                            <div class="col-12">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text fit_box_t7" data-labelCd="메뉴 선택">메뉴 선택</span>
+                                    </div>
+                                    <select class="form-control2 " type="text" id="cboMenuCode" name="MenuCode" ></select>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text fit_box_t7" data-labelCd="지속 시간 (초)">지속 시간 (초)</span>
+                                    </div>
+                                    <input class="form-control2 " type="number" id="Duration" name="Duration" value="10"/>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </form>
+            </section>
+
+            <section class="popupcontent" >
+                <div class="align_left">
+                    <button type="button" class="btn-popup" id="btnSaveMenuItem" ><span data-labelCd="저장">저장</span></button>
+                    <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+                </div>
+            </section>-->
+
+        </div>
+
+    </script>
+
+
+    <!--스토리보드 HMI양식 스크립트-->
+    <script type="text/x-tmpl" id="createHMIItemTemplate">
+        <div class="content_wrap popup">
+            <!--<header>
+                <h4 id="popTitle">HMI양식 추가</h4>
+                <div class="popup_close_box"><button class="btn_popup_close" id="modal-close"><i class="fas fa-times"></i></button></div>
+            </header>-->
+
+
+
+            <div class="table-wrap">
+                   <form id="bomForm">
+                    <table class="write-table">
+                         <input type="hidden" id="edit-id" name="edit-id" value="" />
+                        <caption>주문등록 테이블</caption>
+                        <tbody>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="cboHMIType">HMI 양식 구분</label>
+                                </th>
+                                <td>
+                                    <select class="form-control2 " type="text" id="cboHMIType" name="hmi_type">
+                                        <option value='hmi_a'>A</option>
+                                        <option value='hmi_b'>B</option>
+                                    </select>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="cboHMI">HMI 양식 선택</label>
+                                </th>
+                                <td>
+                                     <select class="form-control2 " type="text" id="cboHMI" name="hmi_id" ></select>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="Duration">지속 시간 (초)</label>
+                                </th>
+                                <td>
+                                     <input class="form-control2 " type="number" id="Duration" name="Duration" value="10"/>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+            <div class="popup-button">
+               <button type="button" class="btn-popup y_write_auth" id="btnSaveHmiItem" ><span data-labelCd="저장">저장</span></button>
+               <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+            </div>
+
+            <!--<section class="pt-2">
+                <form id="bomForm">
+                    <div class="table_box sub">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text fit_box_t7" data-labelCd="HMI 양식 구분">HMI 양식 구분</span>
+                                    </div>
+                                    <select class="form-control2 " type="text" id="cboHMIType" name="hmi_type">
+                                        <option value='hmi_a'>A</option>
+                                        <option value='hmi_b'>B</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text fit_box_t7" data-labelCd="HMI 양식 선택">HMI 양식 선택</span>
+                                    </div>
+                                    <select class="form-control2 " type="text" id="cboHMI" name="hmi_id" >
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text fit_box_t7" data-labelCd="지속 시간 (초)">지속 시간 (초)</span>
+                                    </div>
+                                    <input class="form-control2 " type="number" id="Duration" name="Duration" value="10"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </section>
+            <section class="popupcontent" >
+                <div class="align_left">
+                    <button type="button" class="btn-popup" id="btnSaveHmiItem" ><span data-labelCd="저장">저장</span></button>
+                    <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+                </div>
+            </section>-->
+        </div>
+    </script>
+
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+    <script type="text/javascript">
+
+        var theGrid;
+        var viewdata;
+
+        let columns = [
+            {binding: 'id', header: 'id', width: 120, align: 'center', visible: false},
+            {binding: 'BoardTypeName', header: '항목구분', width: 120, align: 'center'},
+            {binding: 'name', header: '항목명', width: 200, align: 'center'},
+            {binding: 'Duration', header: '지속시간(초)', width: 150, align: 'center'},
+            {binding: 'writer', header: '작성자', width: 150, align: 'center'},
+            {binding: 'created', header: '작성일', width: 200, align: 'center'},
+            {binding: '', header: '', width: "*", align: 'center'},
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+
+        function init() {
+            let data2 = [];
+
+            $.ajax({
+                url: '/api/system/storyboard/read',
+                type: 'GET',
+                async: false,
+                success: function (data) {
+                    data2 = data.data;
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_count data:', textStatus, errorThrown);
+                }
+            })
+
+            viewdata = new wijmo.collections.CollectionView(data2);
+
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+            /*  new FlexGridContextMenu(theGrid);*/
+        }
+
+
+        function setButtonDisable(_boolnew, _boolsave, _booldel) {
+            $('[id=btn_new_group]').prop('disabled', _boolnew);
+            $('[id=btn_save_group]').prop('disabled', _boolsave);
+            $('[id=btn_del_group]').prop('disabled', _booldel);
+        }
+
+        function searchDataBind() {
+
+            $.ajax({
+                url: '/api/system/storyboard/read',
+                type: 'GET',
+                async: false,
+                success: function (result) {
+                    if (result.success) {
+                        grid_binding(result.data);
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+                }
+            });
+        }
+
+        function grid_binding(data) {
+            if (!Array.isArray(data)) {
+                console.error('데이터가 배열 형식이 아닙니다:', data);
+                return;
+            }
+
+            let menulogData = data.map(item => ({
+                id: item.id,
+                BoardTypeName: item.BoardTypeName,
+                name: item.name,
+                Duration: item.Duration,
+                factory_name: item.factory_name,
+                writer: item.writer,
+                created: item.created
+
+            }));
+
+            if (typeof theGrid === 'undefined' || typeof viewdata === 'undefined') {
+                console.error('theGrid 또는 viewdata가 정의되지 않았습니다.');
+                return;
+            }
+
+            theGrid.columns.clear();
+            theGrid.autoGenerateColumns = false;
+            // columns 배열이 정의되어 있는지 확인
+            if (typeof columns === 'undefined' || !Array.isArray(columns)) {
+                console.error('columns 배열이 정의되지 않았습니다.');
+                return;
+            }
+            columns.forEach(columnDef => {
+                var col = new wijmo.grid.Column(columnDef);
+                theGrid.columns.push(col);
+            });
+
+            viewdata = new wijmo.collections.CollectionView(menulogData);
+
+            theGrid.itemsSource = viewdata;
+            theGrid.refresh();
+        }
+
+
+        function showAddMenuItem() {
+            let _this = this;
+            //createMenuItemTemplate
+
+            let content = tmpl('createMenuItemTemplate', {});
+            let $content = $(content);
+
+            let modalContainer = new PopupDraggable('메뉴 항목 추가');
+            modalContainer.open({width: 525, height: 205, $content});
+
+            let $cboMenuCode = $content.find('#cboMenuCode');
+            let $Duration = $content.find('#Duration');
+            AjaxUtil.fillSelectOptions($cboMenuCode, 'menu_item', '', false);
+            $content.find('#btnSaveMenuItem').click(function (e) {
+                let data = {
+                    'BoardType': 'menu',
+                    'MenuCode': $cboMenuCode.val(),
+                    'Duration': $Duration.val()
+                };
+
+                let url = '/api/system/storyboard/save_menu';
+
+                let fnsuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('', '저장되었습니다');
+                        modalContainer.close();
+                        searchDataBind();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+
+            });
+
+        }
+
+        function showAddHMIItem() {
+            let content = tmpl('createHMIItemTemplate', {});
+            let $content = $(content);
+            let modalContainer = new PopupDraggable('HMI 양식 추가');
+            modalContainer.open({width: 535, height: 265, $content});
+
+            let $cboHMIType = $content.find('#cboHMIType');
+            let $cboHMI = $content.find('#cboHMI');
+            let $Duration = $content.find('#Duration');
+            AjaxUtil.fillSelectOptions($cboHMI, 'hmi_form', '', false, $cboHMIType.val());
+
+            $cboHMIType.change(function (e) {
+                AjaxUtil.fillSelectOptions($cboHMI, 'hmi_form', '', false, $cboHMIType.val());
+            });
+
+            let $btnSaveHmiItem = $content.find('#btnSaveHmiItem');
+            $btnSaveHmiItem.click(function (e) {
+                let MenuCode = '';
+                let hmiType = $cboHMIType.val();
+                if (hmiType == 'hmi_a') {
+                    MenuCode = 'wm_hmi_form';
+                } else {
+                    MenuCode = 'wm_hmi_form_b';
+                }
+
+                let data = {
+                    'BoardType': $cboHMIType.val(),
+                    'MenuCode': MenuCode,
+                    'Duration': $Duration.val(),
+                    'ParameterData': $cboHMI.val() == null ? 0 : $cboHMI.val()
+                };
+                saveItem(data, modalContainer);
+            });
+        }
+
+        function saveItem(data, modalContainer) {
+            let url = '/api/system/storyboard/save_hmi';
+            let fnSuccess = function (result) {
+
+                if (result.success) {
+                    modalContainer.close();
+                    Alert.alert('', '저장되었습니다');
+                    searchDataBind();
+                } else {
+                    Alert.alert('', result.message);
+                }
+            };
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        function deleteItem(id) {
+            let url = '/api/system/storyboard/delete';
+            let data = {id_list: id};
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Alert.alert('', '삭제되었습니다.');
+                    searchDataBind();
+                } else {
+                    Alert.alert('삭제 실패', result.message);
+                    console.error('삭제 실패:', result.message);
+                }
+            };
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+
+        }
+
+
+        $(document).ready(function (e) {
+
+            $('#btnAddMenu').click(function (e) {
+                showAddMenuItem();
+            });
+
+            $('#btnAddHmi').click(function (e) {
+                showAddHMIItem();
+            });
+
+            $('#btnDel').click(function (e) {
+                /*let ids = [];*/
+                /*// 그리드에서 선택된 항목의 ID 수집
+                theGrid.itemsSource.items.forEach(function (item) {
+                    if (item.__selected__) {
+                        ids.push(item.id); // 각 항목의 ID를 수집
+                    }
+                });*/
+
+                let selectedRow = theGrid.selection.row;
+              /*  console.log("선택된 행:", selectedRow);*/
+
+                if (selectedRow == null || selectedRow < 0) {
+                    Alert.alert('삭제할 항목을 선택해주세요.');
+                    return;
+                }
+
+                if (selectedRow >= 0) {
+                    // 선택된 행의 데이터 가져오기
+                    let selectedItem = theGrid.rows[selectedRow].dataItem;
+                   /* console.log("선택된 데이터:", selectedItem);*/
+
+                    if (selectedItem && selectedItem.id) {
+                        let id = selectedItem.id; // 선택된 데이터의 ID 값
+                        /*console.log("선택된 ID:", id);*/
+
+                        // ID 값으로 문서 삭제 호출
+                        deleteItem(id);
+                    } else {
+                        Alert.alert('', '선택된 행에 ID 값이 없습니다.');
+                    }
+                } else {
+                    Alert.alert('', '삭제할 문서를 선택해 주세요.');
+                }
+
+            });
+        });
+
+    </script>
+</th:block>
+
+</html>

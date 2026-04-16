@@ -1,0 +1,1552 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .back_current {
+            background-color: #d4edda !important; /* 연한 초록 */
+        }
+
+        .back_past {
+            background-color: #f8d7da !important; /* 연한 빨강 */
+        }
+
+        .back_future {
+            background-color: #d1ecf1 !important; /* 연한 파랑 */
+        }
+
+        .back_error {
+            background-color: #f5c6cb !important; /* 연한 분홍 */
+        }
+
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>라우팅</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>라우팅</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label>품목구분</label>
+                        </dt>
+                        <dd>
+                            <select class="form-control2" id="cboMaterialType" name="cboMaterialType"></select>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label>품목그룹</label>
+                        </dt>
+                        <dd>
+                            <select class="form-control2" id="cboMaterialGroup" name="cboMaterialGroup"></select>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label>제품명</label>
+                        </dt>
+                        <dd>
+                            <input type="text" class="form-control2" id="txtMatName" name="txtMatName">
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label>최종</label>
+                        </dt>
+                        <dd>
+                            <input class="form-control2" type="checkbox" id="not_past_flag" name="not_past_flag"
+                                   value="Y" checked/>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt><span class="eq"></span></dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+                <div class="button-wrap">
+                    <button type="button" class="btn-excellt btn-default" id="btnRoutingNew"
+                            style="width: 90px; height: 36px; float: none;">등록</button>
+                    <button type="button" class="btn-danger y_write_auth" id="btnBomDelete"
+                            style="width: 90px; height: 36px; float: none;">삭제
+                    </button>
+                    <button type="button" class="btn-delete btn-edit btn-default" id="btnBomEdit"
+                            style="width: 90px; height: 36px; float: none;">수정</button>
+                    <button type="button" class="btn-excellt btn-default y_write_auth" id="btnBomReplicate" data-labelCd="복제"
+                            style="width: 90px; height: 36px; float: none;">
+                    </button>
+                    <button type="button" class="btn-excellt btn-default y_write_auth" id="btnBomRevision" data-labelCd="개정"
+                            style="width: 90px; height: 36px; float: none;">
+                    </button>
+                </div>
+            </div>
+
+            <!-- <div class="grid_box">
+                 <div class="h-280" data-ax5grid="bom-grid" ></div>
+             </div>-->
+            <div class="container-fluid">
+                <div id="bom-grid" style="height: 360px; max-height: 360px;"></div>
+            </div>
+        </section>
+
+        <div class="tab-wrap">
+            <ul class="tab-links">
+                <li><a href="#tab_basic" name="tabs_basic">1레벨</a></li>
+                <li><a href="#tab_tree" name="tab_tree">전체레벨</a></li>
+                <li><a href="#tab_copy_text" name="tab_copy_text">텍스트입력</a></li>
+            </ul>
+            <div>
+                <section class="tab-item" id="tab_basic" style="border-top-left-radius: 0;">
+                    <div class="section-top">
+                        <div class="button-wrap">
+                            <ul>
+                                <li>
+                                    <button type="button" class="btn-excellt btn-default" id="btnBomCompNew"
+                                            style="width: 115px; height: 36px;"><i
+                                            class="fas fa-plus"></i>등록
+                                    </button>
+                                </li>
+
+                                <li>
+                                    <button type="button" class="btn-delete btn-danger y_write_auth" id="btnBomCompDelete"
+                                            style="width: 115px; height: 36px;"><i
+                                            class="fas fa-trash"></i>삭제
+                                    </button>
+                                </li>
+
+                                <li>
+                                    <button type="button" class="btn-edit btn-default" id="btnBomCompEdit"
+                                            style="width: 115px; height: 36px;"><i
+                                            class="fas fa-edit"></i>수정
+                                    </button>
+                                </li>
+                                <!--<li>
+                                    <button type="button" class="btn-default" id="btnCompUp" title="순서 조정-위로"
+                                            style="width: 150px; height: 36px;"><i
+                                            class="fas fa-arrow-up"></i> 순서 조정-위로
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="btn-default" id="btnCompDown" title="순서 조정-아래로"
+                                            style="width: 150px; height: 36px;"><i
+                                            class="fas fa-arrow-down"></i> 순서 조정-아래로
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="btn-default y_write_auth" id="btnCompOrderSave"
+                                            style="width: 115px; height: 36px;"><span
+                                            data-labelCd="순서 저장">순서 저장</span></button>
+                                </li>-->
+                            </ul>
+                        </div>
+                    </div>
+                    <div>
+                        <!-- <div class="grid_box">
+                             <div class="h-600" data-ax5grid="bomcomp-grid" ></div>
+                         </div>-->
+                        <div class="container-fluid">
+                            <div id="bomcomp-grid" style="height: 240px; max-height: 240px;"></div>
+                        </div>
+                    </div>
+                </section>
+                <!--section2-->
+                <section class="tab-item" id="tab_tree" style="border-top-left-radius: 0;">
+                    <div>
+                        <div class="container-fluid">
+                            <div id="bomtree-grid" style="height: 240px; max-height: 240px;"></div>
+                        </div>
+                    </div>
+                </section>
+                <!--section3-->
+                <section class="tab-item" id="tab_copy_text" style="border-top-left-radius: 0;">
+                    <div class="section-top">
+                        <div class="button-wrap">
+                            <ul>
+                                <li>
+                                    <button type="button" class="btn-excellt btn-default y_write_auth" id="btnSaveBomText"
+                                            style="float:none"><i class="fas fa-save"></i></button>
+                                </li>
+                                <!--<span class="right_align lpt" >품목코드,수량,비고 순으로 엑셀에서 작성 후 붙여넣기 하세요. 기존 BOM구성은 모두 삭제되고 저장되니 주의해야 합니다.&nbsp;&nbsp;&nbsp;&nbsp;</span>-->
+                            </ul>
+                        </div>
+                    </div>
+                    <div style="height: 240px;">
+                        <textarea id="txtCopyText" rows="15" style="height: 240px"></textarea>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+<!-- BOM 등록 스크립트 -->
+    <script type="text/x-tmpl" id="bomCreateTemplate">
+        <div class="content_wrap popup">
+            <!--<header>
+                <h4 id="popTitle">
+                {% if (o.id!='') { %}
+                  BOM 수정({%=o.Name%})
+                  {% } else { %}
+                  BOM 등록
+                  {% } %}
+                </h4>
+                <div class="popup_close_box"><button class="btn_popup_close" id="modal-close-x"><i class="fas fa-times"></i></button></div>
+            </header>-->
+
+    <div class="table-wrap">
+           <form id="bomForm">
+                <table class="write-table">
+                    <input type="hidden" id="id" name="id" value="{%=o.id%}">
+                    <caption>주문등록 테이블</caption>
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="popMaterialType">품목구분</label>
+                            </th>
+                            <td>
+                                <select class="form-control2" id='popMaterialType' name="popMaterialType"></select>
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="popMaterialGroup">품목그룹</label>
+                            </th>
+                            <td>
+                                <select class="form-control2" id="popMaterialGroup" name="popMaterialGroup"></select>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="txtProductName">품목명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="keyword" name="keyword" />
+                            </td>
+                           &nbsp;
+                            <td colspan="2" style="text-align: center;">
+                                <button type="button" class="btn-default" id="btnMatSearch" title="조회"><i class="fas fa-search"></i>검색</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="grid_box" style="margin-top: 10px;">
+                    <div id="material-search-grid" style="height: 250px; max-height: 250px;"></div>
+                </div>
+
+              <table class="write-table">
+                    <tfoot>
+                        <tr>
+                            <th style="text-align: center">
+                               <label for="Material_id">*(반)제품명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="hidden" id="Material_id" name="Material_id" value="{%=o.Material_id%}" />
+                                <input class="form-control2" type="text" id="MaterialName" name="MaterialName" readonly="readonly"  value="{%=o.MaterialName%}" />
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="Name">*BOM명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="Name" name="Name" value="{%=o.Name%}" />
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="OutputAmount">*기준수량</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tar" type="number" id="OutputAmount" name="OutputAmount" value="{%=o.OutputAmount%}" />
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="BOMType">*BOM종류</label>
+                            </th>
+                            <td>
+                                <select class="form-control2" id="BOMType" name="BOMType"></select>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="Version">버전</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tar" id="Version" name="Version" value="{%=o.Version%}" />
+                            </td>
+                            <th></th>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="StartDate">*적용시작일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="date" id="StartDate" name="StartDate" value="{%=o.StartDate%}">
+                                <!--<span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color"></i></span>-->
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="EndDate">*적용종료일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="date" id="EndDate" name="EndDate" value="{%=o.EndDate%}">
+                                <!-- <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color"></i></span>-->
+                            </td>
+                    </tr>
+               </tfoot>
+            </table>
+        </form>
+    </div>
+
+        <div class="popup-button">
+          <button type="button" class="btn-popup y_write_auth" id="btnBomSave" ><span data-labelCd="저장">저장</span></button>
+          <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+          <button type="button" class="btn-popup" id="btnTest"><span data-labelCd="새로고침">새로고침</span></button>
+        </div>
+</div>
+</script>
+
+
+    <!-- 구성품목 등록 스크립트 -->
+    <script type="text/x-tmpl" id="bomMaterialTemplate">
+        <div class="content_wrap popup">
+            <!--<header>
+                <h4 id="popTitle">
+                {% if (o.id!='') { %}
+                  구성품목 수정({%=o.ParentMaterialName%})
+                  {% } else { %}
+                  구성품목 등록
+                  {% } %}
+                </h4>
+                <div class="popup_close_box"><button class="btn_popup_close" id="modal-close"><i class="fas fa-times"></i></button></div>
+            </header>-->
+
+
+            <div class="table-wrap">
+           <form id="materialForm">
+                <table class="write-table">
+                    <input type="hidden" id="BOM_id" name="BOM_id" value="{%=o.BOM_id%}">
+                    <input type="hidden" id="id" name="id" value="{%=o.id%}">
+
+                    <caption>주문등록 테이블</caption>
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="popMaterialType">품목구분</label>
+                            </th>
+                            <td>
+                                 <select class="form-control2" id='popMaterialType' name="popMaterialType" ></select>
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="popMaterialGroup">품목그룹</label>
+                            </th>
+                            <td>
+                                <select class="form-control2" id="popMaterialGroup" name="popMaterialGroup"></select>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="txtProductName">품목명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="keyword" name="keyword" />
+                            </td>
+                           &nbsp;
+                            <td colspan="2" style="text-align: center;">
+                                <button type="button" class="btn-default" id="btnMatSearch" title="검색">검색</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="grid_box" style="margin-top: 10px;">
+                    <div id="material-search-grid" style="height: 250px; max-height: 250px;"></div>
+                </div>
+
+
+              <table class="write-table">
+                    <tfoot>
+                        <tr>
+                            <th style="text-align: center">
+                               <label for="Material_id">*품목명</label>
+                            </th>
+                            <td colspan="3">
+                               <input class="form-control2" type="hidden" id="Material_id" name="Material_id" value="{%=o.Material_id%}"  />
+                               <input class="form-control2" type="text" id="MaterialName" name="MaterialName" readonly="readonly" value="{%=o.MaterialName%}" style="width:100%"/>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="Name">*필요수량</label>
+                            </th>
+                            <td>
+                                 <input class="form-control2 tar" type="number" id="Amount" name="Amount" value="{%=o.Amount%}" />
+                            </td>
+                            <th style="text-align: center">
+                                <label for="_order">순서</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="number" id="_order" name="_order" value="{%=o._order%}" />
+                            </td>
+                        </tr>
+
+                        <tr>
+                              <th style="text-align: center">
+                                <label for="Description">비고</label>
+                            </th>
+                            <td colspan="3">
+                               <textarea class="form-control2" id="Description" name="Description">{%=o.Description%}</textarea>
+                            </td>
+                        </tr>
+               </tfoot>
+            </table>
+        </form>
+    </div>
+
+
+        <div class="popup-button">
+          <button type="button" class="btn-popup y_write_auth" id="btnBomMaterialSave" ><span data-labelCd="저장">저장</span></button>
+          <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+          <button type="button" class="btn-popup" id="btnTest"><span data-labelCd="새로고침">새로고침</span></button>
+        </div>
+
+
+        </div>
+    </script>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+
+
+    <script type="text/javascript">
+
+        class BOMPage {
+            constructor() {
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+                this.viewData3 = new wijmo.collections.CollectionView();
+                this.viewData4 = new wijmo.collections.CollectionView();
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                //메인 그리드
+                this.grid = new wijmo.grid.FlexGrid('#bom-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            let item = sender.rows[e.row].dataItem; // 현재 행의 데이터 가져오기
+                            if (e.col === sender.columns.indexOf(sender.columns.getColumn('Name'))) {
+                                if (item.current_flag === 'current') {
+                                    e.cell.classList.add('back_current');
+                                } else if (item.current_flag === 'past') {
+                                    e.cell.classList.add('back_past');
+                                } else if (item.current_flag === 'future') {
+                                    e.cell.classList.add('back_future');
+                                } else if (item.current_flag === 'error') {
+                                    e.cell.classList.add('back_error');
+                                }
+                            }
+                        }
+                    },
+                    columns: [
+                        {binding: 'id', header: '번호', width: 100, align: 'left'},
+                        {binding: 'mat_type', header: '품목구분', width: 110, align: 'center'},
+                        {binding: 'mat_group_name', header: '품목그룹', width: 140, align: 'left'},
+                        {binding: 'mat_code', header: '(반)제품코드', width: '*', align: 'left'},
+                        {binding: 'mat_name', header: '(반)제품명', width: 150, align: 'left'},
+                        {binding: 'bom_type_name', header: 'BOM종류', width: 120, align: 'center'},
+                        {binding: 'Name', header: 'BOM명', width: 160, align: 'left'},
+                        {binding: 'OutputAmount', header: '기준수량', width: 110, align: 'right'},
+                        {binding: 'unit', header: '단위', width: 110, align: 'center'},
+                        {binding: 'Version', header: 'Ver.', width: 110, align: 'center'},
+                        {binding: 'StartDate', header: '적용시작일', width: 130, align: 'center'},
+                        {binding: 'EndDate', header: '적용종료일', width: 130, align: 'center'},
+                    ],
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                });
+
+                this.grid.hostElement.addEventListener('dblclick', (e) => {
+                    let hitTest = this.grid.hitTest(e);
+                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                        let row = hitTest.row;
+                        let selectedItem = this.grid.rows[row].dataItem;
+                        _this.showBomCompList(selectedItem.id)
+                        _this.showBomCompTreeList(selectedItem.id)
+                    }
+                });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = 'BOM';
+
+
+                // 1레벨 그리드
+                this.grid2 = new wijmo.grid.FlexGrid('#bomcomp-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false, // 편집 가능하도록 변경
+                    allowSorting: false, // 정렬 비활성화 (선택 사항)
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: '_order', header: '순서', width: 120, align: 'center'},
+                        {binding: 'mat_type', header: '품목구분', width: 120, align: 'center'},
+                        {binding: 'mat_code', header: '품목코드', width: 150, align: 'center'},
+                        {binding: 'mat_name', header: '품목명', width: 350, align: 'left'},
+                        {binding: 'Amount', header: '필요수량', width: 120, align: 'right'},
+                        {binding: 'unit', header: '단위', width: 100, align: 'center'},
+                        {
+                            binding: 'Description',
+                            header: '비고',
+                            width: "*",
+                            align: 'left',
+                            isReadOnly: false, // 편집 가능
+                            multiLine: true // 여러 줄 입력 허용
+                        }
+                    ],
+                    itemsSource: this.viewData2, // 데이터를 설정할 배열
+                });
+
+                new FlexGridContextMenu(this.grid2);
+                this.grid2.downloadFileName = '1레벨';
+
+                // 전체레벨 그리드
+                this.grid3 = new wijmo.grid.FlexGrid('#bomtree-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            let item = sender.rows[e.row].dataItem; // 현재 행의 데이터 아이템
+                            if (item && item.children && item.children.length > 0) {
+                                // 부모(그룹) 행 배경색
+                                e.cell.style.backgroundColor = '#f0fcf7';
+                            } else {
+                                // 자식(일반) 행 배경색
+                                e.cell.style.backgroundColor = '#ffffff';
+                            }
+                        }
+                    },
+                    columns: [
+                        {binding: 'mat_type', header: '품목구분', width: 120, align: 'center'},
+                        {binding: 'mat_code', header: '품목코드', width: 150, align: 'center'},
+                        {binding: 'lvl', header: '레벨', width: 100, align: 'right'},
+                        {binding: 'mat_name', header: '품목명', width: 200, align: 'left'},
+                        {binding: 'bom_ratio', header: '투입비(최종생산품기준)', width: 200, align: 'right'},
+                        {binding: 'bom_qty', header: '필요량(중간생산품기준)', width: 200, align: 'right'},
+                        {binding: 'unit', header: '단위', width: "*", align: 'center'},
+                        {
+                            binding: 'Description',
+                            header: '비고',
+                            width: 300,
+                            align: 'left',
+                            isReadOnly: false, // 편집 가능
+                            multiLine: true // 여러 줄 입력 허용
+                        },
+                    ],
+                    childItemsPath: 'children', // 트리 계층 구조 설정
+                    itemsSource: this.viewData3, // 데이터를 설정할 배열
+                });
+
+
+                new FlexGridContextMenu(this.grid3);
+                this.grid3.downloadFileName = '전체레벨';
+
+
+                AjaxUtil.fillSelectOptions($('#cboMaterialType'), 'system_code', 'all', false, 'mat_type');
+                AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false);
+                AjaxUtil.fillSelectOptions($('#cboBOMType'), 'system_code', 'all', false, 'bom_type');
+
+                $('#cboMaterialType').on('change', function (e) {
+                    let mat_type = $('#cboMaterialType').val();
+                    AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false, mat_type);
+                });
+
+                $('#txtMatName').on('keypress', function (e) {
+                    if (event.keyCode == 13) {
+                        _this.searchBomList();
+                    }
+                });
+
+            }
+
+            showBomEdit(data) {
+                let _this = this;
+                let content = tmpl('bomCreateTemplate', data);
+                let $content = $(content);
+
+                let modalContainer = new PopupDraggable(data.id ? 'BOM 수정' : 'BOM 등록');
+                modalContainer.open({width: 1025, height: 700, $content});
+
+                $('#popSrchDt1').ax5DatePicker({direction: 'top'});
+                $('#popSrchDt2').ax5DatePicker({direction: 'top'});
+
+                let $MaterialName = $content.find('#MaterialName');
+                let $Material_id = $content.find('#Material_id');
+                let $BomName = $content.find('#Name');
+
+                let $matSearchGrid = null;
+                let selectedItem = null;
+                let target = $content.find('#material-search-grid');
+
+
+                this.viewData4 = Array.isArray(this.viewData4) ? this.viewData4 : [];
+
+                this.grid4 = new wijmo.grid.FlexGrid('#material-search-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'MaterialTypeName', header: '품목구분', width: 100, align: 'left'},
+                        {binding: 'group_name', header: '품목그룹', width: 150, align: 'left'},
+                        {binding: 'Code', header: '품목코드', width: 150, align: 'center'},
+                        {binding: 'Name', header: '품목명', width: 200, align: 'left'},
+                        {binding: '', header: '', width: '*', align: 'left'}
+                    ],
+                    itemsSource: this.viewData4
+                });
+
+
+                this.grid4.hostElement.addEventListener('dblclick', (e) => {
+                    let hitTest = this.grid4.hitTest(e);
+                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                        let row = hitTest.row;
+                        let selectedItem = this.grid4.rows[row].dataItem;
+                        $Material_id.val(selectedItem.id);
+                        $MaterialName.val(selectedItem.Name);
+                        $BomName.val(selectedItem.Name);
+                    }
+                });
+
+                $matSearchGrid = this.grid4; // 기존 grid4를 할당
+
+                $content.find('#btnBomSave').on('click', function () {
+                    let $form = $content.find('#bomForm');
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        _this.saveBOMData($form);
+                    });
+                });
+
+                let $popMaterialType = $content.find('#popMaterialType');
+                let $popMaterialGroup = $content.find('#popMaterialGroup');
+                let $keyword = $content.find('#keyword');
+
+                $popMaterialType.append('<option value="product">제품</option>');
+                $popMaterialType.append('<option value="semi">반제품</option>');
+
+                AjaxUtil.fillSelectOptions($popMaterialGroup, 'material_group', 'all', '', 'product');
+
+                $popMaterialType.change(function () {
+                    AjaxUtil.fillSelectOptions($popMaterialGroup, 'material_group', 'all', '', $popMaterialType.val());
+                });
+
+                let $bomType = $content.find('#BOMType');
+                AjaxUtil.fillSelectOptions($bomType, 'system_code', '', data.BOMType, 'bom_type');
+
+                // 검색 버튼 클릭 이벤트
+                $content.find('#btnMatSearch').click(function () {
+                    let matType = $popMaterialType.val();
+                    let matGroup = $popMaterialGroup.val();
+                    let keyword = $keyword.val();
+                    let url = '/api/popup/search_material';
+                    let requestData = {
+                        'material_type': matType,
+                        'material_group': matGroup,
+                        'keyword': keyword
+                    };
+
+                    let fncallback = function (result) {
+                        if (result.success) {
+                            let recordsTotal = result.data.length;
+                            $matSearchGrid.itemsSource = result.data || [];
+                        }
+                    };
+
+                    AjaxUtil.getAsyncData(url, requestData, fncallback);
+                    selectedItem = null;
+                });
+
+                // 새로고침 버튼 이벤트
+                let $btnTest = $content.find('#btnTest');
+                $btnTest.click(function () {
+                    $matSearchGrid.collectionView.refresh();
+                });
+            }
+
+
+            showBomCompEdit(data) {
+                let _this = this;
+                let content = tmpl('bomMaterialTemplate', data);
+                let $content = $(content);
+
+                let modalContainer = null;
+                if (!data.id) {
+                    modalContainer = new PopupDraggable('구성 품목 등록');
+                } else {
+                    modalContainer = new PopupDraggable('구성 품목 수정');
+                }
+                modalContainer.open({width: 1025, height: 750, $content});
+
+                let $MaterialName = $content.find('#MaterialName');
+                let $Material_id = $content.find('#Material_id');
+
+                let $matSearchGrid = null;
+                let selectedItem = null;
+                let target = $content.find('#material-search-grid');
+                this.viewData4 = Array.isArray(this.viewData4) ? this.viewData4 : [];
+
+                this.grid4 = new wijmo.grid.FlexGrid('#material-search-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'MaterialTypeName', header: '품목구분', width: 100, align: 'left'},
+                        {binding: 'group_name', header: '품목그룹', width: 150, align: 'left'},
+                        {binding: 'Code', header: '품목코드', width: 150, align: 'center'},
+                        {binding: 'Name', header: '품목명', width: 200, align: 'left'},
+                        {binding: '', header: '', width: '*', align: 'left'}
+                    ],
+                    itemsSource: this.viewData4
+                });
+
+                this.grid4.hostElement.addEventListener('dblclick', (e) => {
+                    let hitTest = this.grid4.hitTest(e);
+                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                        let row = hitTest.row;
+                        let selectedItem = this.grid4.rows[row].dataItem;
+                        $Material_id.val(selectedItem.id);
+                        $MaterialName.val(selectedItem.Name);
+                    }
+                });
+
+                $matSearchGrid = this.grid4; // 기존 grid4를 할당
+
+                $content.find('#btnBomMaterialSave').on('click', function () {
+                    let $form = $content.find('#materialForm');
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        _this.saveMaterialData($form);
+                    });
+                });
+
+                let $popMaterialType = $content.find('#popMaterialType');
+                let $popMaterialGroup = $content.find('#popMaterialGroup');
+                let $keyword = $content.find('#keyword');
+                let $btnMatSearch = $content.find('#btnMatSearch');
+
+                $popMaterialType.append('<option value="">전체</option>');
+                $popMaterialType.append('<option value="semi">반제품</option>');
+                $popMaterialType.append('<option value="raw_mat">원재료</option>');
+                $popMaterialType.append('<option value="sub_mat">부자재</option>');
+                AjaxUtil.fillSelectOptions($popMaterialGroup, 'material_group', 'all', '', $popMaterialType.val());
+                $popMaterialType.change(function (e) {
+                    AjaxUtil.fillSelectOptions($popMaterialGroup, 'material_group', 'all', '', $popMaterialType.val());
+                });
+
+                // 검색 버튼 클릭 이벤트
+                $content.find('#btnMatSearch').click(function () {
+                    let matType = $popMaterialType.val();
+                    let matGroup = $popMaterialGroup.val();
+                    let keyword = $keyword.val();
+
+                    let url = '/api/popup/search_material';
+                    let data = {
+                        'material_type': matType,
+                        'material_group': matGroup,
+                        'keyword': keyword,
+                    };
+
+                    let fncallback = function (result) {
+                        if (result.success) {
+                            $matSearchGrid.itemsSource = result.data || [];
+                        }
+                    };
+
+                    AjaxUtil.getAsyncData(url, data, fncallback);
+                    selectedItem = null;
+                });
+
+
+                $keyword.keydown(function (e) {
+                    if (e.key === 'Enter') {
+                        $btnMatSearch.trigger('click');
+                    }
+                });
+
+
+                if (data.action === 'edit') {
+                    $btnMatSearch.attr('disabled', true);
+                }
+
+                //새로고침
+                let $btnTest = $content.find('#btnTest');
+
+                $btnTest.click(function (e) {
+                    $matSearchGrid.init().repaint();
+                });
+            }
+
+            showBomCompList(bom_id) {
+                let _this = this;
+
+                let param = {
+                    'id': bom_id
+                };
+                let url = '/api/definition/bom/bom_comp_list';
+                let result = AjaxUtil.getSyncData(url, param);
+
+                if (result.success) {
+                    try {
+                        let count = result.data.length;
+
+                        // 데이터 초기화
+                        _this.grid2.itemsSource = new wijmo.collections.CollectionView(result.data);
+
+                        // 복사할 텍스트 생성
+                        let text = result.data.map(item =>
+                            `${item.mat_code}\t${item.Amount}\t${item.Description}`
+                        ).join('\n');
+
+                        $('#txtCopyText').val(text);
+                    } catch (ex) {
+                        Notify.error('에러가 발생했습니다.' + ex);
+                        throw ex;
+                    }
+                }
+            }
+
+            showBomCompTreeList(bom_id) {
+                let _this = this;
+                let url = '/api/definition/bom/material_tree_list';
+                let result = AjaxUtil.getSyncData(url, { 'id': bom_id });
+
+                /*console.log("bom_id:", bom_id); // 디버깅용
+                console.log("API Response:", result); // 디버깅용*/
+
+                if (result.success) {
+                    try {
+                        if (!Array.isArray(result.data) || result.data.length === 0) {
+                            Alert.alert('', '조회된 전체레벨 데이터가 없습니다.');
+                            _this.grid3.itemsSource = new wijmo.collections.CollectionView([]); // 빈 배열 설정
+                            return;
+                        }
+
+                        let treeData = this.buildTree(result.data);
+                        _this.grid3.itemsSource = new wijmo.collections.CollectionView(treeData);
+
+                    } catch (ex) {
+                        Alert.alert('에러가 발생했습니다: ' + ex.message);
+                        console.error(ex);
+                    }
+                } else {
+                    Alert.alert('', '데이터를 불러오는 데 실패했습니다.');
+                }
+
+            }
+
+            buildTree(flatData) {
+                let tree = [];
+                let lookup = {};
+
+                // 모든 데이터를 lookup 객체에 저장 (my_key를 키로 사용)
+                flatData.forEach(item => {
+                    lookup[item.my_key] = { ...item, children: [] };
+                });
+
+                // 트리 구조로 변환
+                flatData.forEach(item => {
+                    if (item.parent_key) {
+                        // 부모가 있으면 부모의 children 배열에 추가
+                        if (lookup[item.parent_key]) {
+                            lookup[item.parent_key].children.push(lookup[item.my_key]);
+                        }
+                    } else {
+                        // 부모가 없으면 최상위 노드
+                        tree.push(lookup[item.my_key]);
+                    }
+                });
+
+                return tree;
+            }
+
+
+
+
+            searchBomList() {
+                let _this = this;
+
+                let url = '/api/definition/bom/read';
+                let data = {
+                    'mat_type': $('#cboMaterialType').val(),
+                    'mat_group': $('#cboMaterialGroup').val(),
+                    'bom_type': $('#cboBOMType').val(),
+                    'mat_name': $('#txtMatName').val(),
+                    'not_past_flag': $('#not_past_flag').is(':checked') ? 'Y' : '',
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                };
+
+                let result = AjaxUtil.getSyncData(url, data);
+                if (result.success) {
+                    _this.viewData.sourceCollection = result.data;
+
+                }
+            }//searchBomList
+
+            saveBOMData($form) {
+                let _this = this;
+                let url = '/api/definition/bom/save';
+                //데이터입력체크루틴 누락
+                //let data = $('#equipmentForm').serialize();
+
+                let data = FormUtil.extractForm($form);
+                if (data.Material_id == '') {
+                    Alert.alert('', '(반)제품을 선택하세요!!');
+                    return;
+                }
+
+                if (!data.StartDate || !data.EndDate) {
+                    Alert.alert('', '적용시작일과 적용종료일을 입력해주세요.');
+                    return;
+                }
+
+                if (data.StartDate > data.EndDate) {
+                    Alert.alert('', '적용시작일과 적용종료일을 확인해주세요.');
+                    return;
+                }
+
+                let fnSuccess = function (result) {
+                    if (result.success) {
+                        Alert.alert('','저장되었습니다');
+                        _this.searchBomList();
+                    } else {
+                        Notify.error(result.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+            saveMaterialData($form) {
+                let _this = this;
+                let url = '/api/definition/bom/material_save';
+
+                //데이터입력체크루틴 누락
+                let data = FormUtil.extractForm($form);
+
+                if (data.Material_id == '') {
+                    Alert.alert('', '품목을 선택하세요.');
+                    return;
+                }
+
+                let fnSuccess = function (res) {
+                    if (res.success)
+                        Alert.alert('', '저장되었습니다.');
+                    else {
+                        Alert.alert('', '저장에 실패했습니다. \n' + res.message);
+                        return;
+                    }
+
+
+                    let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
+                    let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+
+                    /*let items = page.gridBom.getList("selected");*/
+
+                    if (selection.row > -1) { // 선택된 행이 있을 경우
+                        let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+
+                        if (item) {
+                            let id = item.id; // ID 값 가져오기
+                            _this.showBomCompList(id);
+                        }
+                    }
+
+                   /* let items = page.gridBom.getList("selected");
+                    if (items.length > 0) {
+                        _this.showBomCompList(items[0].id);
+                    }*/
+
+                };
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+            //복제
+            replicateBOM(bom_id) {
+                let _this = this;
+                let url = '/api/definition/bom/bom_replicate';
+
+                let data = {id: bom_id};
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('','복제되었습니다.');
+                        _this.searchBomList();
+                    }
+                };
+
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+//개정
+            revisionBOM(bom_id) {
+                let _this = this;
+                let url = '/api/definition/bom/bom_revision';
+
+                let data = {id: bom_id};
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('','개정되었습니다.');
+                        _this.searchBomList();
+                    }
+                };
+
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+            deleteMaterialData(id) {
+                let _this = this;
+                let url = '/api/definition/bom/material_delete';
+                let fnsuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('','삭제되었습니다');
+
+                        let grid = wijmo.Control.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
+                        let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+
+                        if (selection.row > -1) { // 선택된 행이 있을 경우
+                            let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+
+                            if (item) {
+                                let id = item.id; // ID 값 가져오기
+                                _this.showBomCompList(id);
+                            }
+                        }
+
+                      /*  let items = page.gridBom.getList("selected");
+                        if (items.length > 0) {
+                            _this.showBomCompList(items[0].id);
+                        }*/
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(url, {id: id}, fnsuccess);
+            }
+
+
+            deleteBOM(id) {
+                let _this = this;
+                let url = '/api/definition/bom/bom_delete';
+                let data = {'id': id};
+                let fnDeleteSuccessCallback = function (res) {
+                    if (res.success) {
+                        Alert.alert('','삭제되었습니다.');
+                        _this.searchBomList();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(url, data, fnDeleteSuccessCallback);
+            }
+
+
+            saveAllBomComp(bom_id) {
+                let _this = this;
+                let txtbox = $('#txtCopyText').val().trim();
+
+                if (txtbox === '') {
+                    Alert.alert('', '입력된 데이터가 없습니다.');
+                    return;
+                }
+
+                let normalizedText = txtbox.replace(/  +/g, '\t'); // 연속된 공백을 탭으로 변경
+                let lines = normalizedText.split('\n');
+                let bErr = false;
+
+                lines.forEach(function (line, index) {
+                    let cols = line.split(/\s+/); // 탭 또는 공백 기준으로 분리
+                    /*console.log("줄:", line, "컬럼 개수:", cols.length);*/
+                    if (line.trim() !== '' && cols.length < 2) {
+                        bErr = true;
+                    }
+                });
+
+                if (bErr) {
+                    Alert.alert('', '데이터가 적합하지 않습니다. 다시 확인하십시오.');
+                    return;
+                }
+
+                let url = '/api/definition/bom?action=save_bom_comp_all';
+                let data = {
+                    'bom_id': bom_id,
+                    'lines': txtbox,
+                };
+                let fnDeleteSuccessCallback = function (res) {
+                    Alert.alert('', '저장되었습니다.');
+                };
+
+                AjaxUtil.postAsyncData(url, data, fnDeleteSuccessCallback);
+            }
+
+
+            saveBomCompOrder() {
+                let _this = this;
+                let grid = wijmo.Control.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
+
+                if (!grid || !grid.itemsSource) {
+                    console.error("saveBomCompOrder함수에서 gridBomComp 또는 itemsSource가 존재하지 않습니다.");
+                    return;
+                }
+
+                let items = [];
+                $.each(grid.itemsSource, function (idx, item) {
+                    if (item && item.id) {
+                        items.push({ id: item.id });
+                    }
+                });
+
+                let url = '/api/definition/bom/save_bom_comp_order';
+                let strData = JSON.stringify(items);
+                let data = { Q: strData };
+                let fnsuccess = function (result) {
+                    if (result.success) {
+                        Alert.alert('', '저장했습니다.');
+                        _this.showBomCompEdit();
+                    }
+                };
+
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new BOMPage();
+            //그리드 컬럼 설정
+
+            page.searchBomList();
+
+            $('#btnSearch').click(function (ex) {
+                page.searchBomList();
+            });
+
+            $('#btnRoutingNew').click(function (e) {
+
+                let start_date = CommonUtil.getYYYYMMDD();
+                let end_date =  '2100-12-31'
+                let data = {
+                    'id': '',
+                    'Material_id': '',
+                    'MaterialName': '',
+                    'Name': '',
+                    'BOMType': '',
+                    'StartDate': start_date,
+                    'EndDate': end_date,
+                    'OutputAmount': 1,
+                };
+
+                page.showBomEdit(data);
+
+            });
+
+            $('#btnBomReplicate').click(function () {
+              /*  let items = page.gridBom.getList("selected");*/
+                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+
+                if (selection.row > -1) { // 선택된 행이 있을 경우
+                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+
+                    if (item) {
+                        let id = item.id; // ID 값 가져오기
+
+                        Alert.confirm('', "선택한 BOM을 가지고 새 BOM을 복제하시겠습니까?",
+                            function () {
+                        page.replicateBOM(id);
+                            },
+                            function () {
+                            }
+                        );
+                    }
+                }
+                /*if (items.length > 0) {
+                    Alert.confirm('', "선택한 BOM을 가지고 새 BOM을 복제하시겠습니까?",
+                        function () {
+                            let id = items[0].id;
+                            page.replicateBOM(id);
+                        },
+                        function () {
+                        }
+                    );
+                }*/
+
+
+
+            });
+
+            $('#btnBomRevision').click(function () {
+                /*let items = page.gridBom.getList("selected");*/
+                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+
+                if (selection.row > -1) { // 선택된 행이 있을 경우
+                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+
+                    if (item) {
+                        let id = item.id; // ID 값 가져오기
+
+                        Alert.confirm('', "선택한 BOM을 개정하시겠습니까? 개정 후 복제된 내용을 수정하십시오.",
+                            function () {
+                                page.revisionBOM(id);
+                            },
+                            function () {
+                            }
+                        );
+                    }
+                }
+                /*if (items.length > 0) {
+                    Alert.confirm('', "선택한 BOM을 개정하시겠습니까? 개정 후 복제된 내용을 수정하십시오.",
+                        function () {
+                            let id = items[0].id;
+                            page.revisionBOM(id);
+                        },
+                        function () {
+                        }
+                    );
+                }*/
+            });
+
+            $('#btnBomCompNew').click(function (e) {
+                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+
+                if (selection.row > -1) { // 선택된 행이 있을 경우
+                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+
+                    if (item) {
+                        let id = item.id; // ID 값 가져오기
+
+                        let data = {
+                            id: '',
+                            BOM_id: id,
+                            Amount: 1,
+                            Description: '',
+                            action: 'new',
+                        };
+
+                        page.showBomCompEdit(data);
+                    }
+                } else {
+                    Alert.alert('', "선택된 BOM이 없습니다.");
+                }
+
+                /*if (items.length > 0) {
+
+                    let data = {
+                        id: '',
+                        BOM_id: items[0].id,
+                        Amount: 1,
+                        Description: '',
+                        action: 'new',
+                    };
+                    page.showBomCompEdit(data);
+                } else {
+                    Alert.alert('', '선택된 BOM이 없습니다');
+                }*/
+            });
+
+            $('#btnBomCompEdit').click(function (e) {
+                /*let items = page.gridBomComp.getList("selected");*/
+                let grid = wijmo.Control.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
+                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+
+                if (selection.length == 0) {
+                    Alert.alert('', '선택된 품목이 없습니다');
+                    return;
+                }
+
+                /*let row = items[0];*/
+                //if (row.parent_mat_id > 0) {
+                //    Alert.alert('', '1레벨의 구성품만 수정할 수 있습니다.');
+                //    return;
+                //}
+
+                if (selection.row > -1) { // 선택된 행이 있을 경우
+                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+                    let url = '/api/definition/bom/material_detail';
+
+                    if (item) {
+                        let id = item.id; // ID 값 가져오기
+                        let url = '/api/definition/bom/material_detail';
+                        let result = AjaxUtil.getSyncData(url, {id: id});
+
+                        let data = result.data;
+                        data.action = 'edit';
+                        page.showBomCompEdit(data);
+                    }
+                } else {
+                    Alert.alert('', '선택된 품목이 없습니다');
+                }
+
+                /*if (items.length > 0) {
+                    let url = '/api/definition/bom/material_detail';
+                    let result = AjaxUtil.getSyncData(url, {id: row.id});
+                    if (result.success) {
+                        let data = result.data;
+                        data.action = 'edit';
+                        page.showBomCompEdit(data);
+
+                    } else {
+                        Alert.alert('오류', "데이터를 가져올 수 없습니다.");
+                    }
+                } else {
+                    Alert.alert('', '선택된 품목이 없습니다');
+                }*/
+
+            });
+
+            $('#btnBomCompDelete').click(function (e) {
+                /*let items = page.gridBomComp.getList("selected");*/
+                let grid = wijmo.Control.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
+                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+
+                if (selection.length == 0) {
+                    Alert.alert('', '선택된 품목이 없습니다');
+                    return;
+                }
+
+                if (selection.row > -1) { // 선택된 행이 있을 경우
+                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+
+                    if (item) {
+                        let id = item.id; // ID 값 가져오기
+
+                        Alert.confirm('', "삭제하시겠습니까?", function (e) {
+                            page.deleteMaterialData(id);
+                        });
+                    }
+                }
+
+
+               /* let row = items[0];
+                if (row.parent_mat_id > 0) {
+                    Alert.alert('', '1레벨의 구성품만 삭제할 수 있습니다.');
+                    return;
+                }
+                Alert.confirm('', "삭제하시겠습니까?", function (e) {
+                    page.deleteMaterialData(row.id);
+                });*/
+
+            });
+
+
+
+
+            $('#btnBomEdit').click(function (e) {
+                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+
+                if (selection.row > -1) { // 선택된 행이 있을 경우
+                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+
+                    if (item) {
+                        let id = item.id; // ID 값 가져오기
+                        let url = '/api/definition/bom/detail';
+                        let result = AjaxUtil.getSyncData(url, { id: id });
+
+                        if (result.success) {
+                            page.showBomEdit(result.data);
+                        } else {
+                            Alert.alert("상세조회 오류", "오류가 발생했습니다.");
+                        }
+                    }
+                } else {
+                    Alert.alert("선택 오류", "편집할 BOM을 선택하세요.");
+                }
+            });
+
+
+            $('#btnBomDelete').click(function (e) {
+                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+
+                /*let items = page.gridBom.getList("selected");*/
+
+                if (selection.row > -1) { // 선택된 행이 있을 경우
+                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+
+                    if (item) {
+                        let id = item.id; // ID 값 가져오기
+                        Alert.confirm('', "삭제하시겠습니까?",
+                            function () {
+                        page.deleteBOM(id);
+                            },
+                            function () {
+                            }
+                        );
+                    }
+                } else {
+                    Alert.alert("선택 오류", "삭제할 BOM을 선택하세요.");
+                }
+            });
+
+            $('#btnSaveBomText').click(function (e) {
+                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+
+                if (selection.length == 0) {
+                    Alert.alert('제품이 선택되지 않았습니다.');
+                    return;
+                }
+
+                if (selection.row > -1) { // 선택된 행이 있을 경우
+                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+
+                    if (item) {
+                        let id = item.id; // ID 값 가져오기
+                        let bom_id = id;
+
+                        Alert.confirm('', "현 BOM 구성을 모두 삭제하고 한꺼번에 새로 저장하시겠습니까?",
+                            function () {
+                                page.saveAllBomComp(bom_id);
+                            },
+                            function () {
+                            }
+                        );
+                    }
+                }
+            });
+
+            $('#btnCompUp').click(function (e) {
+                let grid = wijmo.Control.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
+                GridUtil.changeOrder('U', grid);
+            });
+
+
+            $('#btnCompDown').click(function (e) {
+                let grid = wijmo.Control.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
+                GridUtil.changeOrder('D', grid);
+            });
+
+            $('#btnCompOrderSave').click(function (e) {
+                let grid = wijmo.Control.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
+
+                if (!grid || !grid.itemsSource) {
+                    console.error("버튼클릭 함수 gridBomComp 또는 itemsSource가 존재하지 않습니다.");
+                    return;
+                }
+
+                let count = grid.itemsSource.length;
+
+                if (count === 0 || count === 1) {
+                    return;
+                }
+
+                Alert.confirm('', '순서를 저장하시겠습니까?', function () {
+                    page.saveBomCompOrder();
+                });
+            });
+
+
+            /*let items = page.gridBom.getList("selected");*/
+            $('#btnBomTreeView').click(function (e) {
+                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+
+                if (selection.row < 0) { // 선택된 행이 없는 경우
+                    return;
+                }
+
+                let selectedItem = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+                if (!selectedItem || !selectedItem.id) { // id가 없을 경우 방어 코드
+                    Alert.alert('', '선택된 데이터에 BOM ID가 없습니다.');
+                    return;
+                }
+
+
+                let bom_id = selectedItem.id;
+                page.showBomCompTreeList(bom_id);
+            });
+
+            // 엑셀 다운로드
+            $('#btnExcel').click(function (e) {
+                //page.gridBom.exportExcel('BOM.xls');
+                let bom_type = $('#cboBOMType').val();
+                if (bom_type == '') {
+                    Alert.alert('경고', '"BOM구분"을 선택하고 출력하십시오.');
+                    return;
+                }
+                let url = '/api/files/bom_download?';
+                url += 'bom_type=' + bom_type;
+                AjaxUtil.downloadFile(url, 'bom-all.xlsx');
+            });
+
+            //page.searchBomList();
+
+        });
+    </script>
+
+
+</th:block>
+</html>

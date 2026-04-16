@@ -1,0 +1,412 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>설비 그룹</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>시스템설정</li>
+                <li>기준정보</li>
+                <li>설비그룹</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px;">
+            <section class="section" style="flex: 2;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>설비그룹명</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" class="form-control2" id="txtEqugrp" name="txtEqugrp">
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div> <!--//section-top end -->
+                <div class="container-fluid">
+                    <div id="theGrid"></div>
+                </div>
+            </section>
+
+            <section style="flex: 1; min-width: 0;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <ul>
+                            <li>
+                                <!-- <a class="btn btn-excell" title="신규등록" id="btnNew" >
+                                     <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                     신규등록
+                                 </a>-->
+                                <button type="button" class="btn-default" id="btnNew" name="btnNew"
+                                        style="height: 36px; width:115px;">
+                                    <i class="fas fa-plus"></i>신규등록
+                                </button>
+                            </li>
+
+                            <li>
+                                <!-- <a class="btn btn-edit" id="btnSave" title="저장">
+                                     <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                                     저장
+                                 </a>-->
+                                <button type="button" class="btn-default y_write_auth" id="btnSave"
+                                        style="float:none; height: 36px; width:115px;">
+                                    <i class="fas fa-save"></i>저장
+                                </button>
+                            </li>
+
+                            <li>
+                                <!--  <a class="btn btn-delete" title="삭제" id="btnDel">
+                                      <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                      삭제
+                                  </a>-->
+                                <button type="button" class="btn-danger y_write_auth" id="btnDel"
+                                        style="float:none; height: 36px; width:115px;">
+                                    <i class="fas fa-trash"></i>삭제
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="table-wrap" style=" overflow-x: auto;">
+                    <form id="equipmentGroupForm">
+                        <table class="write-table" style="width: 100%; border-collapse: collapse; ">
+                            <caption style="text-align: left; margin-bottom: 8px;">등록테이블</caption>
+                            <input type="hidden" id="id" name="id"/>
+                            <tbody>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="equipment_type"><span class="eq">*</span>설비구분</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <select id="equipment_type" name="equipment_type" style="width: 100%;"></select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="equipment_group_code"><span class="eq">*</span>설비그룹코드</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" id="equipment_group_code" name="equipment_group_code"
+                                           style="width: 100%;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="equipment_group_name"><span class="eq">*</span>설비그룹명</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" style="width: 100%;" id="equipment_group_name"
+                                           name="equipment_group_name">
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+            </section>
+        </div>
+    </div> <!--//layout-contents end -->
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+    <script type="text/javascript">
+        /*/api/definition/equipment_group'*/
+
+        var theGrid;
+        var viewdata;
+
+        let columns = [
+            {binding: 'equipment_type', header: '설비구분', width: 200, align: 'center'},
+            {binding: 'equipment_group_code', header: '설비그룹코드', width: 200, align: 'center'},
+            {binding: 'equipment_group_name', header: '설비그룹명', width: 250, align: 'center'},
+            {binding: '', header: '', width: "*", align: 'center'}
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            let data2 = [];
+
+            let keyword = $('#txtEqugrp').val();
+
+            $.ajax({
+                url: withCtx('/api/definition/equipment_group/read'),
+                type: 'GET',
+                data: {
+                    'keyword': keyword
+                },
+                async: false,
+                success: function (data) {
+                    data2 = data.data;
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_count data:', textStatus, errorThrown);
+                }
+            })
+
+            viewdata = new wijmo.collections.CollectionView(data2);
+
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+
+
+            theGrid.hostElement.addEventListener('dblclick', function (e) {
+                let selectedItem = theGrid.selectedItems[0];
+                document.getElementById('id').value = selectedItem.id;
+
+
+                let equipment_typeSelect = document.getElementById('equipment_type');
+                if (equipment_typeSelect) {
+                    for (let i = 0; i < equipment_typeSelect.options.length; i++) {
+                        if (equipment_typeSelect.options[i].text === selectedItem.equipment_type) {
+                            equipment_typeSelect.options[i].selected = true;
+                            break;
+                        }
+                    }
+                }
+
+                document.getElementById('equipment_group_code').value = selectedItem.equipment_group_code;
+                document.getElementById('equipment_group_name').value = selectedItem.equipment_group_name;
+
+                setButtonState();
+            });
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+            /*  new FlexGridContextMenu(theGrid);*/
+
+        }
+
+        function setButtonState() {
+            let pk = $('#id').val();
+            $('#btnNew').prop('disabled', false);
+            $('#btnSave').prop('disabled', false);
+            if (pk) {
+                $('#btnDel').prop('disabled', false);
+            } else {
+                $('#btnDel').prop('disabled', true);
+            }
+        }
+
+        function searchMainData() {
+            let keyword = $('#txtEqugrp').val();
+
+            $.ajax({
+                url: withCtx('/api/definition/equipment_group/read'),
+                type: 'GET',
+                data: {
+                    'keyword': keyword
+                },
+                async: false,
+                success: function (result) {
+                    if (result.success) {
+                        grid_binding(result.data);
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+
+                }
+            });
+
+            $('#equipmentGroupForm')[0].reset();
+            $('#equipmentGroupForm').find('#id').val('');
+
+            $('#detail_box').find('input, select').each(function () {
+                if (!$(this).is(':disabled')) {
+                    $(this).attr('disabled', 'disabled');
+                }
+            });
+            setButtonState();
+        }
+
+        function grid_binding(data) {
+            if (!Array.isArray(data)) {
+                console.error('데이터가 배열 형식이 아닙니다:', data);
+                return;
+            }
+
+
+            let menulogData = data.map(item => ({
+                equipment_type: item.equipment_type,
+                equipment_group_code: item.equipment_group_code,
+                equipment_group_name: item.equipment_group_name
+            }));
+
+            if (typeof theGrid === 'undefined' || typeof viewdata === 'undefined') {
+                console.error('theGrid 또는 viewdata가 정의되지 않았습니다.');
+                return;
+            }
+
+            theGrid.columns.clear();
+            theGrid.autoGenerateColumns = false;
+
+            // columns 배열이 정의되어 있는지 확인
+            if (typeof columns === 'undefined' || !Array.isArray(columns)) {
+                console.error('columns 배열이 정의되지 않았습니다.');
+                return;
+            }
+
+            columns.forEach(columnDef => {
+                var col = new wijmo.grid.Column(columnDef);
+                theGrid.columns.push(col);
+            });
+
+            viewdata = new wijmo.collections.CollectionView(menulogData);
+
+            theGrid.itemsSource = viewdata;
+            theGrid.refresh();
+        }
+
+        function saveEquipmentGroup() {
+            let url = withCtx('/api/definition/equipment_group/save');
+            let validate = true;
+            let $target = null;
+
+            //let data = $('#equipmentGroupForm').serialize();
+            let data = FormUtil.extractForm($('#equipmentGroupForm'));
+
+            // 필수입력 check routine
+            if (!data.equipment_type) {
+                Alert.alert('', '설비구분을 선택해주세요.');
+                $('#equipmentGroupForm #equipment_type').focus();
+                return false;
+            } else if (!data.equipment_group_code) {
+                Alert.alert('', '설비그룹 코드를 입력해주세요.');
+                $('#equipmentGroupForm #equipment_group_code').focus();
+                return false;
+            } else if (!data.equipment_group_name) {
+                Alert.alert('', '설비그룹 명을 입력해주세요.');
+                $('#equipmentGroupForm #equipment_group_name').focus();
+                return false;
+            }
+
+            Alert.confirm('', '저장하시겠습니까?', function () {
+                let fnSuccess = function (result) {
+                    if (result.success) {
+                        Alert.alert('', '저장되었습니다');
+                        searchMainData(); // 저장 후 데이터 갱신
+                    } else {
+                        Alert.alert('저장 실패', result.message);
+                        console.error('저장 실패:', result.message);
+                    }
+                };
+
+                // 데이터 저장 요청
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            });
+
+        }
+
+        // 설비그룹 정보 삭제
+        function deleteEquipmentGroup() {
+            let url = withCtx('/api/definition/equipment_group/delete');
+            let id = $('#equipmentGroupForm').find('#id').val();
+            let data = {id: id};
+
+            Alert.confirm('', '삭제하시겠습니까?', function () {
+                let fnSuccess = function (result) {
+                    if (result.success) {
+                        Alert.alert('', '삭제되었습니다');
+                        searchMainData(); // 저장 후 데이터 갱신
+                    } else {
+                        Alert.alert('삭제 실패', result.message);
+                        console.error('저장 실패:', result.message);
+                    }
+                };
+
+                // 데이터 저장 요청
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            });
+        }
+
+
+        $(document.body).ready(function (e) {
+            setButtonState();
+            AjaxUtil.fillSelectOptions($('#equipment_type'), 'system_code', 'choose', false, 'equipment_type');
+
+            // 엔터키 검색
+            $('#txtEqugrp').on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    searchMainData();
+                }
+            });
+
+
+            // 검색버튼
+            $('#btnSearch').click(function (e) {
+                searchMainData();
+            });
+
+            // 신규버튼
+            $('#btnNew').click(function (e) {
+
+                $('#equipmentGroupForm')[0].reset();
+                $('#equipmentGroupForm').find('#id').val('');
+
+                $('#detail_box').find('input, select').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+                //page.setButtonDisable(true, false, true);
+                setButtonState();
+            });
+
+            // 저장버튼
+            $('#btnSave').click(function (e) {
+                saveEquipmentGroup();
+            });
+
+            // 삭제버튼
+            $('#btnDel').click(function (e) {
+                deleteEquipmentGroup();
+            });
+        });
+
+    </script>
+</th:block>
+
+</html>

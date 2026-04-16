@@ -1,0 +1,687 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>워크 센터</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>워크센터</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px">
+            <section class="section" style="width: 60%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>워크센터명</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" class="form-control2" id="txtWorkCenter" name="txtWorkCenter">
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <div class="container-fluid">
+                    <p id="selectedItem"></p>
+                    <div id="theGrid" style=""></div>
+                </div>
+            </section>
+
+            <div class="tab-wrap" style="width: 40%;">
+                <ul class="tab-links">
+                    <li><a href="#tabs_first">워크센터기본정보</a></li>
+                    <li><a href="#tabs_second">생산설비정보</a></li>
+                </ul>
+
+                <div>
+                    <section class="tab-item" id="tabs_first" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                            <div class="button-wrap">
+                                <ul>
+                                    <li>
+                                        <button type="button" class="btn-excellt btn-default" id="btnNewWorkcenter" name="btnNew"
+                                                style="width: 115px; height: 36px;">
+                                            <i class="fas fa-plus"></i>신규등록
+                                        </button>
+                                    </li>
+
+                                    <li>
+                                        <button type="button" class="btn-delete btn-danger" id="btnDelWorkcenter"
+                                                style="width: 115px; height: 36px;">
+                                            <i class="fas fa-trash"></i>삭제
+                                        </button>
+                                    </li>
+
+                                    <li>
+                                        <button disabled type="button" class="btn-excellt btn-default" id="btnSaveWorkcenter"
+                                                style="width: 115px; height: 36px;">
+                                            <i class="fas fa-save"></i>저장
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div>
+                            <form id="workcenterForm">
+                                <table class="write-table"
+                                       style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                                    <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+                                    <input type="hidden" id="id" name="id"/>
+                                    <col class="wp20">
+                                    <col class="wp80">
+                                    <tbody>
+                                    <tr>
+                                        <th>
+                                            <label for="factory_id"><span class="eq">*</span>공장</label>
+                                        </th>
+                                        <td>
+                                            <select id="factory_id" name="factory_id"
+                                                    style="width: 100%;"></select>
+                                        </td>
+
+
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <label for="code"><span class="eq">*</span>워크센터 코드</label>
+                                        </th>
+                                        <td>
+                                            <input type="text" style="width: 100%;" id="code"
+                                                   name="code">
+                                        </td>
+
+
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <label for="factory_id"><span class="eq">*</span>워크센터명</label>
+                                        </th>
+                                        <td>
+                                            <input type="text" id="name" name="name"
+                                                   style="width: 100%;">
+                                        </td>
+
+
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <label for="area_id">에어리어</label>
+                                        </th>
+                                        <td>
+                                            <select id="area_id" name="area_id"
+                                                    style="width: 100%;"></select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <label for="Process_id"><span class="eq">*</span>공정</label>
+                                        </th>
+                                        <td>
+                                            <select style="width: 100%;" id="Process_id"
+                                                    name="Process_id"></select>
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <label for="process_storehouse_id">공정창고</label>
+                                        </th>
+                                        <td>
+                                            <select id="process_storehouse_id" name="process_storehouse_id"
+                                                    style="width: 100%;"></select>
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <label for="outsourcing_yn">외주여부</label>
+                                        </th>
+                                        <td style=" text-align: center; vertical-align: middle;">
+                                            <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                                                <input type="checkbox" id="outsourcing_yn" name="outsourcing_yn" value="Y" >
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </form>
+                        </div>
+                    </section>
+
+                    <section class="tab-item" id="tabs_second" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                            <div class="button-wrap">
+                                <ul>
+                                    <li>
+                                        <button type="button" class="btn-excellt btn-default" id="btnNewEquip" name="btnNew"
+                                                style="width: 115px; height: 36px;"><i class="fas fa-plus"></i></button>
+                                    </li>
+
+                                    <li>
+                                        <button type="button" class="btn-delete btn-danger" id="btnDelEquip"
+                                                style="float:none; width: 115px; height: 36px;"><i class="fas fa-trash"></i>
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="container-fluid">
+                            <p id="selectedItem"></p>
+                            <div id="workcenter-equip-grid" style=""></div>
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <th:block th:replace="/common/popup_equipment :: popup_equipment" ></th:block>
+    <script type="text/javascript">
+
+        var theGrid;
+        var viewdata;
+        var theGrid2;
+        var viewdata2;
+
+        let columns = [
+            {binding: 'id', header: 'id', width: 150, align: 'left', visible: false},
+            {binding: 'factory_name', header: '공장', width: 150, align: 'left',},
+            {binding: 'area_name', header: '에어리어', width: 150, align: 'left',},
+            {binding: 'code', header: '워크센터코드', width: 150, align: 'left'},
+            {binding: 'name', header: '워크센터명', width: 200, align: 'left'},
+            {binding: 'ProcessName', header: '공정', width: 150, align: 'left',},
+            {binding: 'process_storehouse_id', header: '창고구분', width: 100, align: 'left'},
+            {binding: 'outsourcing_yn', header: '외주여부', width: 100, align: 'center',},
+            {binding: '', header: '', width: "*", align: 'center',},
+        ];
+
+        let columns2 = [
+            {binding: 'EquipmentCode', header: '설비코드', width: 150, align: 'left'},
+            {binding: 'EquipmentName', header: '설비명', width: 200, align: 'left'},
+            {binding: '_created', header: '생성일', width: 200, align: 'center'},
+            {binding: '', header: '', width: "*", align: 'center'},
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            let data2 = [];
+            let keyword = $('#txtWorkCenter').val();
+
+            $.ajax({
+                url: withCtx('/api/definition/workcenter/read'),
+                type: 'GET',
+                data: {
+                    'keyword ': keyword,
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                },
+                async: false,
+                success: function (data) {
+                    data2 = data.data;
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_count data:', textStatus, errorThrown);
+                }
+            })
+
+            viewdata = new wijmo.collections.CollectionView(data2);
+
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+
+            theGrid.hostElement.addEventListener('dblclick', function (e) {
+                let selectedItem = theGrid.selectedItems[0];
+                /*console.log(selectedItem);*/
+
+
+                document.getElementById('id').value = selectedItem.id;
+                document.getElementById('code').value = selectedItem.code;
+                document.getElementById('name').value = selectedItem.name;
+                document.getElementById('outsourcing_yn').checked = selectedItem.outsourcing_yn === "Y";
+
+
+                function setSelectValue(selectId, valueToMatch) {
+                    let selectElement = document.getElementById(selectId);
+                    if (selectElement) {
+                        for (let option of selectElement.options) {
+                            option.selected = option.text === valueToMatch;
+                        }
+                    }
+                }
+
+                setSelectValue('Process_id', selectedItem.ProcessName);
+                setSelectValue('area_id', selectedItem.area_name);
+                setSelectValue('factory_id', selectedItem.factory_name);
+                setSelectValue('process_storehouse_id', selectedItem.process_storehouse_id);
+
+                showEquipmentList(selectedItem.id);
+                 setButtonState();
+            });
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+            /*  new FlexGridContextMenu(theGrid);*/
+            showEquipmentList();
+        }
+
+
+        function searchMainData() {
+            let keyword = $('#txtWorkCenter').val();
+
+            $.ajax({
+                url: withCtx('/api/definition/workcenter/read'),
+                type: 'GET',
+                data: {
+                    'keyword': keyword,
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                },
+                async: false,
+                success: function (result) {
+                    if (result.success) {
+                        grid_binding(result.data);
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+
+                }
+            });
+
+            resetForm(true);
+            //equipGrid.setData([]);
+
+            setButtonState();
+            /*$('#btnNewEquip').prop('disabled', true);*/
+            $('#btnDelEquip').prop('disabled', true);
+        }
+
+        function grid_binding(data) {
+            if (!Array.isArray(data)) {
+                console.error('데이터가 배열 형식이 아닙니다:', data);
+                return;
+            }
+
+            let menulogData = data.map(item => ({
+                id: item.id,
+                factory_name: item.factory_name,
+                area_name: item.area_name,
+                name: item.name,
+                code: item.code,
+                ProcessName: item.ProcessName,
+                process_storehouse_id: item.process_storehouse_id,
+                outsourcing_yn: item.outsourcing_yn
+            }));
+
+            if (typeof theGrid === 'undefined' || typeof viewdata === 'undefined') {
+                console.error('theGrid 또는 viewdata가 정의되지 않았습니다.');
+                return;
+            }
+
+            theGrid.columns.clear();
+            theGrid.autoGenerateColumns = false;
+
+            // columns 배열이 정의되어 있는지 확인
+            if (typeof columns === 'undefined' || !Array.isArray(columns)) {
+                console.error('columns 배열이 정의되지 않았습니다.');
+                return;
+            }
+
+            columns.forEach(columnDef => {
+                var col = new wijmo.grid.Column(columnDef);
+                theGrid.columns.push(col);
+            });
+
+            viewdata = new wijmo.collections.CollectionView(menulogData);
+
+            theGrid.itemsSource = viewdata;
+            theGrid.refresh();
+        }
+
+
+        function saveWorkCenter() {
+            let url = '/api/definition/workcenter/save';
+            //데이터입력체크루틴 누락
+            let data = FormUtil.extractForm($('#workcenterForm'));
+
+            if (!data.factory_id) {
+                Alert.alert('', '공장을 선택해주세요.');
+                $('#workcenterForm #factory_id').focus();
+                return false;
+            } else if (!data.code) {
+                Alert.alert('', '워크센터 코드를 입력해주세요.');
+                $('#workcenterForm #code').focus();
+                return false;
+            } else if (!data.name) {
+                Alert.alert('', '워크센터 명을 입력해주세요.');
+                $('#workcenterForm #name').focus();
+                return false;
+            } else if (!data.Process_id) {
+                Alert.alert('', '공정을 선택해주세요.');
+                $('#workcenterForm #Process_id').focus();
+                return false;
+            }
+
+            data.spjangcd = sessionStorage.getItem('spjangcd');
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Alert.alert('', '저장되었습니다');
+                    searchMainData();
+                } else {
+                    Alert.alert('', res.message);
+                }
+            };
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        function deleteWorkCenter(id) {
+            let url = '/api/definition/workcenter/delete';
+            let data = {id: id};
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Alert.alert('', '삭제되었습니다');
+                    searchMainData();
+                } else {
+                    Alert.alert('', res.message);
+                }
+            };
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+
+        function clickContextMenu(action, param) {
+            let _this = this;
+            let pk = param.item.id;
+            let $workcenterForm = $('#workcenterForm');
+
+            if (action == 'create') {
+                let newItem = {
+                    'id': '',
+                    'code': '',
+                    'name': '',
+                    'factory_id': '',
+                    'outsourcing_yn': 'N',
+                }
+                FormUtil.BindDataForm(newItem, $workcenterForm);
+                $('#outsourcing_yn').prop('checked', false);
+            } else if (action == 'delete') {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        deleteWorkCenter(pk)
+                    },
+                    function () {
+                    }
+                );
+            }
+        }
+
+        function showEquipmentList(workcenter_id) {
+            let data2 = [];
+
+            $.ajax({
+                url: withCtx('/api/definition/workcenter/equipment_list'),
+                type: 'GET',
+                data: {
+                    'id': workcenter_id,
+                },
+                async: false,
+                success: function (data) {
+                    /*console.log('비가동유형',data);*/
+                    data2 = data.data;
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    /*console.error('Error fetching log_count data:', textStatus, errorThrown);*/
+                }
+            })
+
+            // 기존 그리드 초기화
+            if (theGrid2) {
+                theGrid2.dispose();  // 기존 그리드를 제거합니다.
+            }
+
+            viewdata2 = new wijmo.collections.CollectionView(data2);
+
+            theGrid2 = new wijmo.grid.FlexGrid('#workcenter-equip-grid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns2,
+                isReadOnly: true,
+                itemsSource: viewdata2
+            });
+
+            theGrid2.rowHeaders.columns.splice(0, 1);
+
+        }
+
+
+//팝업 열릴때 추가
+        function addEquipment(workcenter_id, equipment_id) {
+            let url = '/api/definition/workcenter';
+            let data = {workcenter_id: workcenter_id, equipment_id: equipment_id};
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '저장되었습니다');
+                    showEquipmentList(workcenter_id);
+                } else {
+                    Alert.alert('', result.message);
+                }
+            };
+
+            AjaxUtil.postAsyncData(url + "/add_equipment", data, fnsuccess);
+
+        }
+
+        function resetForm(disableFlag) {
+            $('#workcenterForm')[0].reset();
+            $('#workcenterForm').find('#id').val('');
+            let fndisable = function (obj) {
+                if (disableFlag == true) {
+                    if ($(obj).is(':disabled') == false) {
+                        $(obj).attr('disabled', true);
+                    }
+                } else {
+                    if ($(obj).is(':disabled')) {
+                        $(obj).removeAttr('disabled');
+                    }
+                }
+            };
+
+
+            $('#workcenterForm select').each(function () {
+                fndisable(this);
+            });
+
+            $('#workcenterForm input').each(function () {
+                fndisable(this);
+            });
+
+            $('#workcenterForm checkbox').each(function () {
+                fndisable(this);
+            });
+        }
+
+
+        function deleteEquipment(item) {
+            let url = '/api/definition/workcenter';
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '삭제되었습니다');
+                }
+                showEquipmentList(item.WorkCenter_id);
+            };
+
+            let data = {'equipment_id': item.Equipment_id, 'workcenter_id': item.WorkCenter_id, id: item.id};
+            AjaxUtil.postAsyncData(url + "/delete_equipment", data, fnsuccess);
+        }
+
+        //버튼 활성화
+        function setButtonState() {
+            let pk = $('#id').val();
+
+            $('#btnNewWorkcenter').prop('disabled', false);
+            $('#btnSaveWorkcenter').prop('disabled', false);
+
+            if (pk) {
+                $('#btnDelWorkcenter').prop('disabled', false);
+
+                $('#workcenterForm select, #workcenterForm input, #workcenterForm :checkbox').each(function () {
+                    $(this).prop('disabled', false);
+                });
+            } else {
+                $('#btnDelWorkcenter').prop('disabled', true);
+            }
+
+        }
+
+        $(document).ready(function (e) {
+            setButtonState();
+
+            AjaxUtil.fillSelectOptions($('#factory_id'), 'factory', 'choose', false);
+            AjaxUtil.fillSelectOptions($('#area_id'), 'area', 'choose', false);
+            AjaxUtil.fillSelectOptions($('#Process_id'), 'process', 'choose', false);
+            AjaxUtil.fillSelectOptions($('#process_storehouse_id'), 'store_house', 'choose', false, 'process');
+
+            $('#txtWorkCenter').on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    searchMainData();
+                }
+            });
+
+            $('#factory_id').change(function (e) {
+                let area_pk = $('#area_id').val();
+                AjaxUtil.fillSelectOptions($('#area_id'), 'area', 'choose', area_pk, $('#factory_id').val());
+            });
+
+            $('#btnSearch').click(function (e) {
+                searchMainData();
+            });
+
+            $('#btnNewWorkcenter').click(function (e) {
+                resetForm(false);
+                setButtonState();
+            });
+
+            $('#btnSaveWorkcenter').click(function (e) {
+
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        saveWorkCenter()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $('#btnDelWorkcenter').click(function (e) {
+                let id = $('#workcenterForm').find('#id').val();
+
+                if (id == '') {
+                    Alert.alert('', '선택된 데이터가 없습니다.');
+                    return;
+                }
+
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        deleteWorkCenter(id)
+                    },
+                    function () {
+                    }
+                );
+            });
+            /*popupPage = new PopupEquipmentPage();*/
+            $('#btnNewEquip').click(function (e) {
+                let id = $('#workcenterForm').find('#id').val();
+                if (!id) {
+                    Alert.alert('', '정보를 선택해 주세요.');
+                    return false;
+                }
+                let workcenter_id = id;
+
+                if (workcenter_id != '') {
+                    popupPage = new PopupEquipmentPage();
+                    selectCallback = function (item) {
+                        /*console.log('selectCallback진입');*/
+                        let equipment_id = item.id;
+                        addEquipment(workcenter_id, equipment_id);
+                        popupPage.close();
+                    };
+                    popupPage.show(selectCallback);
+                }
+            });
+
+            $('#btnDelEquip').click(function (e) {
+                // 선택된 항목 가져오기
+                let selectedItems = theGrid2.selectedItems;
+
+                if (selectedItems.length === 0) { // 선택된 항목이 없는 경우
+                    Alert.alert('삭제할 항목을 선택하세요.');
+                    return false;
+                }
+
+                let data = selectedItems[0]; // 첫 번째 선택된 항목 가져오기
+                /*console.log('선택된 데이터:', data);*/
+
+                // 확인 창 표시
+                Alert.confirm('', '삭제하시겠습니까?', function () {
+                    deleteEquipment(data); // 선택된 데이터 삭제 함수 호출
+                });
+            });
+
+        });
+
+    </script>
+</th:block>
+</html>

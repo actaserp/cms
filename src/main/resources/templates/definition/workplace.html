@@ -1,0 +1,572 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<th:block layout:fragment="content">
+  <style>
+    input[type="text"],
+    input[type="tel"],
+    input[type="date"],
+    input[type="number"],
+    input[type="email"],
+    select {
+      width: 280px;
+    }
+    input[type="radio"]:checked:after {
+      margin-left: 3px;
+      margin-top: 3px;
+    }
+  </style>
+  <!--- (레이아웃) Contents 영역 -->
+  <div class="layout-contents">
+    <!-- Page Title -->
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>사업장 정보</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>기준정보</li>
+        <li>사업장 정보</li>
+      </ul>
+    </div>
+    <!-- Select -->
+
+
+    <div style="display: flex; gap: 5px">
+      <section class="section" style="width: 30%;">
+        <div class="container-fluid">
+          <p id=""></p>
+          <div id="theGrid" style="max-height: 735px; height: 735px; margin-top: 40px;"></div>
+        </div>
+      </section>
+      <section style="width: 70%;">
+        <div class="section-top">
+          <div class="title-wrap">
+          </div>
+          <div class="button-wrap" style="justify-content: end">
+            <ul>
+              <li>
+                <a id="newdataBtn" class="btn btn-excell" title="신규등록" onclick="resetFormFields();">
+                  <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                  신규등록
+                </a>
+              </li>
+              <li>
+                <a class="btn btn-delete" id="deleteButton" title="삭제" onclick="deleteSpjang()">
+                  <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                  삭제
+                </a>
+              </li>
+              <li>
+                <a class="btn btn-edit" id="btnSave" title="저장" onclick="save()">
+                  <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                  저장
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="write-table">
+            <caption>사업장 테이블</caption>
+            <tbody>
+            <tr>
+              <th>사업장코드</th>
+              <td colspan="4"><input type="text" id="spjangcd2" name="spjangcd2"></td>
+              <th>사업장명</th>
+              <td colspan="4"><input type="text" id="spjangnm" name="spjangnm"></td>
+            </tr>
+            <tr>
+              <th colspan="10" style="text-align: center; height: 30px; padding: 5px 10px;">기본정보</th>
+            </tr>
+            <tr>
+              <th colspan="">사업형태</th>
+              <td colspan="4">
+                <label><input type="radio" class="custperclsf" name="custperclsf" value="8" checked> 법인</label>
+                <label><input type="radio" class="custperclsf" name="custperclsf" value="1"> 개인</label>
+              </td>
+              <th colspan="">사업자등록번호</th>
+              <td colspan="4">
+                <input type="text" id="saupnum" name="saupnum" class="biz-number">
+              </td>
+            </tr>
+            <tr>
+              <th colspan="">대표자</th>
+              <td colspan="4">
+                <input type="text" id="prenm" name="prenm">
+              </td>
+              <th colspan="">법인/주민등록번호</th>
+              <td colspan="4">
+                <input type="text" id="compnum" name="compnum" class="biz-number">
+              </td>
+            </tr>
+            <tr>
+              <th colspan="">업태</th>
+              <td colspan="4">
+                <input type="text" id="biztype" name="biztype">
+              </td>
+              <th colspan="">업종</th>
+              <td colspan="4">
+                <input type="text" id="item" name="item">
+              </td>
+            </tr>
+            <tr>
+              <th colspan="">개업일자</th>
+              <td colspan="4">
+                <input type="date" id="openymd" name="openymd">
+              </td>
+              <th colspan="">폐업일자</th>
+              <td colspan="4">
+                <input type="date" id="eddate" name="eddate">
+              </td>
+            </tr>
+            <tr>
+              <th>전화번호</th>
+              <td colspan="4"><input type="tel" id="tel1" class="phone-format" name="tel1"></td>
+              <th>팩스번호</th>
+              <td colspan="4"><input type="tel" id="fax" class="phone-format" name="fax"></td>
+            </tr>
+            <tr>
+              <th>사업장소재지</th>
+              <td colspan="9">
+                <input type="text" id="zipcd" name="zipcd" placeholder="우편번호" onclick="setZipCode('zipcd')" style="width: 200px;">
+                <input type="text" id="adresa" name="adresa">
+                <input type="text" id="adresb" name="adresb" placeholder="상세주소">
+              </td>
+            </tr>
+            <tr>
+              <th>공장소재지</th>
+              <td colspan="9">
+                <input type="text" id="zipcd2" name="zipcd2" placeholder="우편번호" onclick="setZipCode('zipcd2')" style="width: 200px;">
+                <input type="text" id="adres2a" name="adres2a">
+                <input type="text" id="adres2b" name="adres2b" placeholder="상세주소">
+              </td>
+            </tr>
+            <tr>
+              <th colspan="10" style="text-align: center; height: 30px; padding: 5px 10px;">세무서 정보</th>
+            </tr>
+            <tr>
+              <th>관할세무서</th>
+              <th>세무서명</th>
+              <td><input type="text" id="taxnm" name="taxnm" style="width:100px;"></td>
+              <th style="width: 70px;">코드</th>
+              <td><input type="text" id="comtaxoff" name="comtaxoff" style="width:100px;"></td>
+              <th rowspan="1">성명</th>
+              <td colspan="4">
+                <input type="text" id="taxagentnm" name="taxagentnm">
+              </td>
+            </tr>
+            <tr>
+              <th rowspan="2">세무대리인</th>
+              <th>코드</th>
+              <td colspan="3">
+                <input type="text" id="taxagentcd" name="taxagentcd">
+              </td>
+              <th>전화번호</th>
+              <td colspan="4">
+                <input type="text" id="taxagenttel" name="taxagenttel" class="phone-format">
+              </td>
+            </tr>
+            <tr>
+              <th>사업자번호</th>
+              <td colspan="3">
+                <input type="text" id="taxagentsp" name="taxagentsp" class="biz-number">
+              </td>
+              <th>세무서코드</th>
+              <td colspan="4">
+                <input type="text" id="taxaccnum" name="taxaccnum">
+              </td>
+            </tr>
+            <tr>
+              <th rowspan="2">부가세 담당자</th>
+              <th style="width: 100px;">성명</th>
+              <td colspan="3">
+                <input type="text" id="agnertel1" name="agnertel1">
+              </td>
+              <th style="width: 100px">연락처</th>
+              <td colspan="4">
+                <input type="text" id="agnertel2" name="agnertel2" class="phone-format">
+              </td>
+            </tr>
+            <tr>
+              <th>메일주소</th>
+              <td colspan="9">
+                <input type="text" id="emailadres" name="emailadres">
+              </td>
+            </tr>
+            <tr>
+              <th>종사업장 코드</th>
+              <td colspan="8">
+                <input type="text" id="ajongcd" name="ajongcd">
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+        <!--       주문등록 탭 종료   / 주문 의뢰현황 시작       -->
+        <!-- Section -->
+        <!--      주문 의뢰 현황 종료          -->
+    </div> <!--//tab-wrap end-->
+  </div> <!--//layout-contents end -->
+  <footer style="margin-top:5px;">
+    <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+  </footer>
+  <div style="height: 10px"></div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+  <th:block th:replace="/common/popup_tax_office :: popup_tax_office"></th:block>
+  <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+  <!--  연락처 및 사업번호 등 포맷 js파일  -->
+  <script th:src="@{/js/InputFormat.js}"></script>
+  <script type="text/javascript">
+    attachTelFormatterAll('.phone-format'); // 연락처 포맷 메서드
+    attachBizNumberFormatterAll('.biz-number'); // 사업자번호 포맷 메서드
+
+    var theGrid;
+    var viewdata;
+    let SelectItem;
+    let csrfToken = $("[name=_csrf]").val();
+
+    document.readyState === 'complete' ? init() : window.onload = init;
+
+    // 오늘 날짜 설정
+    const date = new Date();
+    date.setHours(date.getHours() + 9); // UTC+9로 한국 시간 설정
+    const today = date.toISOString().split('T')[0];
+
+    // 현재 년도와 월을 가져옵니다
+    const currentYear = date.getFullYear();
+    const currentMonth = (date.getMonth() + 1).toString().padStart(2, '0'); // 1월은 0부터 시작하므로 +1 처리
+
+    // 이번 달 1일을 설정
+    const firstDayOfMonth = `${currentYear}-${currentMonth}-01`;
+
+    <!-- 초반 페이지 진입시 그리드 바인딩 끝-->
+    function init() {
+      fetchListData();
+    }
+
+    // DOM이 완전히 준비된 후에 특정 코드 실행
+    $(document).ready(function (e) {
+      // const selectElementId2 = ['exfmtypedv','infmtypedv','stframedv','stexplydv'];
+      // for (const items of selectElementId2){
+      //   getListCgrb(items);
+      // }
+      AjaxUtil.fillSelectOptions($('#papercd'), 'system_code', 'choose', false, 'appr_doc');
+      AjaxUtil.fillSelectOptions($('#gubuncd'), 'system_code', 'choose', false, 'approval_status');
+      AjaxUtil.fillSelectOptions($('#personnm'), 'person', 'choose', false);
+      AjaxUtil.fillSelectOptions($('#kcpersonnm'), 'person', 'choose', false);
+    })
+    // 우편번호 및 주소 바인드
+    function setZipCode(zipid) {
+      new daum.Postcode({
+        oncomplete: function (data) {
+          var roadAddr = data.roadAddress; // 도로명 주소 변수
+          var extraRoadAddr = ''; // 참고 항목 변수
+
+          if(zipid === 'zipcd') {
+            // 우편번호와 주소 정보를 해당 필드에 넣는다.
+            document.getElementById('zipcd').value = data.zonecode;
+            document.getElementById("adresa").value = roadAddr;
+          }else if(zipid === 'zipcd2'){
+            document.getElementById('zipcd2').value = data.zonecode;
+            document.getElementById("adres2a").value = roadAddr;
+          }
+        }
+      }).open();
+    }
+
+    // 사업장 리스트
+    let isFirstLoad = true;
+    function fetchListData() {
+      let data2 = [];
+
+      $.ajax({
+        url: withCtx('/api/workplace/read'),
+        type: 'GET',
+        data: {
+        },
+        async: false,
+        success: function (data) {
+          data2 = data.data;
+          console.log('data2', data2);
+
+        }
+      })
+
+      viewdata = new wijmo.collections.CollectionView(data2);
+
+      if (!theGrid) {
+
+        // 데이터 그리드에 바인딩
+        theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          columns: [
+            {binding: 'spjangcd', header: '코드', width: '*', minWidth: 100, align: 'center'},
+            {binding: 'spjangnm', header: '상호(법인명)', width: '*', minWidth: 100, align: 'center'},
+          ],
+          itemsSource: viewdata,
+        });
+        // 헤더를 중앙 정렬하는 이벤트 핸들러
+        theGrid.formatItem.addHandler(function (s, e) {
+          if (e.panel === s.columnHeaders) {
+            e.cell.style.textAlign = 'center';
+          }
+        });
+        theGrid.rowHeaders.columns.splice(0, 1);
+        // 더블클릭 이벤트
+        theGrid.hostElement.addEventListener('dblclick', function (e) {
+          // 그리드의 셀 정보 가져오기
+          let hitTest = theGrid.hitTest(e);
+          if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+            // 행(row), 행의 데이터(item) 정보 가져오기
+            let row = hitTest.row;
+            let item = theGrid.rows[row].dataItem;
+
+            ['spjangcd2','spjangnm','saupnum','prenm','compnum','biztype','item',
+              'openymd','eddate','tel1','fax','zipcd','adresa','adresb',
+              'zipcd2','adres2a','adres2b','taxnm','comtaxoff','taxagentnm',
+              'taxagentcd','taxagenttel','taxagentsp','taxaccnum','agnertel1',
+              'agnertel2','emailadres','ajongcd'].forEach(id => {
+              const el = document.getElementById(id);
+              if (el) el.value = '';
+            });
+            document.querySelectorAll('input[name="custperclsf"]').forEach(r => r.checked = false);
+
+            if(item != null && Object.keys(item).length > 0) {
+
+              document.getElementById('spjangcd2').value = item.spjangcd;
+              console.log('binded spjangcd2 : ', item.spjangcd);
+              document.getElementById('spjangnm').value = item.spjangnm;
+              const radio = document.querySelector(`input[name="custperclsf"][value="${item.custperclsf}"]`);
+              if (radio) radio.checked = true;
+              document.getElementById('saupnum').value = item.saupnum;
+              document.getElementById('prenm').value = item.prenm;
+              document.getElementById('compnum').value = item.compnum;
+              document.getElementById('biztype').value = item.biztype;
+              document.getElementById('item').value = item.item;
+              document.getElementById('openymd').value = formatDateToInput(item.openymd);
+              document.getElementById('eddate').value = formatDateToInput(item.eddate);
+              document.getElementById('tel1').value = item.tel1;
+              document.getElementById('fax').value = item.fax;
+              document.getElementById('zipcd').value = item.zipcd;
+              document.getElementById('adresa').value = item.adresa;
+              document.getElementById('adresb').value = item.adresb;
+              document.getElementById('zipcd2').value = item.zipcd2;
+              document.getElementById('adres2a').value = item.adres2a;
+              document.getElementById('adres2b').value = item.adres2b;
+              document.getElementById('taxnm').value = item.taxnm;
+              document.getElementById('comtaxoff').value = item.comtaxoff;
+              document.getElementById('taxagentnm').value = item.taxagentnm;
+              document.getElementById('taxagentcd').value = item.taxagentcd;
+              document.getElementById('taxagenttel').value = item.taxagenttel;
+              document.getElementById('taxagentsp').value = item.taxagentsp;
+              document.getElementById('taxaccnum').value = item.taxaccnum;
+              document.getElementById('agnertel1').value = item.agnertel1;
+              document.getElementById('agnertel2').value = item.agnertel2;
+              document.getElementById('emailadres').value = item.emailadres;
+              document.getElementById('ajongcd').value = item.ajongcd;
+            }
+          }
+        })
+        // FlexGrid의 최대 높이를 제한하여 스크롤바를 활성화
+        theGrid.hostElement.style.maxHeight = '735px';
+        theGrid.hostElement.style.overflowY = 'auto';
+        // 선택이 변경될 때, 현재 항목 업데이트
+        new FlexGridContextMenu(theGrid);
+        window.downloadFileName = '문서코드별 사원 리스트';
+
+        if (isFirstLoad && data2.length > 0 && theGrid) {
+          const item = data2[0];
+          theGrid.select(0, 0);
+
+          if(item != null && Object.keys(item).length > 0) {
+            document.getElementById('spjangcd2').value = item.spjangcd;
+            document.getElementById('spjangnm').value = item.spjangnm;
+            const radio = document.querySelector(`input[name="custperclsf"][value="${item.custperclsf}"]`);
+            if (radio) radio.checked = true;
+            document.getElementById('saupnum').value = item.saupnum;
+            document.getElementById('prenm').value = item.prenm;
+            document.getElementById('compnum').value = item.compnum;
+            document.getElementById('biztype').value = item.biztype;
+            document.getElementById('item').value = item.item;
+            document.getElementById('openymd').value = formatDateToInput(item.openymd);
+            document.getElementById('eddate').value = formatDateToInput(item.eddate);
+            document.getElementById('tel1').value = item.tel1;
+            document.getElementById('fax').value = item.fax;
+            document.getElementById('zipcd').value = item.zipcd;
+            document.getElementById('adresa').value = item.adresa;
+            document.getElementById('adresb').value = item.adresb;
+            document.getElementById('zipcd2').value = item.zipcd2;
+            document.getElementById('adres2a').value = item.adres2a;
+            document.getElementById('adres2b').value = item.adres2b;
+            document.getElementById('taxnm').value = item.taxnm;
+            document.getElementById('comtaxoff').value = item.comtaxoff;
+            document.getElementById('taxagentnm').value = item.taxagentnm;
+            document.getElementById('taxagentcd').value = item.taxagentcd;
+            document.getElementById('taxagenttel').value = item.taxagenttel;
+            document.getElementById('taxagentsp').value = item.taxagentsp;
+            document.getElementById('taxaccnum').value = item.taxaccnum;
+            document.getElementById('agnertel1').value = item.agnertel1;
+            document.getElementById('agnertel2').value = item.agnertel2;
+            document.getElementById('emailadres').value = item.emailadres;
+            document.getElementById('ajongcd').value = item.ajongcd;
+          }
+          isFirstLoad = false;
+        }
+      } else {
+        // 이미 FlexGrid이 존재하는 경우, 데이터만 업데이트
+        theGrid.itemsSource = viewdata;
+      }
+    }
+    // 관할세무서 조회 모달 출력
+    $('#taxnm').click(function () {
+      let poppage = new PopTaxComponent();
+      let $poppage = $(poppage);
+      let searchcallback = function (items) {
+        console.log('items : ',items);
+        document.getElementById('comtaxoff').value = items.taxcd;
+        document.getElementById('taxnm').value = items.taxnm;
+      };
+
+      poppage.show(searchcallback);
+    });
+    // 사업장 삭제
+    function deleteSpjang() {
+      let _this = this;
+      let url = '/api/workplace/delete'
+      Alert.confirm('', '삭제하시겠습니까?', function () {
+        sendAjaxRequest(url)
+      });
+      function sendAjaxRequest(url) {
+        $.ajax({
+          url: withCtx(url),
+          type: 'POST',
+          data: JSON.stringify({'spjangcd': document.getElementById('spjangcd2').value}),
+          contentType: 'application/json',
+          headers: {
+            'X-CSRF-Token': $('[name=_csrf]').val()
+          },
+          success: handleAjaxResponse,
+          error: function () {
+            Alert.alert('', '에러가발생하였습니다.');
+          }
+        });
+      }
+
+      function handleAjaxResponse(response) {
+        if (response.success) {
+          Alert.alert('', response.message, function () {
+            fetchListData();
+            resetFormFields();
+          });
+        } else {
+          Alert.alert('', '삭제에 실패했습니다.');
+        }
+      }
+    }
+    // 등록후 초기화
+    function resetFormFields() {
+      const fieldsToReset = [
+        'spjangcd2', 'spjangnm', 'compnum', 'saupnum', 'prenm', 'biztype', 'item'
+        , 'openymd', 'eddate', 'tel1', 'fax', 'zipcd', 'adresa', 'adresb', 'zipcd2'
+        , 'adres2a', 'adres2b', 'taxnm', 'comtaxoff', 'taxagentnm', 'taxagentcd', 'taxagenttel', 'taxagentsp'
+        , 'taxaccnum', 'agnertel1', 'agnertel2', 'emailadres', 'ajongcd'
+      ];
+
+      fieldsToReset.forEach(fieldId => {
+        document.getElementById(fieldId).value = '';
+      });
+
+      document.getElementById('btnSave').title = "저장";
+    }
+    // 저장 메서드
+    function save(){
+      Alert.confirm('', '저장하시겠습니까?', function () {
+        // 주문번호 생성
+        let formData = new FormData();
+        // 다른 데이터를 FormData에 추가합니다.
+        formData.append('spjangcd', $('#spjangcd2').val()); // 사업장코드
+        formData.append('spjangnm', $('#spjangnm').val()); // 사업장명
+        formData.append('custperclsf', $('.custperclsf:checked').val()); // 사업형태
+        formData.append('saupnum', $('#saupnum').val()); // 사업자등록번호
+        formData.append('prenm', $('#prenm').val()); // 대표자
+        formData.append('compnum', $('#compnum').val()); // 법인/주민등록번호
+        formData.append('biztype', $('#biztype').val()); // 업태
+        formData.append('item', $('#item').val()); // 업종
+        const openymd = formatDateToYYYYMMDD($('#openymd').val());
+        const eddate = formatDateToYYYYMMDD($('#eddate').val());
+        formData.append('openymd', openymd); // 개업일자
+        formData.append('eddate', eddate); // 폐업일자
+        formData.append('tel1', $('#tel1').val()); // 전화번호
+        formData.append('fax', $('#fax').val()); // 팩스번호
+        formData.append('zipcd', $('#zipcd').val()); // 사업장소재지 우편번호
+        formData.append('adresa', $('#adresa').val()); // 사업장소재지 주소
+        formData.append('adresb', $('#adresb').val()); // 사업장소재지 상세주소
+        formData.append('zipcd2', $('#zipcd2').val()); // 공장소재지 우편번호
+        formData.append('adres2a', $('#adres2a').val()); // 공장소재지 주소
+        formData.append('adres2b', $('#adres2b').val()); // 공장소재지 상세주소
+        formData.append('taxnm', $('#taxnm').val()); // 세무서명
+        formData.append('comtaxoff', $('#comtaxoff').val()); // 세무서코드
+        formData.append('taxagentnm', $('#taxagentnm').val()); // 세무서 담당자
+        formData.append('taxagentcd', $('#taxagentcd').val()); // 세무대리인 코드
+        formData.append('taxagenttel', $('#taxagenttel').val()); // 세무대리인 전화번호
+        formData.append('taxagentsp', $('#taxagentsp').val()); // 세무대리인 사업자번호
+        formData.append('taxaccnum', $('#taxaccnum').val()); // 세무대리인 세무서코드
+        formData.append('agnertel1', $('#agnertel1').val()); // 부가세 담당자 성명
+        formData.append('agnertel2', $('#agnertel2').val()); // 부가세 담당자 연락처
+        formData.append('emailadres', $('#emailadres').val()); // 부가세 담당자 메일주소
+        formData.append('ajongcd', $('#ajongcd').val()); // 종사업장코드
+
+
+        function sendAjaxRequest(url) {
+          $.ajax({
+            url: withCtx(url),
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+              'X-CSRF-Token': $('[name=_csrf]').val() // CSRF 토큰을 헤더에 추가
+            },
+            success: handleAjaxResponse,
+            error: function () {
+              Alert.alert('', '에러가발생하였습니다.');
+            }
+          });
+        }
+
+        function handleAjaxResponse(response) {
+          if (response.success) {
+            Alert.alert('', response.message, function () {
+              fetchListData();
+              resetFormFields();
+            });
+          } else {
+            Alert.alert('', '저장에 실패했습니다.');
+          }
+        }
+        sendAjaxRequest('/api/workplace/save');
+      })
+    }
+    function formatDateToYYYYMMDD(dateString) {
+      if (!dateString) return "";
+      return dateString.replace(/-/g, "");  // "2025-06-09" → "20250609"
+    }
+    function formatDateToInput(dateStr) {
+      if (!dateStr || dateStr.length !== 8) return '';
+      return `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+    }
+  </script>
+
+</th:block>
+</html>
+
+

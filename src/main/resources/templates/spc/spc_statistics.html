@@ -1,0 +1,442 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>SPC통계적분석</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>품질관리</li>
+        <li>SPC통계적분석</li>
+      </ul>
+    </div>
+
+
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>
+              조회 일자<span class="eq">*</span>
+            </dt>
+            <dd>
+              <ul class="date-box">
+                <li>
+                  <input type="month" id="month_picker" name="month_picker">
+                </li>
+              </ul>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label for="">
+                품목명<span class="eq">*</span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input type="text">
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              <label for="">
+                공정<span class="eq">*</span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input type="text">
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              <label for="">
+                측정항목<span class="eq">*</span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input type="text">
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" title="검색" id="btnMainSearch">
+                  <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                  <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+      </div>
+      <div class="grid_box" style="flex: 3">
+        <canvas id="defect-chart" class="chart-canvas" style="width: 100%; height: 100%;"></canvas>
+      </div>
+      <h4>분석지표</h4>
+      <table class="write-table" style="width: 100%; border-collapse: collapse;">
+        <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+        <input type="hidden" class="form-control2" id="id" name="id" readonly disabled/>
+        <tbody>
+        <tr>
+          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+            <label for="master_grp">평균값</label>
+          </th>
+          <td >
+            <input id="master_grp" name="master_grp"
+                    style="width: 100%;"></input>
+          </td>
+          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+            <label for="master_name"><span class="eq">*</span>표준편차</label>
+          </th>
+          <td colspan="2">
+            <input type="text" id="master_name" name="master_name"
+                   style="width: 100%;">
+          </td>
+          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+            <label for="test_type"><span class="eq">*</span>샘플 수</label>
+          </th>
+          <td colspan="2">
+            <input style="width: 100%;" id="test_type"
+                    name="test_type"></input>
+          </td>
+          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+            <label for="test_type"><span class="eq">*</span>CPK</label>
+          </th>
+          <td >
+            <input style="width: 100%;" id="test_type"
+                    name="test_type"></input>
+          </td>
+          <th >
+            <label for="test_type"><span class="eq">*</span>USL</label>
+          </th>
+          <td >
+            <input style="width: 100%;" id="test_type"
+                    name="test_type"></input>
+          </td>
+          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+            <label for="test_type"><span class="eq">*</span>LSL</label>
+          </th>
+          <td colspan="2">
+            <input style="width: 100%;" id="test_type"
+                    name="test_type"></input>
+          </td>
+          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+            <label for="test_type"><span class="eq">*</span>이상점</label>
+          </th>
+          <td colspan="2">
+            <input style="width: 100%;" id="test_type"
+                    name="test_type"></input>
+          </td>
+          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+            <label for="test_type"><span class="eq">*</span>측정주기</label>
+          </th>
+          <td colspan="2">
+            <input style="width: 100%;" id="test_type"
+                    name="test_type"></input>
+          </td>
+        </tr>
+        </tbody>
+      </table>
+      <h4>측정값 테이블</h4>
+      <div class="grid_box" style="flex: 4">
+        <ul id="day_list" class="day-list"></ul>
+      </div>
+    </section>
+  </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="text/javascript">
+    class ProdResultPage {
+      constructor() {
+        this.grid = null;
+        this.baseUrl = '/api/summary/production_defect_portion';
+        this._holidayCache = {};
+        this.init();
+
+      }
+
+      async init() {
+        let _this = this;
+
+        this.grid = new wijmo.grid.FlexGrid('#day_list', {
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            //{ key: 'id', label: '번호', width: 150, align: 'center' },
+            {binding: 'test_master_grp', header: '일시', width: '*', align: 'left'},
+            {binding: 'test_master_class', header: '측정값', width: '*', align: 'left'},
+            {binding: 'test_master_name', header: '평균', width: '*', align: 'left'},
+            {binding: 'test_master_name', header: '범위', width: '*', align: 'left'},
+            {binding: 'test_master_name', header: '이상여부', width: '*', align: 'left'},
+            {binding: 'test_master_name', header: '비고', width: '*', align: 'left'},
+          ],
+          itemsSource: this.viewData, // 데이터를 설정할 배열
+        });
+
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = 'SPC 통계적분석';
+        this.grid.collectionView.collectionChanged.addHandler(() => {
+          _this.updateFooter();
+        });
+
+        // 초기 월에 맞춰 컬럼 구성
+        const monthPicker = document.getElementById('month_picker');
+        if (!monthPicker.value) {
+          monthPicker.value = new Date().toISOString().slice(0, 7); // YYYY-MM
+        }
+        const [yStr, mStr] = monthPicker.value.split('-');
+        await this.applyMonth(Number(yStr), Number(mStr));
+        // 필터
+        AjaxUtil.fillSelectOptions($('#cboWorkCenter'), 'workcenter', 'all', false); // 워크센터
+      }
+
+
+
+      // 월 일수 라벨(1..days)
+      getDayLabels(year, month) {
+        const days = new Date(year, month, 0).getDate(); // month: 1~12
+        return Array.from({ length: days }, (_, i) => String(i + 1));
+      }
+
+      // 인덱스별 고정색 (선택사항: 없으면 Chart.js 기본색 사용)
+      colorForIndex(i) {
+        const h = (i * 47) % 360;
+        return `hsl(${h}deg, 70%, 50%)`;
+      }
+
+      // 그리드 피벗 rows -> Chart.js datasets
+      buildDefectDatasets(rows, daysInMonth) {
+        return rows.map((r, idx) => {
+          const data = [];
+          for (let d = 1; d <= daysInMonth; d++) {
+            // 없으면 0으로 채워서 선이 이어지도록
+            const v = Number(r[`count_${d}`] ?? 0);
+            data.push(Number.isFinite(v) ? v : 0);
+          }
+          return {
+            label: r.defect_type || `유형${idx + 1}`,
+            data,
+            fill: false,
+            tension: 0.2,
+            borderWidth: 2,
+            borderColor: `hsl(${(idx * 47) % 360} 70% 50%)`,
+            pointBackgroundColor: `hsl(${(idx * 47) % 360} 70% 50%)`,
+            pointRadius: 2
+          };
+        });
+      }
+
+
+      // 실제 차트 그리기
+      renderDefectChart(labels, datasets) {
+        const ctx = document.getElementById('defect-chart').getContext('2d');
+
+        if (this.defectChart) {
+          this.defectChart.destroy();
+        }
+
+        this.defectChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels,
+            datasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: 'nearest',
+              intersect: false
+            },
+            plugins: {
+              legend: { position: 'top' },
+              tooltip: {
+                callbacks: {
+                  title: (items) => `${items[0].label}일`,
+                  label: (item) => `${item.dataset.label}: ${item.parsed.y ?? 0}`
+                }
+              }
+            },
+            scales: {
+              x: {
+                title: { display: true, text: '일자' }
+              },
+              y: {
+                title: { display: true, text: '불량수' },
+                beginAtZero: true,
+                ticks: { precision: 0 }
+              }
+            }
+          }
+        });
+      }
+
+
+      searchMainData() {
+        const monthPicker = document.getElementById('month_picker');
+        const [y, m] = monthPicker.value.split('-');
+        const firstDay = `${y}-${m}-01`;
+        const lastDay = `${y}-${m}-${String(new Date(Number(y), Number(m), 0).getDate()).padStart(2, '0')}`;
+
+        const param = {
+          date_from: firstDay,
+          date_to: lastDay,
+          cboWorkCenter: $('#cboWorkCenter').val(),
+        };
+
+        let result = AjaxUtil.getSyncData(this.baseUrl + "/read", param);
+        if (result?.data) {
+          // 서버 원시 리스트(ProductionDate 단위)를 피벗
+          const rows = this.pivotDefectsByDay(result.data, y, m);
+
+          // 그리드에 바인딩
+          //   (이미 itemsSource가 CollectionView라면 sourceCollection만 교체)
+          if (this.grid.itemsSource && this.grid.itemsSource.sourceCollection) {
+            this.grid.itemsSource.sourceCollection = rows;
+          } else {
+            this.grid.itemsSource = new wijmo.collections.CollectionView(rows);
+          }
+
+          // 차트 그리기
+          const labels = this.getDayLabels(y, m);
+          const datasets = this.buildDefectDatasets(rows, labels.length);
+          this.renderDefectChart(labels, datasets);
+
+          // 푸터
+          this.updateFooter();
+        } else {
+          // 데이터 없으면 빈 배열 바인딩
+          if (this.grid.itemsSource && this.grid.itemsSource.sourceCollection) {
+            this.grid.itemsSource.sourceCollection = [];
+          } else {
+            this.grid.itemsSource = new wijmo.collections.CollectionView([]);
+          }
+          // 빈 차트로 초기화
+          this.renderDefectChart(this.getDayLabels(y, m), []);
+          // 푸터
+          this.updateFooter();
+        }
+      }
+
+      // 1) 피벗 함수: 리스트 -> 그리드 행(불량유형별 일자 카운트)
+      pivotDefectsByDay(data, year, month) {
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const map = new Map();
+
+        data.forEach(r => {
+          const key = r.defect_pk ?? r.defect_type;
+          if (!map.has(key)) {
+            const row = { defect_pk: key, defect_type: r.defect_type || String(key), _dateKeyMap: {} };
+            map.set(key, row);
+          }
+          const row = map.get(key);
+
+          const day = Number(r.ProductionDate?.slice(8, 10));
+          if (!Number.isFinite(day) || day < 1 || day > daysInMonth) return;
+
+          const dayKey = `count_${day}`;
+          const qty = Number(r.defect_qty) || 0;
+          if (qty > 0) row[dayKey] = (row[dayKey] || 0) + qty; // 0은 추가 안 함
+
+          // 날짜별 검사수는 첫 유효값만 기록
+          if (row._dateKeyMap[dayKey] == null && r.total_prod_qty != null) {
+            row._dateKeyMap[dayKey] = { total_prod_qty: Number(r.total_prod_qty) || 0 };
+          }
+        });
+
+        return Array.from(map.values());
+      }
+
+    }
+
+    async function fetchHolidaysForYear(year) {
+      return new Promise((resolve, reject) => {
+        var xhr = new XMLHttpRequest();
+        var url = 'http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo';
+        var queryParams = '?' + encodeURIComponent('serviceKey') + '=' + 'R3P3syhq6qRP0cz8mbV2J5t%2B32WwaSN9sH8ZW4k59oKAU3Ze0WvcljMrN36OJqxs38%2F780hMD4QfhCiDZQNUyA%3D%3D';
+        queryParams += '&' + encodeURIComponent('solYear') + '=' + encodeURIComponent(year);
+        queryParams += '&' + encodeURIComponent('numOfRows') + '=' + encodeURIComponent('30');
+
+        xhr.open('GET', url + queryParams);
+        xhr.onreadystatechange = function () {
+          if (this.readyState == 4) {
+            if (this.status == 200) {
+              var parser = new DOMParser();
+              var xmlDoc = parser.parseFromString(this.responseText, "text/xml");
+
+              // XML에서 원하는 데이터 추출
+              var items = xmlDoc.getElementsByTagName("item");
+              let holidays = [];
+              for (var i = 0; i < items.length; i++) {
+                var locdate = items[i].getElementsByTagName("locdate")[0].textContent;
+                var dateName = items[i].getElementsByTagName("dateName")[0].textContent;
+
+                holidays.push({date: locdate, name: dateName});
+              }
+              resolve(holidays);
+            } else {
+              console.error('오류 발생. HTTP 상태 코드:', this.status);
+              reject(this.status);
+            }
+          }
+        };
+
+        xhr.send();
+      });
+    }
+
+    function toDateKey(y, m, d) {
+      // y: 2025, m: 1~12, d: 1~31
+      const mm = String(m).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      return `${y}${mm}${dd}`; // yyyymmdd
+    }
+
+    let page = null;
+
+    $(document).ready(function () {
+      page = new ProdResultPage();
+
+      const monthPicker = document.getElementById('month_picker');
+      if (!monthPicker.value) {
+        monthPicker.value = new Date().toISOString().slice(0, 7); // YYYY-MM
+      }
+      $('#btnMainSearch').on('click', function () {
+        page.searchMainData();
+      });
+
+      monthPicker.addEventListener('change', async function () {
+        const [yStr, mStr] = this.value.split('-');
+        await page.applyMonth(Number(yStr), Number(mStr));
+      });
+    });
+
+  </script>
+</th:block>
+</html>

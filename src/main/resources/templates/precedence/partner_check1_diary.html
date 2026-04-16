@@ -1,0 +1,513 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+    <style>
+        .input-group > .input-group-prepend > .fit_box_t5_area {
+            width: 200px;
+        }
+    </style>
+</head>
+
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <input type="hidden" id="bhId" th:value="${bh_id}"/>
+        <input type="hidden" id="data_date" th:value="${data_date}"/>
+        <input type="hidden" id="search_cond" th:value="${searchcond}"/>
+        <input type="hidden" id="viewMode" th:value="${view_mode}"/>
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>협력업체 점검표</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>선행요건 일지</li>
+                <li>협력업체 점검표</li>
+            </ul>
+        </div>
+        <section class="section">
+
+            <div class="section-card-wrap">
+                <div class="col-5">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">점검명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="title" name="title"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="dataDate">점검일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="date" id="dataDate" name="dataDate">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="firstName">작성자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="firstName" name="firstName" disabled/>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-6">
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <h3>점검 목록</h3>
+                </div>
+                <div class="button-wrap">
+                    <button type="button" class="btn" id="btnDiaryPrint">일지출력</button>
+                    <button type="button" class="btn" id="btnReqAppr">결재상신</button>
+                    <button type="button" class="btn" id="btnAppr" style="display:none;">승인</button>
+                    <button type="button" class="btn" id="btnReject" style="display:none;">반려</button>
+                    <button type="button" class="btn" id="btnSave">저장</button>
+                    <!--                    <button type="button" class="btn" id="btnDelete">삭제</button>-->
+                    <button type="button" class="btn" id="btnList">목록</button>
+                    <button type="button" class="btn" id="btnNew" name="btnNew"><i class="fas fa-plus"></i></button>
+                </div>
+            </div>
+            <div class="section-top">
+                <div class="search-wrap" style="justify-content: flex-start; align-items: flex-end;">
+                    <dl>
+                        <dt>
+                            <label for="cboCompany">
+                                협력업체
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select class="form-control2" id="cboCompany" name="cboCompany" ></select>
+                            </div>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            <div class="grid_box" id="main_grid">
+                <div id="check_item_result_grid" style="height: 570px;"></div>
+            </div>
+            <div>
+                <div class="row">
+                    <div class="col-12">
+                        <table>
+                            <tr>
+                                <th scope="row">기타 특이사항</th>
+                                <td><textarea class="form-control2" id="necessity"
+                                              name="necessity"></textarea></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+    <script type="text/javascript">
+        class CheckResultDiaryPage {
+            constructor() {
+                this.grid = null;
+                this.uploader = null;
+                this.approveBoxUtil = null;
+                this.type = 1;
+                this.List = [];
+                this.resultGrid = null;
+                this.checkMasterName = '협력업체점검표'
+                this.baseUrl = '/api/precedence/partner_check';
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                this.gparam = {
+                    bh_id: $('#bhId').val(),
+                    data_date: $('#data_date').val(),
+                    search_cond: $('#search_cond').val(),
+                    view_mode: $('#viewMode').val(),
+                };
+
+                $('#firstName').val(userinfo.username);
+                $('#title').val('협력업체 점검표');
+                $("#dataDate").val($('#data_date').val());
+
+                let data = new wijmo.collections.CollectionView([]);
+
+                this.resultGrid = new wijmo.grid.FlexGrid('#check_item_result_grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    autoGenerateColumns: false,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    isReadOnly: false,
+                    itemsSource: data,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
+                            && s.columns[e.col].binding === 'Char2') {
+                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                        }
+                    },
+                    columns: [
+                        { binding: 'ItemType', header: '구분', width: 130, align: 'left' },
+                        { binding: 'Name', header: '검사항목', width: 160, align: 'right' },
+                        { binding: 'SpecText', header: '검사기준', width: 300, align: 'center' },
+                        {
+                            binding: 'Char1',
+                            header: '배점',
+                            width: 300,
+                            align: 'left',
+                            isReadOnly: false,
+                            dataType: wijmo.DataType.Number,
+                        },
+                        {
+                            binding: 'Char2',
+                            header: '점검결과(입력)',
+                            width: 150,
+                            align: 'center',
+                            visible: false
+                        },
+                        { binding: 'CharResult', header: '비고', width: 130, align: 'left', isReadOnly: false },
+                    ]
+                })
+
+                new FlexGridContextMenu(this.resultGrid);
+                this.resultGrid.downloadFileName = '협력업체 점검 목록';
+
+                data.collectionChanged.addHandler((sender, e) => {
+                    if (e.action === wijmo.collections.NotifyCollectionChangedAction.Change) {
+                        let changedItem = e.item;
+                        if (changedItem.Char1 !== undefined) {
+                            this.makeSpecText({ item: changedItem });
+                        }
+                    }
+                });
+
+            }
+
+
+            makeSpecText(row) {
+                let _this = this;
+                let specText = '';
+                let specType = row.item.SpecType;
+                let result = '';
+
+                if (specType === 'low') {
+                    if (row.item.Char1) {
+                        specText = row.item.LowSpec;
+                        if (specText <= row.item.Char1) {
+                            result = "O";
+                        } else {
+                            result = "X";
+                        }
+                    } else {
+                        result = "";
+                    }
+                } else if (specType === 'upper') {
+                    if (row.item.Char1) {
+                        specText = row.item.UpperSpec;
+                        if (specText >= row.item.Char1) {
+                            result = "O";
+                        } else {
+                            result = "X";
+                        }
+                    } else {
+                        result = "";
+                    }
+                } else if (specType === 'range') {
+                    if (row.item.Char1) {
+                        specText = row.item.Char1;
+                        if (row.item.LowSpec <= specText && specText <= row.item.UpperSpec) {
+                            result = "O";
+                        } else {
+                            result = "X";
+                        }
+                    } else {
+                        result = "";
+                    }
+                }
+
+                //	this.resultGrid.setValue(row.dindex, 'Char2', result);
+            }
+
+            // 일지 조회
+            searchMainData() {
+
+                let _this = this;
+                $('#btnDiaryPrint').hide();
+                $('#btnDelete').hide();
+
+                $('#firstName').val(userinfo.username);
+                $('#title').val('협력업체 점검표');
+
+                let param = {
+                    //'action': 'read',
+                    'bhId': $('#bhId').val(),
+                    'data_date': $("#data_date").val()
+                };
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/ListRead', param);
+
+                if (result.data != null) {
+                    _this.headInfo = result.data.head_info;
+                    _this.diaryInfo = result.data.diary_info;
+
+                    $("#necessity").val(_this.diaryInfo[0].necessity);
+                    $("#cboCompany").val(_this.diaryInfo[0].InputResult);
+
+                    _this.resultGrid.itemsSource = _this.diaryInfo;
+
+                    _this.viewModeSetting(_this.headInfo)
+                }
+
+                // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+                _this.approveBoxUtil = new ApproveBoxUtil(0, _this.checkMasterName, $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+            }
+
+
+            viewModeSetting(headInfo) {
+                // 데이터에 따른 버튼 설정
+                if ($('#viewMode').val().toLowerCase() == 'true') {
+                    //보기 모드일 경우 CRUD 버튼 숨김
+                    $('#btnDiaryPrint').hide();
+                    $('#btnReqAppr').hide();
+                    $('#btnSave').hide();
+                    $('#btnDelete').hide();
+                    $('#btnAllItem').hide();
+                    $("#btnNew").hide();
+                    if (headInfo.State === 'approval') {
+                        $('#btnDiaryPrint').show();
+                    }
+
+                    $('#title').attr('disabled', 'disabled');
+                    $('#dataDate').attr('disabled', 'disabled');
+
+
+                } else {
+                    // State : 작성, 미결재, 승인, 반려, 재상신
+                    $('#btnDelete').show();
+                    $('#btnDiaryPrint').hide();
+                    if (headInfo.State === 'process' || headInfo.State === 'reprocess') {
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        $('#btnAllItem').hide();
+                    } else if (headInfo.State === 'approval') {
+                        $('#btnDiaryPrint').show();
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        $('#btnAllItem').hide();
+                    }
+
+                    if (parseInt($('#bhId').val(), 10) > 0) {
+                        $('#dataDate').attr('disabled', 'disabled');
+                    } else {
+                        $('#btnDelete').hide();
+                    }
+                }
+            }
+
+            // 일지 출력
+            printDiary() {
+                let param = {
+                    'title': $('#title').val(),
+                    'bh_id': $('#bhId').val(),
+                };
+
+                let result = AjaxUtil.postSyncData(this.baseUrl + '/print', param, function () {
+                });
+                if (result.success) {
+                    CommonUtil.openWindow('/api/files/pdf_viewer?file_id=' + result.file_id)
+                } else {
+                    Alert.alert('', '일지 생성 중 오류가 발생했습니다. 관리자에게 문의하세요.');
+                }
+            }
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    $('#btnList').click();
+                });
+            }
+
+            //결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit';
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'data_date': $('#dataDate').val(),
+                };
+
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+            //저장
+            save(isAppr) {
+                let _this = this;
+
+                if ($("#cboCompany").val() === '') {
+                    Alert.alert('', '협력업체를 선택하세요.');
+                    return;
+                }
+
+                let result = this.resultGrid.selectedItems;
+
+                let callback = function () {
+
+                    let data = {
+                        bhId: $('#bhId').val(),
+                        title: $('#title').val(),
+                        data_date: $('#dataDate').val(),
+                        necessity: $("#necessity").val(),
+                        cboCompany: $("#cboCompany").val(),
+                        'headInfo': JSON.stringify(_this.headInfo),
+                        'diaryInfo': JSON.stringify(result),
+                    };
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            $('#bhId').val(resp.data.id);
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                Notify.success('저장하였습니다.');
+                                $('#btnDelete').show();
+                                $('#dataDate').attr('disabled', 'disabled');
+                                // _this.searchMainData();
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/save', data, fnSuccess);
+                }
+
+                /* if (resultNullCheck) {
+                     Alert.alert("", "점검결과를 모두 입력해주세요.");
+                     return;
+                 }*/
+                if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                } else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+
+            //삭제
+            delete() {
+                let _this = this;
+                Alert.confirm('', '삭제하시겠습니까?', function () {
+                    // 삭제 서비스 호출
+                    let param = {
+                        bh_id: $('#bhId').val(),
+                    }
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            Notify.success('삭제하였습니다.');
+                            $('#btnList').click();
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/delete', param, fnSuccess);
+                });
+            }
+
+        }
+
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new CheckResultDiaryPage();
+
+            AjaxUtil.fillSelectOptions($('#cboCompany'), 'company', 'all', false, '');
+
+            // 일지 출력
+            $('#btnDiaryPrint').on('click', function () {
+                page.printDiary();
+            });
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            //$('#dataDate').val(CommonUtil.getYYYYMMDD());
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+
+            // 임시저장
+            $('#btnSave').on('click', function () {
+                page.save(false);
+            });
+
+            // 삭제
+            $('#btnDelete').on('click', function () {
+                page.delete();
+            });
+
+            // 목록
+            $('#btnList').on('click', function () {
+                if (page.gparam.appr_view) {
+                    location.href = encodeURI('/gui/' + page.gparam.appr_view + '?searchcond=' + page.gparam.search_cond);
+                } else {
+                    location.href = encodeURI('/gui/' + gui.gui_code + '?searchcond=' + page.gparam.search_cond);
+                }
+            });
+
+            page.searchMainData();
+
+
+        });
+    </script>
+</th:block>
+</html>

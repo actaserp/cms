@@ -1,0 +1,720 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>검사일보</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>검사관리</li>
+        <li>검사일보</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>
+              <label>조회월</label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input type="month" class="form-control2" id="SearchDate" name="SearchDate">
+              </div>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label>라인</label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select id="SrchWorkCenter_id" name="SrchWorkCenter_id"></select>
+              </div>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt><span class="eq"></span></dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" title="검색" id="btnSearch">
+                  <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+        <div class="button-wrap">
+          <ul>
+
+            <li>
+              <button type="button" class="btn-default" id="btnAddNew" style="width: 115px; height: 36px;"><i
+                  class="fas fa-save">등록</i>
+              </button>
+            </li>
+            <!--<li>
+              <button type="button" class="btn-delete btn-danger" id="btnDel" title="삭제" style="width: 115px; height: 36px;"><i class="fas fa-trash">삭제</i></button>
+            </li>-->
+            <li>
+              <button type="button" class="btn-edit btn-default" id="btnEdit" title="수정"
+                      style="width: 115px; height: 36px;"><i class="fas fa-edit"></i>수정
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="container-fluid">
+        <div id="theGrid" style=""></div>
+      </div>
+    </section>
+  </div>
+
+  <script type="text/x-tmpl" id="TestDailySaveTemplate">
+    <style>
+        input[readonly] {
+          background-color: #EDEFF5 !important;
+          cursor: not-allowed;
+        }
+
+    </style>
+     <div class="content_wrap popup" id="div_excel_upload">
+    <div class="table-wrap">
+      <form id="TestDailyReportAddNewForm">
+        <table class="write-table">
+          <caption>검사 일보 등록</caption>
+          <tbody>
+          <tr>
+            <th style="text-align: center">
+              <label for="InspectionDate">검사일</label>
+            </th>
+            <td>
+              <input type="date" id="InspectionDate" name="InspectionDate" style="width: 250px;">
+            </td>
+            <th style="text-align: center">
+              <label for="WorkCenter_id">워크센터(라인)</label>
+            </th>
+            <td >
+             <select id="WorkCenter_id" name="WorkCenter_id" style="width: 230px;"></select>
+            </td>
+          </tr>
+          <tr>
+            <th style="text-align: center">
+              <label for="InspectionQty">검사 총수량</label>
+            </th>
+            <td>
+              <input type="text" id="InspectionQty" name="InspectionQty" style="width: 250px;">
+            </td>
+        </table>
+      </form>
+    </div>
+    <div class="container-fluid">
+        <div id="defect-grid" style="height: 375px;"></div>
+    </div>
+    <div class="popup-button">
+      <button type="button" class="btn-popup y_write_auth" id="btnPopTestDailySave">저장</button>
+      <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+    </div>
+  </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script type="text/javascript">
+    class TestDailyReportPage {
+      constructor() {
+        this.grid = null;
+        this.defectGrid = null;
+        this.$btnEdit = $('#btnEdit');
+        this.$btnAddNew = $('#btnAddNew');
+        this.$spjangcd = sessionStorage.getItem('spjangcd');
+        this.viewData = new wijmo.collections.CollectionView();
+        this.url = '/api/test/test_daily_report';
+        this.init();
+      }
+
+      init() {
+        let _this = this;
+
+        const yyyymm = $('#SearchDate').val(); // "2025-08"
+        if (!yyyymm) return;
+
+        const [year, month] = yyyymm.split('-').map(Number);
+
+        const fixedColumns = [
+          {binding: 'defect_type', header: '불량명', width: 120, align: 'left'},
+          {binding: 'defect_pk', header: '불량id', width: 120, align: 'left', visible: false},
+        ];
+        const dayColumns = getDayColumnsByMonth(year, month);
+        const allColumns = [...fixedColumns, ...dayColumns];
+
+        // ✅ 기존 그리드가 있으면 dispose
+        const oldGrid = wijmo.Control.getControl('#theGrid');
+        if (oldGrid) oldGrid.dispose();
+
+        // ✅ 새로 그리드 생성
+        this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+          //selectionMode: wijmo.grid.SelectionMode.Row,
+          selectionMode: wijmo.grid.SelectionMode.Cell,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          autoGenerateColumns: false,
+          showMarquee: true,
+          frozenColumns: 1,
+          isReadOnly: false,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              const col = sender.columns[e.col];
+              const header = col.header;
+
+              e.cell.style.textAlign = 'center';
+
+              if (/^\d+$/.test(header)) {
+                const day = parseInt(header);
+                const yyyymm = $('#SearchDate').val(); // "2025-08"
+                const [year, month] = yyyymm.split('-').map(Number);
+                const date = new Date(year, month - 1, day);
+                const isoDate = formatDateToYYYYMMDD(date);
+
+                const dayOfWeek = date.getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const isHoliday = holidayList.includes(isoDate); // ✅ 정확히 비교
+
+                if (isHoliday || isWeekend) {
+                  e.cell.style.color = 'red';
+                  e.cell.style.backgroundColor = '#ffecec';
+                } else {
+                  e.cell.style.color = 'blue';
+                  e.cell.style.backgroundColor = '#ecf5ff';
+                }
+              }
+            }
+          },
+          itemFormatter: (panel, row, col, cell) => {
+            if (panel.cellType === wijmo.grid.CellType.Cell) {
+              cell.contentEditable = false; // 직접 입력 방지
+            }
+          },
+
+          columns: allColumns,
+          itemsSource: this.viewData,
+        });
+
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '검사일보';
+
+        this.grid.hostElement.addEventListener('dblclick', function (e) {
+          let items = _this.grid.selectedItems;
+          if (items.length === 0) {
+            return false;
+          }
+          _this.$btnEdit.trigger('click');
+        });
+
+        // ✅ 1. Footer 행 초기화 및 생성
+        this.grid.columnFooters.rows.clear(); // 기존 footer 초기화
+        this.grid.columnFooters.rows.push(new wijmo.grid.Row()); // 검사수 row
+        this.grid.columnFooters.rows.push(new wijmo.grid.Row()); // 불량수 row
+        this.grid.columnFooters.rows.push(new wijmo.grid.Row()); // ppm row
+
+// ✅ 2. footer 내용 설정 (데이터 로딩 이후 처리)
+        this.grid.loadedRows.addHandler(() => {
+          const footerPanel = this.grid.columnFooters;
+
+          const rowTotalQty = footerPanel.rows[0];  // 검사수
+          const rowDefectQty = footerPanel.rows[1]; // 불량수
+          const rowPpm = footerPanel.rows[2];       // ppm
+
+          const totalQtyData = {defect_type: '검사수'};
+          const defectQtyData = {defect_type: '불량수'};
+          const ppmData = {defect_type: 'ppm'};
+
+          const dayColumns = this.grid.columns.filter(col => /^\d+$/.test(col.header));
+
+          const seenDates = new Set(); // 날짜 중복 방지
+
+          dayColumns.forEach(col => {
+            const field = col.binding; // 예: day_05
+
+            let total = 0;
+            let defect = 0;
+
+            this.viewData.items.forEach(item => {
+              const totalKey = `total_${field}`;
+              const defectKey = field;
+
+              const prodDate = item.InspectionDate || item.production_date || field;
+              const key = `${prodDate}`; // 날짜 단위 중복 방지
+
+              if (!seenDates.has(key) && item[totalKey] > 0) {
+                total += item[totalKey];
+                seenDates.add(key);
+              }
+
+              defect += item[defectKey] || 0;
+            });
+
+            const ppm = total > 0 ? Math.round((defect / total) * 1_000_000) : 0;
+
+            totalQtyData[field] = total > 0 ? total : '-';
+            defectQtyData[field] = defect > 0 ? defect : '-';
+            ppmData[field] = ppm > 0 ? ppm : '-';
+          });
+
+          rowTotalQty.dataItem = totalQtyData;
+          rowDefectQty.dataItem = defectQtyData;
+          rowPpm.dataItem = ppmData;
+        });
+
+
+        this.$btnAddNew.click(function (e) {
+
+          let nowDate = CommonUtil.getYYYYMMDD();
+          const workCenterId = $('#SrchWorkCenter_id').val();
+
+          let defaultData = {
+            id: '',
+            mode: 'new',
+            InspectionDate: nowDate,
+            WorkCenter_id: workCenterId,
+            spjangcd: _this.$spjangcd
+          };
+
+          if ($('.popup:visible').length > 0) {
+            return; // 이미 열려있다면 중복으로 열지 않음
+          }
+
+          _this.showTestAddNewForm(defaultData);
+        });
+
+        this.$btnEdit.click(() => {
+          const selection = this.grid.selection;
+
+          const row = selection.row;
+          const col = selection.col;
+
+          if ($('.popup:visible').length > 0) return;
+
+          // // 셀 미선택 또는 헤더 선택 방지
+          // if (row < 0 || col < 0) {
+          //   console.log('선택 셀:', row, col);
+          //   Alert.alert('알림', '수정할 셀을 먼저 선택하세요.');
+          //   return;
+          // }
+
+          const colObj = this.grid.columns[col];
+          const headerText = colObj.header;
+          //console.log('선택 셀:', selection.row, selection.col);
+
+          // 숫자 형태의 날짜 열만 허용 (1~31 등)
+          if (!/^\d+$/.test(headerText)) {
+           // Alert.alert('알림', '날짜 셀을 선택하세요.');
+            return;
+          }
+
+          const day = Number(headerText);
+          const yyyymm = $('#SearchDate').val(); // 예: "2025-08"
+          if (!yyyymm || !yyyymm.includes('-')) {
+            Alert.alert('알림', '조회월을 먼저 선택하세요.');
+            return;
+          }
+
+          const [year, month] = yyyymm.split('-').map(Number);
+          const picked = new Date(year, month - 1, day);
+          const isoDate = formatDateToYYYYMMDD(picked); // YYYY-MM-DD 형식으로 변환
+
+          const workCenterId = $('#SrchWorkCenter_id').val();
+          if (!workCenterId) {
+            Alert.alert('알림', '라인(워크센터)을 선택하세요.');
+            return;
+          }
+
+          // 팝업 띄우기
+          this.showTestAddNewForm({
+            mode: 'edit',
+            InspectionDate: isoDate,
+            WorkCenter_id: workCenterId,
+            spjangcd: this.$spjangcd
+          });
+        });
+
+        $('#SrchWorkCenter_id').off('change').on('change', function () {
+          _this.searchMainData();
+        });
+
+
+        function getDayColumnsByMonth(year, month) {
+          const lastDay = new Date(year, month, 0).getDate();
+          return Array.from({length: lastDay}, (_, i) => ({
+            binding: `day_${i + 1}`,
+            header: `${i + 1}`,
+            width: 80,
+            align: 'right',
+            allowSorting: false,
+            format: 'n0',
+          }));
+        }
+      }
+
+      showTestAddNewForm(data) {
+        let _this = this;
+        let content = tmpl('TestDailySaveTemplate', data);
+        let $content = $(content);
+        let csrfToken = $("[name=_csrf]").val();
+        let modalContainer = null;
+
+        if (data.mode === 'new') {
+          modalContainer = new PopupDraggable('검사일보 등록');
+        } else {
+          modalContainer = new PopupDraggable('검사일보 수정');
+        }
+
+        //모달 크기
+        modalContainer.open({width: 850, height: 590, $content});
+
+        //팝업타이틀 설정
+        let $popTitle = $content.find('#popTitle');
+        if (data.mode === 'new') {
+          $popTitle.text('검사일보 등록');
+        } else {
+          $popTitle.text('검사일보 수정');
+        }
+
+        let $inspectionDate = $content.find('#InspectionDate');
+        let $workCenter = $content.find('#WorkCenter_id');
+        let $defectQty = $content.find('#defect_qty');
+        let $inspectionQty = $content.find('#InspectionQty');
+        let $defectType = $content.find('#DefectType');
+        let $AddNewForm = $content.find('#TestDailyReportAddNewForm');
+        let $btnPopSave = $content.find('#btnPopTestDailySave');
+        let mainWorkCenterVal = $('#SrchWorkCenter_id').val();
+
+        AjaxUtil.fillSelectOptions($workCenter, 'workcenter', '', false);
+        AjaxUtil.fillSelectOptions($defectType, 'defect_type', '', false);
+        let nowDate = CommonUtil.getYYYYMMDD();
+        $inspectionDate.val(nowDate);
+        if (mainWorkCenterVal) {
+          $workCenter.val(mainWorkCenterVal);
+        }
+
+        this.defectGrid = new wijmo.grid.FlexGrid('#defect-grid', {
+          autoGenerateColumns: false,
+          selectionMode: wijmo.grid.SelectionMode.Cell, // 다중 선택 불가
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          columns: [
+            {binding: 'defect_type', header: '부적합유형', width: 300, align: 'center', isReadOnly: true},
+            {binding: 'defect_type_id', header: 'ID', width: 80, visible: false},
+            {
+              binding: 'defect_qty',
+              header: '부적합량',
+              width: 200,
+              align: 'center',
+              format: 'n0',
+              isReadOnly: false, // 편집 가능
+            },
+          ],
+          itemsSource: new wijmo.collections.CollectionView([]), // 빈 데이터로 초기화
+          itemFormatter: (panel, row, col, cell) => {
+            const column = panel.columns[col];
+            if (panel.cellType === wijmo.grid.CellType.Cell) {
+              if (column.binding === 'defect_qty') {
+                cell.style.textAlign = 'right';
+              }
+            }
+            if (panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              // 컬럼 스타일 적용
+              if (column.binding === 'defect_qty') {
+                cell.style.color = '#5567ff';
+              }
+            }
+          }
+        });
+
+        const loadDefects = (workCenterId, inspectionDate) => {
+          const wcId = workCenterId || $workCenter.val();
+          const date = inspectionDate || $inspectionDate.val();
+          if (!wcId || !date) return;
+
+          AjaxUtil.getAsyncData('/api/test/test_daily_report/defects', {
+            workCenterId: wcId,
+            date: date,
+            spjangcd: _this.$spjangcd
+          }, (res) => {
+            const list = (res.data || []).map(r => ({
+              defect_type_id: r.defect_type_id,
+              defect_type: r.defect_type,
+              defect_qty: r.defect_qty || 0,
+              inspection_qty: r.inspection_qty || 0
+            }));
+            _this.defectGrid.itemsSource.sourceCollection = list;
+            _this.defectGrid.itemsSource.refresh();
+
+            // 서버에 기존 검사수(inspection_qty)가 있으면 세팅
+            const first = (res.data || [])[0];
+            if (first && typeof first.inspection_qty === 'number') {
+              $inspectionQty.val(first.inspection_qty.toLocaleString());
+            }
+          });
+        };
+
+        // 초기 로드 및 변경 시 다시 로드
+        loadDefects();
+
+        $workCenter.on('change', () => loadDefects());
+        $inspectionDate.on('change', () => loadDefects());
+
+        if (data && data.mode === 'edit') {
+          // 날짜 설정
+          $inspectionDate.val(data.InspectionDate);
+          console.log('🎯 input에 실제 세팅된 값:', $inspectionDate.val());
+
+          // 워크센터 설정
+          $workCenter.val(data.WorkCenter_id);
+
+          // 🚀 loadDefects 즉시 호출 (타이밍 문제 없이 정확하게 동작)
+          loadDefects(data.WorkCenter_id, data.InspectionDate);
+
+          // UI 제어 (비동기 이후에 실행해도 무방한 영역)
+          setTimeout(() => {
+            $workCenter.css({'pointer-events': 'none', 'background-color': '#EDEFF5'});
+            $inspectionDate.prop('readonly', true);
+          }, 0);
+        }
+
+        $btnPopSave.off('click').on('click', function () {
+          // 1) 그리드 데이터 수집
+          const gridItems = _this.defectGrid.itemsSource ? _this.defectGrid.itemsSource.items : [];
+          // 숫자 정규화
+          const toInt = (v) => {
+            if (v == null || v === '') return 0;
+            return Number(String(v).replaceAll(',', '').trim()) || 0;
+          };
+
+          // 2) 헤더 + 라인 payload 만들기
+          const payload = {
+            header: {
+              inspectionDate: $inspectionDate.val(),     // 'YYYY-MM-DD'
+              workCenterId: $workCenter.val(),         // 숫자 문자열이면 서버에서 파싱
+              inspectionQty: toInt($inspectionQty.val()),
+              spjangcd: _this.$spjangcd
+            },
+            lines: (gridItems || []).map(r => ({
+              defectTypeId: r.defect_type_id,
+              defectQty: toInt(r.defect_qty)
+            }))
+          };
+
+          // 유효성(선택): 검사수 >= 부적합량 합
+          const sumDefect = payload.lines.reduce((s, r) => s + r.defectQty, 0);
+          if (payload.header.inspectionQty < sumDefect) {
+            Alert.alert('검사수 확인', '총 검사수보다 부적합량 합계가 큽니다.');
+            return;
+          }
+
+          Alert.confirm('', '저장하시겠습니까?', function () {
+            $.ajax({
+              type: 'POST',
+              url: '/api/test/test_daily_report/save',
+              data: JSON.stringify(payload),
+              contentType: 'application/json; charset=UTF-8',
+              headers: {'X-CSRF-TOKEN': csrfToken},
+              success: function (res) {
+                if (res.success) {
+                  _this.searchMainData();
+
+                  modalContainer.close(); // 저장 후 닫기 등
+                } else {
+                  Alert.alert('실패', res.message || '검사일보 저장 실패');
+                }
+              },
+              error: function (xhr) {
+                Alert.alert('서버 오류', xhr.responseText || '서버 오류');
+              }
+            });
+          });
+        });
+
+      }
+
+      //검사일보 목록 조회
+      searchMainData() {
+        let _this = this;
+        let url = this.url + '/read';
+        let data = {
+          'WorkCenter_id': $('#SrchWorkCenter_id').val(),
+          'SearchDate': $('#SearchDate').val()
+        };
+
+        let fnsuccess = function (result) {
+          if (!Array.isArray(result.data)) {
+            _this.viewData.sourceCollection = [];
+            return;
+          }
+
+          const rawData = result.data;
+
+          const grouped = {};
+          rawData.forEach(row => {
+            // 날짜에서 일(day)만 추출
+            const day = new Date(row.InspectionDate).getDate(); // ← 더 안전한 방식
+            const key = `${row.defect_type}_${row.defect_pk}`;
+
+            if (!grouped[key]) {
+              grouped[key] = {
+                defect_type: row.defect_type,
+                defect_pk: row.defect_pk
+              };
+            }
+
+            // 누적 처리 (같은 날 중복 데이터 있을 경우 대비)
+            grouped[key][`day_${day}`] = (grouped[key][`day_${day}`] || 0) + row.defect_qty;
+            grouped[key][`total_day_${day}`] = (grouped[key][`total_day_${day}`] || 0) + row.inspection_qty;
+          });
+
+          const converted = Object.values(grouped);
+          _this.viewData.sourceCollection = converted;
+        };
+
+        AjaxUtil.getAsyncData(url, data, fnsuccess);
+      }
+    }
+
+    let holidayList = [];
+
+    async function fetchHolidaysForYear(year) {
+      return new Promise((resolve, reject) => {
+        var xhr = new XMLHttpRequest();
+        var url = 'http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo';
+        var queryParams = '?' + encodeURIComponent('serviceKey') + '=' + 'R3P3syhq6qRP0cz8mbV2J5t%2B32WwaSN9sH8ZW4k59oKAU3Ze0WvcljMrN36OJqxs38%2F780hMD4QfhCiDZQNUyA%3D%3D';
+        queryParams += '&' + encodeURIComponent('solYear') + '=' + encodeURIComponent(year);
+        queryParams += '&' + encodeURIComponent('numOfRows') + '=' + encodeURIComponent('30');
+
+        xhr.open('GET', url + queryParams);
+        xhr.onreadystatechange = function () {
+          if (this.readyState == 4) {
+            if (this.status == 200) {
+              var parser = new DOMParser();
+              var xmlDoc = parser.parseFromString(this.responseText, "text/xml");
+
+              // XML에서 원하는 데이터 추출
+              var items = xmlDoc.getElementsByTagName("item");
+              let holidays = [];
+              for (var i = 0; i < items.length; i++) {
+                var locdate = items[i].getElementsByTagName("locdate")[0].textContent;
+                var dateName = items[i].getElementsByTagName("dateName")[0].textContent;
+
+                holidays.push({date: locdate, name: dateName});
+              }
+              resolve(holidays);
+            } else {
+              console.error('오류 발생. HTTP 상태 코드:', this.status);
+              reject(this.status);
+            }
+          }
+        };
+
+        xhr.send();
+      });
+    }
+
+    async function initPage() {
+      $('#SearchDate').val(CommonUtil.getYYYYMMDD().substring(0, 7));
+      AjaxUtil.fillSelectOptions($('#SrchWorkCenter_id'), 'workcenter', '', false);
+
+      const yyyymm = $('#SearchDate').val();
+      const [year] = yyyymm.split('-').map(Number);
+
+      try {
+        const holidaysRaw = await fetchHolidaysForYear(year);
+        holidayList = holidaysRaw
+          .filter(item => item.date && item.date.length === 8)
+          .map(item => {
+            const locdate = item.date;
+            return `${locdate.substring(0, 4)}-${locdate.substring(4, 6)}-${locdate.substring(6, 8)}`;
+          });
+
+        //console.log('📅 최초 로딩 holidayList:', holidayList);
+      } catch (err) {
+        console.error('❌ 공휴일 로딩 실패:', err);
+        holidayList = [];
+      }
+
+      page = new TestDailyReportPage();
+      page.searchMainData();
+    }
+
+    function formatDateToYYYYMMDD(date) {
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+
+    let page = null;
+
+    $(document).ready(function () {
+      initPage();
+      $('#SearchDate').val(CommonUtil.getYYYYMMDD().substring(0, 7));
+      AjaxUtil.fillSelectOptions($('#WorkCenter_id'), 'workcenter', '', false);
+
+      page = new TestDailyReportPage();
+      //page.searchMainData();
+
+      $('#SearchDate').on('change', async function () {
+        const yyyymm = $('#SearchDate').val(); // "2025-08"
+
+        if (!yyyymm || !yyyymm.includes('-')) {
+          console.warn('⚠️ 조회월이 유효하지 않습니다:', yyyymm);
+          return;
+        }
+
+        const [year] = yyyymm.split('-').map(Number);
+
+        try {
+          const holidaysRaw = await fetchHolidaysForYear(year);
+          holidayList = holidaysRaw
+            .filter(item => item.date && item.date.length === 8)
+            .map(item => {
+              const locdate = item.date;
+              return `${locdate.substring(0, 4)}-${locdate.substring(4, 6)}-${locdate.substring(6, 8)}`;
+            });
+
+          //console.log('📅 holidayList:', holidayList);
+
+          page.init();
+          page.searchMainData();
+
+        } catch (err) {
+          console.error('❌ 공휴일 로딩 실패:', err);
+          holidayList = [];
+          page.init();
+          page.searchMainData();
+        }
+      });
+
+      //검색
+      $('#btnSearch').click(function (e) {
+        page.searchMainData();
+      });
+
+      $('#keyword').on('keypress', function (e) {
+        if (event.keyCode == 13) {
+          page.searchMainData();
+        }
+      });
+
+      // 삭제
+      $('#btnDel').click(function (e) {
+        page.showEditPage('del');
+      });
+    });
+  </script>
+</th:block>
+</html>

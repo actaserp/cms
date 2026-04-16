@@ -1,0 +1,898 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+    <style>
+
+        [data-ax5grid] [data-ax5grid-container="root"] [data-ax5grid-container="body"] [data-ax5grid-panel] table tr td [data-ax5grid-cellHolder] {
+            font-size: 14px;
+        }
+
+
+        /* 1. 최상위 컨테이너 높이 해제 */
+        .layout-contents {
+            height: auto !important; /* 고정 높이 제거 */
+            min-height: 100%; /* 최소한 화면은 채우도록 설정 */
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 40px; /* 마지막 카드 하단 여백 확보 */
+        }
+
+        /* 2. 중간 래퍼들의 높이 제약 해제 */
+        .tab-wrap, .tab-contents, .row {
+            height: auto !important;
+            min-height: 1px; /* 부모 height: 100% 자식들이 깨지는 것 방지 */
+            display: block !important;
+        }
+
+        /* 3. 대시보드 그리드 (3열 유지) */
+.dashboard-grid {
+    display: grid !important;
+    /* minmax(0, 1fr)을 써야 내부 요소가 너비를 강제하지 못합니다 */
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-gap: 20px;
+    width: 100% !important;
+    /* 카드가 화면 밖으로 나가는 것을 방지 */
+    overflow: hidden; 
+}
+
+/* 2. 카드 요소의 유연성 강제 */
+.card {
+    background: #ffffff;
+    min-width: 0;      /* 카드가 부모 그리드보다 커지는 것을 원천 봉쇄 */
+    width: 100%;       /* 항상 부모(Grid Cell) 너비에 맞춤 */
+    height: 320px;     /* 필요시 auto로 변경 */
+    display: flex;
+    flex-direction: column;
+}
+
+    .card-header {
+        background-color: white;
+        padding: 18px 20px;
+        border-bottom: 1px solid #f1f3f5;
+        flex-shrink: 0; /* 헤더 크기가 줄어들지 않도록 설정 */
+    }
+
+    .card-header strong {
+        font-size: 16px;
+        font-weight: 800;
+        color: #212529;
+        letter-spacing: -0.5px;
+    }
+
+    /* 5. 카드 내부 본문 스크롤 설정 */
+.card-body {
+    padding: 15px;
+    flex: 1;
+    min-width: 0;      /* 내부 요소가 너비를 차지하려고 해도 무시 */
+    overflow: hidden;  /* 내용이 넘치면 스크롤이 아닌 숨김/유동적 대응 */
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap; /* 가로 배치를 일단 유지하되, 아래 미디어쿼리에서 전환 */
+}
+
+
+
+    /* 스크롤바 디자인 (선택 사항: 더 깔끔하게 보이게 함) */
+    .card-body::-webkit-scrollbar {
+        width: 6px;
+    }
+    .card-body::-webkit-scrollbar-thumb {
+        background-color: #e9ecef;
+        border-radius: 10px;
+    }
+    .card-body::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .chart-container {
+    position: relative;
+    height: 150px; /* 게이지 차트가 적절히 보일 높이 */
+    width: 100%;
+    }
+
+    /* 그리드 전용 패딩 클래스 */
+    .card-body.grid-padding {
+        padding: 15px 25px; /* 상하 15px, 좌우 25px로 너비를 조절 */
+    }
+
+    /* 그리드 호스트 스타일 보정 */
+.grid-host {
+    width: 100% !important;
+    min-width: 0 !important; /* 내부 요소가 넘쳐도 카드는 유지됨 */
+    flex: 1;
+}
+
+
+#adminUsageGrid .wj-header {
+    background-color: #8c8c8c !important; /* 이미지와 유사한 회색 헤더 */
+    color: #ffffff !important;
+    font-weight: bold;
+}
+
+/* 초과 사용 시 텍스트 강조 */
+.usage-excess {
+    color: #ff0000 !important;
+    font-weight: bold;
+}
+
+
+/* 월별 가입현황 카드 본문 전용 스타일 */
+.card-body.monthly-grid-card {
+    display: flex !important;
+    flex-direction: column !important; /* 세로 배치 강제 */
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    overflow: hidden !important; /* 내부 요소가 넘치지 않게 */
+}
+
+/* 해당 카드 안의 그리드 높이 조절 */
+.monthly-grid-card .grid-host {
+    flex: 1; /* 남은 높이 다 차지 */
+    min-height: 0; /* flex 자식의 높이 버그 방지 */
+    margin-bottom: 8px;
+}
+
+/* 해당 카드 안의 페이저 스타일 */
+.monthly-grid-card #thePager {
+    flex-shrink: 0; /* 높이 고정 */
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.card-body.usage-grid-card {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    overflow: hidden !important;
+}
+
+.usage-grid-card .grid-host {
+    flex: 1;
+    min-height: 0;
+    margin-bottom: 8px;
+}
+
+.usage-grid-card #thePager_usage {
+    flex-shrink: 0;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+        /* 반응형 설정: 창이 줄어들면 1열로 */
+/* [PC - 소형 화면] 1200px ~ 1400px: 3열 유지하되 카드 내부 폰트나 간격 조정 */
+@media screen and (max-width: 1300px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+/* 더 줄어들면(예: 작은 태블릿/모바일) 1열로 전환 */
+@media screen and (max-width: 850px) {
+    .dashboard-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+    
+    .card-body {
+        flex-direction: column !important; /* 내부 아이템(차트 등) 세로 배치 */
+        overflow-y: auto; /* 내용이 많아지면 세로 스크롤 허용 */
+    }
+    
+    .vm-usage-item {
+        width: 100% !important;
+    }
+}
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>Dash Board</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>모니터링</li>
+                <li>대쉬보드</li>
+            </ul>
+        </div>
+
+        <div class="tab-wrap">
+            <div class="tab-contents">
+                <div class="row">
+                    <div class="content-wrap dashboard-grid">
+
+                        <div class="card">
+                            <div class="card-header"><strong>VM 사용량(vCPU 및 RAM 가용성)</strong></div>
+                            <div class="card-body" style="display: flex; justify-content: space-around; align-items: flex-start; overflow-x: auto; overflow-y: auto;">
+
+                                <div class="vm-usage-item" style="flex: 1; text-align: center; padding: 10px; min-width: 150px;">
+                                    <div style="position: relative; height: 140px; width: 100%;">
+                                        <canvas id="cpuChart"></canvas>
+                                        <div id="cpuValue" style="position: absolute; top: 65%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; font-weight: 800; color: #3b82f6;">0%</div>
+                                    </div>
+                                    <div style="font-weight: 800; color: #333; margin-top: -10px;">vCPU</div>
+                                </div>
+
+                                <div class="vm-usage-item" style="flex: 1; text-align: center; padding: 10px; min-width: 150px;">
+                                    <div style="position: relative; height: 140px; width: 100%;">
+                                        <canvas id="ramChart"></canvas>
+                                        <div id="ramValue" style="position: absolute; top: 65%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; font-weight: 800; color: #10b981;">0%</div>
+                                    </div>
+                                    <div style="font-weight: 800; color: #333; margin-top: -10px;">RAM</div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header"><strong>네트워크 이용내역</strong></div>
+                            <div class="card-body">
+                                <div style="width: 100%; height: 100%; position: relative;">
+                                    <canvas id="networkChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- <div class="card">
+                            <div class="card-header"><strong>api 콜 횟수(고객사별)</strong></div>
+                            <div class="card-body grid-padding">
+                                <div id="apiCallGrid" class="grid-host"></div>
+                            </div>
+                        </div> -->
+
+                        <!-- <div class="card">
+                            <div class="card-header"><strong>요금제별 이용현황</strong></div>
+                            <div class="card-body grid-padding">
+                                <div id="ratePlanGrid" class="grid-host"></div>
+                            </div>
+                        </div> -->
+
+                        <!-- <div class="card">
+                            <div class="card-header">
+                                <strong>월별 가입현황</strong>
+                                <input type="month" id="monthPicker" ...>
+                            </div>
+
+
+                            <div class="card-body grid-padding monthly-grid-card">
+                                <div id="monthlySignupGrid" class="grid-host"></div>
+                                <div id="thePager">
+                                    <button id="btnFirst"  onclick="page.goToPage(1)">◀◀</button>
+                                    <button id="btnPrev"   onclick="page.goToPage(page.currentPage - 1)">◀</button>
+                                    <span id="pagerInfo"></span>
+                                    <button id="btnNext"   onclick="page.goToPage(page.currentPage + 1)">▶</button>
+                                    <button id="btnLast"   onclick="page.goToPage(page.totalPages)">▶▶</button>
+                                </div>
+                            </div>
+                        </div> -->
+
+                        <div class="card">
+                            <div class="card-header"><strong>Nginx 로그 업로드</strong></div>
+                            <div class="card-body" style="flex-direction: column; gap: 12px; overflow-y: auto;">
+
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <label style="font-size: 13px; font-weight: 600; color: #495057;">서비스</label>
+                                    <select id="logService" style="border: 1px solid #dee2e6; border-radius: 6px; font-size: 13px;">
+                                        <option value="mes">MES</option>
+                                        <option value="sport">SPORT</option>
+                                    </select>
+                                </div>
+
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <label style="font-size: 13px; font-weight: 600; color: #495057;">날짜</label>
+                                    <input type="date" id="logDate"
+                                           style="padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 13px;">
+                                </div>
+
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <label style="font-size: 13px; font-weight: 600; color: #495057;">로그 파일</label>
+                                    <input type="file" id="logFile" accept=".log,.log-*,*"
+                                           style="border: 1px solid #dee2e6; border-radius: 6px; font-size: 13px; background: #fff;">
+                                </div>
+
+                                <button id="btnUploadLog"
+                                        style="margin-top: 4px; padding: 9px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                                    업로드
+                                </button>
+
+                                <!-- 결과 영역 -->
+                                <div id="uploadResult" style="display:none; padding: 12px; background: #f8f9fa; border-radius: 6px; font-size: 13px; line-height: 1.8;">
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- <div class="card">
+                            <div class="card-header"><strong>요청사항</strong></div>
+                            <div class="card-body grid-padding">
+                                <div id="requestGrid" class="grid-host"></div>
+                            </div>
+                        </div> -->
+                    </div>
+
+                    <div class="row" style="margin-top: 20px;">
+                        <div class="card admin-only-section" style="height: auto; min-height: 400px;">
+                            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; background-color: #f8f9fa;">
+                                <strong>[관리자 전용] 실시간 사용량 및 정산 현황</strong>
+                                <div class="header-tools">
+                                    <input type="month" id="monthPicker2" ...>
+                                    <button class="btn-excel" style="padding: 5px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                                        엑셀 다운로드
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body grid-padding usage-grid-card">
+                                <div id="adminUsageGrid" class="grid-host" style="min-height: 350px;"></div>
+                                <div id="thePager_usage">
+                                    <button id="btnFirst_usage"  onclick="page.goToUsagePage(1)">◀◀</button>
+                                    <button id="btnPrev_usage"   onclick="page.goToUsagePage(page.usageCurrentPage - 1)">◀</button>
+                                    <span id="pagerInfo_usage"></span>
+                                    <button id="btnNext_usage"   onclick="page.goToUsagePage(page.usageCurrentPage + 1)">▶</button>
+                                    <button id="btnLast_usage"   onclick="page.goToUsagePage(page.usageTotalPages)">▶▶</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="row" style="margin-top: 20px;">
+    <div class="card" style="height: auto; min-height: 400px;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; background-color: #f8f9fa;">
+            <strong>트래픽 수집 현황</strong>
+            <div class="header-tools" style="display: flex; gap: 8px; align-items: center;">
+                <input type="date" id="trafficStartDate" style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 13px;">
+                <span>~</span>
+                <input type="date" id="trafficEndDate" style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 13px;">
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
+                    <input type="checkbox" id="chkGroupByService"> 서비스별 그룹화
+                </label>
+                <button id="btnSearchTraffic" style="padding: 5px 12px; background: #3b82f6; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                    조회
+                </button>
+            </div>
+        </div>
+        <div class="card-body grid-padding" style="flex-direction: column;">
+            <div id="trafficDailyGrid" class="grid-host" style="min-height: 350px;"></div>
+        </div>
+    </div>
+</div>
+
+
+                </div>
+            </div>
+        </div>
+    </div>
+</th:block>
+<th:block layout:fragment="scripts">
+    <script th:src="@{/resource/apexcharts/apexcharts.3.26.min.js}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="text/javascript">
+        class MonitoringDashBoardPage {
+            constructor() {
+                // 그리드와 차트 객체를 저장할 변수 선언
+                //this.ratePlanGrid = null;
+
+                this.monthlySignupGrid = null;
+                // 1. CollectionView 생성 (pageSize 설정)
+                this.montly_viewData = new wijmo.collections.CollectionView([], {
+                    pageSize: 0
+                });
+
+                this.totalCount = 0;  // 전체 건수를 별도 관리
+                this.currentPage = 1;
+                this.pageSize = 10;
+                
+                this.usageCurrentPage = 1;
+                this.usagePageSize = 10;
+                this.usageTotalCount = 0;
+
+
+                //this.apiCallGrid = null;
+                //this.apiCall_viewData = new wijmo.collections.CollectionView();
+                
+                //this.requestGrid = null;
+
+                this.adminUsageGrid = null;
+                this.adminUsageGrid_viewData = new wijmo.collections.CollectionView();
+
+                this.trafficDailyGrid = null;
+                this.trafficDailyGrid_viewData = new wijmo.collections.CollectionView();
+
+                this.url = '/api/monitoring';
+
+                this.charts = {};
+
+                this.init();
+
+            }
+
+
+            init() {
+                this.initGrids();
+                this.initCharts(); // 기존 게이지 차트 로직 (유지)
+            }
+
+            searchMainData(){
+                let _this = this;
+
+                this.currentPage = 1;
+                this.usageCurrentPage = 1;
+                
+
+                let data = {
+                    'monthlyStartDate' : $('#monthPicker').val(),
+                    'monthlyStartDate2' : $('#monthPicker2').val()
+                }
+
+                AjaxUtil.getAsyncData(this.url + "/read", data, function(result){
+                        console.log('서버에서 온 실제 데이터: ', result);
+                        if(result.success){
+                            const resData = result.data;
+
+                            // VM 사용량 (게이지 차트)
+                            if (resData.resource) {
+                                _this.updateGaugeCharts(resData.resource);
+                            }
+
+                            // 네트워크 이용내역 (라인 차트)
+                            const traffic = resData.traffic;
+                            if (traffic && _this.charts.network) {
+                                _this.charts.network.data.labels = traffic.labels;
+                                _this.charts.network.data.datasets[0].data = traffic.inboundData;
+                                _this.charts.network.data.datasets[1].data = traffic.outboundData;
+                                _this.charts.network.update();
+                            }
+
+                            // 월별 가입현황
+                            // if (resData.monthly) {
+                                
+                            //     const totalCount = resData.monthly.length > 0 ? parseInt(resData.monthly[0].total_count) : 0;
+                            //     _this.totalCount = totalCount;
+                            //     _this.montly_viewData.sourceCollection = resData.monthly;
+                            //     _this.montly_viewData.refresh();
+
+                            //     _this.updatePagerUI();
+                            // }
+
+                            // API 콜 횟수
+                            if (resData.apiCntList) {
+
+                                const totalCount = resData.apiCntList.length > 0 ? parseInt(resData.apiCntList[0].total_count) : 0;
+
+                               _this.usageTotalCount = totalCount;
+                               _this.adminUsageGrid_viewData.sourceCollection = resData.apiCntList;
+                               _this.adminUsageGrid_viewData.refresh();
+                               _this.updateUsagePagerUI();  
+                               // _this.apiCall_viewData.sourceCollection = resData.apiCntList;
+                            }
+
+
+                            // 트래픽 수집 현황
+                            if(resData.trafficDaily){
+                                _this.trafficDailyGrid_viewData.sourceCollection = resData.trafficDaily;
+                                _this.trafficDailyGrid_viewData.refresh();
+                            }
+                        }else {
+                            Alert.alert('', result.message);
+                        }
+                });
+
+            }
+
+            searchMonthlyData(pageNo) {
+                let _this = this;
+                let selectedDate = $('#monthPicker').val();
+                
+                this.currentPage = pageNo || this.currentPage;
+
+                let params = {
+                    'monthlyStartDate': selectedDate,
+                    'pageNumber': this.currentPage,
+                    'pageSize': this.pageSize
+                };
+
+                AjaxUtil.getAsyncData("/api/monitoring/pages/monthly", params, function(result) {
+                    if (result.success) {
+                        const totalCount = result.data.length > 0 
+                            ? parseInt(result.data[0].total_count) 
+                            : 0;
+                        
+                        _this.totalCount = totalCount;
+
+                        // CollectionView에 현재 페이지 데이터만 바인딩
+                        _this.montly_viewData.sourceCollection = result.data;
+                        _this.montly_viewData.refresh();
+
+                        // 커스텀 페이저 UI 업데이트
+                        _this.updatePagerUI();
+                    }
+                });
+            }
+
+            searchUsageData(pageNo) {
+                let _this = this;
+                let selectedDate = $('#monthPicker2').val();
+
+                this.usageCurrentPage = pageNo || this.usageCurrentPage;
+
+                let params = {
+                    'monthlyStartDate2' : selectedDate,
+                    'pageNumber': this.usageCurrentPage,
+                    'pageSize': this.usagePageSize
+                };
+
+                AjaxUtil.getAsyncData("/api/monitoring/pages/usage", params, function(result) {
+                    if (result.success) {
+                        const totalCount = result.data.length > 0
+                            ? parseInt(result.data[0].total_count)
+                            : 0;
+
+                        _this.usageTotalCount = totalCount;
+                        _this.adminUsageGrid_viewData.sourceCollection = result.data;
+                        _this.adminUsageGrid_viewData.refresh();
+                        _this.updateUsagePagerUI();
+                    }
+                });
+            }
+
+            searchTrafficData() {
+                let _this = this;
+                const isGrouped = $('#chkGroupByService').is(':checked');
+
+                let params = {
+                    'startDate':      $('#trafficStartDate').val(),
+                    'endDate':        $('#trafficEndDate').val(),
+                    'groupByService': isGrouped
+                };
+
+                AjaxUtil.getAsyncData('/api/traffic/range', params, function (result) {
+                    if (result.success) {
+                        _this.trafficDailyGrid_viewData.sourceCollection = result.data;
+                        _this.trafficDailyGrid_viewData.refresh();
+                        _this.updateTrafficColumns(isGrouped);
+                    } else {
+                        Alert.alert('', result.message);
+                    }
+                });
+            }            
+
+            initGrids() {
+
+                // this.monthlySignupGrid = new wijmo.grid.FlexGrid('#monthlySignupGrid', {
+                //     autoGenerateColumns: false,
+                //     headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                //     isReadOnly: true,
+                //     itemsSource: this.montly_viewData,
+                //     // ... (기존 설정 유지)
+                //     columns: [
+                //         { header: '고객사명', binding: 'spjangnm', width: '*', align: 'left' },
+                //         { header: '승인여부', binding: 'state_text', width: 80, align: 'center' },
+                //         { header: '가입일시', binding: 'subscriptiondate', width: 120, align: 'left', format: 'n0' }
+                //     ]
+                // });
+
+
+                // this.requestGrid = new wijmo.grid.FlexGrid('#requestGrid', {
+                //     autoGenerateColumns: false,
+                //     headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                //     isReadOnly: true,
+                //     // ... (기존 설정 유지)
+                //     columns: [
+                //         { header: '고객사명', binding: 'customer', width: '*', align: 'left' },
+                //         { header: '아이디', binding: 'user_id', width: 80, align: 'center' },
+                //         { header: '확인여부', binding: 'confirmation', width: 120, align: 'left' }
+                //     ]
+                // });
+
+                        this.adminUsageGrid = new wijmo.grid.FlexGrid('#adminUsageGrid', {
+                        autoGenerateColumns: false,
+                        headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                        isReadOnly: true,
+                        allowSorting: true,
+                        itemsSource: this.adminUsageGrid_viewData,
+                        columns: [
+                            { header: '사업장코드', binding: 'spjangcd', width: 100, align: 'center' },
+                            { header: '사업장명', binding: 'spjangnm', width: 150, align: 'left' },
+                            { header: '이용서비스플랜', binding: 'name', width: '*', align: 'left' },
+                            { header: '기본요금', binding: 'price', width: '*', align: 'right' },
+                            
+                            { header: '기본제공 api 호출량', binding: 'api_call_limit', width: '*', align: 'right' },
+                            { header: 'api 호출량', binding: 'apiCallCount', width: 150, align: 'right' },
+                            { header: 'api 초과호출량', binding: 'overCall', width: 150, align: 'right' },
+                            { header: '이용료', binding: 'overCallFee', width: 120, align: 'right', format: 'n0' }
+                        ],
+                        formatItem: (s, e) => {
+                            if (e.panel === s.cells) {
+                                let item = s.rows[e.row].dataItem;
+                                
+                                // overCall이 0보다 큰 경우 해당 셀의 텍스트를 빨간색으로 변경
+                                if (s.columns[e.col].binding === 'overCall') {
+                                    // zeroIfInvalid(아까 만든 유틸리티)와 같은 개념으로 안전하게 체크
+                                    let overCallValue = parseInt(item.overCall) || 0; 
+                                    
+                                    if (overCallValue > 0) {
+                                        e.cell.style.color = 'red';
+                                        e.cell.style.fontWeight = 'bold'; // 가독성을 위해 굵게 추가
+                                    } else {
+                                        e.cell.style.color = '';
+                                        e.cell.style.fontWeight = '';
+                                    }
+                                }
+
+                                // 기존 트래픽 초과 조건부 서식 유지
+                                if (item.is_traffic_excess) {
+                                    e.cell.classList.add('usage-excess');
+                                } else {
+                                    e.cell.classList.remove('usage-excess');
+                                }
+                            }
+                        }
+                        });
+
+                        this.trafficDailyGrid = new wijmo.grid.FlexGrid('#trafficDailyGrid', {
+                            autoGenerateColumns: false,
+                            headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                            isReadOnly: true,
+                            allowSorting: true,
+                            itemsSource: this.trafficDailyGrid_viewData,
+                            columns: [
+                                { header: '서비스',         binding: 'service',      width: 100,  align: 'center' },
+                                { header: '날짜',           binding: 'date',         width: 120,  align: 'center' },
+                                { header: '요청수',         binding: 'requestCount', width: '*',  align: 'right'  },
+                                { header: '총용량(MB)',     binding: 'totalMb',      width: '*',  align: 'right'  },
+                                { header: '총용량(GB)',     binding: 'totalGb',      width: '*',  align: 'right'  },
+                                { header: '트래픽 비율(%)', binding: 'trafficRatio', width: 120,  align: 'right'  },
+                            ],
+                            formatItem: (s, e) => {
+                                if (e.panel === s.cells) {
+                                    const col = s.columns[e.col].binding;
+                                    const item = s.rows[e.row].dataItem;
+
+                                    // 비율 높을수록 강조
+                                    if (col === 'trafficRatio') {
+                                        const ratio = parseFloat(item.trafficRatio) || 0;
+                                        if (ratio >= 70) {
+                                            e.cell.style.color = '#e74c3c';
+                                            e.cell.style.fontWeight = 'bold';
+                                        } else if (ratio >= 40) {
+                                            e.cell.style.color = '#f39c12';
+                                        } else {
+                                            e.cell.style.color = '#27ae60';
+                                        }
+                                        e.cell.innerText = ratio + '%';
+                                    }
+                                }
+                            }
+                        });
+            }
+
+            
+            /* 네트워크 차트 초기 설정 전용 메서드 */
+            initNetworkChart() {
+                const ctx = document.getElementById('networkChart').getContext('2d');
+                this.charts.network = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'],
+                        datasets: [
+                            {
+                                label: 'Inbound',
+                                data: [],
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                fill: true,
+                                tension: 0,           // 0으로 설정하면 직선이 됩니다
+                                pointRadius: 4,       // 꼭짓점 크기
+                                pointBackgroundColor: '#3b82f6' // 꼭짓점 색상
+                            },
+                            {
+                                label: 'Outbound',
+                                data: [],
+                                borderColor: '#f59e0b',
+                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                fill: true,
+                                tension: 0,           // 0으로 설정하면 직선이 됩니다
+                                pointRadius: 4,
+                                pointBackgroundColor: '#f59e0b'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',     // 같은 시간대 데이터를 같이 보여줌
+                            intersect: false
+                        },
+                        plugins: {
+                            legend: { position: 'top', align: 'end' }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: { display: true, text: 'bps' },
+                                grid: { color: '#f1f3f5' } // 배경 선 연하게
+                            },
+                            x: {
+                                grid: { display: false } // X축 세로선은 제거해서 깔끔하게
+                            }
+                        }
+                    }
+                });
+            }
+            
+            initCharts() {
+                // 이전에 작성한 vCPU, RAM 게이지 차트 초기화 로직
+                this.charts.cpu = this.createGaugeChart('cpuChart', '#3b82f6');
+                this.charts.ram = this.createGaugeChart('ramChart', '#10b981');
+
+                // 네트워크 라인 차트 초기화
+                this.initNetworkChart();
+            }
+            
+
+            // 게이지 차트 생성 공통 함수 (차트 부분)
+            createGaugeChart(canvasId, color) {
+                const canvas = document.getElementById(canvasId);
+                if (!canvas) return null;
+                const ctx = canvas.getContext('2d');
+                return new Chart(ctx, {
+                    type: 'doughnut',
+                    data: { datasets: [{ data: [0, 100], backgroundColor: [color, '#f1f3f5'], borderWidth: 0 }] },
+                    options: {
+                        rotation: -90, circumference: 180, cutout: '75%',
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false }, tooltip: { enabled: false } }
+                    }
+                });
+            }
+
+            get totalPages() {
+                return Math.ceil(this.totalCount / this.pageSize) || 1;
+            }
+
+            goToPage(pageNo) {
+                if (pageNo < 1 || pageNo > this.totalPages) return;
+                this.currentPage = pageNo;
+                this.searchMonthlyData(pageNo);
+            }
+
+            updatePagerUI() {
+                $('#pagerInfo').text(`Page ${this.currentPage} of ${this.totalPages}`);
+                $('#btnFirst, #btnPrev').prop('disabled', this.currentPage <= 1);
+                $('#btnNext, #btnLast').prop('disabled', this.currentPage >= this.totalPages);
+            }
+
+            get usageTotalPages() {
+                return Math.ceil(this.usageTotalCount / this.usagePageSize) || 1;
+            }
+
+            goToUsagePage(pageNo) {
+
+                if (pageNo < 1 || pageNo > this.usageTotalPages) return;
+                this.usageCurrentPage = pageNo;
+                this.searchUsageData(pageNo);
+            }
+
+            updateUsagePagerUI() {
+                $('#pagerInfo_usage').text(`Page ${this.usageCurrentPage} of ${this.usageTotalPages}`);
+                $('#btnFirst_usage, #btnPrev_usage').prop('disabled', this.usageCurrentPage <= 1);
+                $('#btnNext_usage, #btnLast_usage').prop('disabled', this.usageCurrentPage >= this.usageTotalPages);
+            }
+
+
+            //게이지 업데이트 함수
+            updateGaugeCharts(resource){
+                //cpu
+                const cpu = resource.avg_cpu_used_rto || 0;
+                const ram = resource.mem_usert || 0;
+
+                this.updateGaugeWithText(this.charts.cpu, 'cpuValue', cpu);
+                this.updateGaugeWithText(this.charts.ram, 'ramValue', ram);
+            }
+
+            updateGaugeWithText(chartObj, textId, value){
+                chartObj.data.datasets[0].data = [value, 100 - value];
+                chartObj.update();
+            
+                // 중앙 텍스트 갱신
+                const textElement = document.getElementById(textId);
+                if (textElement) {
+                    textElement.innerText = `${value}%`;
+                }
+            }
+        }
+
+        let page = null;
+        $(document).ready(function (e) {
+            page = new MonitoringDashBoardPage();
+
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+
+            document.getElementById('logDate').value = yesterday.toISOString().slice(0, 10);
+            document.getElementById('trafficStartDate').value = firstDay.toISOString().slice(0, 10);
+            document.getElementById('trafficEndDate').value = today.toISOString().slice(0, 10);
+            
+            $('#btnUploadLog').on('click', function(){
+                const file = document.getElementById('logFile').files[0];
+                const service = $('#logService').val();
+                const date = $('#logDate').val();
+
+                if (!file)    { Alert.alert('', '파일을 선택해주세요.'); return false; }
+                if (!service) { Alert.alert('', '서비스를 선택해주세요.'); return false; }
+                if (!date)    { Alert.alert('', '날짜를 선택해주세요.'); return false; }
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('service', service);
+                formData.append('date', date);
+                formData.append('spjangcd', sessionStorage.getItem('spjangcd'));
+
+                let fnSuccess = function(result){
+                    if(result.success){
+                        const d = result.data;
+                                    $('#uploadResult').html(`
+                                        <div style="color: #28a745; font-weight: 700; margin-bottom: 6px;">✔ ${d.message}</div>
+                                        <div>서비스: <strong>${d.service}</strong></div>
+                                        <div>날짜: <strong>${d.date}</strong></div>
+                                        <div>요청 수: <strong>${d.requestCount.toLocaleString()}건</strong></div>
+                                        <div>총 용량: <strong>${d.totalMb} MB (${d.totalGb} GB)</strong></div>
+                                    `).show();                        
+                    } else {
+                        Alert.alert('업로드 실패', result.message);
+                       console.error('업로드 실패:', result.message);
+                    }
+                }
+                AjaxUtil.postFileAsyncData('/api/traffic/upload', formData, fnSuccess);
+            
+            });
+
+
+            //document.getElementById('monthPicker').value = new Date().toISOString().slice(0,7);
+            document.getElementById('monthPicker2').value = new Date().toISOString().slice(0,7);
+
+            page.searchMainData();
+            //page.searchMonthlyData(1);
+            //page.searchUsageData(1);
+           
+            //날짜 바꾸면 다시 조회
+            // $('#monthPicker').on('change', function(){
+            //     let _this = page;
+            //     const selectedDate = $(this).val();
+
+            //     if(selectedDate){
+            //         // 1페이지부터 다시 조회
+            //         _this.currentPage = 1;
+            //         _this.searchMonthlyData(1);
+            //     }
+            // });
+
+
+            //날짜 바꾸면 다시 조회
+            $('#monthPicker2').on('change', function(){
+                let _this = page;
+                const selectedDate = $(this).val();
+
+                if(selectedDate){
+                    _this.usageCurrentPage = 1;
+                    _this.searchUsageData(1);
+                }
+            });
+
+            $('#btnSearchTraffic').on('click', function(){
+                page.searchTrafficData();
+            })
+            
+        });
+    </script>
+</th:block>
+</html>

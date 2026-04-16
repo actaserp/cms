@@ -1,0 +1,525 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+  <style>
+    /*input[type="text"],*/
+    /*input[type="tel"],*/
+    /*input[type="date"],*/
+    /*input[type="number"],*/
+    /*input[type="email"],*/
+    /*select {*/
+    /*  width: 280px;*/
+    /*}*/
+    input[type="radio"]:checked:after {
+      margin-left: 3px;
+      margin-top: 3px;
+    }
+  </style>
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>신용카드 등록</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>입금관리</li>
+        <li>입금 현황</li>
+      </ul>
+    </div>
+    <div style="display: flex; gap: 5px">
+      <section class="section" style="width: 40%;">
+        <div class="section-top">
+          <input type="hidden" id="spjangcdHidden">
+          <div class="search-wrap">
+            <dl>
+              <dt>
+                <label for="txtcardnm">
+                  카드명
+                </label>
+              </dt>
+              <dd>
+                <div class="srch-box">
+                  <input class="form-control2" type="text" id="txtcardnm" name="txtcardnm" placeholder="카드명" style="width:200px"/>
+                </div>
+              </dd>
+            </dl>
+            <dl>
+              <dt>
+                <label for="txtcardnum">
+                  카드번호
+                </label>
+              </dt>
+              <dd>
+                <div class="srch-box">
+                  <input class="form-control2" type="text" id="txtcardnum" name="txtcardnum" placeholder="카드번호" style="width:200px"/>
+                </div>
+              </dd>
+            </dl>
+            <dl>
+              <dt>&nbsp;</dt>
+              <dd>
+                <li>
+                  <a class="btn btn-delete" title="검색" id="btnSearch">
+                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                    검색
+                  </a>
+                </li>
+              </dd>
+            </dl>
+          </div>
+
+        </div>
+          <div class="container-fluid">
+            <p id="selectedItem"></p>
+            <div id="theGrid"></div>
+          </div>
+      </section>
+      <section style="width: 60%;">
+        <div class="section">
+          <div class="title-wrap">
+          </div>
+          <div class="button-wrap" style="border-top:none; display: flex; text-align: right; !important; margin-left: auto; justify-content: end;">
+            <ul>
+              <li>
+                <a class="btn btn-excell" title="신규등록" id="Newbtn">
+                  <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                  신규등록
+                </a>
+              </li>
+              <li>
+                <a class="btn btn-edit" id="btnSave" title="저장">
+                  <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                  저장
+                </a>
+              </li>
+              <li>
+                <a class="btn btn-delete" title="삭제" id="btnDelete">
+                  <img th:src="@{/images/icon/ico-delete.svg}" alt="엑셀 아이콘">
+                  삭제
+                </a>
+              </li>
+            </ul>
+          </div>
+          <form id="CategoryForm">
+            <!-- Hidden Fields -->
+            <!-- Table Wrap -->
+            <div class="table-wrap">
+
+              <table class="view-table" id="selectedData">
+                <caption>신용카드 등록 테이블</caption>
+                <colgroup>
+                  <col class="wp20">
+                  <col class="wauto">
+                  <col class="wp20">
+                  <col class="wp40">
+                </colgroup>
+                <tbody>
+                <tr>
+                  <th>
+                    <label for="cardType">카드구분</label>
+                  </th>
+                  <td colspan="3">
+                    <label>
+                      <input type="radio" id="cardTypeCorp" name="cardType" value="1"/>
+                      법인
+                    </label>
+                    <label style="margin-left: 30px;">
+                      <input type="radio" id="cardTypePersonal" name="cardType" value="2" />
+                      개인
+                    </label>
+                  </td>
+                </tr>
+                <tr>
+                  <th>
+                    <label for="cardnum">카드번호</label>
+                  </th>
+                  <td>
+                    <input type="text" id="cardnum" name="cardnum" class="wp100" placeholder="카드번호"/>
+                  </td>
+                  <th>
+                    <label for="cardco">카드사</label>
+                  </th>
+                  <td>
+                    <select id="cardco" name="cardco">
+                    </select>
+                  </td>
+                </tr>
+                <tr>
+                  <th><label for="cdpernm">성명</label></th>
+                  <td colspan="3">
+                    <select id="cdpernm" name = "cdpernm" >
+                    </select>
+                  </td>
+                </tr>
+                <tr>
+                  <th><label for="regAsName">발급일자</label></th>
+                  <td>
+                    <input type="date" id="regAsName" name="regAsName" class="wp100" placeholder="발급일자"/>
+                  </td>
+                  <th><label for="expdate">만기일자</label></th>
+                  <td>
+                    <input type="date" id="expdate" name="expdate" class="wp100" placeholder="만기일자" />
+                  </td>
+                </tr>
+                <tr>
+                  <th><label for="ACCNUM">결제 계좌</label></th>
+                  <td>
+                    <input type="hidden" id="ACCID" name="ACCID" />
+                    <input type="hidden" id="ACCNUM_REAL" />
+                    <input type="text" id="ACCNUM" name="ACCNUM" class="wp100" style="width: 300px !important" placeholder="계좌번호 입력 후 엔터를 눌러 검색하세요." />
+                  </td>
+                  <th><label for="BANKNM">결제 은행</label></th>
+                  <td >
+                    <input type="hidden" id="bankid" name="bankid" placeholder="은행 코드"/>
+                    <input type="text" id="BANKNM" name="BANKNM" class="wp100" placeholder="은행이름" readonly/>
+                  </td>
+                </tr>
+                <tr>
+                  <th><label for="stldate">결제 일자</label></th>
+                  <td colspan="3">
+                    <div style="position: relative;">
+                      <input type="text" id="stldate" name="stldate" class="wp100" placeholder="1~31일 중 작성하세요" maxlength="5" />
+                    </div>
+                  </td>
+                </tr>
+
+                <tr>
+                  <th><label for="useyn">사용여부</label></th>
+                  <td>
+                    <label><input type="radio" id="useYnYes" name="useYn" value="1" /> 사용</label>
+                    <label style="margin-left: 30px;"><input type="radio" id="useYnNo" name="useYn" value="0" /> 미사용</label>
+                  </td>
+                  <th><label for="baroflag">카드거래연동</label></th>
+                  <td >
+                    <input type="checkbox" id="baroflag" name="baroflag" class="wp100" style="display: flex; justify-content: center; align-items: center; " />
+                  </td>
+                </tr>
+                <!--<tr>
+                  <th><label for="stldate">정지일자</label></th>
+                  <td >
+                    <input type="date" id="stldate" name="stldate" class="wp100" placeholder="정지일자" />
+                  </td>
+
+                  <th><label for="">제출자와의 관계</label></th>
+                  <td >
+                    <input type="text" id="" name="" class="wp100" placeholder="제출자와의 관계" />
+                  </td>
+                </tr>-->
+                <tr>
+                  <th><label for="cardwebid">홈페이지 아이디</label></th>
+                  <td>
+                    <input type="text" id="cardwebid" name="cardwebid" class="wp100" placeholder="홈페이지 아이디" />
+                  </td>
+                  <th><label for="cardwebpw">홈페이지 비밀번호</label></th>
+                  <td>
+                    <input type="text" id="cardwebpw" name="cardwebpw" class="wp100" placeholder="홈페이지 비밀번호" />
+                  </td>
+                </tr>
+                <tr>
+                  <th><label for="barocd">바로빌카드 코드</label></th>
+                  <td>
+                    <input type="text" id="barocd" name="barocd" class="wp100" placeholder="바로빌카드 코드" />
+                  </td>
+                  <th><label for="baroid">바로빌 아이디</label></th>
+                  <td>
+                    <input type="text" id="baroid" name="baroid" class="wp100" placeholder="바로빌 아이디" />
+                  </td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <th:block th:replace="/common/multiform_material :: multiform_material"></th:block>
+  <th:block th:replace="/common/popup_account :: popup_account" />
+  <script th:src="@{/js/AccountInputHandler.js}"></script>
+  <script type="text/javascript">
+    class ManageCreditCardsPage {
+      constructor() {
+        this.grid = null;
+        this.$btnEdit = $('#btnEdit');
+        this.$btnSave = $('#btnSave'); //저장
+        this.$btnDelete = $('#btnDelete'); //삭제
+        this.viewData = new wijmo.collections.CollectionView();
+        this.spjangcd = $('#spjangcdHidden'); //사업장
+        this.originalAccnum = '';
+        this.init();
+      }
+
+      init() {
+        let _this = this;
+        this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'cardnum', header: '카드번호', width: 250, align: 'center'},
+            {binding: 'cardnm', header: '카드명', width: 210, align: 'center' },
+            {binding: 'cdpernm', header: '성명', width: '*', align: 'center'}
+          ],
+          itemsSource: this.viewData, // 데이터를 설정할 배열
+        });
+
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '신용카드등록';
+
+        this.grid.hostElement.addEventListener('dblclick', (e) => {
+          const ht = this.grid.hitTest(e);
+          if (ht.cellType === wijmo.grid.CellType.Cell) {
+            const selectedItem = this.grid.selectedItems[0];
+
+            function formatDate(str) {
+              if (!str || str.length !== 8) return '';
+              return `${str.substring(0, 4)}-${str.substring(4, 6)}-${str.substring(6, 8)}`;
+            }
+            // 결제 계좌
+            $('#accid').val(selectedItem.accid);                  // 히든
+            $('#ACCID').val(selectedItem.accid);                  // 히든
+            $('#accnum').val(selectedItem.accnum);                // 비마스킹
+            $('#ACCNUM').val(selectedItem.accnum);                // 마스킹된 값 넣어도 무방
+            $('#ACCNUM_REAL').val(selectedItem.accnum);           // 히든 - 원본 값
+            // 결제 은행
+            $('#bankid').val(selectedItem.bankid);                // 히든
+            $('#BANKNM').val(selectedItem.banknm);                // 읽기전용 텍스트
+            // 카드 정보
+            $('#cardnum').val(selectedItem.cardnum);              // 카드번호
+            $('#cardnm').val(selectedItem.cardnm);                // 카드명
+            $('#cardco').val(selectedItem.cardco);                // 카드사
+            // 카드 구분 (법인/개인)
+            $("input[name='cardType'][value='" + selectedItem.cardclafi + "']").prop('checked', true);
+            // 성명
+            $('#cdpernm').val(selectedItem.cdperid);
+            // 발급일자 / 만기일자
+            $('#regAsName').val(formatDate(selectedItem.issudate));
+            $('#expdate').val(formatDate(selectedItem.expdate));
+            // 결제일자
+            const input = document.getElementById('stldate');
+            input.value = selectedItem.stldate;
+            formatDayInput(input);
+            // 사용여부 라디오 버튼
+            $("input[name='useYn'][value='" + selectedItem.useyn + "']").prop('checked', true);
+            // 카드 거래 연동 (체크박스)
+            $('#baroflag').prop('checked', selectedItem.baroflag === 'Y');
+            // 바로빌 정보
+            $('#barocd').val(selectedItem.barocd);
+            $('#baroid').val(selectedItem.baroid);
+            // 홈페이지 정보
+            $('#cardwebid').val(selectedItem.cardwebid);
+            $('#cardwebpw').val(selectedItem.cardwebpw || '');
+          }
+        });
+
+        // 엔터키 검색
+        $('#txtcardnm, #txtcardnum').on('keypress', function (e) {
+          if (e.keyCode === 13) {
+            _this.searchMainData();
+          }
+        });
+      }
+
+      searchMainData() {
+        let _this = this;
+        let url = '/api/transaction/manageCreditCard/read'
+
+        let data = {
+          'txtcardnm' : $("#txtcardnm").val(),
+          'txtcardnum' : $("#txtcardnum").val(),
+          spjangcd: this.spjangcd.val()  //사업장 코드
+        }
+        let fnsuccess = function(result) {
+          if (result != null) {
+            _this.viewData = new wijmo.collections.CollectionView(result.data);
+            _this.grid.itemsSource = _this.viewData;
+          }
+        };
+
+        AjaxUtil.getAsyncData(url, data, fnsuccess);
+      }
+      //저장
+      saveMainData() {
+
+        const _this = this;
+        const url = '/api/transaction/manageCreditCard/save';
+        const data = {
+          spjangcd: this.spjangcd.val(),
+          cardType: $('input[name="cardType"]:checked').val(), // 카드구분
+          cardnum: $('#cardnum').val(),                       // 카드번호
+          cardco: $('#cardco').val(),                         // 카드사 코드
+          cardnm: $('#cardco option:selected').text(),        // 카드사 이름
+          regAsName: $('#regAsName').val()?.replace(/-/g, ''),// 발급일자
+          expdate: $('#expdate').val()?.replace(/-/g, ''),    // 만기일자
+          ACCID: $('#ACCID').val(),                           // 결제 계좌 코드
+          ACCNUM: $('#ACCNUM').val(),                         // 결제 계좌
+          bankid: $('#bankid').val(),                         // 은행 코드
+          BANKNM: $('#BANKNM').val(),                         // 은행 이름
+          stldate: $('#stldate').val().replace('일', ''),     // 결제 일자
+          useYn: $('input[name="useYn"]:checked').val(),      // 사용 여부
+          baroflag: $('#baroflag').is(':checked') ? 'Y' : 'N',// 카드거래연동 체크박스
+          cardwebid: $('#cardwebid').val(),                   // 홈페이지 아이디
+          cardwebpw: $('#cardwebpw').val(),                   // 홈페이지 비밀번호
+          barocd: $('#barocd').val(),                         // 바로빌카드 코드
+          baroid: $('#baroid').val(),                         // 바로빌 아이디
+          cdpernm: $('#cdpernm option:selected').text(),      // 성명(카드 사용직원명)
+          cdperid: $('#cdpernm').val(),                       // 성명(카드 사용직원)
+          };
+
+        //콜백 기반 confirm 사용
+        Alert.confirm('', '저장하시겠습니까?', function () {
+          //JSON 방식으로 postAsyncData 호출
+          $.ajax({
+            url: withCtx(url),
+            type: 'POST',
+            data: data,
+            headers: {
+              'X-CSRF-Token': $('[name=_csrf]').val()
+            },
+            success: function(result) {
+              if (result && result.success) {
+                Alert.alert('', result.message);
+                $('#CategoryForm')[0].reset();
+                _this.searchMainData();
+              } else {
+                Alert.alert('', '저장에 실패했습니다.');
+              }
+            },
+            error: function(xhr) {
+              Alert.alert('에러', '서버 오류 발생: ' + xhr.statusText);
+            }
+          });
+        });
+      }
+
+      //삭제
+      DeleteMainData() {
+        const _this = this;
+        const url = '/api/transaction/manageCreditCard/delete';
+        const data = {
+          cardnum: $('#cardnum').val(),
+          spjangcd: this.spjangcd.val()
+        };
+
+        Alert.confirm('', '삭제하시겠습니까?', function () {
+          AjaxUtil.postAsyncData(url, data, function (result) {
+            if (result && result.success) {
+              Alert.alert('', '삭제되었습니다.');
+              _this.searchMainData();
+              $('#CategoryForm')[0].reset();
+            } else {
+              Alert.alert('', '삭제에 실패했습니다.');
+            }
+          });
+        });
+      }
+
+    }
+    function formatDayInput(input) {
+      // 커서 위치 저장
+      const cursor = input.selectionStart;
+      // 숫자만 추출
+      let value = input.value.replace(/[^0-9]/g, '');
+      // 1~31 범위 제한
+      if (parseInt(value) > 31) value = '31';
+      if (value) {
+        input.value = value + '일';
+      } else {
+        input.value = '';
+      }
+
+      // 커서 "일" 앞에 고정
+      const newPos = input.value.length - 1;
+      input.setSelectionRange(newPos, newPos);
+    }
+    let page = null;
+
+    $(document).ready(function (e) {
+
+      const spjangcd = sessionStorage.getItem('spjangcd');
+      if (spjangcd) {
+        $('#spjangcdHidden').val(spjangcd);  // hidden input이 있어야 함
+      }
+
+      page = new ManageCreditCardsPage();
+
+      AjaxUtil.fillSelectOptions($('#cardco'), 'system_code', 'choose', false, 'cardco', '');
+      AjaxUtil.fillSelectOptions($('#cdpernm'), 'person', 'choose', false);
+
+      let today = new Date();
+      let monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      $('#srchStartDt').val(CommonUtil.formatYYYYMMDD(monthStart));
+      $('#srchEndDt').val(CommonUtil.formatYYYYMMDD(today));
+
+      page.searchMainData();
+
+      // 검색
+      $('#btnSearch').click(function (e) {
+        e.preventDefault();
+        page.searchMainData();
+      });
+
+      //초기화
+      $('#Newbtn').click(function(e) {
+        e.preventDefault();
+
+        // 폼 초기화
+        $('#CategoryForm')[0].reset();
+        $('input[name="cardType"]').prop('checked', false);
+        $('input[name="useYn"]').prop('checked', false);
+        $('#cardco').val('');
+        $('#ACCID').val('');
+        $('#bankid').val('');
+
+      });
+
+      AccountInputHandler.bind({
+        accnumSelector: '#ACCNUM',
+        banknmSelector: '#BANKNM',
+        bankidSelector: '#bankid',
+        accidSelector: '#ACCID',
+        minLength: 2
+      });
+
+      const input = document.getElementById('stldate');
+      input.addEventListener('input', () => formatDayInput(input));
+      // 포커스 시 숫자만 보이게
+      input.addEventListener('focus', () => {
+        input.value = input.value.replace('일', '');
+      });
+      // 포커스 아웃 시 '일' 붙이기
+      input.addEventListener('blur', () => formatDayInput(input));
+
+      //저장
+      $('#btnSave').click(function (e) {
+        e.preventDefault();
+        page.saveMainData();
+      });
+
+      //삭제
+      $('#btnDelete').click(function (e) {
+        e.preventDefault();
+        page.DeleteMainData();
+      });
+
+
+    })
+  </script>
+
+</th:block>
+
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html>

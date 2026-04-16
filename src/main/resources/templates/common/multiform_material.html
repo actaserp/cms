@@ -1,0 +1,398 @@
+<th:block th:fragment="multiform_material">
+    <script type="text/x-tmpl" id="multiMatTemplate">
+        {% if (o.type == 'combobox') { %}
+        <select class="form-control2" id="{%=o.element_id%}" name="{%=o.element_id%}" >
+        </select>
+        {% } else if (o.type == 'popup') { %}
+        <div class="input-group" >
+            <input type="hidden" id="{%=o.element_id%}" name="{%=o.element_id%}" />
+            <input class="form-control2" id="{%=o.element_id%}_text" name="{%=o.element_id%}_text" />
+            <button type="button" class="btn-default" id="{%=o.button_id%}">...</button>
+        </div>
+        {% } %}
+    </script>
+    <script type="text/x-tmpl" id="mult_matSearchTemplate">
+        <div class="content_wrap popup">
+                <!--<header>
+                    <h4 id="popTitle">품목 선택</h4>
+                    <div class="popup_close_box"><button class="btn_popup_close" id="material-search-close"><i class="fas fa-times"></i></button></div>
+                </header>-->
+
+            <section class="section" style="padding-top: 10px;">
+
+                <div class="section-top">
+                    <div class="search-wrap" style="text-align: left;">
+<!--                        <dl style="display:none;">-->
+<!--                            <dt>-->
+<!--                                <label for="cboMaterialType">-->
+<!--                                    품목구분<span class="eq"></span>-->
+<!--                                </label>-->
+<!--                            </dt>-->
+<!--                            <dd>-->
+<!--                                <div class="srch-box">-->
+<!--                                    <select id="cboMaterialType" name="cboMaterialType">-->
+
+<!--                                    </select>-->
+<!--                                </div>-->
+<!--                            </dd>-->
+<!--                        </dl>-->
+                        <dl>
+                            <dt>
+                                <label for="cboMaterialGrp">
+                                    품목그룹<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id='cboMaterialGrp' name="cboMaterialGrp" ></select>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label for="keyword">
+                                    품목명<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input class="form-control2" type="text" id="keyword" name="keyword" />
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnMaterialSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="container-fluid">
+                        <div id="search-grid" style="height: 300px;"></div>
+                    </div>
+                </div>
+
+            </section>
+
+
+                <div class="popup-button">
+                    <button type="button" class="btn-popup" id="btnMaterialSelect" ><span data-commonCd="선택">선택</span></button>
+                    <button type="button" class="btn-popup" id="btn-search-close"><span data-commonCd="닫기">닫기</span></button>
+<!--                    <button type="button" class="btn-popup" id="btnTest"><span data-commonCd="새로고침">새로고침</span></button>-->
+                </div>
+
+
+        </div>
+    </script>
+
+    <script type="text/javascript">
+        class MatSelector {
+            constructor(selector_id, type, element_id, material_type, option) {
+                // this.data = data;
+                this.type = 'combobox';
+                if (type == 'popup')
+                    this.type = 'popup';
+                this.element_id = element_id;
+                this.material_type = material_type;
+                this.option = option;
+                if (option && option.button_id)
+                    this.button_id = option.button_id;
+                else
+                    this.button_id = 'btnPopMaterial';
+                let data = {
+                    type: this.type,
+                    element_id: element_id,
+                    button_id: this.button_id,
+                };
+                let mat_html = tmpl('multiMatTemplate', data);
+                $('#' + selector_id).html(mat_html);
+
+                this.init();
+
+            }
+
+            init() {
+                let _this = this;
+                if (_this.type === 'combobox') {
+                    let null_option = 'all';
+                    let selected_value = '';
+                    let condition1 = '';
+                    let condition2 = '';
+                    let condition3 = _this.material_type;
+                    let data_fill = true;
+                    if (_this.option) {
+                        null_option = this.option.null_option;
+                        selected_value = this.option.selected_value;
+
+                        condition1 = this.option.condition1;
+                        condition2 = this.option.condition2;
+                        if (this.option.condition3)
+                            condition3 = this.option.condition3;
+                        data_fill = this.option.data_fill;
+                    }
+                    if (data_fill)
+                        AjaxUtil.fillSelectOptions($('#' + _this.element_id), 'material', null_option, selected_value, condition1, condition2, condition3);
+                    else {
+                        let text = null_option;
+                        if (null_option === 'choose') {
+                            text = i18n.getCommonText('선택');//'선택하세요(Choose)';
+                        } else if (null_option === 'all') {
+                            text = i18n.getCommonText('전체'); //'전체(All
+                        }
+
+                        let combo_option = $('<option>',
+                            {
+                                value: '',
+                                text: text,
+                            });
+                        $('#' + _this.element_id).append(combo_option);
+
+                    }
+                }
+                if (_this.type === 'popup') {
+                    $('#' + _this.button_id).click(function (e) {
+                        let searchcallback = function (items) {
+                            let row = items;
+                            $('#' + _this.element_id).val(row.id);
+                            $('#' + _this.element_id + '_text').val(row.Name);
+
+                            if (_this.option.clickCallback) {
+                                _this.option.clickCallback();
+                            }
+                        };
+
+                        let poppage = new PopMatComponent();
+                        poppage.material_type = _this.material_type;
+                        let $poppage = $(poppage);
+                        poppage.show(searchcallback);
+                    });
+                }
+
+            }
+        }
+
+        class PopMatComponent {
+            constructor() {
+
+                this.grid = null;
+                this.viewData = new wijmo.collections.CollectionView();
+                this.selectedItem = null;
+                this.callback = null;
+                this.modalContainer = new PopupDraggable('품목 선택');
+                this.$btnMaterialSearch = null;
+                this.$cboMaterialType = null;
+                this.$cboMaterialGrp = null;
+                this.$btnMaterialSelect = null;
+                this.$keyword = null;
+                this.material_type = null;
+
+            }
+
+            searchDataBind() {
+                let _this = this;
+                let url = '/api/popup/search_material';
+                let data = {
+                    // 'material_type': _this.$cboMaterialType.val(),
+                    'material_group': _this.$cboMaterialGrp.val(),
+                    'keyword': _this.$keyword.val(),
+                    'spjangcd': sessionStorage.getItem('spjangcd')
+                };
+
+                let result = AjaxUtil.getSyncData(url, data);
+                if (result.success) {
+                    _this.viewData.sourceCollection = result.data;
+                    setTimeout(() => {
+                        if (_this.grid && _this.grid.rows.length > 0) {
+                            _this.grid.select(0, 0); // 첫 번째 행, 첫 번째 열 선택
+                            _this.grid.focus(); // 그리드에 포커스
+                        }
+                    }, 0);
+                    setTimeout(() => {
+                        if (_this.grid.rows.length > 0) {
+                            let colIndex = _this.grid.columns.findIndex(col => col.binding === 'accountNumber');
+
+                            if (colIndex > -1) {
+                                _this.grid.select(0, colIndex);
+                                _this.grid.selection = new wijmo.grid.CellRange(0, colIndex);
+                                _this.grid.focus();
+                            }
+                        }
+                    }, 100);
+                }
+
+                //검색버튼을 누르고 초기화한다
+                this.selectedItem = null;
+            }
+
+            selectData(item) {
+                this._skipAutoFocus = false;
+
+                if (typeof this.callback !== 'undefined' && this.callback != null) {
+                    this._skipAutoFocus = false;
+                    this.callback(item);
+                }
+                this.close();
+            }
+
+            show(callback) {
+                let _this = this;
+
+                this.callback = callback;
+
+                let content = tmpl('mult_matSearchTemplate', {});
+                let $content = $(content);
+                this.modalContainer.open({width: 800, height: 500, $content});
+
+                requestAnimationFrame(() => {
+                    const $gridHost = document.querySelector('#search-grid');
+
+                    if (!$gridHost) {
+                        if (retry < 10) {
+                            setTimeout(() => waitForGridHost(retry + 1), 50); // 최대 500ms까지 재시도
+                        } else {
+                            console.warn('search-grid가 DOM에 존재하지 않음');
+                        }
+                        return;
+                    }
+
+                    const oldGrid = wijmo.Control.getControl($gridHost);
+                    if (oldGrid) {
+                        oldGrid.dispose();
+                    }
+
+                    this.grid = new wijmo.grid.FlexGrid('#search-grid', {
+                        selectionMode: wijmo.grid.SelectionMode.Row,
+                        autoGenerateColumns: false,
+                        showMarquee: true,
+                        isReadOnly: true,
+                        keyActionEnter: wijmo.grid.KeyAction.None,
+                        columns: [
+                            {binding: 'group_name', header: '품목그룹', width: 120, align: 'left'},
+                            {binding: 'Code', header: '품목코드', width: 150, align: 'center'},
+                            {binding: 'Name', header: '품목명', width: 250, align: 'left'},
+                            {binding: 'unit_name', header: '단위', width: 60, align: 'center'},
+                            {binding: 'Spec', header: '규격', width: '*', align: 'left'}
+                        ],
+                        itemsSource: this.viewData,
+                    });
+                    this.grid.rowHeaders.columns.splice(0, 1);
+                    new FlexGridContextMenu(this.grid);
+                    this.grid.downloadFileName = '품목 내역';
+
+                    this.$btnMaterialSearch = $content.find('#btnMaterialSearch');
+                    this.$cboMaterialGrp = $content.find('#cboMaterialGrp');
+                    this.$keyword = $content.find('#keyword');
+                    this.$btnMaterialSelect = $content.find('#btnMaterialSelect');
+
+                    // AjaxUtil.fillSelectOptions(this.$cboMaterialType, 'system_code', null, false, 'mat_type', this.material_type);
+                    AjaxUtil.fillSelectOptions(this.$cboMaterialGrp, 'material_group', 'all', false, '');
+
+                    //if (this.material_type != null) {
+                    //    this.$cboMaterialType.val(this.material_type);
+                    //}
+                    //this.$cboMaterialType.val('product');
+
+                    // this.$cboMaterialType.change(function (e) {
+                    //     AjaxUtil.fillSelectOptions(_this.$cboMaterialGrp, 'material_group', 'all', false, _this.$cboMaterialType.val());
+                    // })
+
+                    this.$btnMaterialSearch.click(function (e) {
+                        _this.searchDataBind();
+                    });
+
+                    setTimeout(() => {
+                        _this.searchDataBind();
+                    }, 0);
+
+                    this.$btnMaterialSelect.click(function (e) {
+                        // 그리드에서 현재 선택된 item을 찾아서 호출한다.
+                        let items = _this.grid.selectedItems;
+                        if (items.length === 0) {
+                            return false;
+                        }
+                        _this.selectData(items[0]);
+                    });
+
+                    this.$keyword.on('keypress', function (e) {
+                        if (event.keyCode === 13) {
+                            _this.searchDataBind();
+                        }
+                    });
+
+
+                    //닫기버튼을 아래 ID로 사용한다면 호출하는 화면에서 이벤트 처리 필요없음
+                    $content.find('#btn-search-close').on('click', function () {
+                        _this.close();
+                    });
+
+                    //새로고침
+                    // $('#btnTest').click(function (e) {
+                    //     _this.grid.collectionView.refresh(); // Wijmo 그리드 새로고침
+                    // });
+
+                    this.grid.hostElement.addEventListener('dblclick', function (e) {
+                        let items = _this.grid.selectedItems;
+                        if (items.length === 0) {
+                            return false;
+                        }
+                        _this.selectData(items[0]); // btnMaterialSelect 클릭과 동일한 동작
+                    });
+                    this.grid.hostElement.addEventListener('keydown', function (e) {
+                        if (e.key === 'Enter' || e.keyCode === 13) {
+                            setTimeout(() => {
+                                const selected = _this.grid.selectedItems;
+                                if (selected.length > 0) {
+                                    _this.selectData(selected[0]);
+                                } else {
+                                    console.log('선택된 행 없음');
+                                }
+                            }, 0); // 다음 이벤트 루프에서 실행
+                        }
+                    });
+
+                    this._escHandler = function (e) {
+                        if (e.key === 'Escape' || e.keyCode === 27) {
+                            _this.close();
+                        }
+                    };
+                    $(document).on('keydown.popupesc', this._escHandler);
+
+                    // 모달 닫힐 때 포커스 복원
+                    this.modalContainer.onClose = () => {
+                        // ESC 후 포커스 복원
+                        if (this.focusAfterClose && document.body.contains(this.focusAfterClose)) {
+                            setTimeout(() => {
+                                this.focusAfterClose.focus();
+                            }, 50);
+                        }
+                        // ESC 이벤트 제거
+                        $(document).off('keydown.popupesc', this._escHandler);
+                    };
+                });
+
+            }
+
+
+            close() {
+                this.modalContainer.close();
+
+                // 콜백 내부에서 포커스를 직접 줬으면 자동 포커스 생략
+                if (!this._skipAutoFocus && this.focusAfterClose && document.body.contains(this.focusAfterClose)) {
+                    setTimeout(() => {
+                        this.focusAfterClose.focus();
+                    }, 50);
+                }
+
+                $(document).off('keydown.popupesc', this._escHandler);
+            }
+        }
+
+    </script>

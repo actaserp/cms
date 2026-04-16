@@ -1,0 +1,1127 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .radio-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .radio-wrap input[type="radio"] {
+            appearance: none;
+            -webkit-appearance: none; /* 사파리용 */
+            width: 16px;
+            height: 16px;
+
+            border-radius: 50%;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .radio-wrap input[type="radio"]::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 8px;
+            height: 8px;
+            background-color: #666;
+            border-radius: 50%;
+            opacity: 0;
+            transition: 0.2s;
+        }
+
+        .radio-wrap input[type="radio"]:checked::after {
+            opacity: 1;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>요청현황</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>유지보수</li>
+                <li>요청현황</li>
+            </ul>
+        </div>
+
+                <!--                요청현황 탭-->
+                <section class="tab-item" id="tab2">
+                    <div class="section-top">
+                        <div class="search-wrap">
+                            <dl>
+                                <dt>
+                                    <label>
+                                        조회일자<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <input type="date" id="searchfrdate2" name="searchfrdate2"  />
+                                        <span class="slow_sign">~</span>
+                                        <input type="date" id="searchtodate2" name="searchtodate2" />
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        업체명<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <input type="text" placeholder=""  id="cboCompany2" name="cboCompany2"/>
+                                        <input type="hidden"  id="cboCompanyHidden2" name="cboCompanyHidden2"  />
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        요청구분<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <select id="reqType2" style="width:90px;"></select>
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        진행구분<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <select id="recyn" style="width:90px;"></select>
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        본사담당<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <input type="text" placeholder=""  id="aspernm2" name="aspernm2"/>
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>&nbsp;</dt>
+                                <dd>
+                                    <li>
+                                        <a class="btn btn-delete" title="검색" id="btnSearch2">
+                                            <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                            검색
+                                        </a>
+                                    </li>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>&nbsp;</dt>
+                                <dd>
+                                    <li>
+                                        <a class="btn btn-delete" title="검색" id="btnReceipt">
+                                            <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                            접수
+                                        </a>
+                                    </li>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>&nbsp;</dt>
+                                <dd>
+                                    <li>
+                                        <a class="btn btn-delete" title="검색" id="btnAddNew">
+                                            <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                            처리등록
+                                        </a>
+                                    </li>
+                                </dd>
+                            </dl>
+
+                        </div>
+                    </div>
+                    <div>
+                        <div id="theGrid_reqList" style="height: 430px;"></div>
+                    </div>
+                    <div style="margin-top: 10px; display:flex; gap: 15px;">
+                        <dl style="width: 49%;">
+                            <dt style="margin-bottom: 21px;">
+                                <label>
+                                    요청내용<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <textarea placeholder=""  id="reqtextf" name="reqtextf" readonly>
+
+                                    </textarea>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl style="width: 49%;">
+                            <dt>
+                                <label style="display: flex;">
+                                    처리내용<span class="eq"></span>
+                                    <button type="button" class="btn-excellt" id="download" name="download"
+                                            style="width: 100px; height: 36px; margin-left: auto; margin-bottom: 5px;">
+                                        완료첨부
+                                    </button>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <textarea placeholder=""  id="reqtextf2" name="reqtextf2" readonly>
+
+                                    </textarea>
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+<!--    처리등록 팝업-->
+    <script type="text/x-tmpl" id="planTemplate">
+        <style>
+            /* 아이템 테이블 전체 설정 */
+            .item-table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+                margin-top: 10px;
+            }
+
+            /* 헤더 셀 스타일 */
+            .item-table th {
+                background-color: #EDEFF5;
+                text-align: center;
+                font-weight: bold;
+                padding: 8px;
+                border: 1px solid #ccc;
+            }
+
+            /* 바디 셀 스타일 */
+            .item-table td {
+                padding: 6px;
+                text-align: center;
+                border: 1px solid #ccc;
+            }
+
+            /* 입력 필드 기본 스타일 */
+            .item-table input {
+                width: 100%;
+                box-sizing: border-box;
+                padding: 4px;
+            }
+
+            /* 품목 & 비고 왼쪽 정렬 */
+            .item-table td:first-child,
+            .item-table td:nth-child(6) {
+                text-align: left;
+            }
+
+            /* 공통 버튼 스타일 */
+            .item-table .btn.in_btn {
+                display: inline-flex;
+                justify-content: center;
+                align-items: center;
+                width: 32px;
+                height: 32px;
+                border-radius: 4px;
+                padding: 0;
+                border: 1px solid #B3B3B3;
+                background-color: #fff;
+                cursor: pointer;
+                transition: background-color 0.2s;
+                line-height: 0;
+            }
+
+            /* + 버튼 전용 스타일 */
+            .item-table .btn.in_btn.plus img {
+                width: 10px;
+                height: 10px;
+                display: block;
+            }
+
+            /* 공통 아이콘 버튼 이미지 (삭제, 검색 포함) */
+            .item-table .btn.in_btn img {
+                width: 12px;
+                height: 12px;
+                display: block;
+                margin-right: 5px;
+            }
+
+            /* 모달 구조 */
+            .content_wrap.popup {
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+                height: 100%;
+            }
+
+            .table-wrap {
+                flex: 1;
+                overflow-y: auto;
+                padding-right: 5px;
+                width: 100%;
+            }
+
+            /* 테이블 전체 반응형 */
+            .write-table,
+            .item-table {
+                width: 100%;
+                table-layout: fixed;
+                border-collapse: collapse;
+            }
+
+            /* colgroup 지정된 th 열 좁게 설정 */
+            .write-table col.col-th {
+                width: 80px !important;
+            }
+
+            .write-table col.col-td {
+                width: auto;
+            }
+
+            .write-table input,
+            .write-table select,
+            .write-table textarea,
+            .item-table input,
+            .item-table select,
+            .item-table textarea {
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+            /* 기본 셀 스타일 */
+            .write-table th,
+            .write-table td {
+                border: 1px solid #ccc;
+                padding: 6px;
+            }
+
+            /* th 텍스트 줄바꿈 방지 */
+            .write-table th {
+                white-space: nowrap;
+                text-align: center;
+            }
+
+            .popup-button {
+                flex-shrink: 0;
+                padding: 10px;
+                background: #fff;
+                border-top: 1px solid #ddd;
+            }
+        </style>
+
+        <div class="content_wrap popup">
+            <div class="table-wrap">
+                <form id="planForm">
+                    <table class="write-table">
+                        <colgroup>
+                            <col style="width:80px">
+                            <col style="width:24%">
+
+                            <col style="width:80px">
+                            <col style="width:38%">
+
+                            <col style="width:80px">
+                            <col style="width:10%">
+
+                            <col style="width:80px">
+                            <col style="width:14%">
+                        </colgroup>
+
+                        <caption>등록 테이블</caption>
+                        <input type="hidden" id="id" name="id">
+
+                        <tbody>
+                            <tr>
+                                <th><label for="rptdate">처리일자</label></th>
+                                <td>
+                                    <input class="form-control2" type="date" id="rptdate" name="rptdate" style="min-width:135px;">
+                                </td>
+                                <th><label for="aspernm">본사담당</label></th>
+                                <td>
+                                    <div class="input-group" style="display:flex; align-items:center; gap:5px;">
+                                        <input type="text" id="aspernm" name="aspernm" style="">
+                                    </div>
+                                </td>
+                                <th><label for="check020">업무일지</label></th>
+                                <td>
+                                    <div>
+                                        <input type="checkbox" id="check020" name="check020" style="margin-left: 33%;">
+                                    </div>
+                                </td>
+
+                                <td colspan="2">
+                                    <a class="btn btn-delete" title="검색" id="btnClear">
+                                            <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                            신규
+                                        </a>
+                                        <a class="btn btn-delete" title="검색" id="btnSave">
+                                            <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                            저장
+                                        </a>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th><label for="cltnm">제목</label></th>
+                                <td colspan="5">
+                                    <input class="form-control2" type="text" id="cltnm" name="cltnm">
+                                </td>
+                                <th><label for="fixflag">요청구분</label></th>
+                                <td>
+                                    <select class="form-control2" id="fixflag" name="fixflag"></select>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th><label for="asmenu">화면명</label></th>
+                                <td colspan="5">
+                                    <input class="form-control2" type="text" id="asmenu" name="asmenu">
+                                </td>
+                                <th><label for="actflag">진행구분</label></th>
+                                <td>
+                                    <select class="form-control2" id="actflag" name="actflag"></select>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th><label>처리내용</label></th>
+                                <td colspan="7">
+                                    <div class="webEdit" id="webEdit" style=""></div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label>요청내용</label></th>
+                                <td colspan="7">
+                                    <textarea placeholder=""  id="reqtextpop" name="reqtextpop" readonly>
+
+                                    </textarea>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label for="drawingFile">첨부파일</label></th>
+                                <td colspan="7">
+                                    <input type="text" id="fileText" placeholder="파일 찾기" style="width:80%;">
+                                    <input type="file" id="drawingFile" accept="application" style="display:none;" />
+                                    <button type="button" class="btn-excellt" id="btnFile" name="btnFile"
+                                            style="width: 100px; height: 36px;">
+                                        파일선택
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+
+            <div class="popup-button" style="margin-top:0px;">
+                <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+                <button type="button" class="btn-popup y_write_auth" id="btnDelete" style="display:none;">삭제</button>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-tmpl" id="getCompTemplate">
+        <div class="content_wrap popup">
+        <div class="table-wrap">
+                <table class="write-table">
+                    <caption>업체 검색 테이블</caption>
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="searchCode">업체코드</label>
+                            </th>
+                            <td style="width:50px;">
+                                <input id="searchCode" name="searchCode" type="text" style="width:180px;" />
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="searchName">거래처명</label>
+                            </th>
+                            <td style="width:50px;">
+                                 <input id="searchName" name="searchName" type="text"  style="width:180px;"/>
+                            </td>
+                            <td colspan="2" style="text-align: center;">
+                                <button type="button" class="btn-default" id="btnSubjectSearch" title="조회"><i class="fas fa-search"></i>검색</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="grid_box" style="margin-top: 10px;">
+                    <div id="comp-grid" style="height: 300px; max-height: 300px;"></div>
+                </div>
+        </div>
+
+        <div class="popup-button">
+          <button type="button" class="btn-popup" id="btnAccountSave"><span data-labelCd="선택">선택</span></button>
+          <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    </div>
+    </script>
+</th:block>
+
+
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <th:block th:replace="/common/popup_account :: popup_account" />
+    <th:block th:replace="/common/popup_company :: popup_company"></th:block>
+    <th:block th:replace="/shipment/trade_stmt/trade_stmt_tmpl :: printTemplate"></th:block>
+    <!-- Toast UI Editor CSS -->
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+    <!-- Toast UI Editor JS -->
+    <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+
+    <script type="text/javascript">
+
+
+        let sales_type = [];
+        let LoadingFlag = false;
+        let editor;
+        class SalesList {
+            constructor() {
+                this.grid1 = null;
+                this.url = '/api/request_current';
+                this.$btnAddNew = $('#btnAddNew');
+
+
+                this.viewData = new wijmo.collections.CollectionView();
+
+
+                $('#searchfrdate2').val(getNowDateMinus7());
+                $('#searchDate, #searchtodate2').val(getNowDate());
+                AjaxUtil.fillSelectOptions($('#reqType2'), 'system_code', 'all', false, 'asdv');
+                AjaxUtil.fillSelectOptions($('#fixflag'), 'system_code', 'choose', false, 'asdv');
+                AjaxUtil.fillSelectOptions($('#recyn'), 'system_code', 'all', false, 'recyn');
+
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                const cv = _this.viewData
+
+                // 3. FlexGrid 생성
+                this.grid1 = new wijmo.grid.FlexGrid('#theGrid_reqList', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowSorting: 'MultiColumn',
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'id', header: 'ID', visible: false },
+                        { binding: 'asdate', header: '요청일자', align: 'center', width: 120 },
+                        { binding: 'cltnm', header: '업체명', align: 'left', width: 150 },
+                        { binding: 'usernm', header: '요청자', align: 'left', width: 120},
+                        { binding: 'retitle', header: '제목', align: 'left', width: '*' },
+                        { binding: 'asdv_nm', header: '요청구분', align: 'center', width: 120 },
+                        { binding: 'asmenu', header: '화면명', align: 'left', width: 150 },
+                        { binding: 'aspernm', header: '본사담당', align: 'left', width: 120 },
+                        { binding: 'recyn_nm', header: '진행구분', align: 'center', width: 120 },
+                        // { binding: 'hasProcess', header: '처리여부', align: 'center', width: 100 },
+                        { binding: 'recdate', header: '접수일자', align: 'center', width: 150 },
+                        { binding: 'as_file', header: '첨부파일', align: 'center', width: 120 },
+                    ],
+                    itemsSource: cv,
+                    // ✅ 파일 다운로드 컬럼 표시
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            const col = s.columns[e.col];
+                            const item = s.rows[e.row].dataItem;
+
+                            // 🔹 as_file 컬럼이 있고 값이 존재할 때만 "다운로드" 링크 표시
+                            if (col.binding === 'as_file' && item && item.as_file) {
+                                const safeFileName = item.as_file.replace(/"/g, '&quot;'); // XSS 방지
+                                e.cell.innerHTML = `
+                                    <a href="#" class="file-download" data-file="${safeFileName}" style="
+                                        color: #007BFF;
+                                        text-decoration: underline;
+                                        cursor: pointer;
+                                    ">다운로드</a>
+                                `;
+                            }
+                        }
+                    },
+                });
+                this.grid1.rowHeaders.columns.splice(0, 1);
+                new FlexGridContextMenu(this.grid1);
+                this.grid1.downloadFileName = '요청사항_처리현황';
+
+                // ✅ 다운로드 클릭 이벤트
+                this.grid1.hostElement.addEventListener('click', (e) => {
+                    const target = e.target;
+
+                    // 🔹 클릭한 요소가 'file-download' 클래스인지 확인
+                    if (target.classList.contains('file-download')) {
+                        e.preventDefault();
+
+                        const fileName = target.dataset.file;
+                        if (!fileName) {
+                            Alert.alert('', '파일 정보가 없습니다.');
+                            return;
+                        }
+
+                        // ✅ 백엔드 매핑: @GetMapping("/downFile")
+                        const downloadUrl = `/api/request/downFile?fileName=${encodeURIComponent(fileName)}`;
+
+                        // ✅ 새 창으로 다운로드 (URL 인코딩 주의)
+                        window.open(downloadUrl, '_blank');
+                    }
+                });
+
+                // 그리드 선택 이벤트 - 상세 정보 표시
+                this.grid1.selectionChanged.addHandler((s, e) => {
+                    const row = s.selection.row;
+                    if (row < 0) return;
+
+                    const item = s.rows[row].dataItem;
+                    if (!item) return;
+
+                    // ✅ HTML 태그 제거 (웹에디터 내용에서 순수 텍스트만 추출)
+                    const plainContent = (item.content || '').replace(/<[^>]+>/g, '');
+                    const plainRemark = (item.remark || '').replace(/<[^>]+>/g, '');
+                    console.log('remark : ', item.remark)
+
+                    // 요청현황 탭의 상세 정보 영역에 데이터 표시
+                    $('#reqtextf').val(plainContent);
+                    $('#reqtextf2').val(plainRemark);
+                    // 처리내용은 별도 조회 필요
+                });
+
+                // 그리드 더블클릭 이벤트 - 상세 조회 및 처리등록
+                this.grid1.hostElement.addEventListener('dblclick', (e) => {
+                    const view = this.grid1;
+                    const selected = view.selectedItems;
+
+                    if (!selected || selected.length !== 1) {
+                        Alert.alert('', '선택된 데이터가 없습니다.');
+                        return;
+                    }
+
+                    const item = selected[0];
+                    this.loadRequestDetail(item);
+                });
+
+
+                //처리등록 클릭
+                this.$btnAddNew.click(function (e) {
+                    const selected = _this.grid1.selectedItems;
+                    if (!selected || selected.length !== 1) {
+                        Alert.alert('', '처리할 요청사항을 선택하세요.');
+                        return;
+                    }
+                    const item = selected[0];
+                    _this.loadRequestDetail(item);
+                });
+
+
+
+            }
+
+
+            searchMain(){
+                let _this = this;
+
+                let data = {
+                    searchfrdate: $('#searchfrdate2').val(),
+                    searchtodate: $('#searchtodate2').val(),
+                    searchCompCd: $('#cboCompanyHidden2').val(),
+                    searchCompnm: $('#cboCompany2').val(),
+                    aspernm: $('#aspernm2').val(),
+                    reqType : $('#reqType2').val(),
+                    recyn : $('#recyn').val(),
+                    spjangcd: getSpjangcdFromSession(),
+                }
+
+                let url = _this.url + '/search';
+                let fnsuccess = function (result) {
+                    if (result != null && result.data) {
+                        _this.viewData.sourceCollection = result.data;
+                    } else {
+                        _this.viewData.sourceCollection = [];
+                    }
+                };
+                AjaxUtil.getAsyncData(url, data, fnsuccess);
+            }
+
+            loadRequestDetail(item) {
+                let _this = this;
+                
+                if (!item || !item.id) {
+                    return;
+                }
+
+                let params = {
+                    asid: item.id,
+                    action: 'detail'
+                };
+
+                AjaxUtil.getAsyncData(_this.url + '/detail', params, function(result) {
+                    if (result && result.data) {
+                        const data = result.data;
+                        _this.showPlanForm(data);
+                    }
+                });
+            }
+
+
+            //처리등록 팝업활성화
+            showPlanForm(data) {
+
+                let _this = this;
+                let formData = data; // 클로저를 위한 변수명 변경
+                let content = tmpl('planTemplate', formData);
+                let $content = $(content);
+
+                // 팝업 열기
+                let modalContainer = new PopupDraggable('처리등록');
+                modalContainer.open({ width: 1150, height: 725, $content });
+
+                // ✅ 팝업 렌더링 후 Editor 생성 (외부 스코프에서 선언)
+                let popupEditor = null;
+                setTimeout(() => {
+                    const webEditEl = $content.find('#webEdit')[0];
+                    if (webEditEl) {
+                        popupEditor = new toastui.Editor({
+                            el: webEditEl,
+                            height: '280px',
+                            initialEditType: 'wysiwyg',
+                            previewStyle: 'vertical',
+                            placeholder: '처리 내용을 입력하세요...',
+                            toolbarItems: [
+                                ['heading', 'bold', 'italic', 'strike'],
+                                ['hr', 'quote'],
+                                ['ul', 'ol', 'task', 'indent', 'outdent'],
+                                ['table', 'link'],
+                                ['code', 'codeblock']
+                            ]
+                        });
+                        
+                        // 기존 처리내용이 있으면 설정
+                        if (formData.processContent) {
+                            popupEditor.setHTML(formData.processContent);
+                        }
+                    }
+                }, 200);
+
+                let $btnDelete = $content.find('#btnDelete');
+                let $planForm = $content.find('#planForm');
+                // 저장버튼
+                let $btnPopSave = $content.find('#btnSave');
+
+                // 처리일자 설정 (오늘 날짜)
+                let initDateStr = new Date().toISOString().slice(0, 10);
+                $content.find('#rptdate').val(initDateStr);
+
+                // 본사담당 설정
+                const username = sessionStorage.getItem("username");
+                if (username) {
+                    $content.find('#aspernm').val(username);
+                }
+
+                // 기존 데이터 바인딩
+                if (formData.id) {
+                    $content.find('#id').val(formData.id);
+                    $content.find('#cltnm').val(formData.title || formData.retitle || '');
+                    // 요청구분, 화면명 등은 readonly로 표시만
+                    $content.find('#asmenu').val(formData.asmenu || '');
+                    // ✅ HTML 태그 제거 (웹에디터 내용에서 순수 텍스트만 추출)
+                    const plainContent = (formData.content || '').replace(/<[^>]+>/g, '');
+
+                    // 요청현황 정보 영역에 데이터 표시
+                    $('#reqtextpop').val(plainContent);
+                }
+
+                // ✅ 완료 첨부파일 존재 시 표시
+                if (formData.fix_file && formData.fix_file.trim() !== '') {
+                    // 파일 존재할 때
+                    $content.find('#fileText')
+                        .val('완료첨부 파일존재')
+                        .css({
+                            'color': '#0a7cff',     // 파란색 강조
+                            'font-weight': 'bold'   // 굵게
+                        })
+                        .data('filename', formData.fix_file); // ✅ 나중에 다운로드용으로 파일명도 저장
+                } else {
+                    // 파일 없을 때 (초기화)
+                    $content.find('#fileText')
+                        .val('')
+                        .css({ 'color': '', 'font-weight': '' })
+                        .removeData('filename');
+                }
+
+                // 진행구분 셀렉트 박스 초기화
+                AjaxUtil.fillSelectOptions($content.find('#actflag'), 'system_code', '', '1', 'recyn');
+                if (formData.recyn) {
+                    $content.find('#actflag').val(formData.recyn);
+                }
+
+                // 요청구분 셀렉트 박스 바인드
+                AjaxUtil.fillSelectOptions($content.find('#fixflag'), 'system_code', '', formData.reqtype, 'asdv');
+                if (formData.reqtype) {
+                    $content.find('#fixflag').val(formData.reqtype);
+                }
+
+                // 처리등록 팝업 저장버튼 클릭
+                $btnPopSave.off('click').on('click', function (e) {
+                    e.preventDefault();
+                    
+                    // 필수 필드 검증
+                    const asid = $content.find('#id').val();
+                    if (!asid) {
+                        Alert.alert('', '요청사항을 선택하세요.');
+                        return;
+                    }
+
+                    const fixdate = $content.find('#rptdate').val();
+                    if (!fixdate) {
+                        Alert.alert('', '처리일자를 입력하세요.');
+                        return;
+                    }
+
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        // Toast UI Editor에서 처리내용 가져오기
+                        let processContent = '';
+                        if (popupEditor) {
+                            try {
+                                processContent = popupEditor.getHTML();
+                            } catch (e) {
+                                console.error('Editor getHTML error:', e);
+                            }
+                        }
+                        
+                        // 진행구분
+                        const recyn = $content.find('#actflag').val() || '1';
+                        const check020 = $content.find('#check020').is(':checked') ? "1" : "0";
+
+                        const payload = {
+                            fixid: formData.fixid || '',
+                            asid: asid,
+                            fixdate: fixdate,
+                            rptdate: fixdate, // 호환성
+                            remark: processContent,
+                            processContent: processContent,
+                            recyn: recyn,
+                            check020: check020,
+                            spjangcd: getSpjangcdFromSession(),
+                        };
+
+                        console.log('Save payload:', payload);
+
+                        // ✅ 파일 첨부 처리
+                        const fileInput = $content.find('#drawingFile')[0];
+                        const file = fileInput && fileInput.files.length > 0 ? fileInput.files[0] : null;
+
+                        if (file) {
+                            let formData = new FormData();
+                            formData.append('uploadFile', file);
+
+                            AjaxUtil.postFileAsyncData(
+                                '/api/request/uploadFile',
+                                formData,
+                                function (res) {
+                                    if (res.success) {
+                                        console.log('파일 업로드 성공:', res.data);
+                                        payload.as_file = res.data;
+                                        saveProcessData(payload);
+                                    } else {
+                                        Alert.alert('', '파일 업로드 실패: ' + res.message);
+                                    }
+                                },
+                                function (req, status, error) {
+                                    console.error('파일 업로드 실패:', req.responseText);
+                                    Alert.alert('오류', '파일 업로드 중 오류가 발생했습니다 (' + req.status + ')');
+                                }
+                            );
+                        } else {
+                            saveProcessData(payload);
+                        }
+
+                        // ✅ 파일 업로드 후 호출되는 저장 함수
+                        function saveProcessData(data) {
+                            AjaxUtil.postJsonData(_this.url + '/save', data, function (res) {
+                                if (res.success) {
+                                    Notify.success("저장되었습니다.");
+                                    _this.searchMain();
+                                    modalContainer.close();
+                                } else {
+                                    Alert.alert('저장 실패', res.message || '알 수 없는 오류');
+                                }
+                            });
+                        }
+                    });
+                });
+
+                // 삭제 버튼
+                $btnDelete.click(function (e) {
+                    let data = FormUtil.extractForm($planForm);
+
+                    Alert.confirm('', '전체 삭제하시겠습니까?',
+                        function () {
+                            let id = data.head_id;
+                            _this.deletePlanData(id);
+                        },
+                        function () {
+                        }
+                    );
+                    modalContainer.close();
+
+                });
+
+            }
+            showGetComp() {
+                let _this = this;
+                let viewdata4;
+                let theGrid4;
+                let selectedItem = null;
+
+                let content = tmpl('getCompTemplate', {});
+                let $content = $(content);
+
+                let popContainer = new PopupDraggable('거래처조회');
+                popContainer.open({ width: 800, height: 500, $content });
+
+                let $searchName = $content.find('#searchName');
+                let $searchCode = $content.find('#searchCode');
+                let $btnSearch = $content.find('#btnSubjectSearch');
+
+
+                // 사번 조회 함수
+                function fetchPersonList() {
+                    let searchCode = $searchCode.val();
+                    let searchName = $searchName.val();
+
+                    $.ajax({
+                        url: '/api/request/getComp',
+                        type: 'GET',
+                        data: {
+                            searchCode: searchCode,
+                            searchName: searchName,
+                            spjangcd: sessionStorage.getItem('spjangcd')
+                        },
+                        async: false,
+                        success: function (res) {
+                            let data2 = res.data || [];
+
+                            viewdata4 = new wijmo.collections.CollectionView(data2);
+
+                            if (theGrid4) {
+                                theGrid4.itemsSource = viewdata4;
+                            }
+                        },
+                        error: function (jqXHR, textStatus, errorThrown) {
+                            console.error('Error fetching person data:', textStatus, errorThrown);
+                        }
+                    });
+                }
+
+                // 그리드 먼저 생성
+                theGrid4 = new wijmo.grid.FlexGrid('#comp-grid', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    columns: [
+                        { binding: 'Code', header: '업체코드', width: 100, align: 'center' },
+                        { binding: 'BusinessNumber', header: '사업자번호', width: 150, align: 'center' },
+                        { binding: 'Name', header: '거래처명', width: '*', align: 'center' },
+                        { binding: 'OurManager', header: '담당자명', width: 150, align: 'center' },
+                    ],
+                    isReadOnly: true,
+                    itemsSource: null
+                });
+
+                theGrid4.rowHeaders.columns.splice(0, 1);
+
+
+                fetchPersonList();
+
+
+                $btnSearch.click(() => {
+                    fetchPersonList();
+                });
+
+
+                $searchCode.add($searchName).on('keydown', function (e) {
+                    if (e.keyCode === 13) {
+                        fetchPersonList();
+                    }
+                });
+
+                theGrid4.selectionChanged.addHandler((s, e) => {
+                    selectedItem = s.collectionView.currentItem;
+                });
+
+                $content.find('#btnAccountSave').click(() => {
+                    if (selectedItem) {
+                        console.log('selectedItem : ', selectedItem)
+                        $('#cboCompany2').val(selectedItem.Name);
+                        $('#cboCompanyHidden2').val(selectedItem.Code);
+                        popContainer.close();
+                    }/* else {
+                        Alert.alert('', '사번을 선택해주세요.');
+                    }*/
+                });
+
+                theGrid4.hostElement.addEventListener('dblclick', function (e) {
+                    let items = theGrid4.selectedItems;
+                    if (items.length === 0) {
+                        return false;
+                    }
+                    const selectedItem = items[0];
+                    if (selectedItem) {
+                        console.log('selectedItem : ', selectedItem)
+                        $('#cboCompany2').val(selectedItem.Name);
+                        $('#cboCompanyHidden2').val(selectedItem.Code);
+                        popContainer.close();
+                    }
+                    popContainer.close();
+                });
+
+            }
+        }
+
+        let page = null;
+
+
+        $(document).ready(function (e) {
+            page = new SalesList();
+            // ✅ 세션 스토리지에서 로그인 정보 불러오기
+            // const userId = sessionStorage.getItem('userid');     // 사업자번호
+            // const userName = sessionStorage.getItem('username'); // 업체명
+            //
+            // // ✅ 값 존재 시 자동 바인딩
+            // if (userId) {
+            //     $('#cboCompanyHidden2').val(userId);  // 거래처 코드(사업자번호)
+            // }
+            // if (userName) {
+            //     $('#cboCompany2').val(userName);      // 업체명
+            // }
+
+            // 조회 버튼
+            $('#btnSearch2').click(function(){
+                page.searchMain();
+            });
+
+            // 파일선택 버튼 클릭 시, 파일 선택창 실행
+            $(document).on('click', '#btnFile, #fileText', function() {
+                $('#drawingFile').click(); // ✅ 이 한 줄이 핵심
+            });
+
+            // 업체명 input 클릭시 업체 검색 팝업 활성화
+            $('#cboCompany2').click(function (e) {
+                page.showGetComp();
+            });
+
+            // 본사담당 설정
+            const username = sessionStorage.getItem("username");
+            if (username) {
+                $('#aspernm2').val(username);
+
+            }
+
+            page.searchMain();
+
+
+        })
+
+        // 완료 파일 선택 완료후 화면에 표시
+        $('#drawingFile').on('change', function() {
+            const file = this.files[0];
+            // 파일이 선택되지 않은 경우
+            if (!file) return;
+
+            // 파일 확장자 검사
+            const fileName = file.name.toLowerCase();
+
+            // 경고 메시지 표시
+
+            // 파일 선택 초기화 (바인딩 해제)
+
+            Alert.alert('', '선택된 파일: ' + file.name);
+            document.getElementById('fileText').value = file.name;
+        });
+
+        // 접수처리 클릭 이벤트
+        $('#btnReceipt').on('click', function () {
+            const grid = wijmo.Control.getControl('#theGrid_reqList');
+            const selectedItem = grid.selectedItems[0];
+
+            // 선택 확인
+            if (!selectedItem) {
+                Alert.alert('', '행을 선택해주세요.');
+                return;
+            }
+
+            const asid = selectedItem.id;
+
+            Alert.confirm('', '선택한 요청을 접수하시겠습니까?', function () {
+                const payload = { asid: asid };
+
+                // ✅ CSRF 자동 처리되는 AjaxUtil 사용
+                AjaxUtil.postJsonData(page.url + '/receive', payload, function (res) {
+                    if (res.success) {
+                        Alert.alert('', '접수가 완료되었습니다.');
+                        page.searchMain(); // ✅ 그리드 갱신
+                    } else {
+                        Alert.alert('', '실패: ' + (res.message || '알 수 없는 오류'));
+                    }
+                });
+            });
+        });
+
+        // 완료첨부 다운로드 버튼
+        $(document).on('click', '#download', function () {
+            const grid = wijmo.Control.getControl('#theGrid_reqList');
+            const selectedItem = grid.selectedItems[0];
+
+            if (!selectedItem) {
+                Alert.alert('', '다운로드할 행을 선택하세요.');
+                return;
+            }
+
+            const fileName = selectedItem.fix_file; // ✅ 조회 결과에서 직접 가져옴
+
+            if (!fileName || fileName.trim() === '') {
+                Alert.alert('', '완료 첨부 파일이 없습니다.');
+                return;
+            }
+
+            window.open('/api/request_current/downFile?fileName=' + encodeURIComponent(fileName), '_blank');
+        });
+
+
+
+        $(document).on('change', '#drawingFile', function() {
+            const file = this.files[0];
+            if (!file) return;
+            $('#fileText').val(file.name);
+        });
+
+    </script>
+
+</th:block>
+</html>

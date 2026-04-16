@@ -1,0 +1,520 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+    <style>
+        .write-table input, select {
+            width: 150px;
+        }
+
+        .write-table select {
+            width: 150px;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>데이터 수집 설정</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>대시보드</li>
+                <li>데이터 수집 설정</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px;">
+            <section style="border-radius:15px; flex:3">
+                <div class="section-top">
+                    <form id="searchForm">
+                        <div class="search-wrap">
+                            <dl>
+                                <dt>
+                                    <label>
+                                        서버
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <select class="form-control2" id="cboDASServer" name="cboDASServer"></select>
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        설비
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <select class="form-control2" id="cboEquipment" name="cboEquipment"></select>
+                                    </div>
+                                </dd>
+                            </dl>
+
+                            <dl>
+                                <dt>&nbsp;</dt>
+                                <dd>
+                                    <li>
+                                        <a class="btn btn-delete" title="검색" id="btnSearch">
+                                            <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                            검색
+                                        </a>
+                                    </li>
+                                </dd>
+                            </dl>
+                        </div>
+                    </form>
+                </div>
+                <div class="container-fluid">
+                    <div id="dasconfig-grid"></div>
+                </div>
+            </section>
+            <section style="border-radius:15px; flex:2;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <h3>상세 정보</h3>
+                    </div>
+                    <div class="button-wrap">
+                        <ul>
+                            <li>
+                                <button type="button" class="btn" id="btnNew" name="btnNew"><i class="fas fa-plus"></i>
+                                </button>
+                            </li>
+                            <li>
+                                <button type="button" class="btn y_write_auth" id="btnDelete" style="float:none"><i
+                                        class="fas fa-trash"></i></button>
+                            </li>
+                            <li>
+                                <button type="button" class="btn y_write_auth" id="btnSave" style="float:none"><i
+                                        class="fas fa-save"></i></button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <form id="configForm">
+                    <input type="hidden" id="id" name="id"/>
+                    <div class="table-wrap" id="detail_box">
+                        <table class="write-table">
+                            <tbody>
+                            <tr>
+                                <th>
+                                    <label>
+                                        서버
+                                    </label>
+                                </th>
+                                <td>
+                                    <select class="form-control2" id="Server_id" name="Server_id"></select>
+                                </td>
+
+                                <th>
+                                    <label>
+                                        설비
+                                    </label>
+                                </th>
+                                <td>
+                                    <select class="form-control2" id="Equipment_id" name="Equipment_id"></select>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th>
+                                    <label>
+                                        설정명
+                                    </label>
+                                </th>
+                                <td>
+                                    <input class="form-control2" id="Name" name="Name"/>
+                                </td>
+
+                                <th>
+                                    <label>
+                                        설정파일명
+                                    </label>
+                                </th>
+                                <td>
+                                    <input class="form-control2" id="ConfigFileName" name="ConfigFileName"/>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th>
+                                    <label>
+                                        처리모듈명
+                                    </label>
+                                </th>
+                                <td>
+                                    <input class="form-control2" id="Handler" name="Handler"/>
+                                </td>
+
+                                <th>
+                                    <label>
+                                        장치구분
+                                    </label>
+                                </th>
+                                <td>
+                                    <select class="form-control2" id="DeviceType" name="DeviceType">
+                                        <option value="테스트">테스트</option>
+                                    </select>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th>
+                                    <label>
+                                        TOPIC명
+                                    </label>
+                                </th>
+                                <td>
+                                    <input class="form-control2" id="Topic" name="Topic"/>
+                                </td>
+
+                                <th>
+                                    <label>
+                                        수집 활성화
+                                    </label>
+                                </th>
+                                <td>
+                                    <input type="checkbox" id="is_active" name="is_active" value="Y"/>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th>
+                                    <label>설명</label>
+                                </th>
+                                <td colspan="8">
+                                    <textarea class="form-control2 " id="Description" name="Description"></textarea>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th>
+                                    <label>설정(JSON)</label>
+                                </th>
+                                <td colspan="8">
+                                    <textarea class="form-control2" id="Configuration" name="Configuration" style="height: 200px;"></textarea>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </div>
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+    <script type="text/javascript">
+
+        class DASConfigPage {
+            constructor() {
+                this.grid = null;
+                this.baseUrl = '/api/system/das_config';
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+
+
+            }
+
+            init() {
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#dasconfig-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        {binding: 'server_name', header: '서버', width: 100, align: 'center', isReadOnly: true},
+                        {binding: 'equipment_name', header: '설비', width: 150, align: 'left', isReadOnly: true},
+                        {binding: 'Name', header: '설정명', width: 180, align: 'left', isReadOnly: true},
+                        {binding: 'DeviceType', header: '수집구분', width: 100, align: 'left', isReadOnly: true},
+                        {binding: 'Description', header: '설명', width: 220, align: 'left', isReadOnly: true},
+                        {binding: 'created', header: '생성일', width: 150, align: 'center', isReadOnly: true},
+                        {binding: 'is_active', header: '활성화', width: 100, align: 'center', isReadOnly: true}
+                        /*{
+                            binding: 'is_active',
+                            header: '활성화',
+                            width: 100,
+                            align: 'center',
+                            isReadOnly: true,
+                            formatItem: (s, e) => {
+                                if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                                    let col = s.columns[e.col];
+                                    if (col.binding === 'is_active') {
+                                        let value = s.getCellData(e.row, e.col, false);
+                                        e.cell.innerHTML = value === 'Y' ? '<span>수집중</span>' : '<span>비활성</span>';
+                                    }
+                                }
+                            }
+                        }*/
+
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                        }
+                    },
+                });
+
+                this.grid.formatItem.addHandler((s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        let col = s.columns[e.col];
+                        if (col.binding === 'is_active') {
+                            let value = s.getCellData(e.row, e.col, false);
+                            e.cell.innerHTML = value === 'Y' ? '<span>수집중</span>' : '<span>비활성</span>';
+                        }
+                    }
+                });
+
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '데이터수집설정';
+                // 데이터 로드 후 초기 선택 상태 해제
+                this.grid.loadedRows.addHandler(() => {
+                    setTimeout(() => {
+                        this.grid.select(-1, -1); // 선택 상태 초기화
+                    }, 0); // 비동기로 처리하여 초기 선택 해제
+                });
+                let isInitialLoad = true; // 초기 상태 플래그
+
+                this.grid.selectionChanged.addHandler((s, e) => {
+                    if (isInitialLoad) {
+                        isInitialLoad = false; // 초기 로드 이후 플래그 해제
+                        return;
+                    }
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+
+                        _this.showDetail(selectedRowData.id);
+
+                        console.log(`선택된 행 인덱스: ${selectedRowIndex}`);
+                        console.log('선택된 행 데이터:', selectedRowData);
+
+                    }
+                });
+
+
+                AjaxUtil.fillSelectOptions($('#cboDASServer'), 'das_server', 'all', false);
+                AjaxUtil.fillSelectOptions($('#cboEquipment'), 'equipment', 'all', false);
+
+                this.initForm();
+            }
+
+            initForm() {
+
+                AjaxUtil.fillSelectOptions($('#Server_id'), 'das_server', '', false);
+                AjaxUtil.fillSelectOptions($('#Equipment_id'), 'equipment', 'choose', false);
+            }
+
+            setButtonDisable(_boolnew, _boolsave, _booldel) {
+                $('[id=btnNew]').prop('disabled', _boolnew);
+                $('[id=btnSave]').prop('disabled', _boolsave);
+                $('[id=btnDelete]').prop('disabled', _booldel);
+            }
+
+            showDetail(idx) {
+                let _this = this;
+                let param = {'id': idx};
+                let resp = AjaxUtil.getSyncData(_this.baseUrl + '/detail', param);
+                let result = resp.data;
+
+                if (result != null) {
+                    //FormUtil.BindDataForm(result, $('#configForm'));
+                    $('#id').val(result.id)
+                    $('#Server_id').val(result.Server_id)
+                    $('#Equipment_id').val(result.Equipment_id)
+                    $('#Name').val(result.Name)
+                    $('#ConfigFileName').val(result.ConfigFileName)
+                    $('#Handler').val(result.Handler)
+                    $('#DeviceType').val(result.DeviceType)
+                    $('#Topic').val(result.Topic)
+
+
+                    if (result.is_active == 'Y') {
+                        $('#is_active').prop('checked', 'true');
+                    } else {
+                        $('#is_active').removeProp('checked');
+                    }
+
+                    let j = "{}";
+                    if (result.Configuration) {
+                        let configObj = JSON.parse(result.Configuration);
+                        j = _this.jsonValuePretty(configObj);
+                    }
+                    ;
+                    $('#Configuration').text(j);
+                    $('#Description').val(result.Description);
+                }
+
+                page.setButtonDisable(false, false, false);
+            }
+
+            searchMainData() {
+                let _this = this;
+
+                let data = {
+                    'server': $('#cboDASServer').val(),
+                    'equipment': $('#cboEquipment').val(),
+                    //'equipment': $('#keyword').val(),
+                    //'action' : 'read'
+                };
+
+                let resp = AjaxUtil.getSyncData(_this.baseUrl + '/read', data);
+                let result = resp.data;
+
+                if (result != null) {
+                    _this.viewData.sourceCollection = result;
+                }
+
+                this.resetForm();
+                page.setButtonDisable(false, true, true);
+            }//searchMainData
+
+
+            saveData() {
+                let _this = this;
+                //데이터입력체크루틴 누락
+
+                let $Configuration = $('#configForm').find('#Configuration');
+                let config = $Configuration.val();
+                try {
+                    let config_object = JSON.parse(config);
+                    config = JSON.stringify(config_object);
+                    $Configuration.val(config);
+                } catch (e) {
+                    console.log(e);
+                    Alert.alert('', '설정값에 오류가 있습니다.');
+                    return;
+                }
+
+                //let data = $('#configForm').serialize();
+                let data = FormUtil.extractForm($('#configForm'));
+
+                let fnSuccess = function (res) {
+                    Notify.success('저장되었습니다'); // Notification
+                    _this.searchMainData();
+                };
+                AjaxUtil.postAsyncData(_this.baseUrl + '/save', data, fnSuccess);
+            }
+
+            deleteData() {
+                let _this = this;
+                let id = $('#configForm').find('#id').val()
+                let data = {id: id};
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Notify.success('삭제되었습니다'); // Notification
+                        _this.searchMainData();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+                let result = AjaxUtil.postAsyncData(_this.baseUrl + '/delete', data, fnSuccess);
+
+            }
+
+            resetForm() {
+
+                $('#configForm')[0].reset();
+                $('#id').val(null);
+                $('#Description').text('');
+                $('#Configuration').text('');
+
+                $('#configForm #code').attr('readonly', false);
+                $('#configForm input').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                $('#configForm textarea').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                $('#configForm').find('#Topic').val(gui.device_topic);
+            }
+
+            jsonValuePretty(value) {
+                let json = value;
+                if (json) {
+                    json = JSON.stringify(json, null, 4);
+                    //json = json.replace(/\"([^"]+)\":/g, "$1:").replace(/\uFFFF/g, "\\\"");
+                }
+                return json;
+            }
+
+
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new DASConfigPage();
+            $('#btnSearch').click(function (ex) {
+                page.searchMainData();
+            });
+
+
+            $('#btnNew').click(function (e) {
+                page.resetForm();
+                page.setButtonDisable(true, false, true);
+
+
+                //$('#configForm').reset();
+
+            });
+
+            $('#btnSave').click(function (e) {
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        page.saveData()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $('#btnDelete').click(function (e) {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        page.deleteData()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $('#Configuration').on('keydown', function (e) {
+                if (event.keyCode === 9) {
+                    var v = this.value, s = this.selectionStart, e = this.selectionEnd;
+                    this.value = v.substring(0, s) + '\t' + v.substring(e);
+                    this.selectionStart = this.selectionEnd = s + 1;
+                    return false;
+                }
+            });
+
+            page.searchMainData();
+            $('#configForm').find('#Topic').val(gui.device_topic);
+
+        });
+    </script>
+</th:block>
+</html>

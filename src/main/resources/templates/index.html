@@ -1,0 +1,2336 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="ctx" th:content="@{/}">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1, minimum-scale=1, maximum-scale=1">
+    <link rel="icon" th:href="@{/images/logo/actas_log_a.png}">
+    <title th:text="${ system_title }"></title>
+    <!-- CSS -->
+    <link rel="stylesheet" th:href="@{/resource/windowContainer/css/jquery.scrollbar.min.css}">
+    <link rel="stylesheet" th:href="@{/resource/windowContainer/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/resource/windowContainer/css/nth-icons.css}">
+    <link rel="stylesheet" th:href="@{/resource/windowContainer/css/nth-tabs.css}">
+    <link rel="stylesheet" th:href="@{/resource/ax5ui/ax5ui.all.css}">
+    <link rel="stylesheet" th:href="@{/css/animate.css}">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/theme-top-mes.css}">
+    <!-- <link rel="stylesheet" th:href="@{/css/theme-left-mes.css}"> -->
+    <link rel="stylesheet" th:href="@{/css/import.css}" type="text/css">
+
+    <!-- JS -->
+    <script th:src="@{/js/vendor/jquery-3.6.0.js}"></script>
+    <script th:src="@{/js/vendor/jquery-ui.min.js}"></script>
+    <script th:src="@{/js/ui.js}"></script>
+    <script th:src="@{/js/utilscript.js}"></script>
+
+    <script th:inline="javascript">
+        sessionStorage.setItem("username", [[${session.username}]] );
+        sessionStorage.setItem("userid", [[${session.userid}]] );
+        sessionStorage.setItem("groupid", [[${session.groupid}]] );
+        if (!sessionStorage.getItem("spjangcd")) {
+            sessionStorage.setItem("spjangcd", [[${session.spjangcd}]] );
+        }
+    </script>
+
+    <style>
+        .left {
+            cursor: pointer;
+        }
+
+        .menu_area {
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            transform: translateX(0); /* 기본 위치 */
+            opacity: 1;
+            width: 250px; /* 메뉴 너비 */
+            position: absolute; /* 왼쪽 고정 */
+            left: 0;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        /* 메뉴가 사라질 때 */
+        .menu_area.hidden {
+            transform: translateX(-250px); /* 부드럽게 왼쪽으로 사라짐 */
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none; /* 클릭 방지 */
+        }
+
+        /* 컨텐츠 영역 */
+        .con_area {
+            transition: width 0.3s ease-in-out, left 0.3s ease-in-out;
+            width: calc(100% - 250px); /* 기본적으로 메뉴 너비만큼 줄어든 상태 */
+            left: 250px; /* 메뉴가 있을 때 기본 위치 */
+        }
+
+        /* 메뉴가 사라지면 컨텐츠 영역 확장 */
+        .menu_area.hidden + .con_area {
+            width: 100%;
+            left: 0;
+        }
+
+        /* 부드럽게 나오는 애니메이션 */
+        @keyframes menuFadeIn {
+            0% {
+                transform: translateX(-250px);
+                opacity: 0;
+            }
+            100% {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        /* help 버튼 */
+        a.help {
+            background-color: #0056b3;
+            color: #fff;
+            border-radius: 5px;
+            padding: 5px 10px;
+            font-size: 13px;
+            text-decoration: none;
+            transition: 0.2s;
+        }
+        a.help:hover {
+            background-color: #0066cc;
+        }
+
+        /* 유지보수 토글 css */
+        header .right .user-box2 {
+            display: none;
+            position: absolute;
+            top: 60px;
+            right: 30px;
+        }
+
+        header .right .user-box2 ul {
+            display: flex;
+            justify-content: center;
+            flex-flow: column wrap;
+            background-color: #fff;
+            border: 1px solid #E6E6E6;
+            border-radius: 3px;
+            box-shadow: 0px 0px 10px rgba(0, 2, 6, 0.08);
+            padding: 8px;
+        }
+
+        header .right .user-box2 a {
+            display: block;
+            min-width: 120px;
+            padding: 9px 16px;
+            font-size: 14px;
+            color: #4D4D4D;
+            text-align: center;
+        }
+
+        header .right .user-box2 a:hover {
+            background-color: #EDEFF5;
+            border-radius: 3px;
+            color: #333333;
+            font-weight: 700;
+        }
+
+        /* 알림 영역 */
+        header .right .alarm-box {
+            max-height: 300px;
+            display: none;
+            flex-direction: column;
+        }
+
+        header .right .alarm-box.open {
+            display: flex;
+        }
+
+        header .right .alarm-box .alarm-tab-item {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+
+        header .right .alarm-box .alarm-tab-item.active {
+            display: block;
+        }
+
+        /* 테이블 제거 느낌 */
+        .alarm-table {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: separate;
+            border-spacing: 0 2px;
+        }
+
+        .alarm-table tr {
+            background: #f9fafb;
+            border-radius: 10px;
+            transition: background .2s ease, transform .1s ease;
+        }
+
+        .alarm-table tr:hover {
+            background: #eef4ff;
+            transform: translateY(-1px);
+        }
+
+
+        /* 셀 정리 */
+        .alarm-table td {
+            padding: 10px 6px;
+            border: none;
+        }
+
+        /* 타입 */
+        .notif-type {
+            width: 70px;
+            text-align: center;
+        }
+
+        /* ===== 공통 배지 ===== */
+        .notif-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            min-width: 46px;
+            height: 22px;
+            padding: 0 8px;
+
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        /* ===== 타입별 배지 ===== */
+
+        /* 🔔 알림 */
+        .notif-badge.is-alarm {
+            background-color: #3069B3;
+        }
+
+        /* ✉️ 메시지 */
+        .notif-badge.is-message {
+            background-color: #5A8DEE;
+        }
+
+        /* 💬 답장 */
+        .notif-badge.is-reply {
+            background-color: #2EC9D6;
+        }
+
+        .notif-msg {
+            padding: 6px 4px;
+            line-height: 1.4;
+            word-break: break-word;
+            text-align: left;
+        }
+
+        .notif-time {
+            width: 110px;
+            text-align: center;
+            color: #666;
+            font-size: 11px;
+        }
+
+        .notif-date {
+            font-weight: 600;
+        }
+
+        .notif-clock {
+            font-size: 10px;
+            opacity: 0.85;
+        }
+
+        .alarm-table tr.unread {
+            background: #e8f1ff;
+        }
+
+        .alarm-table tr.unread .alarm-msg {
+            font-weight: 600;
+        }
+
+        .alarm-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .alarm-actions .btn-gray {
+            flex: 1;
+            padding: 6px 0;                /* 🔥 높이 줄이기 */
+            font-size: 12px;               /* 🔥 살짝 작게 */
+            font-weight: 600;
+            text-align: center;
+
+            background: #f5f6f8;           /* 연한 배경 */
+            color: #555;
+
+            border: 1px solid #e0e3e8;     /* 얇은 테두리 */
+            border-radius: 14px;           /* 🔥 둥글게 */
+
+            cursor: pointer;
+            transition: all .15s ease;
+        }
+
+        .alarm-actions .btn-gray:hover {
+            background: #eaf1ff;
+            border-color: #3069B3;
+            color: #3069B3;
+        }
+
+        .alarm-actions .btn-gray:active {
+            transform: scale(0.97);
+        }
+
+
+
+    </style>
+</head>
+
+<body>
+<div class="page-wrapper sub-page">
+    <div class="dashboard-layout-header">
+        <header>
+            <div class="left">
+                <div class="logo">
+                    <img th:src="@{/images/logo/actas_log.png}" alt="로고">
+                    <h1>MES</h1>
+                </div>
+            </div>
+            <div class="right">
+                <div id="navbarBarMenu2" style="margin-left: 10px;">
+                    <div class="open_menu">
+                        <span class="bar"></span>
+                        <span class="bar"></span>
+                        <span class="bar"></span>
+                    </div>
+                </div>
+                <div class="header-info">
+                    <div class="weather">
+                        <div class="wt-main">
+                            <p id="area"></p>
+                            <div class="wt-graphic">
+                                <img id="weatherIcon" src="" alt="">
+                                <!--                            <p id="temperature"></p> &lt;!&ndash; 기존의 <span> 태그를 제거 -->
+                                <p id="temperature"></p>
+                            </div>
+                            <!--<p id="lastUpdated" style="font-size: 12px; color: gray;"></p>-->
+                            <p id="lastUpdated" style="display: none;"></p>
+                        </div>
+                        <div class="wt-detail">
+                            <ul>
+                                <li>
+                                    <img th:src="@{/images/icon/ico-umbrella.svg}" alt="강수">
+                                    <p id="precipitationProbability"></p>
+                                </li>
+                                <li>
+                                    <img th:src="@{/images/icon/ico-water.svg}" alt="습도">
+                                    <p id="humidity"></p>
+                                </li>
+                                <li>
+                                    <img th:src="@{/images/icon/ico-wind.svg}" alt="풍속">
+                                    <p id="windSpeed"></p>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <!-- 알림 -->
+                    <a href="#" class="alarm" title="알림">
+                        <img th:src="@{/images/icon/ico-bell.svg}">
+                        <span>알림</span>
+                        <span class="num" id="alarmCount" th:text="${unreadAlarmCount}">0</span>
+                    </a>
+
+                    <div class="alarm-box">
+                        <!-- tab contents -->
+                        <!-- 알림 -->
+                        <div class="alarm-tab-item">
+
+                            <table class="alarm-table">
+                                <caption>알림 테이블</caption>
+                                <colgroup>
+                                    <col style="width:70px">
+                                    <col>
+                                    <col style="width:90px">
+                                </colgroup>
+                                <tbody id="alarmTbody"></tbody>
+                            </table>
+
+                        </div>
+                        <div class="alarm-actions">
+                            <a id="confirmAllAlarms" class="btn-gray">전체확인</a>
+                            <a href="#" class="btn-gray" onclick="openSendModal()">메시지</a>
+                            <a href="#" class="btn-gray" onclick="openHistoryModal()">이력</a>
+                        </div>
+
+                    </div>
+                    <div id="alarmOverlay" style="
+                        display:none;
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        z-index: 9000;
+                    "></div>
+                    <!-- 알림 -->
+                    <!-- 사용자 로그인 상태-->
+                    <div id="spjangSelectWrapper" style="display: none;">
+                        <!-- 사업장 리스트 -->
+                    </div>
+                    <a class="help" title="유지보수" href="#" id="">
+                        유지보수
+                    </a>
+                    <div class="user-box2">
+                        <ul>
+                            <li>
+                                <a id="helpweb" href="https://939.co.kr/onit" title="원격접속" data-popup="" target="_blank" rel="noopener noreferrer">원격접속</a>
+                            </li>
+                            <li id="btnMaintenance">
+                                <a href="#" title="요청등록/확인">요청등록/확인</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <a class="user" title="사용자">
+                        <span style="padding:0 5px">·</span>
+                        <span th:text="${ groupname }"></span>
+                        <span style="padding:0 5px">·</span>
+                        <span id="userName2" th:text="${ username }"></span>
+                        <span>(</span>
+                        <span id="userName3" th:text="${ userid }"></span>
+                        <span>)</span>
+                        <span style="padding-right: 8px">님</span>
+                    </a>
+                    <div class="user-box">
+                        <ul>
+                            <li>
+                                <a id="myinfo" href="#" title="내 정보" data-popup="popup1">내 정보</a>
+                            </li>
+                            <li id="logout">
+                                <a href="#" title="로그아웃">로그아웃</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <!--header [E]-->
+    </div>
+
+    <div class="menu_area">
+        <div class="dashboard-layout-contents">
+
+            <!-- [대시보드] 왼쪽 컨텐츠 영역 -->
+            <div class="dashboard-layout-left menu_wrap">
+                <!-- (레이아웃) 사이드바  -->
+                <div class="dashboard-layout-sidebar tabs" data-tab="tabWrap">
+                    <ul class="layout-sidebar-tab">
+                        <li class="active">
+                            <a href="#menu" title="전체메뉴">전체 메뉴</a>
+                        </li>
+                        <li>
+                            <a href="#bookmark" title="내메뉴">내 메뉴</a>
+                        </li>
+                    </ul>
+                    <div class="layout-sidebar-tabcont">
+<!--                        <div style="margin-top: 10px" id="searchkeyword-box">-->
+<!--                            <input type="text" style="width: 90%" id="searchkeyword" name="searchkeyword" />-->
+<!--                        </div>-->
+                        <nav class="layout-nav sidebar-tabcont" id="menu">
+                            <ul class="dep1">
+                                <li class="dep1-1">
+                                    <a href="#a" title="모니터링" class="ico-lnb01">
+                                        모니터링
+                                    </a>
+                                    <ul class="dep2" id="dep2-monitoring">
+
+                                    </ul>
+                                </li>
+                                <li class="dep1-1">
+                                    <a href="#a" title="기준정보" class="ico-lnb05">
+                                        기준정보
+                                    </a>
+                                    <ul class="dep2" id="dep2-information">
+
+                                    </ul>
+                                </li>
+                                <li class="dep1-1">
+                                    <a href="#a" title="영업 관리" class="ico-lnb02">
+                                        영업 관리
+                                    </a>
+                                    <ul class="dep2" id="dep2-sales-management">
+
+                                    </ul>
+                                </li>
+                                <li class="dep1-1">
+                                    <a href="#a" title="구매 관리" class="ico-lnb03">
+                                        구매 관리
+                                    </a>
+                                    <ul class="dep2" id="dep2-purchase-materials">
+
+                                    </ul>
+                                </li>
+                                <li class="dep1-1">
+                                    <a href="#a" title="구매 관리" class="ico-lnb03">
+                                        재고 관리
+                                    </a>
+                                    <ul class="dep2" id="dep2-inventory-materials">
+
+                                    </ul>
+                                </li>
+                                <li class="dep1-1">
+                                    <a href="#a" title="생산 관리" class="ico-lnb03">
+                                        생산 관리
+                                    </a>
+                                    <ul class="dep2" id="dep2-production-management">
+
+                                    </ul>
+                                </li>
+                                <li class="dep1-1">
+                                    <a href="#a" title="품질 관리" class="ico-lnb04">
+                                        품질 관리
+                                    </a>
+                                    <ul class="dep2" id="dep2-quality">
+
+                                    </ul>
+                                </li>
+                                <li class="dep1-1">
+                                    <a href="#a" title="보고서 관리" class="ico-lnb04">
+                                        보고서 관리
+                                    </a>
+                                    <ul class="dep2" id="dep2-report">
+
+                                    </ul>
+                                </li>
+                                <li class="dep1-1">
+                                    <a href="#a" title="입출금 관리" class="ico-lnb04">
+                                        입출금 관리
+                                    </a>
+                                    <ul class="dep2" id="dep2-transaction">
+
+                                    </ul>
+                                </li>
+                                <li class="dep1-1">
+                                    <a href="#a" title="근태관리" class="ico-lnb04">
+                                        근태 관리
+                                    </a>
+                                    <ul class="dep2" id="dep2-clock-inout">
+
+                                    </ul>
+                                </li>
+                                <li class="dep1-1">
+                                    <a href="#a" title="유지보수" class="ico-lnb04">
+                                        유지보수
+                                    </a>
+                                    <ul class="dep2" id="dep2-request">
+
+                                    </ul>
+                                </li>
+                                <li class="dep1-1">
+                                    <a href="#a" title="시스템설정" class="ico-lnb05">
+                                        시스템 설정
+                                    </a>
+                                    <ul class="dep2" id="dep2-system-settings">
+
+                                    </ul>
+                                </li>
+                                <li class="dep1-1">
+                                    <a href="#a" title="관리자" class="ico-lnb01">
+                                        관리자 메뉴
+                                    </a>
+                                    <ul class="dep2" id="dep2-admin">
+
+                                    </ul>
+                                </li>
+                            </ul>
+
+                        </nav> <!-- // nav end -->
+                        <div class="layout-bookmark sidebar-tabcont" id="bookmark">
+                            <ul class="bookmark-list" id="bookmark-menu">
+
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="layout-sidebar-bottom">
+                        <!--   <img src="/images/logo/logo-kt.svg" alt="kt logo">-->
+                    </div>
+                </div>
+            </div><!-- //dashboard-layout-left end-->
+
+            <!-- [대시보드] 오른쪽 컨텐츠 영역 -->
+            <!-- //dashboard-layout-right end-->
+        </div>
+    </div>
+    <div class="con_area">
+        <!--      <div class="contents">-->
+        <div class="nth-tabs" id="main-tabs"></div>
+        <!--      </div>-->
+    </div>
+
+    <div class="footer">
+        <!--footer [S]-->
+        <span class="footer-left" id="link_privatepolicy" data-commonCd="개인정보 처리방침">개인정보 처리방침</span>
+        <span class="footer-left" id="link_emailreject" data-commonCd="이메일 무단수집 거부">이메일 무단수집 거부</span>
+        <span class="footer-right">Copyright ⓒ (주)엑타스. All Rights Reserved.</span>
+        <!--footer [E]-->
+    </div>
+</div>
+
+
+<script th:src="@{/resource/jquery.min.js}"></script>
+<script th:src="@{/resource/jquery-validation/1.17.0/jquery.validate.min.js}"></script>
+
+<script type="text/javascript">
+    $('html').attr('lang', sessionStorage.getItem('lang_code'));
+</script>
+
+<script th:src="@{/resource/windowContainer/js/jquery.scrollbar.min.js}"></script>
+<script th:src="@{/resource/windowContainer/js/bootstrap.min.js}"></script>
+<script th:src="@{/resource/ax5ui/ax5ui.all.min.js}"></script>
+
+<!-- 메뉴탭 이동 script -->
+<script th:src="@{/resource/windowContainer/js/html5sortable.js}"></script>
+<script th:src="@{/js/nth-tabs.js}"></script>
+
+<th:block th:replace="system_js :: system_js"></th:block>
+
+<script th:src="@{/js/common.js}"></script>
+<script th:src="@{/js/yumenu.js}"></script>
+<script th:src="@{/js/yuscript.js}"></script>
+<script th:src="@{/js/ax5commUtil.js}"></script>
+
+<script type="text/javascript">
+    let nthTabs = null;
+    let default_menu = null;
+    let menuName_list = [];
+    let menu_arr = [];
+    let cachedMenus = null;
+
+    $(document).ready(function () {
+
+        function loadMenusOnce(callback) {
+            if (cachedMenus) {
+                callback(cachedMenus);
+                return;
+            }
+
+            $.getJSON(withCtx('/api/system/menus'), function (response) {
+                cachedMenus = response.data;
+                callback(cachedMenus);
+            });
+        }
+
+        $(".left").click(function () {
+            nthTabs.delAllTab();
+            // window.location.reload();
+        });
+
+        // let lang_cd = i18n.getLanguageCode();
+        //i18n.initializeCommonData(lang_cd);
+        // i18n.initializeMenuData(lang_cd);
+
+        // 메뉴 매핑(FrontFolder_id)
+
+        nthTabs = $('#main-tabs').nthTabs();
+
+        const dep2Mappings = {
+            1: '#dep2-monitoring',
+            2: '#dep2-information',
+            3: '#dep2-sales-management',
+            4: '#dep2-purchase-materials',
+            5: '#dep2-production-management',
+            6: '#dep2-quality',
+            7: '#dep2-report',
+            8: '#dep2-transaction',
+            9: '#dep2-system-settings',
+            10: '#dep2-clock-inout',
+            11: '#dep2-clock-inout',
+            12: '#dep2-approval',
+            13: '#dep2-inventory-materials',
+            14: '#dep2-request',
+            15: '#dep2-admin',
+        };
+
+        function renderMenuByFrontFolder(menus, FrontFolderId, $FrontFolderElement) {
+
+            // 메뉴리스트 초기화 (⚠️ 전체 기준, 1회만)
+            menuName_list = menus.flatMap(folder =>
+                (folder.nodes || []).map(node => node.objNm)
+            ).filter(Boolean);
+
+            menu_arr = menus.flatMap(folder =>
+                (folder.nodes || []).map(node => ({ [node.objNm]: node.objUrl }))
+            );
+
+            // FrontFolder_id 기준 필터링
+            const folders = menus.filter(folder =>
+                folder.frontfolder_id === parseInt(FrontFolderId)
+            );
+
+            if (folders.length === 0) return;
+
+            // 해당 FrontFolderId 메뉴 표시
+            $FrontFolderElement.closest('.dep1-1').css('display', 'block');
+
+            folders.forEach(function (folder) {
+
+                let $li = $('<li class="dep2-1"></li>');
+                let $a = $('<a href="#"></a>').text(folder.folder_name);
+                $li.append($a);
+
+                let $subUl = $('<ul class="dep3 documents" style="display: none;"></ul>');
+                $li.append($subUl);
+
+                folder.nodes.forEach(function (item) {
+                    let $itemLi = $('<li class="dep3-custom-list-style"></li>');
+                    let $itemA = $('<a href="#" ' +
+                        'menuurl="' + item.objUrl + '" ' +
+                        'data-bookmark="' + item.isbookmark + '" ' +
+                        'data-objid="' + item.objId + '" ' +
+                        'title="' + item.objNm + '">' +
+                        item.objNm +
+                        '</a>');
+
+                    $itemLi.append($itemA);
+                    $subUl.append($itemLi);
+                });
+
+                $FrontFolderElement.append($li);
+
+                // dep2 클릭 이벤트
+                $a.on('click', function (e) {
+                    e.preventDefault();
+
+                    let $dep3 = $li.find('.dep3 li');
+
+                    if ($dep3.length === 1) {
+                        let $a = $dep3.find('a');
+                        let objid = $a.data('objid');
+                        let title = $a.text();
+
+                        if (nthTabs.isExistsTab('#' + objid)) {
+                            nthTabs.toggleTab('#' + objid);
+                        } else {
+                            nthTabs.addTab({
+                                id: objid,
+                                title: title,
+                                url: withCtx('/gui/' + objid + '/default'),
+                                active: true,
+                                allowClose: true
+                            });
+                        }
+
+                        $subUl.hide();
+                    }
+                });
+            });
+
+            // dep3 클릭 이벤트 (이벤트 위임)
+            $FrontFolderElement.find('.dep3').off('click').on('click', 'a', function (e) {
+                e.preventDefault();
+
+                $FrontFolderElement.find('.dep3 li').removeClass('on');
+                $(this).closest('li').addClass('on');
+
+                let objid = $(this).data('objid');
+                let title = $(this).text();
+                let bookmark = $(this).data('bookmark');
+
+                if (nthTabs.isExistsTab('#' + objid)) {
+                    nthTabs.toggleTab('#' + objid);
+                } else {
+                    nthTabs.addTab({
+                        id: objid,
+                        title: title,
+                        url: withCtx('/gui/' + objid + '/default'),
+                        active: true,
+                        allowClose: true,
+                        isbookmark: bookmark
+                    });
+                }
+            });
+        }
+
+        function initializeMenuSearchData(menus) {
+            menuName_list = menus.flatMap(folder =>
+                (folder.nodes || []).map(node => node.objNm)
+            ).filter(Boolean);
+
+            menu_arr = menus.flatMap(folder =>
+                (folder.nodes || []).map(node => ({ [node.objNm]: node.objUrl }))
+            );
+        }
+
+        loadMenusOnce(function (menus) {
+            initializeMenuSearchData(menus);
+
+            Object.keys(dep2Mappings).forEach(FrontFolderId => {
+                renderMenuByFrontFolder(
+                    menus,
+                    FrontFolderId,
+                    $(dep2Mappings[FrontFolderId])
+                );
+            });
+        });
+
+        $('#navbarBarMenu2 .open_menu').click(function () {
+            $(this).toggleClass('menu_open'); // 메뉴 숨김 토글
+
+            $('.menu_area').toggleClass('hidden');
+            const isMenuHidden = $('.menu_area').hasClass('hidden');
+
+            $('.con_area, .tab-content').css({
+                'width': isMenuHidden ? '100%' : 'calc(100% - 250px)', // 메뉴가 닫히면 전체 확장
+                'left': isMenuHidden ? '0' : '250px' // 왼쪽으로 확장
+            });
+        });
+
+        // 북마크 및 default_menu를 한 번에 처리
+        $.getJSON(withCtx('/api/system/bookmark'), function (result) {
+            let _data = result.data;
+            var litagbook = '';
+
+            // 북마크 메뉴 생성
+            for (var i = 0; i < _data.length; i++) {
+                litagbook += '<li><a href="#" data-objid="' + _data[i].code + '" menuurl="' + _data[i].url + '">' + i18n.getMenuText(_data[i].name) + '</a></li>';
+            }
+
+            $('#bookmark-menu').html(litagbook);
+
+            // 클릭 이벤트 바인딩
+            $(document).on('click', '#bookmark-menu a, .header-menu .menu-btn', function (e) {
+                e.preventDefault();
+                $('#bookmark-menu li').removeClass('on');
+                $(this).parent('li').addClass('on');
+
+                var val = $(this).text();
+                var menuurl = $(this).attr('menuurl');
+                var objid = $(this).attr('data-objid');
+                var _bookmark = 'true';
+
+                if (nthTabs.isExistsTab('#' + objid)) {
+                    nthTabs.toggleTab('#' + objid);
+                } else {
+                    nthTabs.addTab({
+                        id: objid,
+                        title: val,
+                        url: withCtx('/gui/' + objid + '/default'),
+                        active: true,
+                        allowClose: true,
+                        isbookmark: _bookmark
+                    });
+                }
+            });
+
+            // default_menu 처리
+            $.getJSON(withCtx('/api/system/usergroup/defaultmenu'), function (result) {
+                default_menu = result.data.gmenu;
+                let title = result.data.MenuName;
+
+                let _bookmark = 'false';
+                _data.forEach(function (item) {
+                    if (item.code === default_menu) {
+                        _bookmark = 'true';
+                    }
+                });
+
+                // default_menu 탭 추가
+                nthTabs.addTab({
+                    id: default_menu,
+                    title: title,
+                    url: withCtx('/gui/' + default_menu + '/default'),
+                    active: true,
+                    allowClose: false,
+                    // isbookmark: _bookmark
+                });
+
+            }).fail(function (e) {
+                console.error('Failed to retrieve default menu data.');
+            });
+
+        }).fail(function (e) {
+            Notify.error('Failed to retrieve bookmark data.');
+        });
+
+
+        $('.scrollbar-inner').scrollbar();
+        //
+        // var parentClass = $(this).parent('li');
+        // if (!$(this).hasClass('on')) {
+        //     $('.documents a').removeClass('on');
+        //     $(this).addClass('on');
+        // }
+        // if (parentClass.attr('class') == 'documents') {
+        //     $('.gnb li').removeClass('open');
+        //     $('.gnb li > ul').slideUp(100);
+        // }
+        // if (localStorage.getItem('theme-top') === null && localStorage.getItem('theme-left') === null) {
+        //     dynamicLinkCss('/css/theme-top-mes', '/css/theme-left-mes');
+        // } else {
+        //     dynamicLinkCss(localStorage.getItem('theme-top'), localStorage.getItem('theme-left'));
+        // }
+
+        //let _mainUrl = 'wm_dashboard_summary';
+        // let _mainUrl = default_menu;
+        // // 모바일 구분
+        // if ('B' == 'F') {
+        //     _mainUrl = '#OBJ0000000199';
+        //     $('#navbarBarMenu1').show();
+        //     $('#navbarBarMenu2').hide();
+        //     $('.menu_wrap').addClass('mobile_menu_wrap');
+        //     $('.menu_area').addClass('mobile_menu_area');
+        //     $('.con_area').addClass('mobile_con_area');
+        // } else {
+        //     $('#navbarBarMenu1').hide();
+        //     $('#navbarBarMenu2').show();
+        // }
+        //
+        // // 메뉴 자동으로 닫히게
+        // if ($(window).innerWidth() < 800) {
+        //     $('body').addClass('open');
+        //     $('.wrap').addClass('menu_close');
+        //     $('.con_area').addClass('open');
+        // }
+        //
+        // var jsmedia = window.matchMedia("screen and (max-width:799px)");
+        // jsmedia.addListener(function (e) {
+        //     if (e.matches) {
+        //         $('body').addClass('open');
+        //         $('.wrap').addClass('menu_close');
+        //         $('.con_area').addClass('open');
+        //         $('.menu_wrap').addClass('mobile_menu_wrap');
+        //         $('.menu_area').addClass('mobile_menu_area');
+        //         $('.con_area').addClass('mobile_con_area');
+        //     } else {
+        //         $('body').removeClass('open');
+        //         $('.wrap').removeClass('menu_close');
+        //         $('.con_area').removeClass('open');
+        //         $('.menu_wrap').removeClass('mobile_menu_wrap');
+        //         $('.menu_area').removeClass('mobile_menu_area');
+        //         $('.con_area').removeClass('mobile_con_area');
+        //     }
+        // });
+        //
+        // //$('#mainlogotitle').text("");
+        // $('#mainlogotitle').on('click', function () {
+        //     nthTabs.toggleTab(_mainUrl);
+        // });
+        //
+        // //menu slide(left open)
+        // $('.open_menu').click(function () {
+        //     $(this).toggleClass('menu_close');
+        //     $('.wrap').toggleClass('menu_close');
+        // });
+        // //menu slide(left open)
+        // $('.open_menu').click(function () {
+        //     $('.con_area').toggleClass('open');
+        //     $('.left_area').toggleClass('open');
+        //     $('body').toggleClass('open');
+        // });
+
+        // TAB메뉴 Context Menu
+        $('#tabdragdrop').on('contextmenu', 'li', function (e) {
+            if ($(this).attr('not-allow-close') === undefined) {
+                $('.otherAuthmaintab').show();
+                if ($(this).hasClass('active')) {
+                    $('.otherAuthtab').show();
+                } else {
+                    $('.otherAuthtab').hide();
+                }
+            } else {
+                $('.otherAuthmaintab').hide();
+            }
+            var leftxpo = 260;
+            if ($('.menu_close .menu_area').css('left') !== undefined) {
+                leftxpo = 15;
+            }
+            var left = e.pageX - leftxpo;
+            $('#contextTabMenu').toggle().css({
+                left: left + 'px'
+            }).attr('targetObjId', $(this).children('a').attr('href'));
+            return false;
+        });
+
+        $(".profile_box").click(function () {
+            $(".profile_mbox").toggle();
+        })
+
+        $(".btn_nbox_close").click(function () {
+            $(".notification_mbox").hide();
+        });
+
+        $(".btn_pbox_close").click(function () {
+            $(".profile_mbox").hide();
+        });
+
+
+        $('#logout').on('click', function (e) {
+            e.preventDefault();
+            Alert.confirm('', '로그아웃하시겠습니까?', function () {
+                i18n.resetData();
+                location.href = withCtx('/logout');
+            });
+        });
+
+
+        // CR = String.fromCharCode(10);
+        // let notify_list = notify_text.split(CR);
+        //
+        // let notify_index = 0;
+        //
+        // let timer = setInterval(function () {
+        //     return;
+        //
+        //     if (notify_index >= notify_list.length)
+        //         notify_index = 0;
+        //     let notify_text = notify_list[notify_index];
+        //     $('#notify_text').text(notify_text);
+        //     notify_index++;
+        // }, 5000);
+        //
+        // // 내정보 클릭
+        $('#myinfo').on('click', function (e) {
+            e.preventDefault();
+            Ax5Modal.open({url: CTX + 'page/account/myinfo', width: 500, height: 450});
+            $(".profile_contbox").hide();
+        });
+        //
+        // // 언어설정
+        // $('#myLanguage').on('click', function (e) {
+        //     e.preventDefault();
+        //     Ax5Modal.open({url: '/page/account/language', width: 400, height: 200});
+        //     $(".profile_contbox").hide();
+        // });
+        //
+        // // 테마변경
+        // $('.setting-color > label').on('click', function (e) {
+        //     dynamicLinkCss($(this).data('load-top-css'), $(this).data('load-left-css'));
+        // });
+        //
+        // // 개인정보 처리방침 클릭
+        // $('#link_privatepolicy').on('click', function (e) {
+        //     Ax5Modal.open({url: '/page/popup/privacy_policy', width: 800, height: 200});
+        // });
+        //
+        // // 이메일 무단수집 거부 클릭
+        // $('#link_emailreject').on('click', function (e) {
+        //     Ax5Modal.open({url: '/page/popup/email_unauthorized_collection_policy', width: 800, height: 400});
+        // });
+
+        // 오픈소스 사용공지 필요
+
+        $('.help').on('click', function (event) {
+            event.preventDefault(); // 기본 동작을 막음 (필요에 따라 사용)
+            $('.user-box2').slideToggle('fast'); // 서서히 펼쳐지거나 접히게 함
+        });
+
+        // 클릭 시 .user-box가 외부 클릭으로 닫히게 하려면
+        $(document).on('click', function (event) {
+            if (!$(event.target).closest('.help, .user-box2').length) {
+                $('.user-box2').slideUp('fast');
+            }
+        });
+    });
+
+    //메뉴 검색창 이벤트 등록
+    document.addEventListener('input', function(event){
+        if(event.target){
+            const ele = event.target;
+
+            if(ele.id === 'searchkeyword'){
+                initializeAutocomplete('searchkeyword', 'searchkeyword-box', menuName_list, menu_arr)
+            }
+        }
+    });
+
+    //메뉴 검색바 엔터시 발동함수
+    // document.getElementById('searchkeyword').addEventListener("keydown", (e) => {
+    //     if(e.key === 'Enter'){
+    //         e.preventDefault();
+    //
+    //         const inputValue = $('#searchkeyword').val();
+    //
+    //         const matchedItem = menu_arr.find(obj => {
+    //             const key = Object.keys(obj)[0];
+    //             return key.trim() === inputValue;
+    //         })
+    //
+    //         if(matchedItem) {
+    //             const url = matchedItem[inputValue];
+    //             const target = url.substring(url.lastIndexOf("/")+1);
+    //             document.querySelector(`[data-objid="${target}"]`)?.click();
+    //         }
+    //     }
+    // });
+
+    // 유지보수 클릭 이벤트 (유지보수 요청 새창)
+    $('#btnMaintenance').on('click', function (e) {
+        e.preventDefault();
+
+        // ✅ 팝업 창 크기 및 위치 설정
+        const width = 1400;
+        const height = 1000;
+        const left = (window.screen.width / 2) - (width / 2);
+        const top = (window.screen.height / 2) - (height / 2);
+
+        // ✅ 새창으로 열 URL (유지보수 요청 페이지)
+        const url = 'http://actascld.co.kr:8030/gui/wm_request/default?hideBookmark=true&wintitle=%EC%9C%A0%EC%A7%80%EB%B3%B4%EC%88%98%20%EC%9A%94%EC%B2%AD';
+
+        // ✅ 팝업창 오픈
+        window.open(
+            url,
+            'maintenanceRequest',
+            `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no`
+        );
+    });
+</script>
+
+<!-- 메시지 보내기 모달 -->
+<div id="sendModal" class="modal-overlay">
+    <div class="modal_send">
+        <div class="modal-header">
+            <span>메시지 보내기</span>
+            <button class="modal-close" onclick="closeSendModal()">✕</button>
+        </div>
+
+        <div class="modal-body">
+            <label class="modal-label">받는 그룹</label>
+            <div style="display:flex; gap:6px; align-items:center;">
+                <select class="form-control2" id="cboUserGroup" style="width: 140px;"></select>
+                <input type="text" id="userSearch"
+                       placeholder="이름 검색"
+                       class="form-control2"
+                       style="flex:1;">
+            </div>
+
+            <label class="modal-label" style="margin-top:10px;">선택된 받는 사람</label>
+            <div id="selectedUsers" class="selected-users">
+                <div class="user-empty">선택된 사용자가 없습니다</div>
+            </div>
+
+            <label class="modal-label" style="margin-top:10px;">받는 사람</label>
+            <div id="userList" class="user-list">
+                <div class="user-empty">그룹을 선택하세요</div>
+            </div>
+
+            <label class="modal-label" style="margin-top:10px;">메시지</label>
+            <textarea id="sendMessage"
+                      class="modal-textarea"
+                      placeholder="보낼 내용을 입력하세요"></textarea>
+        </div>
+
+        <div class="modal-footer">
+            <button class="modal-btn cancel" onclick="closeSendModal()">취소</button>
+            <button class="modal-btn primary" onclick="sendAlarmMessage()">보내기</button>
+        </div>
+    </div>
+</div>
+
+<!-- 이력 조회 모달 -->
+<div id="historyModal" class="modal-overlay" style="display:none;">
+    <div class="modal_send" style="width: 630px;">
+
+        <div class="modal-header">
+            <span>이력 조회</span>
+            <button class="modal-close" onclick="closeHistoryModal()">✕</button>
+        </div>
+
+        <div class="modal-body">
+
+            <label class="modal-label">기간</label>
+            <div style="display:flex; gap:6px; align-items:center;">
+                <input type="date" id="historyStartDate" class="form-control2">
+                <span>~</span>
+                <input type="date" id="historyEndDate" class="form-control2">
+            </div>
+
+            <label class="modal-label" style="margin-top:12px;">이력 목록</label>
+
+            <div class="history-table-wrap">
+                <table class="history-table">
+                    <thead>
+                    <tr>
+                        <th style="width:120px;">일시</th>
+                        <th style="width:90px;">보낸 사람</th>
+                        <th style="width:90px;">받은 사람</th>
+                        <th>내용</th>
+                        <th style="width:50px;">확인</th>
+                    </tr>
+                    </thead>
+                    <tbody id="historyTbody">
+                    <tr>
+                        <td colspan="5" class="empty">조회된 이력이 없습니다.</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+
+
+        </div>
+
+        <div class="modal-footer">
+            <button class="modal-btn cancel" onclick="closeHistoryModal()">닫기</button>
+            <button class="modal-btn primary" onclick="searchHistory()">조회</button>
+        </div>
+
+    </div>
+</div>
+
+
+<script th:inline="javascript">
+    let alarmList = /*[[${unreadAlarmList}]]*/ [];
+    const userid = '[[${userid}]]';
+</script>
+
+<style>
+    #toastContainer {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 30000;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    /* 기본 토스트 */
+    .toast {
+        width: 320px;
+        background: #2f2f2f;
+        color: #fff;
+        padding: 12px 14px;
+        border-radius: 6px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        animation: slideUp 0.25s ease-out;
+        font-size: 13px;
+    }
+
+    /* 확장 상태 */
+    .toast.expanded {
+        width: 360px;
+    }
+
+    /* 헤더 */
+    .toast-header {
+        display: flex;
+        justify-content: space-between;
+        font-weight: bold;
+        margin-bottom: 6px;
+    }
+
+    /* 메시지 */
+    .toast-message {
+        line-height: 1.4;
+        margin-bottom: 6px;
+        font-size: 15px;
+    }
+
+    /* 메타 */
+    .toast-meta {
+        font-size: 11px;
+        opacity: 0.7;
+    }
+
+    /* 액션 */
+    .toast-actions {
+        margin-top: 8px;
+        display: flex;
+        gap: 6px;
+    }
+
+    .toast-actions button {
+        background: #444;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        padding: 4px 8px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+
+    .toast-actions button:hover {
+        background: #555;
+    }
+
+    /* 답장 영역 */
+    .toast-reply {
+        margin-top: 8px;
+        display: none;
+    }
+
+    .toast.expanded .toast-reply {
+        display: block;
+    }
+
+    .toast textarea {
+        width: 100%;
+        height: 60px;
+        resize: none;
+        border-radius: 4px;
+        border: none;
+        padding: 6px;
+        font-size: 12px;
+    }
+
+    /* 애니메이션 */
+    @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to   { transform: translateY(0); opacity: 1; }
+    }
+
+    .toast-reply-box {
+        display: none;
+        margin-top: 8px;
+    }
+
+    .toast.expanded .toast-reply-box {
+        display: block;
+    }
+
+    /* 답장 알림 표시용 */
+    .toast.is-reply {
+        border-left: 4px solid #4caf50;
+    }
+
+    /* 오버레이 */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.35);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    /* 모달 본체 */
+    .modal_send {
+        width: 420px;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0,0,0,.2);
+        /*display: flex;*/
+        flex-direction: column;
+    }
+
+    /* 헤더 */
+    .modal-header {
+        position: relative;                 /* 🔥 기준점 */
+        display: flex;
+        justify-content: center;             /* 제목은 가운데 */
+        align-items: center;
+        padding: 14px 16px;
+        font-size: 16px;
+        font-weight: 700;
+        border-bottom: 1px solid #eee;
+    }
+
+    /* 닫기 버튼 */
+    .modal-close {
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+
+    /* 바디 */
+    .modal-body {
+        padding: 16px;
+    }
+
+    .modal-label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 6px;
+    }
+
+    .modal-textarea {
+        width: 100%;
+        height: 100px;
+        padding: 10px;
+        font-size: 14px;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+        resize: none;
+        box-sizing: border-box;
+    }
+
+    .modal-textarea:focus {
+        outline: none;
+        border-color: #3069B3;
+    }
+
+    /* 푸터 */
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 12px 16px;
+        border-top: 1px solid #eee;
+    }
+
+    /* 버튼 */
+    .modal-btn {
+        min-width: 80px;
+        padding: 7px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .modal-btn.cancel {
+        background: #f5f6f8;
+        border: 1px solid #ddd;
+        color: #555;
+    }
+
+    .modal-btn.primary {
+        background: #3069B3;
+        border: 1px solid #3069B3;
+        color: #fff;
+    }
+
+    .user-list {
+        max-height: 140px;
+        border: 1px solid #e0e3e8;
+        border-radius: 6px;
+        padding: 6px;
+        overflow-y: auto;
+        background: #fafbfc;
+    }
+
+    .user-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 6px;
+        font-size: 13px;
+    }
+
+    .user-item:hover {
+        background: #eef4ff;
+    }
+
+    .user-empty {
+        font-size: 12px;
+        color: #888;
+        padding: 6px;
+    }
+
+    .selected-users {
+        min-height: 40px;
+        border: 1px dashed #d0d4da;
+        border-radius: 6px;
+        padding: 6px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        background: #fafafa;
+    }
+
+    .selected-user {
+        background: #3069B3;
+        color: #fff;
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .selected-user button {
+        background: none;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        font-size: 12px;
+    }
+
+    .history-table-wrap {
+        max-height: 260px;          /* 모달 높이에 맞게 조절 */
+        overflow-y: auto;
+        border: 1px solid #e1e5ea;
+        border-radius: 4px;
+    }
+
+    /* 테이블 기본 */
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 13px;
+    }
+
+    /* 헤더 고정 */
+    .history-table thead th {
+        position: sticky;
+        top: -1px;
+        background: #f4f6f9;
+        z-index: 1;
+        border-bottom: 1px solid #ddd;
+        padding: 6px 8px;
+        text-align: center;
+        font-weight: 600;
+    }
+
+    /* 바디 */
+    .history-table td {
+        border-bottom: 1px solid #eee;
+        padding: 6px 8px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .history-table tbody tr:hover {
+        background: #f9fbff;
+    }
+
+    /* 비어있을 때 */
+    .history-table .empty {
+        text-align: center;
+        color: #888;
+        padding: 20px;
+    }
+
+
+</style>
+<div id="toastContainer"></div>
+
+
+<script type="text/javascript">
+    // 날씨 정보
+    fetchWeatherData();
+    // 30분마다 날씨 정보 자동 갱신
+    setInterval(fetchWeatherData, 1800000);
+
+    function getUiType(alarm) {
+        if (alarm.action === 'REPLY') return 'reply';
+        if (alarm.action === 'SEND')  return 'message';
+        return 'alarm';
+    }
+
+    function sseConnect() {
+
+        const spjangcd = sessionStorage.getItem("spjangcd");
+        const url = withCtx('/sse/subscribe') + '?spjangcd=' + encodeURIComponent(spjangcd);
+
+        const eventSource = new EventSource(url);
+
+
+        // ✅ 기존 SYSTEM 이벤트 (레거시)
+        eventSource.addEventListener("SYSTEM", function (e) {
+            if (e.data) {
+                Notify.success(e.data);
+            }
+        });
+
+        // ✅ 신규 알림
+        eventSource.addEventListener("NOTIFICATION", function (e) {
+
+            if (!e.data) return;
+
+            const noti = JSON.parse(e.data);
+
+            alarmList.unshift(noti);      // 🔥 데이터만 쌓기
+            increaseAlarmCount();         // 🔔 숫자만 증가
+            showToast(noti);
+        });
+
+        // ✅ 신규 코멘트
+        eventSource.addEventListener("COMMENT", function (e) {
+            if (!e.data) return;
+
+            const comment = JSON.parse(e.data);
+
+            // 🔥 알림 리스트에 포함
+            alarmList.unshift(comment);
+            increaseAlarmCount();
+
+            // 🔥 동일 토스트 사용
+            showToast(comment);
+        });
+
+        // ✅ 연결 확인
+        eventSource.addEventListener("CONNECTED", function () {
+            console.log("SSE 연결 완료");
+        });
+
+        eventSource.onerror = function (err) {
+            console.log("SSE 오류 발생, 재연결 시도 중...", err);
+            eventSource.close();
+            setTimeout(sseConnect, 3000);
+        };
+    }
+
+    sseConnect();
+
+    // 알림
+    function increaseAlarmCount() {
+        const countEl = document.getElementById("alarmCount");
+        let count = parseInt(countEl.innerText || "0", 10);
+        countEl.innerText = count + 1;
+    }
+
+    function formatDate(dateStr) {
+        const d = new Date(dateStr);
+        return d.toLocaleString();
+    }
+
+
+    $('.alarm').on('click', function (e) {
+        e.preventDefault();   // 🔥 href="#" 막기
+
+        const $box = $('.alarm-box');
+        const $tab = $box.find('.alarm-tab-item');
+        const $overlay = $('#alarmOverlay');
+
+        const isOpen = $tab.hasClass('active');
+
+        if (isOpen) {
+            // 🔽 닫기
+            $tab.removeClass('active');
+            $overlay.hide();
+        } else {
+            // 🔼 열기
+            renderAlarmList();
+            $tab.addClass('active');
+            $overlay.show();
+        }
+    });
+
+    $('#alarmOverlay').on('click', function () {
+        $('.alarm-tab-item').removeClass('active');
+        $(this).hide();
+    });
+
+    function renderAlarmList() {
+
+        const tbody = document.getElementById("alarmTbody");
+        if (!tbody) return;
+
+        // 초기화
+        tbody.innerHTML = "";
+
+        // 🔕 알림 없음
+        if (alarmList.length === 0) {
+            tbody.innerHTML = `
+            <tr>
+                <td colspan="3" style="text-align:center; padding:20px; color:#888;">
+                    새로운 알림이 없습니다.
+                </td>
+            </tr>
+        `;
+            return;
+        }
+
+        // 🔔 알림 있음
+        alarmList.forEach(alarm => {
+            const uiType = getUiType(alarm);
+            const tr = document.createElement("tr");
+
+            const { date, time } = formatAlarmDate(alarm.createdAt);
+
+            tr.innerHTML = `
+                <td class="notif-type">
+                    <span class="notif-badge is-${uiType}">
+                        ${uiType === 'alarm' ? '알림'
+                            : uiType === 'message' ? '메시지'
+                                : '답장'}
+                    </span>
+                </td>
+                <td class="notif-msg">
+                    ${alarm.message}
+                </td>
+                <td class="notif-time">
+                    <div class="notif-date">${date}</div>
+                    <div class="notif-clock">${time}</div>
+                </td>
+            `;
+
+
+            tr.onclick = () => showToast(alarm);
+            tbody.appendChild(tr);
+        });
+    }
+
+    function formatAlarmDate(dateStr) {
+        const d = new Date(dateStr);
+
+        const date = d.toISOString().slice(0, 10); // YYYY-MM-DD
+
+        const time = d.toLocaleTimeString('ko-KR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+
+        return { date, time };
+    }
+
+
+    const toastMap = new Map();
+
+    function showToast(noti) {
+
+        const uiType = getUiType(noti);
+
+        const container = document.getElementById("toastContainer");
+        const notiId = noti.notiId;
+
+        // ✅ 이미 떠 있는 토스트라면
+        if (toastMap.has(notiId)) {
+            const existing = toastMap.get(notiId);
+
+            // 앞으로 가져오기
+            existing.toast.style.zIndex = Date.now();
+
+            // 타이머 리셋
+            clearTimeout(existing.timer);
+            existing.timer = setTimeout(() => {
+                existing.toast.remove();
+                toastMap.delete(notiId);
+            }, 5000);
+
+            return;
+        }
+
+        const titleText =
+            uiType === 'reply'   ? '💬 답장' :
+                uiType === 'message' ? '✉️ 메시지' :
+                    '🔔 알림';
+
+        // ✅ 새 토스트 생성
+        const toast = document.createElement("div");
+        toast.className = "toast" + (uiType === 'reply' ? " is-reply" : "");
+
+        toast.innerHTML = `
+            <div class="toast-header">
+                <span>
+                    ${titleText}
+                    · <strong>
+                      ${noti.senderUserName
+                        ? `${noti.senderUserName} (${noti.senderUserId})`
+                        : noti.senderUserId}
+                    </strong>
+                </span>
+                <span class="close-btn">✕</span>
+            </div>
+
+
+        <div class="toast-message">${noti.message}</div>
+        <div class="toast-meta">${formatDate(noti.createdAt)}</div>
+
+        <div class="toast-actions">
+            <button class="reply-btn">답장</button>
+            <button class="confirm-btn">확인</button>
+        </div>
+
+        <div class="toast-reply-box">
+            <textarea placeholder="답장을 입력하세요"></textarea>
+            <div class="toast-actions">
+                <button class="send-btn">전송</button>
+                <button class="cancel-btn">취소</button>
+            </div>
+        </div>
+    `;
+
+        container.appendChild(toast);
+
+        // ✅ 자동 제거 타이머
+        let autoClose = setTimeout(() => {
+            toast.remove();
+            toastMap.delete(notiId);
+        }, 5000);
+
+        // Map에 등록
+        toastMap.set(notiId, {
+            toast,
+            timer: autoClose
+        });
+
+        /* 이벤트 */
+        toast.querySelector(".reply-btn").onclick = () => {
+            clearTimeout(autoClose);
+            toast.classList.add("expanded");
+        };
+
+        // 답장 취소
+        toast.querySelector(".cancel-btn").onclick = () => {
+            toast.classList.remove("expanded");
+        };
+
+        // 닫기
+        toast.querySelector(".close-btn").onclick = () => {
+            toast.remove();
+            toastMap.delete(notiId);
+        };
+
+        // 확인
+        toast.querySelector(".confirm-btn").onclick = () => {
+            markAsRead(notiId);
+            removeAlarmFromList(notiId);
+            decreaseAlarmCount();
+
+            toast.remove();
+            toastMap.delete(notiId);
+        };
+
+        // 답장 전송
+        toast.querySelector(".send-btn").onclick = () => {
+            const msg = toast.querySelector("textarea").value.trim();
+            if (!msg) return;
+
+            sendReply(notiId, msg);
+            removeAlarmFromList(notiId);
+            decreaseAlarmCount();
+            toast.remove();
+            toastMap.delete(notiId);
+        };
+    }
+
+    // 확인
+    function markAsRead(notiId) {
+        AjaxUtil.postAsyncData(
+            "/api/notifications/read",
+            { notiId: notiId },
+            function () {
+                // 성공 시 특별히 할 거 없으면 비워도 됨
+            }
+        );
+    }
+
+    // 전체 확인
+    $('#confirmAllAlarms').on('click', function (e) {
+        e.preventDefault();
+
+        if (alarmList.length === 0) {
+            return;
+        }
+
+        AjaxUtil.postAsyncData(
+            "/api/notifications/readAll",
+            {},   // spjangcd는 AjaxUtil에서 자동 포함
+            function (res) {
+
+                if (!res.success) {
+                    Notify.error(res.message || "알림 확인 처리 실패");
+                    return;
+                }
+
+                // 🔥 프론트 상태 정리
+                alarmList = [];
+                document.getElementById("alarmCount").innerText = "0";
+
+                // 떠 있는 토스트 전부 제거
+                toastMap.forEach(v => v.toast.remove());
+                toastMap.clear();
+
+                // 알림 리스트 다시 렌더링
+                renderAlarmList();
+            }
+        );
+    });
+
+    // 답장
+    function sendReply(parentNotiId, message) {
+        AjaxUtil.postAsyncData(
+            "/api/notifications/reply",
+            {
+                parentNotiId: parentNotiId,
+                message: message
+            },
+            function () {
+                // 필요하면 성공 토스트
+                // Notify.success("답장이 전송되었습니다.");
+            }
+        );
+    }
+
+    // 알림 카운트 감소
+    function decreaseAlarmCount() {
+        const el = document.getElementById("alarmCount");
+        let count = parseInt(el.innerText || "0", 10);
+        if (count <= 0) return;
+        el.innerText = count - 1;
+    }
+
+    // 알림 리스트 제거
+    function removeAlarmFromList(notiId) {
+        alarmList = alarmList.filter(a => a.notiId !== notiId);
+    }
+
+    let selectedUserMap = new Map(); // key: string userId
+    let currentGroup = null;
+    let userListXhr = null;
+
+    function initSendModalEvents() {
+
+        $('#cboUserGroup').on('change', function () {
+            const group = $(this).val();
+            currentGroup = group;
+
+            if (!group) {
+                $('#userList').html('<div class="user-empty">그룹을 선택하세요</div>');
+                return;
+            }
+
+            loadUsersByGroup(group);
+        });
+
+        $('#userSearch').on('input', function () {
+            if (!currentGroup) return;
+            loadUsersByGroup(currentGroup);
+        });
+    }
+
+    initSendModalEvents();
+
+    $(document).on('mousedown', '.btn-clear', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const $input = $('#userSearch');
+
+        if (!$input.val()) return;
+
+        $input.val('').focus();
+
+        // 🔥 DOM 반영 이후 실행
+        setTimeout(() => {
+            $input.trigger('input');
+        }, 0);
+    });
+
+
+    function openSendModal() {
+        $('#sendModal').css('display', 'flex');
+        $('#sendMessage').val('');
+        $('#userSearch').val('');
+
+        AjaxUtil.fillSelectOptions($('#cboUserGroup'), 'user_group',  2);
+
+        currentGroup = '2';
+        $('#cboUserGroup').val('2');
+
+        loadUsersByGroup('2');
+    }
+
+    function openHistoryModal() {
+        const today = new Date().toISOString().slice(0, 10);
+
+        $('#historyStartDate').val(today);
+        $('#historyEndDate').val(today);
+        $('#historyModal').css('display', 'flex');
+        searchHistory();
+    }
+
+    function closeHistoryModal() {
+        $('#historyModal').hide();
+    }
+
+
+    function loadUsersByGroup(group) {
+
+        const keyword = $('#userSearch').val();
+
+        // 이전 요청 종료
+        if (userListXhr) {
+            userListXhr.abort();
+        }
+
+        userListXhr = $.ajax({
+            url: withCtx('/api/notifications/user_read'),
+            type: 'GET',
+            data: {
+                group,
+                keyword,
+                spjangcd: sessionStorage.getItem('spjangcd')
+            },
+            success(res) {
+                renderUserList(res.data || []);
+            },
+            error(xhr) {
+                if (xhr.statusText !== 'abort') {
+                    $('#userList').html('<div class="user-empty">사용자 조회 실패</div>');
+                }
+            }
+        });
+    }
+
+
+    function renderUserList(users) {
+
+        if (!users.length) {
+            $('#userList').html('<div class="user-empty">사용자가 없습니다</div>');
+            return;
+        }
+
+        const html = users.map(u => {
+            const userId = String(u.login_id);
+            const checked = selectedUserMap.has(userId) ? 'checked' : '';
+
+            return `
+            <div class="user-item">
+                <input type="checkbox"
+                       class="chk-user"
+                       value="${userId}"
+                       data-name="${u.first_name}"
+                       data-login="${u.login_id}"
+                       ${checked}>
+                <span>${u.first_name} (${u.login_id})</span>
+            </div>
+        `;
+        }).join('');
+
+        $('#userList').html(html);
+    }
+
+    $(document).on('change', '.chk-user', function () {
+
+        const userId = $(this).val(); // string
+        const name = $(this).data('name');
+        const login = $(this).data('login');
+
+        if (this.checked) {
+            selectedUserMap.set(userId, { id: userId, name, login });
+        } else {
+            selectedUserMap.delete(userId);
+        }
+
+        renderSelectedUsers();
+    });
+
+    function renderSelectedUsers() {
+
+        const $container = $('#selectedUsers').empty();
+
+        if (selectedUserMap.size === 0) {
+            $container.html('<div class="user-empty">선택된 사용자가 없습니다</div>');
+            return;
+        }
+
+        selectedUserMap.forEach(u => {
+            $container.append(`
+            <div class="selected-user">
+                ${u.name}
+                <button style="padding:0; height:20px;" onclick="removeSelectedUser('${u.id}')">✕</button>
+            </div>
+        `);
+        });
+    }
+
+
+    function removeSelectedUser(userId) {
+        selectedUserMap.delete(userId);
+        $(`.chk-user[value="${userId}"]`).prop('checked', false);
+        renderSelectedUsers();
+    }
+
+    function closeSendModal() {
+        $('#sendModal').hide();
+
+        // 데이터 초기화
+        selectedUserMap.clear();
+
+        // UI 초기화
+        $('#selectedUsers').empty()
+            .html('<div class="user-empty">선택된 사용자가 없습니다</div>');
+
+        $('.chk-user').prop('checked', false);
+
+        // 검색어도 같이 초기화하고 싶으면
+        $('#userSearch').val('');
+    }
+
+    function sendAlarmMessage() {
+
+        if (selectedUserMap.size === 0) {
+            Alert.alert('', '받는 사람을 선택하세요.');
+            return;
+        }
+
+        const message = $('#sendMessage').val().trim();
+        if (!message) {
+            Alert.alert('', '메시지를 입력하세요.');
+            return;
+        }
+
+        const receiverUserIds = Array.from(selectedUserMap.keys()); // login_id 배열
+
+        const payload = {
+            receiverUserIds,
+            message
+        };
+
+        AjaxUtil.postJsonData('/api/notifications/send', payload, function (res) {
+            if (res.success) {
+                Notify.success('메시지를 전송했습니다.');
+                closeSendModal();
+            } else {
+                Alert.alert('전송 실패', res.message || '알 수 없는 오류');
+            }
+        });
+    }
+
+    function searchHistory() {
+
+        const startDate = $('#historyStartDate').val();
+        const endDate = $('#historyEndDate').val();
+
+        if (!startDate || !endDate) {
+            Alert.alert('', '기간을 선택하세요.');
+            return;
+        }
+
+        if (startDate > endDate) {
+            Alert.alert('', '시작일은 종료일보다 클 수 없습니다.');
+            return;
+        }
+
+        const data = {
+            startDate: startDate,
+            endDate: endDate
+        };
+
+        const url = '/api/notifications/history_list';
+        const result = AjaxUtil.getSyncData(url, data);
+
+        if (result.success) {
+            renderHistoryTable(result.data);
+        } else {
+            Alert.alert('조회 실패', result.message || '이력 조회 실패');
+        }
+    }
+
+    function renderHistoryTable(list) {
+
+        const $tbody = $('#historyTbody');
+        $tbody.empty();
+
+        if (!list || list.length === 0) {
+            $tbody.append(`
+            <tr>
+                <td colspan="5" class="empty">조회된 이력이 없습니다.</td>
+            </tr>
+        `);
+            return;
+        }
+
+        list.forEach(row => {
+
+            const dt = row.created_at
+                ? row.created_at.replace(' ', '<br>')
+                : '';
+
+            $tbody.append(`
+                <tr>
+                    <td style="text-align:center; white-space:normal;">
+                        ${dt}
+                    </td>
+                    <td>${row.sender_user_name}(${row.sender_user_id})</td>
+                    <td>${row.receiver_user_name}(${row.receiver_user_id})</td>
+                    <td title="${row.message}">${row.message}</td>
+                    <td>${row.read_yn}</td>
+                </tr>
+            `);
+        });
+    }
+
+
+    // 날씨 정보를 서버에서 가져오는 함수
+    function fetchWeatherData() {
+        $.ajax({
+            url: withCtx('/weather/current'),
+            type: 'GET',
+            dataType: 'json',
+            success: function (data) {
+                // JSON 데이터 구조를 이용하여 각 항목에 대한 값을 추출
+                //console.log(data); // 반환된 데이터를 콘솔에 출력
+                const fullAddress = data.address;
+                const shortAddress = fullAddress.split(" ")[0] + " " + fullAddress.split(" ")[1] + " " + fullAddress.split(" ")[2];
+                $('#area').text(shortAddress); // 지역 정보 표시
+                $('#temperature').html(`${data.T1H}<span class="celsius">℃</span>`);
+                $('#precipitationProbability').html(data.POP ? `${data.POP}%` : '0%'); // 강수확률이 없는 경우 '0%'로 표시
+                $('#humidity').html(`${data.REH}%`); // 습도를 표시할 때 '%'를 추가
+                $('#windSpeed').html(`${data.WSD}m/s`); // 풍속을 표시할 때 'm/s'를 추가
+
+                // 날씨 아이콘 업데이트
+                updateWeatherIcon(data.SKY, data.PTY);
+
+                const now = new Date();
+                const formatted = now.getHours().toString().padStart(2, '0') + ':' +
+                    now.getMinutes().toString().padStart(2, '0');
+                $('#lastUpdated').text(`업데이트: ${formatted}`);
+            },
+            error: function (error) {
+                console.error('Error fetching weather data:', error);
+            }
+        });
+    }
+
+    // 날씨 아이콘 업데이트 함수
+    function updateWeatherIcon(skyValue, ptyValue) {
+        // console.log("PTY Value:", ptyValue);
+        // console.log("SKY Value:", skyValue);
+
+        let iconPath = withCtx('/images/icon/weather/');
+        let altText = '날씨 아이콘';
+
+        // PTY 값에 따라 먼저 판단 (강수 형태 우선)
+        if (ptyValue == '1') {
+            iconPath += 'ico-wt4.svg'; // 비
+            altText = '비';
+        } else if (ptyValue == '3') {
+            iconPath += 'ico-wt5.svg'; // 눈
+            altText = '눈';
+        } else if (ptyValue == '4') {
+            iconPath += 'ico-wt7.svg'; // 소나기
+            altText = '소나기';
+        } else {
+            // PTY 값이 0이거나 비어 있을 때는 SKY 값으로 판단
+            if (skyValue == '1') {
+                iconPath += 'ico-wt1.svg'; // 맑음
+                altText = '맑음';
+            } else if (skyValue == '2') {
+                iconPath += 'ico-wt2.svg'; // 구름 조금
+                altText = '구름 조금';
+            } else if (skyValue == '3' || skyValue == '4') {
+                iconPath += 'ico-wt3.svg'; // 구름 많음 또는 흐림
+                altText = '구름 많음 또는 흐림';
+            }
+        }
+
+        // 아이콘 업데이트
+        const weatherIcon = $('#weatherIcon');
+        weatherIcon.attr('src', iconPath);
+        weatherIcon.attr('alt', altText);
+
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const wrapper = document.getElementById('spjangSelectWrapper');
+        const select = document.createElement('select');
+
+        // 1. 현재 sessionStorage에 저장된 값을 가져옴
+        let currentSpjangcd = sessionStorage.getItem('spjangcd');
+
+        // 3. 셀렉트 박스 옵션 생성
+        select.id = 'spjangcd';
+        select.name = 'spjangcd';
+        select.classList.add('select-no-border');
+
+        // 4. 변경 시 저장 및 새로고침
+        select.addEventListener('change', function () {
+            sessionStorage.setItem('spjangcd', this.value);
+            window.location.reload();
+        });
+
+        wrapper.appendChild(select);
+    });
+
+</script>
+
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+<style>
+    .select-no-border {
+        font-size: 14px;
+        width: 110px;
+        max-width: 110px;
+        padding: 0 10px;
+        border: none;
+        outline: none;
+        background-color: transparent;
+        appearance: none;
+        border-bottom: 1px solid;
+        border-radius: 0;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+    }
+
+    /* 포커스 시 은은한 회색 테두리 */
+    .select-no-border:focus {
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        outline: none;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+    }
+
+    #loader2 {
+        position: fixed;
+        top: 0;
+        left: 0;
+        background-color: #f0f0f0;
+        opacity: 0.8;
+        width: 100%;
+        height: 100%;
+        display: none; /* 처음에는 숨김 상태 */
+        z-index: 999999;
+    }
+
+    #loader2 .loader {
+        position: fixed;
+        top: calc(50% - 48px);
+        left: calc(50% - 48px);
+        width: 96px;
+        height: 96px;
+        border-radius: 12px;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    #loader2 .loader > span {
+        position: fixed;
+        top: calc(50% - 27px);
+        left: calc(50% - 27px);
+        width: 48px;
+        height: 48px;
+        border: 3px solid #FFF;
+        border-radius: 50%;
+        display: inline-block;
+        animation: rotation 1s linear infinite;
+    }
+
+    #loader2 .loader > span::after {
+        content: '';
+        box-sizing: border-box;
+        position: absolute;
+        left: 0;
+        top: 0;
+        background: #5ddfde;
+        width: 16px;
+        height: 16px;
+        transform: translate(-50%, 50%);
+        border-radius: 50%;
+    }
+
+    @keyframes rotation {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+<div id="loader2">
+    <div class="loader">
+        <span></span>
+    </div>
+</div>
+</body>
+</html>

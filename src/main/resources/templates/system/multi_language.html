@@ -1,0 +1,647 @@
+﻿<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+
+<div class="content_wrap">
+    <section >
+        <div class="title_box ">
+            <div class="left_align">
+                <h3 data-labelCd="다국어 설정">다국어 설정</h3>
+            </div>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>        
+        </div>
+
+        <div class="table_box search">
+            <div class="row">
+                <div class="col-6 col-md-3 col-lg-3 col-xl-2" >
+                    <div class="input-group" >
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_sm" data-labelCd="메뉴폴더">메뉴폴더</span>
+                        </div>
+                        <select class="form-control2" id="cboMenuFolder" name="MenuFolder_id"></select>
+                    </div>
+                </div>
+                <div class="col-6 col-md-4 col-lg-3 col-xl-2" >
+                    <div class="input-group" >
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_sm" data-labelCd="메뉴">메뉴</span>
+                        </div>
+                        <select class="form-control2" id="cboMenuCode" name="MenuCode"></select>
+                    </div>
+                </div>
+                <div class="col-1" >
+                    <button type="button" class="btn-default" id="btnMainSearch" title="조회"><i class="fas fa-search"></i></button>
+                </div> 
+
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="grid_box" >
+            <div class="title_box">
+                <span class="right_align rpt" data-labelCd="Label 목록">Label 목록</span>
+                <button type="button" class="btn-default" id="btnNewLabel" title="Label추가" data-authCd="W"><i class="fas fa-plus"></i></button>
+                <button type="button" class="btn-cancel" id="btnDeleteLabel" title="Label 삭제"><i class="fas fa-trash"></i></button>
+                <button type="button" class="btn-default" id="btnEditLabel" title="Label 수정"><i class="fas fa-edit"></i></button>
+                <button type="button" class="btn-default" id="btnLabelExcel" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                <button type="button" class="btn-default" id="btnGridSetting" style="visibility: hidden;"><i class="fas fa-cog"></i> Setting</button>
+            </div>
+            <div class="h-280" data-ax5grid="label_grid"></div>  
+        </div>
+    </section>
+
+    <section>
+        <div class="grid_box">
+            <div class="title_box">
+                <select class="form-control2" id="cboLanguage" name="lang_code"></select>
+                <button type="button" class="btn-default" id="btnNewLabelLanguage" title="언어설정 추가"><i class="fas fa-plus"></i></button>
+                <button type="button" class="btn-cancel" id="btnDeleteLabelLanguage" title="언어설정 삭제"><i class="fas fa-trash"></i></button>
+                <button type="button" class="btn-default" id="btnEditLabelLanguage" title="언어설정 수정"><i class="fas fa-edit"></i></button>
+                <button type="button" class="btn-default" id="btnLabelLangExcel" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                <button type="button" class="btn-default" id="btnGridSetting2" style="visibility:hidden"><i class="fas fa-cog"></i> Setting</button>
+                <span class="right_align rpt" data-labelCd="Label 언어정의">Label 언어정의</span>
+            </div>
+            <div class="h-280" data-ax5grid="label_lang_grid" ></div>  
+        </div>
+    </section>
+</div>
+
+
+<script type="text/x-tmpl" id="labelCreateTemplate">
+<div class="content_wrap popup">
+    <form id="labelForm">
+    <input type='hidden' id='labelcode_id' name='id' value='{%=o.id%}'>
+    <section class="pt-2">
+        <div class="table_box">
+            <div class="table_box sub">
+                <div class="row">
+
+                    <div class="col-12" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="메뉴폴더">메뉴폴더</span>
+                            </div>
+                            <select id="cboFolder" name="MenuFolder_id" class="form-control2"></select>
+                        </div>
+                    </div>
+
+                    <div class="col-12" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="메뉴">메뉴</span>
+                            </div>
+                            <select class="form-control2" id="ModuleName" name="ModuleName"></select>
+                        </div>
+                    </div>
+
+                    <div class="col-12" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="템플릿">템플릿</span>
+                            </div>
+                            <select class="form-control2" id="TemplateKey" name="TemplateKey"></select>
+                        </div>
+                    </div>
+
+                    <div class="col-12" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="Label코드">Label코드</span>
+                            </div>
+                            <input type="text" class="form-control2"  id="LabelCode" name="LabelCode" value="{%=o.LabelCode%}"/>
+                        </div>
+                    </div>
+
+                    <div class="col-12" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_area" data-labelCd="비고">비고</span>
+                            </div>
+                            <textarea class="form-control2 tal" id="Description" name="Description" value="{%=o.Description%}">{%=o.Description%}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="popupcontent">
+        <div class="left_align">
+            <button type="button" class="btn-popup" id="modal-close-button" data-labelCd="닫기">닫기</button>
+            <button type="button" class="btn-popup" id="btn_label_save"><span data-labelCd="저장">저장</span></button>
+        </div>
+    </section>
+    </form>
+</div>
+</script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<script type="text/x-tmpl" id="labelLangCreateTemplate">
+<div class="content_wrap popup">
+    <form id="labelLangForm">
+    <section class="pt-2">
+        <div class="table_box">
+            <div class="table_box sub">
+                <div class="row">
+
+                    <div class="col-12" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="라벨코드">라벨코드</span>
+                            </div>
+                            <input type='hidden' id='id' name='id' value='{%=o.id%}'>
+                            <input type='hidden' id='LabelCode_id' name='LabelCode_id' value='{%=o.LabelCode_id%}'>
+                            <input type='text' class="form-control2" id="LabelCode" name="LabelCode" value='{%=o.LabelCode%}' readonly>
+                        </div>
+                    </div>
+
+                    <div class="col-12" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="언어">언어</span>
+                            </div>
+                            <select class="form-control2" id="LangCode" name="LangCode"></select>
+                        </div>
+                    </div>
+
+                    <div class="col-12" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="표시값">표시값</span>
+                            </div>
+                            <input class="form-control2" type="text" id="DispText" name="DispText" value="{%=o.DispText%}"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    </form>
+    <section class="section">
+        <div class="left_align">
+            <button type="button" class="btn-popup" id="modal-close-button" data-labelCd="닫기">닫기</button>
+            <button type="button" class="btn-popup" id="btn_labelLang_save"><span data-labelCd="저장">저장</span></button>
+        </div>
+    </section>
+</div>
+</script>
+<script type="text/javascript">
+
+    class MultiLanguagePage {
+        constructor() {
+            this.url = '/api/system/labelcode';
+            this.labelGrid = null;
+            this.labelLangGrid = null;
+
+            this.$cboMenuFolder = $('#cboMenuFolder');
+            this.$cboMenuCode = $('#cboMenuCode');
+            this.$cboLanguage = $('#cboLanguage');
+            this.$folderOptions = [];
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+            this.initLabel();
+            this.initLabelLanguage();
+        }
+
+        initLabel() {
+            let _this = this;
+            let label_config = {
+                target: $('[data-ax5grid="label_grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 35  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.labelGrid.select(this.dindex);
+                        _this.labelLangList();
+                    }
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'menu_name', label: '메뉴', width: 150, align: 'center' },
+                    { key: 'TemplateKey', label: '템플릿', width: 150, align: 'center' },
+                    { key: 'LabelCode', label: 'Label 코드', width: 150, align: 'center' },
+                    { key: 'Description', label: '설명', width: 300, align: 'left' },
+                    { key: 'created', label: '생성일', width: 150, align: 'center' },
+                ]
+            };
+            this.labelGrid =  new ax5.ui.grid(label_config);
+            this.$folderOptions = AjaxUtil.getSelectData('menu_folder', '', '', '');
+            this.$folderOptions.unshift({value:'', text:'Common'});
+            $.each(this.$folderOptions, function (idx, item) {
+                _this.$cboMenuFolder.append('<option value="'+item.value+'">'+item.text+'</option>');
+            });
+            this.$cboMenuCode.append('<option value="common">Common</option>');
+            this.$cboMenuFolder.change(function (e) {
+                let selectedValue = _this.$cboMenuFolder.val();
+                if (selectedValue == '') {
+                    _this.$cboMenuCode.empty();
+                    _this.$cboMenuCode.append('<option value="common">Common</option>');
+                } else {
+                    AjaxUtil.fillSelectOptions(_this.$cboMenuCode, 'menu_code', null, false, _this.$cboMenuFolder.val());
+                }
+            });
+
+            this.$cboMenuCode.change(function (e) {
+                _this.labelList();
+            });
+
+            // 조회버튼 클릭
+            $('#btnMainSearch').click(function (e) {
+                _this.labelList();
+            });
+
+            ///////////////////////////////////////////////////////////////////////////////
+            // 다국어 설정 시작
+            // 신규라벨 
+            $('#btnNewLabel').click(function (e) {
+                let labelcodeData = {
+                    id: '',
+                    MenuFolder_id:'',
+                    ModuleName: 'common',
+                    TemplateKey: 'common',
+                    LabelCode: '',
+                    Description: '',
+                    mode : 'new'
+                };
+                _this.showLabelEdit(labelcodeData);
+            });
+
+            // 라벨 수정
+            $('#btnEditLabel').click(function (e) {
+                let items = _this.labelGrid.getList('selected');
+                if (items.length > 0) {
+                    let id = items[0].id;
+                    let data = {
+                        action: 'labelcode_detail',
+                        id : id
+                    };
+
+                    let fnsuccess = function (result) {
+                        result.mode = 'edit';
+                        _this.showLabelEdit(result.data);
+                    };
+
+                    AjaxUtil.getAsyncData(_this.url+"/labelcode_detail", data, fnsuccess);
+                }
+            });
+
+            // 라벨 삭제
+            $('#btnDeleteLabel').click(function (e) {
+
+                let items = _this.labelGrid.getList('selected');
+                if (items.length == 0) {
+                    return;
+                }
+
+                Alert.confirm('', '삭제하시겠습니까?', function (e) {
+                    let id = items[0].id;
+                    let data = {
+                        action: 'labelcode_delete',
+                        id : id
+                    };
+                    let fnsuccess = function (result) {
+                        Notify.success('삭제했습니다.');
+                        _this.labelList();
+                    };
+                    let url = _this.url + '/labelcode_delete';
+                    AjaxUtil.postAsyncData(url, data, fnsuccess);
+                });
+            });
+
+        }
+
+        initLabelLanguage() {
+
+            let _this = this;
+            //////////////////////////////////////////////////////////////////////////////
+            let label_lang_config = {
+                target: $('[data-ax5grid="label_lang_grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 35  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.labelLangGrid.select(this.dindex);
+                    }
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'LabelCode', label: '라벨코드', width: 150, align: 'left' },
+                    { key: 'LangCode', label: '언어코드', width: 150, align: 'center' },
+                    { key: 'lang_code_name', label: '언어', width: 150, align: 'center' },
+                    { key: 'DispText', label: '표시값', width: 300, align: 'left' },
+                    { key: 'created', label: '생성일', width: 150, align: 'center' },
+                ]
+            };
+            this.labelLangGrid = new ax5.ui.grid(label_lang_config);
+
+            AjaxUtil.fillSelectOptions(this.$cboLanguage, 'system_code', 'all', false, 'lang_code');
+
+            this.$cboLanguage.change(function (e) {
+                _this.labelLangList();
+            });
+
+            $('#btnNewLabelLanguage').click(function (e) {
+                let items = _this.labelGrid.getList("selected");
+
+                let lang_code = i18n.getLanguageCode(); //현재언어 설정
+                if (items.length > 0) {
+                    let id = items[0].id;
+                    let newData = { LabelCode_id: id, LabelCode: items[0].LabelCode, LangCode: lang_code, DispText: '' };
+                    _this.showLabelLangEdit(newData);
+                } else {
+                    Alert.alert('', '선택된 Label 이 없습니다.', function () { });
+                }
+            });
+
+            $('#btnEditLabelLanguage').click(function (e) {
+                let items = _this.labelLangGrid.getList("selected");
+                if (items.length > 0) {
+                    let id = items[0].id;
+                    let pData = { id: id, action: 'labellang_detail' };
+                    let fnsuccess = function (result) {
+                        _this.showLabelLangEdit(result.data);
+                    };
+                    AjaxUtil.getAsyncData(_this.url + "/labellang_detail", pData, fnsuccess);
+                } else {
+                    Alert.alert('', '선택된 Label언어가 없습니다.', function () { });
+                }
+            });
+
+            $('#btnDeleteLabelLanguage').click(function (e) {
+                let items = _this.labelLangGrid.getList("selected");
+                if (items.length > 0) {
+                    Alert.confirm('', '삭제하시겠습니까?', function () {
+                        let data = { id: items[0].id };
+                        let url = _this.url + '/labellang_delete';
+                        let fnsuccess = function (result) {
+                            Alert.alert('', '삭제했습니다.');
+                            _this.labelLangList();
+                        };
+                        AjaxUtil.postAsyncData(url, data, fnsuccess);
+                    });
+                }
+                else {
+                    Alert.alert('', '선택된 Label언어가 없습니다.', function () { });
+                }
+            });
+        }
+
+        // 라벨코드 목록
+        labelList() {
+            let _this = this;
+            let menu_code = this.$cboMenuCode.val();
+            let data = {
+                action : 'labelcode_read',
+                menu_code: menu_code,
+            };
+            let result = AjaxUtil.getSyncData(this.url + "/labelcode_read", data);
+            let recordsTotal = result.data.length;
+            this.labelGrid.setData({
+                list: result.data,
+                page: {
+                    display: true,
+                    totalElements: recordsTotal,
+                }
+            });
+
+            this.labelLangGrid.setData([]);
+        }
+
+        // 언어설정 목록
+        labelLangList() {
+            let _this = this;
+            let items = _this.labelGrid.getList("selected");
+            if (items.length == 0) {
+                return;
+            }
+            let lang_code = this.$cboLanguage.val();
+            let data = {
+                labelcode_id: items[0].id,
+                lang_code: lang_code,
+                action:'label_language_list'
+            };
+
+            let fnsuccess = function (result) {
+                let recordsTotal = result.data.length;
+                _this.labelLangGrid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            };
+
+            AjaxUtil.getAsyncData(this.url+"/label_language_list", data, fnsuccess);
+        }
+        
+        showLabelEdit(labelcodeData) {
+            let _this = this;
+            let content = tmpl('labelCreateTemplate', labelcodeData);
+            let $content = $(content);
+
+            let modalContainer = null;
+            if (labelcodeData.mode == 'new') {
+                modalContainer = new PopupDraggable('Label 등록');
+            } else {
+                modalContainer = new PopupDraggable('Label 수정');
+            }
+            modalContainer.open({ width: 440, height: 300, $content });
+
+            let $menuFoler = $content.find('#cboFolder');
+            let $ModuleName = $content.find('#ModuleName');
+            let $TemplateKey = $content.find('#TemplateKey');
+            let $LabelCode = $content.find('#LabelCode');
+            let $Description = $content.find('#Description');
+            let $form = $content.find('#labelForm');
+
+
+            $.each(this.$folderOptions, function (idx, item) {
+                $menuFoler.append('<option value="'+item.value+'">'+item.text+'</option>');
+            });
+
+            $menuFoler.val(labelcodeData.MenuFolder_id);
+
+            let selectedFolder = $menuFoler.val();
+            if (selectedFolder=='') {
+                $ModuleName.append('<option value="common">Common</option>');
+            } else {
+                AjaxUtil.fillSelectOptions($ModuleName, 'menu_code', false, false, selectedFolder);
+            }
+
+            $ModuleName.val(labelcodeData.ModuleName);
+            $menuFoler.change(function (e) {
+                let selectedValue = $menuFoler.val();
+                if (selectedValue == '') {
+                    $ModuleName.empty();
+                    $ModuleName.append('<option value="common">Common</option>');
+                    $TemplateKey.empty();
+                    $TemplateKey.append('<option value="common">Common</option>');
+                    $TemplateKey.append('<option value="menu">Menu</option>');
+
+                } else {
+                    AjaxUtil.fillSelectOptions($ModuleName, 'menu_code', 'choose', false, $menuFoler.val());
+                }
+            });
+
+            if (labelcodeData.ModuleName == 'common') {
+                $TemplateKey.append('<option value="common">common</option>');
+                $TemplateKey.append('<option value="menu">Menu</option>');
+            }
+
+            $ModuleName.change(function (e) {
+                let selectedValue = $ModuleName.val();
+                if (selectedValue == 'common') {
+                    $TemplateKey.empty();
+                    $TemplateKey.append('<option value="common">Common</option>');
+                    $TemplateKey.append('<option value="menu">Menu</option>');
+                } else {
+                    AjaxUtil.fillSelectOptions($TemplateKey, 'menu_template', null, false, $ModuleName.val());
+                }
+            });
+
+            let $btn_label_save = $content.find('#btn_label_save');
+
+
+            //라벨코드저장
+            $btn_label_save.on('click', function (e) {
+                //ModuleName, TemplateKey, LabelCode
+                if ($ModuleName.val() == '') {
+                    Alert.alert('', 'GUI(메뉴)를 선택해 주십시요', function () { });
+                    return;
+                }
+                if ($TemplateKey.val() == '') {
+                    Alert.alert('', 'TemplateKey를 선택해 주십시요', function () { });
+                    return;
+                }
+                if ($LabelCode.val() == '') {
+                    Alert.alert('', 'LabelCode를 입력해 주십시요', function () { });
+                    return;
+                }
+
+                let data = {
+                    id: labelcodeData.id,
+                    ModuleName: $ModuleName.val(),
+                    TemplateKey: $TemplateKey.val(),
+                    LabelCode: $LabelCode.val(),
+                    Description: $Description.val()
+                };
+                let url = '/api/system/labelcode/labelcode_save';
+                let fnsuccess = function (result) {
+					if (result.success) {
+	                    Notify.success('저장했습니다.');
+	                    _this.labelList();
+	                    //modalContainer.close();
+					}  else if (!result.success) {
+	                    Alert.alert('', result.message);
+			        }
+                };
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            });
+         
+        }
+
+        // 언어설정 추가/등록
+        showLabelLangEdit(labelLangData) {
+            let _this = this;
+            let content = tmpl('labelLangCreateTemplate', labelLangData);
+            let $content = $(content);
+
+            let modalContainer = null;
+            if (labelLangData.mode == 'new') {
+                modalContainer = new PopupDraggable('언어설정 추가');
+            } else {
+                modalContainer = new PopupDraggable('언어설정 수정');
+            }
+
+            modalContainer.open({ width: 440, height: 200, $content });
+            let $form = $content.find('#labelLangForm');
+            let $LangCode = $content.find('#LangCode');
+            AjaxUtil.fillSelectOptions($LangCode, 'system_code', 'choose', labelLangData.LangCode, 'lang_code');
+
+            let $btn_labelLang_save = $content.find('#btn_labelLang_save');
+            $btn_labelLang_save.click(function (e) {
+                let url = '/api/system/labelcode/labellang_save';
+                let data = FormUtil.extractForm($form);
+                if (data.LangCode == '') {
+                    Alert.alert('', '언어를 선택하세요!!');
+                    return;
+                }
+                if (data.DispText == '') {
+                    Alert.alert('', '표시값을 선택하세요!!');
+                    return;
+                }
+
+                let fnsuccess = function (result) {
+					if (result.success) {
+	                    Notify.success('저장되었습니다.');
+	                    _this.labelLangList();
+	                    //modalContainer.close();
+					}  else if (!result.success) {
+	                    Alert.alert('', result.message);
+			        }
+                };
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            });
+        }
+        //엑셀다운로드
+        exportLabelExcel() {
+            var targetview = this.labelGrid;
+            // 현재 html코드로 데이터 만들어 확장자만 xls로 변경해주고 있음
+            targetview.exportExcel('라벨.xls');
+        }
+        
+        exportLabelLangExcel() {
+            var targetview = this.labelLangGrid;
+            // 현재 html코드로 데이터 만들어 확장자만 xls로 변경해주고 있음
+            targetview.exportExcel('언어설정.xls');
+        }
+    }
+    let page = null;
+    $(document).ready(function (e) {
+        page = new MultiLanguagePage();
+        page.labelList();
+    });
+    
+    $('#btnLabelExcel').click(function (e) {
+        page.exportLabelExcel();
+    });
+    
+    $('#btnLabelLangExcel').click(function (e) {
+        page.exportLabelLangExcel();
+    });
+
+</script>
+
+</th:block>
+</html>

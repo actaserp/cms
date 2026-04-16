@@ -1,0 +1,470 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>LOT 조회</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>LOT 관리</li>
+                <li>LOT 조회</li>
+            </ul>
+        </div>
+        <form id="searchForm" autocomplete="off">
+            <section class="section">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+
+                                <select class="input-group-text2 fit_box_md" id="chk_filter" name="chk_filter" >
+                                    <option value="date" data-labelCd="등록일" >등록일</option>
+                                    <option value="remain" data-labelCd="잔량>0">잔량>0</option>
+                                </select>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="date"id="srchStartDt" name="srchStartDt"  />
+                                    <span class="slow_sign">~</span>
+                                    <input type="date" id="srchEndDt" name="srchEndDt" />
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label>
+                                    품목구분
+                                </label>
+                            </dt>
+                            <dd>
+                                <select class="form-control2" id="cboMaterialType" name="cboMaterialType"></select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label>
+                                    품목그룹
+                                </label>
+                            </dt>
+                            <dd>
+                                <select class="form-control2" id="cboMaterialGroup" name="cboMaterialGroup"></select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label>
+                                    품목명<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <select class="form-control2" id="cboMaterial" name="cboMaterial"></select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label>
+                                    LOT번호<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <input class="form-control2" id="txtLotnum" name="txtLotnum" />
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+
+                    </div>
+                </div>
+            </section>
+        </form>
+
+
+        <section class="section">
+
+            <div class="grid_box" id="divList">
+                <div id="lotProdGrid" style="height: 350px;"></div>
+            </div>
+        </section>
+
+        <section>
+            <div class="grid_box">
+                <div class="title_box">
+                    <span class="right_align rpt" data-labelCd="출하 품목">LOT 소비내역</span>
+                </div>
+                <div id="lotConGrid" style="height: 350px;"></div>
+            </div>
+        </section>
+    </div>
+
+    <script type="text/x-tmpl" id="lotInfoTemplate">
+        <div class="content_wrap popup">
+
+        <div class="table-wrap">
+            <form id="matLotInfoForm">
+            <input type="hidden" id="id" name="id" />
+            <input type="hidden" id="type" name="type" />
+            <table class="write-table">
+                <colgroup>
+                    <col style="width: 25%;">
+                    <col style="width: 75%;">
+                </colgroup>
+                <tbody>
+                    <tr>
+                        <th style="text-align: center">
+                            <label>LOT번호</label>
+                        </th>
+                        <td>
+                            <input type="text" class="form-control2" id="lot_num" name="lot_num" readonly />
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="text-align: center">
+                            <label>등록내역</label>
+                        </th>
+                        <td>
+                            <textarea class="form-control2" id="reg_history" name="reg_history" readonly></textarea>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="text-align: center">
+                            <label>비고</label>
+                        </th>
+                        <td>
+                           <textarea class="form-control2" id="description" name="description"></textarea>
+                        </td>
+                    </tr>
+
+
+                </tbody>
+            </table>
+            </form>
+        </div>
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup y_write_auth" id="btnLotInfoSave">저장</button>
+            <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+        </div>
+    </div>
+
+
+
+    </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <script type="text/javascript">
+
+        class LotListPage {
+            constructor() {
+
+                this.grid1 = null;
+                this.grid2 = null;
+                this.selectedLotId = null;
+                this.loading = true;
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+
+
+                this.baseUrl = '/api/inventory/lot';
+                this.init();
+
+            }
+
+            init() {
+
+                let _this = this;
+                this.grid1 = new wijmo.grid.FlexGrid('#lotProdGrid', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowSorting: 'MultiColumn',
+                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
+                    isReadOnly: true,
+                    columns: [
+
+                        {binding: 'prod_date', header: '일시', width: 120, align: 'center'},
+                        {binding: 'lot_num', header: 'LOT번호', width: 150, align: 'center'},
+                        {binding: 'mat_type', header: '품목구분', width: 100, align: 'left'},
+                        {binding: 'mat_group', header: '품목그룹', width: 120, align: 'left'},
+                        {binding: 'mat_code', header: '품목코드', width: 120, align: 'left'},
+                        {binding: 'mat_name', header: '품목명', width: 150, align: 'left'},
+                        {binding: 'input_qty', header: '초기량', width: 100, align: 'right'},
+                        {binding: 'out_qty', header: '출고량', width: 100, align: 'right'},
+                        {binding: 'current_stock', header: '재고량', width: 100, align: 'right'},
+                        {binding: 'reg_history', header: '등록내역', width: 250, align: 'left'},
+                        {binding: 'description', header: '비고', width: 300, align: 'left'},
+
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                        }
+                    },
+
+                });
+                //맨 앞에 헤더부분 없애기
+                this.grid1.rowHeaders.columns.splice(0, 1);
+                // 데이터 로드 후 초기 선택 상태 해제
+                this.grid1.loadedRows.addHandler(() => {
+                    setTimeout(() => {
+                        this.grid1.select(-1, -1); // 선택 상태 초기화
+                    }, 0); // 비동기로 처리하여 초기 선택 해제
+                });
+                // 선택 변경 이벤트
+                this.grid1.selectionChanged.addHandler((s, e) => {
+
+                    if (this.loading) {
+                        return;
+                    }
+
+                    // 유효한 행이 선택되었는지 확인
+                    let selectedRowIndex = this.grid1.selection.row;
+                    if (selectedRowIndex >= 0) {
+                        let selectedRowData = this.grid1.rows[selectedRowIndex].dataItem;
+
+                        // TODO: 비즈니스 로직
+                        _this.selectedLotId = selectedRowData.id;
+                        _this.showConsumedList(selectedRowData.id);
+
+
+                    }
+                });
+                this.grid1.hostElement.addEventListener('dblclick', function (e) {
+                    const ht = _this.grid1.hitTest(e);
+
+                    if (ht.cellType === wijmo.grid.CellType.Cell) {
+                        const item = _this.grid1.rows[ht.row].dataItem;
+                        _this.showPopup('prod', item);  // ← 여기에서 this 대신 item 직접 넘김
+                    }
+                });
+                //this.loading = false;
+                new FlexGridContextMenu(this.grid1);
+                this.grid1.downloadFileName = 'LOT 목록';
+
+
+                ////////////////////////////////////////////////////
+
+                this.grid2 = new wijmo.grid.FlexGrid('#lotConGrid', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowSorting: 'MultiColumn',
+                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
+                    isReadOnly: false,
+                    columns: [
+                        {binding: 'consumed_date', header: '일시', width: 120, align: 'center',},
+                        {binding: 'consumed_qty', header: '소비량', width: 100, align: 'right'},
+                        {binding: 'consumed_history', header: '소비내역', width: 200, align: 'left',},
+                        {binding: 'description', header: '비고', width: 300, align: 'left',},
+                    ],
+                    itemsSource: this.viewData2,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                            const column = s.columns[e.col];
+                            if (column.binding === 'unit_price') {
+                                e.cell.style.color = 'rgb(85, 103, 255)'; // 텍스트 색상 설정
+                                e.cell.style.fontWeight = 'bold'; // 텍스트 굵게
+                            }
+                        }
+                    },
+
+                });
+                //맨 앞에 헤더부분 없애기
+                this.grid2.rowHeaders.columns.splice(0, 1);
+                // 데이터 로드 후 초기 선택 상태 해제
+
+                this.grid2.selectionChanged.addHandler((s, e) => {
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+
+                    }
+                });
+                this.grid2.hostElement.addEventListener('dblclick', function (e) {
+                    const ht = this.grid2.hitTest(e);
+
+                    if (ht.cellType === wijmo.grid.CellType.Cell) {
+                        const item = this.grid2.rows[ht.row].dataItem;
+                        _this.showPopup('prod', item);  // ← 여기에서 this 대신 item 직접 넘김
+                    }
+                });
+                new FlexGridContextMenu(this.grid2);
+                this.grid2.downloadFileName = 'LOT 소비내역';
+
+
+                AjaxUtil.fillSelectOptions($('#cboMaterialType'), 'system_code', 'all', false, 'mat_type'); // 품목구분
+                AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false); // 품목그룹
+                AjaxUtil.fillSelectOptions($('#cboMaterial'), 'material', 'all', false); // 품목
+
+            }
+
+            // LOT 목록 조회
+            searchMainData() {
+                let _this = this;
+                let param = {
+                    'mat_type': $('#cboMaterialType').val(),
+                    'mat_group': $('#cboMaterialGroup').val(),
+                    'material': $('#cboMaterial').val(),
+                    'lot_num': $('#txtLotnum').val(),
+                };
+
+                //let filter_cond = $("input[name='chk_filter']:checked").val();  // 이전 Radio 버튼 일때
+                let filter_cond = $("#chk_filter").val();
+                if (filter_cond == 'date') {
+                    param['date_from'] = $('#srchStartDt').val();
+                    param['date_to'] = $('#srchEndDt').val();
+                } else if (filter_cond == 'remain') {
+                    param['cond'] = 'remain'
+                }
+
+                let result = AjaxUtil.getSyncData(this.baseUrl + '/read', param);
+                if (result) {
+                    this.viewData.sourceCollection = result.data;
+                }
+
+                this.selectedLotId = null;
+                this.viewData2.sourceCollection = [];
+            }
+
+            // 소비내역 조회
+            showConsumedList(matlot_id) {
+                let _this = this;
+                let param = {
+                    'matlot_id': matlot_id
+                };
+
+                let result = AjaxUtil.getSyncData(this.baseUrl + '/consumed_list', param);
+                if (result) {
+                    this.viewData2.sourceCollection = result.data;
+                }
+            }
+
+            // LOT 정보 Popup
+            showPopup(type, itemData) {
+                let _this = this;
+
+                let data = {'type': type};
+                let content = tmpl('lotInfoTemplate', data);
+                let $content = $(content);
+
+                $content.find('#id').val(itemData.id);
+                $content.find('#type').val(type);
+                $content.find('#lot_num').val(itemData.lot_num);
+
+                if (itemData.description) {
+                    $content.find('#description').text(itemData.description);
+                }
+
+                if (type == 'prod') {
+                    if (itemData.reg_history) {
+                        $content.find('#reg_history').text(itemData.reg_history);
+                    }
+                } else {
+                    if (itemData.consumed_history) {
+                        $content.find('#reg_history').text(itemData.consumed_history);
+                    }
+                }
+                let modalContainer;
+                if (type == 'prod') {
+                    modalContainer = new PopupDraggable('LOT 등록 정보');
+                } else {
+                    modalContainer = new PopupDraggable('LOT 소비 정보');
+                }
+                modalContainer.open({ width: 600, height: 450, $content });
+
+                // 로트 비고내용 저장
+                $content.find('#btnLotInfoSave').click(function (e) {
+                    let $form = $content.find('#matLotInfoForm');
+                    _this.saveMatInfo($form, modalContainer);
+                });
+            }
+
+            // LOT 비고 저장
+            saveMatInfo($form, modalContainer) {
+                let _this = this;
+                let data = FormUtil.extractForm($form);
+
+                let fnSuccess = function (res) {
+                    modalContainer.close();
+                    Notify.success('저장되었습니다.');
+                    if (data.type == 'prod') {
+                        _this.searchMainData();
+                    } else if (data.type == 'consu') {
+                        _this.showConsumedList(_this.selectedLotId);
+                    }
+                }
+
+                AjaxUtil.postAsyncData(this.baseUrl + '/save', data, fnSuccess);
+            }
+        }
+
+        let page = null;
+
+
+        $(document).ready(function (e) {
+            page = new LotListPage();
+
+            $("#chk_filter").change(function () {
+                if ($("#chk_filter").val() == "date") {
+                    $("#srchStartDt").attr("disabled", false);
+                    $("#srchEndDt").attr("disabled", false);
+                }
+                else {
+                    $("#srchStartDt").attr("disabled", true);
+                    $("#srchEndDt").attr("disabled", true);
+                }
+
+            });
+
+            let startDate = CommonUtil.getYYYYMMDD(-7);
+            let today = CommonUtil.getYYYYMMDD();
+            $('#srchDt').ax5DatePicker({ direction: 'top' });
+            $('#srchStartDt').val(startDate);
+            $('#srchEndDt').val(today);
+
+            page.searchMainData();
+
+            // 검색버튼
+            $('#btnMainSearch').click(function (e) { page.searchMainData(); });
+
+            // 품목구분에 따른 품목그룹 세팅
+            $('#cboMaterialType').change(function (e) {
+                if ($('#cboMaterialType').val()) {
+                    AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false, $('#cboMaterialType').val());
+                } else {
+                    AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false);
+                }
+            });
+
+            // 품목그룹에 따른 품목명 세팅
+            $('#cboMaterialGroup').change(function (e) {
+                if ($('#cboMaterialGroup').val()) {
+                    AjaxUtil.fillSelectOptions($('#cboMaterial'), 'material', 'all', false, $('#cboMaterialGroup').val());
+                } else {
+                    AjaxUtil.fillSelectOptions($('#cboMaterial'), 'material', 'all', false);
+                }
+            });
+
+        })
+    </script>
+
+</th:block>
+</html>

@@ -1,0 +1,231 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>재고 조정 확인</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>재고관리</li>
+                <li>재고 조정 확인</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label for="cboStoreHouse">
+                                창고
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select class="form-control2" id="cboStoreHouse" name="storehouse_id"></select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="txtName">
+                                품목명
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input class="form-control2" id="txtName" name="txtName" />
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            <div class="grid_box">
+                <div class="search-wrap">
+                    <button type="button" class="btn y_write_auth" id="btnConfirm" data-labelCd="확인">확인</button>
+                </div>
+                <div id="inventory-adjustment-grid" style="height: 680px;"></div>
+            </div>
+        </section>
+    </div>
+<th:block layout:fragment="scripts">
+
+<script type="text/javascript">
+   
+    class AdjustmentPage {
+        constructor() {
+            this.grid = null;
+            this.baseUrl = '/api/inventory/mat_stock_take_confirm';
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+            this.grid = new wijmo.grid.FlexGrid('#inventory-adjustment-grid', {
+                autoGenerateColumns: false,
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                headersVisibility: wijmo.grid.HeadersVisibility.All,
+                frozenColumns: 0,
+                isReadOnly: true,
+                itemsSource: new wijmo.collections.CollectionView([]),
+                formatItem: (s, e) => {
+
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                    }
+
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell && s.columns[e.col].binding === 'confirm') {
+                        e.cell.textContent = '';
+                        if (userinfo.can_write()) {
+                            const button = document.createElement('button');
+                            button.className = 'btn-default';
+                            button.style.width = '100%';
+                            button.style.height = '25px';
+                            button.textContent = '확인';
+                            button.onclick = () => {
+                                let selectedItem = _this.grid.selectedItems[0];
+
+                                if (selectedItem) {
+                                    _this.saveData(selectedItem); // 데이터 전달
+                                } else {
+                                    console.error('Row data not found for the clicked button.');
+                                }
+                            };
+                            e.cell.appendChild(button);
+                        } else {
+                            e.cell.textContent = '권한없음';
+                        }
+                    }
+                },
+                columns: [
+                    { binding: 'mat_type', header: '품목유형', width: 100, align: 'center' },
+                    { binding: 'mat_grp_name', header: '품목그룹', width: 100, align: 'center' },
+                    { binding: 'mat_code', header: '품목코드', width: 100, align: 'center'  },
+                    { binding: 'mat_name', header: '품목명', width: 200, align: 'left'  },
+                    { binding: 'unit_name', header: '단위', width: 80, align: 'center'  },
+                    { binding: 'store_house_name', header: '창고명', width: 100, align: 'center'  },
+                    { binding: 'account_stock', header: '장부재고량', width: 100, align: 'right'   },
+                    { binding: 'real_stock', header: '실재고량', width: 100, align: 'right'   },
+                    { binding: 'gap', header: '차이', width: 100, align: 'right'   },
+                    { binding: 'unit_price', header: '단가', width: 100, align: 'right'   },
+                    { binding: 'gap_money', header: '차이금액', width: 100, align: 'right'   },
+                    { binding: 'take_date_time', header: '실사일시', width: 150, align: 'center'  },
+                    { binding: 'description', header: '비고', width: 150, align: 'left' },
+                    { binding: 'confirm', header: '확인', width: 80, align: 'center'  },
+                ]
+            });
+
+
+            let selector = new wijmo.grid.selector.Selector(this.grid, {
+                itemChecked: function () {
+
+                }
+            })
+
+            new FlexGridContextMenu(this.grid);
+            this.grid.downloadFileName = '재고 조정 확인 목록';
+
+            AjaxUtil.fillSelectOptions($('#cboStoreHouse'), 'store_house', 'all', false);
+        }
+
+        searchMainData() {
+            let _this = this;
+            let data = {
+                //'action': 'read',
+                'store_house_id': $('#cboStoreHouse').val(),
+                'material_name': $('#txtName').val(),
+            };
+            let result = AjaxUtil.getSyncData(_this.baseUrl + '/read', data);
+            if (result.data != null) {
+                _this.grid.itemsSource.sourceCollection = result.data;
+            }
+        }
+
+        chkSelect() {
+            const selectedItems = this.grid.selectedItems;
+            if (selectedItems.length > 0) {
+                return true;
+            }
+            Notify.error("확인할 품목을 선택하세요.");
+            return false;
+        }
+
+        saveData(item) {
+            let _this = this;
+            
+             Alert.confirm('', 
+                '확인 처리하시겠습니까?',
+                function () {
+                    let param = {};
+                    if (item) { //그리드내의 확인 클릭시
+                        param = {
+		                    Q: JSON.stringify([item]),
+		                };
+                    }
+                    else {
+                        const list = _this.grid.selectedItems.map(sel => ({ id: sel.id }));
+                        param = {
+                            Q: JSON.stringify(list),
+                        };
+
+                    }
+
+                    let result = AjaxUtil.postSyncData(_this.baseUrl + '/confirm_update', param);
+                    if (result.success) {
+                        _this.searchMainData();
+                        Notify.success("처리 완료.");
+
+                    }
+                }
+            );
+        }
+    }
+
+    let page = null;
+
+    $(document).ready(function (e) {
+
+        page = new AdjustmentPage();
+    
+        // 검색
+        $('#btnSearch').click(function (e) {
+            page.searchMainData();
+        });
+
+        $('#cboStoreHouse').change(function (e) {
+            page.searchMainData();
+        });
+
+        $('#txtName').keypress(function (e) {
+            if (e.keyCode == 13) 
+                page.searchMainData();
+        });
+
+        $('#btnConfirm').click(function (e) {
+            if (page.chkSelect()) 
+                page.saveData();
+        });
+
+        page.searchMainData();
+
+    })
+</script>
+</th:block>
+</html>

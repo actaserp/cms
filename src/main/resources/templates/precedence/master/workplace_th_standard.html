@@ -1,0 +1,581 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wx210{
+            width: 210px !important;
+        }
+        .wx190{
+            width: 150px !important;
+        }
+
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>작업장온습도관리기준</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP 기준정보</li>
+                <li>작업장온습도관리기준</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+
+                <div class="search-wrap">
+
+                    <dl>
+                        <dt>
+                            <label>
+                                기준일<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <input type="date" class="form-control2" value="" id="txtBaseDate" name="txtBaseDate" placeholder="" title="" />
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label>
+                                트랩구분<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <select class="form-control2" id="cboType" name="cboType"></select>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label>
+                                구역구분<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <select class="form-control2" id="cboType2" name="cboType2"></select>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+
+            </div>
+            <div class="button-wrap">
+                <ul>
+                    <li style="cursor: default; list-style-image: none;">
+                        <button class="btn" id="btnDown" title="순서 조정-아래로"><i class="fas fa-arrow-down"></i></button>
+
+                    </li>
+                    <li style="cursor: default; list-style-image: none;">
+                        <button class="btn" id="btnUp" title="순서 조정-위로"><i class="fas fa-arrow-up"></i></button>
+
+                    </li>
+                    <li style="cursor: default; list-style-image: none;">
+                        <button class="btn y_write_auth" id="btnOrderSave"><span data-labelCd="순서 저장">순서 저장</span></button>
+                    </li>
+                </ul>
+            </div>
+            <div id="theGrid" style="height: 450px;"></div>
+        </section>
+
+        <section class="section">
+            <div class="button-wrap">
+                <ul>
+                    <li style="cursor: default; list-style-image: none;">
+                        <button class="btn" id="btnNew" ><i class="fas fa-plus"></i></button>
+                    </li>
+                    <li style="cursor: default; list-style-image: none;">
+                        <button class="btn y_write_auth" id="btnDel" disabled><i class="fas fa-trash"></i></button>
+                    </li>
+                    <li style="cursor: default; list-style-image: none;">
+                        <button class="btn y_write_auth" id="btnSave" disabled><i class="fas fa-save"></i></button>
+                    </li>
+                    <li style="cursor: default; list-style-image: none;">
+                        <button class="btn y_write_auth" id="btnSaveAsNew" disabled>새 항목으로 저장</button>
+                    </li>
+
+                </ul>
+            </div>
+
+            <form id="detailForm">
+                <input type="hidden" id="id" name="id" />
+                <div class="section-top">
+                    <div class="table-wrap" id="detail_box">
+
+                        <input class="form-control2"  type="text" id="id" name="id" hidden/>
+
+                        <table class="write-table">
+                            <caption>작업 지시 테이블</caption>
+                            <tbody>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label>*작업장명</label>
+                                </th>
+                                <td>
+                                    <input class="form-control2" type="text" id="Name" name="Name" disabled="disabled" required>
+
+                                </td>
+
+                                <th style="text-align: center">
+                                    <label>코드</label>
+                                </th>
+                                <td>
+                                    <input class="form-control2" type="text" id="Code" name="Code" disabled="disabled" >
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label>*온도기준</label>
+                                </th>
+                                <td>
+                                    <input class="form-control2 tar" type="text" id="temp_low" name="temp_low" disabled="disabled"><span class="slow_sign">~</span>
+                                    <input class="form-control2 tar" type="text" id="temp_upper" name="temp_upper" disabled="disabled">
+                                </td>
+
+                                <th style="text-align: center">
+                                    <label>온도태그코드</label>
+                                </th>
+                                <td>
+                                    <input class="form-control2" type="text" id="temp_code" name="temp_code" disabled="disabled">
+                                </td>
+                            </tr>
+
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label>습도기준</label>
+                                </th>
+                                <td>
+                                    <input class="form-control2 tar" type="text" id="humid_low" name="humid_low" disabled="disabled"><span class="slow_sign">~</span>
+                                    <input class="form-control2 tar" type="text" id="humid_upper" name="humid_upper" disabled="disabled">
+                                </td>
+
+                                <th style="text-align: center">
+                                    <label>습도태그코드</label>
+                                </th>
+                                <td>
+                                    <input class="form-control2" type="text" id="humid_code" name="humid_code" disabled="disabled">
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label>비고</label>
+                                </th>
+                                <td colspan="8">
+                                    <textarea class="form-control2" id="Description" name="Description" disabled="disabled"></textarea>
+                            </tr>
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label>측정1시간</label>
+                                </th>
+                                <td>
+                                    <input class="form-control2 tac" type="text" id="time1" name="time1" disabled="disabled">
+                                </td>
+                                <th style="text-align: center">
+                                    <label>측정2시간</label>
+                                </th>
+                                <td>
+                                    <input class="form-control2 tac" type="text" id="time2" name="time2" disabled="disabled">
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label>적용기간</label>
+                                </th>
+                                <td>
+                                    <input class="form-control2" type="date" id="StartDate" name="StartDate" disabled="disabled" required>
+                                    ~
+                                    <input class="form-control2" type="date" id="EndDate" name="EndDate" value="2100-12-31" disabled="disabled" required>
+                                </td>
+                            </tr>
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </form>
+        </section>
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript" src="/js/grid.js?ver=22080801"></script>
+    <script type="text/javascript">
+
+        class CodePage {
+
+            constructor() {
+
+                this.grid = null;
+                this.viewData = new wijmo.collections.CollectionView();
+
+                this.baseUrl = '/api/haccp/workplace_th';
+                this.master_class = 'workplace_th';
+
+                this.type_class_code = 'pest_trap_class';
+                this.type_class_table = 'user_code';
+                this.type2_class_code = 'haccp_area_class';
+                this.type2_class_table = 'system_code';
+
+                this.init();
+
+            }
+
+            init() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+
+                        { binding: 'id', header: '번호', width: '*', align: 'left', visible: false  },
+                        { binding: 'code', header: '코드', width: '*', align: 'left' },
+                        { binding: 'name', header: '작업장명', width: '*', align: 'left' },
+                        { binding: 'temp_low', header: '온도하한', width: '*', align: 'right' },
+                        { binding: 'temp_upper', header: '온도상한', width: '*', align: 'right' },
+                        { binding: 'humid_low', header: '습도하한', width: '*', align: 'right' },
+                        { binding: 'humid_upper', header: '습도상한', width: '*', align: 'right' },
+                        { binding: 'description', header: '비고', width: '*', align: 'left' },
+                        { binding: 'temp_code', header: '온도태그코드', width: '*', align: 'left' },
+                        { binding: 'humid_code', header: '습도태그코드', width: '*', align: 'left' },
+                        { binding: 'time1', header: '측정1시각', width: '*', align: 'left' },
+                        { binding: 'time2', header: '측정2시각', width: '*', align: 'left' },
+                        { binding: 'start_date', header: '적용시작일', width: '*', align: 'center' },
+                        { binding: 'end_date', header: '적용종료일', width: '*', align: 'center' },
+
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+
+                        }
+                    },
+                });
+
+                this.grid.selectionChanged.addHandler((s, e) => {
+
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+
+                        _this.showDetail(selectedRowData.id);
+
+
+                    }
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '작업장온습도관리기준';
+
+            }
+
+            // 버튼 활성화 설정
+            setButtonState() {
+                let pk = $('#id').val();
+                $('#btnNew').prop('disabled', false);
+                $('#btnSave').prop('disabled', false);
+                if (pk) {
+                    $('#btnDel').prop('disabled', false);
+                    $('#btnSaveAsNew').prop('disabled', false);
+                }
+                else {
+                    $('#btnDel').prop('disabled', true);
+                    $('#btnSaveAsNew').prop('disabled', true);
+                }
+            }
+
+            searchMainData() {
+                let _this = this;
+                let url = this.baseUrl;
+                let param = {
+                    master_class: _this.master_class,
+                    base_date: $('#txtBaseDate').val(),
+                    'type': $('#cboType').val(),
+                    'type2': $('#cboType2').val(),
+                };
+
+                let result = AjaxUtil.getSyncData(url + "/read_master", param);
+                if (result != null) {
+
+                    _this.viewData.sourceCollection = result.data;
+
+                }
+            }
+
+            clearInfo() {
+                let _this = this;
+                $('#detailForm')[0].reset();
+                $('#detailForm').find('#id').val('');
+                $('#detailForm').find('#StartDate').val(_this.today_string);
+                $('#detailForm').find('#EndDate').val('2100-12-31');
+
+                $('#detail_box').find('input, select, textarea').each(function () {
+                    if ($(this).is(':disabled')) {
+                        //$(this).attr('disabled', '');
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                this.setButtonState();
+            }
+
+            // 상세정보 조회
+            showDetail(id) {
+                let param = { 'id': id };
+                let url = this.baseUrl;
+                let result = AjaxUtil.getSyncData(url + "/detail_master", param);
+
+                if (result != null) {
+                    FormUtil.BindDataForm(result.data, $('#detailForm'));
+                }
+
+                this.setButtonState();
+            }
+
+            // 창고 정보 저장
+            saveInfo(bSaveAsNew = false) {
+                let _this = this;
+                let validate = true;
+                let $target = null;
+                let url = this.baseUrl + '/save_master';
+
+                //let data = $('#detailForm').serialize();
+                let data = FormUtil.extractForm($('#detailForm'));
+                data['master_class'] = _this.master_class;
+
+                if (bSaveAsNew)
+                    data.id = '';
+
+                let fnSuccess = function (result) {
+                    if (result.success) {
+                        Notify.success("저장되었습니다.");
+                        _this.searchMainData();
+                    } else
+                        Alert.alert('에러', result.message);
+                }
+
+                // 필수입력 check routine
+                $('#detail_box').find('input, select, textarea').each(function () {
+                    if ($(this).is(':required')) {
+                        if (!$(this).val()) {
+                            validate = false;
+                            $target = $(this);
+                            return false;
+                        }
+                    }
+                });
+
+                if (validate) {
+                    AjaxUtil.postAsyncData(url, data, fnSuccess);
+                } else {
+                    Alert.alert('', '필수 항목을 입력해주세요.', function () {
+                        $target.focus();
+                    });
+                }
+            }
+
+            //// 정보 삭제
+            deleteData() {
+                let _this = this;
+                let url = this.baseUrl + '/delete';
+                let id = $('#detailForm').find('#id').val();
+                let data = { id: id };
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Notify.success('삭제되었습니다');
+                        _this.clearInfo()
+                        _this.searchMainData();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                }
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+
+            changeGridOrder(g, direction) {
+                let _this = this;
+                let cv = g.collectionView;
+                let selectedRowIndex = g.selection.row;
+
+                if (selectedRowIndex < 0) {
+                    Alert.alert('', '순서를 변경할 제품을 선택하세요.');
+                    return;
+                }
+
+                if (direction === "U") {
+
+
+                    if (selectedRowIndex === 0) return;
+
+                    let sourceList = cv.sourceCollection; // 데이터 리스트 가져오기
+
+                    let temp = sourceList[selectedRowIndex - 1]; // 위의 행과 교환
+                    sourceList[selectedRowIndex - 1] = sourceList[selectedRowIndex];
+                    sourceList[selectedRowIndex] = temp;
+
+                    cv.sourceCollection = [...sourceList];
+
+                    cv.refresh();
+                    g.select(selectedRowIndex - 1, 0);
+
+                } else {
+                    //console.log('select', g.selection)
+                    let sourceList = cv.sourceCollection;
+
+                    if (selectedRowIndex >= sourceList.length - 1) return;
+
+
+                    let temp = sourceList[selectedRowIndex + 1];
+                    sourceList[selectedRowIndex + 1] = sourceList[selectedRowIndex];
+                    sourceList[selectedRowIndex] = temp;
+
+                    cv.sourceCollection = [...sourceList];
+
+                    cv.refresh();
+                    g.select(selectedRowIndex + 1, 0);
+
+
+                }
+
+            }
+
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new CodePage();
+
+            let today_string = CommonUtil.getYYYYMMDD();
+            $('#txtBaseDate').val(today_string);
+            $('#StartDate').val(today_string);
+            page.today_string = today_string;
+
+            AjaxUtil.fillSelectOptions($('#cboType'), page.type_class_table, 'all', false, page.type_class_code);
+            AjaxUtil.fillSelectOptions($('#cboType2'), page.type2_class_table, 'all', false, page.type2_class_code);
+
+            // 검색버튼 클릭
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+                page.clearInfo();
+            });
+
+            // 신규버튼
+            $('#btnNew').click(function (e) {
+
+                page.clearInfo();
+
+                //$('#detailForm')[0].reset();
+                //$('#detailForm').find('#id').val('');
+                //$('#detailForm').find('#StartDate').val(page.today_string);
+                //$('#detailForm').find('#EndDate').val('2100-12-31');
+
+                //$('#detail_box').find('input, select, textarea').each(function () {
+                //    if ($(this).is(':disabled')) {
+                //        $(this).removeAttr('disabled');
+                //    }
+                //});
+
+                //page.setButtonDisable(true, false, true);
+                page.setButtonState();
+            });
+
+            // 저장버튼
+            $('#btnSave').click(function (e) {
+                Alert.confirm('',
+                    "저장하시겠습니까?",
+                    function () {
+                        page.saveInfo(false)
+                    },
+                    function () {
+                    }
+                );
+            });
+            $('#btnSaveAsNew').click(function (e) {
+                Alert.confirm('',
+                    '새 항목으로 저장하시겠습니까?',
+                    function () {
+                        page.saveInfo(true)
+                    },
+                    function () {
+                    }
+                )
+            });
+
+            // 삭제버튼
+            $('#btnDel').click(function (e) {
+                Alert.confirm('',
+                    "삭제하시겠습니까?",
+                    function () {
+                        page.deleteData()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $("#btnUp").click(function (e) {
+                page.changeGridOrder(page.grid, "U");
+            });
+
+            $("#btnDown").click(function (e) {
+                page.changeGridOrder(page.grid, "D");
+            });
+
+            $('#btnOrderSave').click(function (e) {
+                let code_list = page.grid.collectionView.items;
+
+                Alert.confirm('확인', '순서를 저장하시겠습니까?', function () {
+                    let items = [];
+                    $.each(code_list, function (idx, item) {
+                        items.push(item.id);
+                    });
+
+                    let data = {Q: items};
+                    let url = page.baseUrl + '/code_order_save';
+                    let fnsuccess = function (res) {
+                        Notify.success('저장했습니다.');
+                        page.searchMainData();
+                    };
+                    AjaxUtil.postAsyncData(url, data, fnsuccess);
+                });
+            });
+
+            page.searchMainData();
+            page.clearInfo();
+
+        });
+    </script>
+
+</th:block>
+</html>

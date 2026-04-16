@@ -1,0 +1,543 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>작업 준비</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산 관리</li>
+                <li>작업 준비</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px">
+            <section class="section" style="width: 50%; height: 100%;">
+
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                일자<span class="eq">*</span>
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <input type="date" id="srchStartDt" name="srchStartDt">
+                                        <label for="srchStartDt" class="hide">시작일</label>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label for="cboWorkShift">
+                                    근무조<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="cboWorkShift" name="cboWorkShift">
+                                    </select>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label for="cboWorkCenter">
+                                    워크센터<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="cboWorkCenter" name="cboWorkCenter">
+                                    </select>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="button-wrap">
+                        <ul>
+                            <li>
+                                <a class="btn" title="위" id="btnUp">
+                                    <i class="fas fa-arrow-up"></i>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="btn" title="아래" id="btnDown">
+                                    <i class="fas fa-arrow-down"></i>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="btn btn-excell" title="수정" id="btnWorkIndexSave">
+                                    순서 저장
+                                </a>
+                            </li>
+                            <li>
+                                <a class="btn" title="위" id="btnMatReqSearch">
+                                    소요량 조회
+                                </a>
+                            </li>
+                            <li>
+                                <span style="color: tomato">지시 상태의 품목만 표시됩니다.</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="container-fluid">
+                    <div id="joborderGrid" style="height: 685px;"></div>
+                </div>
+            </section>
+            <div class="tab-wrap" style="width: 50%; height: 100%;">
+
+                <ul class="tab-links">
+                    <li><a href="#tab1">해당 소요 자재</a></li>
+    <!--                <li><a href="#tab2">투입 요청 내역</a></li>-->
+                </ul>
+                <div >
+                    <section class="tab-item" id="tab1" style="border-top-left-radius: 0;">
+
+                        <div class="container-fluid">
+
+                            <div id="matreqGrid"></div>
+                        </div>
+                    </section>
+<!--                    <section class="tab-item" id="tab2" style="border-top-left-radius: 0;">-->
+
+<!--                        <div class="section-top">-->
+<!--                            <div class="button-wrap">-->
+<!--                                <ul>-->
+<!--                                    <li>-->
+<!--                                        <a class="btn" title="위" id="btnInputReqSearch">-->
+<!--                                            투입 요청 조회-->
+<!--                                        </a>-->
+<!--                                    </li>-->
+<!--                                </ul>-->
+<!--                            </div>-->
+<!--                            <div id="inputReqGrid" style="height: 855px;"></div>-->
+<!--                        </div>-->
+<!--                    </section>-->
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+
+
+        class PrepareProduction {
+            constructor() {
+                this.grid = null;
+                this.matreqGrid = null;
+                this.inputReqGrid = null;
+                this.url = '/api/production/prod_prepare';
+
+                this.initJobOrder();
+                this.initMaterialRequired();
+                // this.initInputRequest();
+            }
+
+            initJobOrder() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#joborderGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.All,
+                    autoGenerateColumns: false,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        { binding: 'work_order_number', header: '작업 지시 번호', width: 150, align: 'center' },
+                        { binding: 'mat_name', header: '제품', width: 200, align: 'left' },
+                        { binding: 'unit_name', header: '단위', width: 100, align: 'center' },
+                        { binding: 'order_qty', header: '지시량', width: 100, align: 'right'},
+                        { binding: 'work_index', header: '작업 순서', width: 100, align: 'center' },
+                        { binding: 'production_date', header: '생산일', width: 120, align: 'center' },
+                        { binding: 'workcenter_name', header: '워크 센터', width: 100, align: 'center' },
+                        { binding: 'shift_name', header: '근무조', width: 100, align: 'center' },
+                        { binding: 'state_name', header: '상태', width: 100, align: 'center' }
+                    ]
+                });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '작업 지시 내역';
+
+                let selector = new wijmo.grid.selector.Selector(this.grid, {
+                    itemChecked: function () {
+
+                    }
+                })
+
+                AjaxUtil.fillSelectOptions($('#cboWorkShift'), 'shift', 'all', false);
+                AjaxUtil.fillSelectOptions($('#cboWorkCenter'), 'workcenter', 'all', false);
+
+
+                $('#srchStartDt').val(CommonUtil.getYYYYMMDD());
+
+                $('#btnSearch').on('click', function (e) {
+                    _this.jobOrderSearch();
+                });
+
+                $('#btnUp').click(function (e) {
+                    GridUtil.changeOrder('U', _this.grid);
+                });
+
+                $('#btnDown').click(function (e) {
+                    GridUtil.changeOrder('D', _this.grid);
+                });
+
+                $('#btnWorkIndexSave').click(function (e) {
+                    let length = _this.grid.itemsSource.items.length;
+                    if (length === 0 || length === 1) {
+                        return;
+                    }
+                    Alert.confirm('', '순서를 저장하시겠습니까?', function () {
+                        _this.saveWorkIndex();
+                    });
+
+                });
+            }
+
+            saveWorkIndex() {
+                let _this = this;
+                let items = [];
+                $.each(_this.grid.itemsSource.items, function (idx, item) {
+                    items.push({id: item.id});
+                });
+
+                let strData = JSON.stringify(items);
+                let data = {Q: strData};
+                let fnsuccess = function (result) {
+                    if (result.success) {
+                        Notify.success('저장했습니다.');
+                        _this.jobOrderSearch();
+                    }
+                };
+
+                AjaxUtil.postAsyncData(this.url + '/save_work_index', data, fnsuccess);
+            }
+
+            jobOrderSearch() {
+                let _this = this;
+
+                let $cboWorkShift = $('#cboWorkShift');
+                let $cboWorkCenter = $('#cboWorkCenter');
+
+                let shift_code = $cboWorkShift.val();
+                let workcenter_pk = $cboWorkCenter.val()
+
+                //if (shift_code == '' || workcenter_pk == '') {
+                if (workcenter_pk === '') {
+                    $('#btnUp, #btnDown, #btnWorkIndexSave').attr('disabled', true);
+                } else {
+                    $('#btnUp, #btnDown, #btnWorkIndexSave').removeAttr('disabled');
+                }
+
+                let data = {
+                    data_date: $('#srchStartDt').val(),
+                    shift_code: shift_code,
+                    workcenter_pk: workcenter_pk
+                };
+
+                let fnsuccess = function (result) {
+                    if (result != null) {
+                        _this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+                    }
+                };
+                AjaxUtil.getAsyncData(this.url + '/job_order_list', data, fnsuccess);
+
+            }
+
+            // 해당소요자재
+            initMaterialRequired() {
+                let _this = this;
+                this.matreqGrid = new wijmo.grid.FlexGrid('#matreqGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        // 이동량 열 헤더 스타일 적용
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
+                            && s.columns[e.col].binding === 'input_req_qty') {
+                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                        }
+                    },
+                    columns: [
+                        // { binding: 'mat_type_name', header: '품목 유형', width: 120, align: 'center' },
+                        { binding: 'mat_group_name', header: '품목 그룹', width: 120, align: 'center' },
+                        { binding: 'mat_code', header: '품목 코드', width: 100, align: 'center' },
+                        { binding: 'mat_name', header: '품목 명', width: '*', align: 'left' },
+                        { binding: 'unit_name', header: '단위', width: 80, align: 'center' },
+                        { binding: 'requ_qty', header: '소요량', width: 70, align: 'right' },
+                        { binding: 'cur_stock', header: '창고 재고', width: 120, align: 'right' },
+                        { binding: 'process_stock', header: '공정창고 재고', width: 150, align: 'right', isReadOnly: true, visible: false },
+                        { binding: 'proc_safety_stock', header: '공정안전재고', width: 150, align: 'right', isReadOnly: true, visible: false },
+                        { binding: 'input_req_qty', header: '투입 요청량', width: 150, align: 'right',  isReadOnly: false, visible: false }
+                    ],
+                    itemFormatter: function (panel, row, col, cell) {
+                        if (panel.cellType === wijmo.grid.CellType.Cell) {
+                            let column = panel.columns[col];
+                            let item = panel.rows[row].dataItem;
+
+                            if (item && column.binding === 'cur_stock') {
+                                // 'cur_stock'이 'requ_qty'보다 작으면 배경색 변경
+                                if (item.cur_stock < item.requ_qty) {
+                                    cell.style.backgroundColor = '#f8d2cb'; // 연한 빨간색 배경
+                                } else {
+                                    cell.style.backgroundColor = ''; // 원래대로 되돌리기
+                                }
+                            }
+                        }
+                    },
+                });
+
+                new FlexGridContextMenu(this.matreqGrid);
+                this.matreqGrid.downloadFileName = '해당 소요 자재';
+
+                //소요량조회
+                $('#btnMatReqSearch').click(function (e) {
+                    _this.loadMatReqList();
+                });
+
+                // 자재공정투입요청
+                $('#btnInputRequest').click(function (e) {
+                    _this.requestMaterialProcessInput();
+                });
+            }
+
+            requestMaterialProcessInput() {
+                let _this = this;
+
+                // 작업지시화면에서 선택된 데이터 중 자재공정투입요청번호가 있는지 확인
+                let jobordItems = _this.grid.selectedItems;
+
+                // 선택된 작업지시가 없으면?
+                if (jobordItems.length === 0) {
+                    Alert.alert('', '선택된 작업지시가 없습니다.');
+                    return;
+                }
+
+                let jobres_pks = '';
+                let arrJobres = [];
+
+                for (let idx = 0; idx < jobordItems.length; idx++) {
+                    let item = jobordItems[idx];
+                    let proc_input_req_id = item.proc_input_req_id;
+                    if (proc_input_req_id !== '' && proc_input_req_id != null) {
+                        Alert.alert('', '투입 요청 내역이 있습니다.'); // 이미 공정 투입 요청한 데이터가 있습니다.
+
+                        return;
+                    }
+                    arrJobres.push(item.id);
+                }
+
+                jobres_pks = arrJobres.join(',');
+
+                // 소요량 목록에서 확인
+                let matItems = _this.matreqGrid.list;
+                if (matItems.length === 0) {
+                    Alert.alert('', '소요자재 데이터가 없습니다.');
+                    return;
+                }
+
+                let arrMat = [];
+                let arrQty = [];
+
+                let valid = true;
+                let errorMatName = '';
+
+                $.each(matItems, function (idx, item) {
+                    let mat_pk = item.mat_pk
+                    let input_req_qty = item.input_req_qty;
+                    let mat_name = item.mat_name;
+                    arrMat.push(mat_pk);
+                    arrQty.push(input_req_qty);
+
+                    if (input_req_qty == null || input_req_qty === "" || input_req_qty === 0 || input_req_qty < 0) {
+                        errorMatName = mat_name;
+                        valid = false;
+                    }
+                });
+
+                if (!valid) {
+                    Alert.alert('', '품목 ' + errorMatName + ' 투입량을 확인하세요');
+                    return;
+                }
+
+                let okCallback = function () {
+                    let mat_pks = arrMat.join(',');
+                    let input_req_qtys = arrQty.join(',');
+
+                    let data_date = $('#srchStartDt').val();
+                    let data = {
+                        jobres_pks: jobres_pks,
+                        mat_pks: mat_pks,
+                        input_req_qtys: input_req_qtys,
+                        data_date: data_date
+                    };
+
+                    let fnsuccess = function (result) {
+                        if (result.success) {
+                            Notify.success('요청되었습니다.');
+                            _this.jobOrderSearch();
+                            _this.loadInputReqList(result.data)
+
+                        } else {
+                            Alert.alert('', result.message);
+                        }
+                    };
+
+                    AjaxUtil.postAsyncData(_this.url + '/save_mat_proc_input', data, fnsuccess);
+                };
+
+                Alert.confirm('', '투입을 요청하시겠습니까?', okCallback);
+
+            }
+
+            loadMatReqList() {
+                let _this = this;
+                let items = _this.grid.selectedItems;
+                if (items.length === 0) {
+                    return;
+                }
+                let arrTmp = [];
+                $.each(items, function (idx, item) {
+                    arrTmp.push(item.id);
+                    //if (item.proc_input_req_id != '' && item.proc_input_req_id != null) {
+                    //    Alert.alert('', '이미 투입요청한 데이터가 있습니다.');
+                    //    return;
+                    //}
+                });
+                let jr_pks = arrTmp.join(',');
+                let data_date = $('#srchStartDt').val();
+                let data = {
+                    jr_pks: jr_pks,
+                    data_date: data_date
+                };
+
+                let fnsuccess = function (result) {
+                    if (result != null) {
+                        _this.matreqGrid.itemsSource = result.data;
+                    }
+                };
+                //let url = this.url + '/bom_detail_list'
+                //AjaxUtil.postAsyncData(url, data, fnsuccess);
+                AjaxUtil.getAsyncData(this.url + '/bom_detail_list', data, fnsuccess);
+            }
+
+            // 투입요청내역 초기화
+            // initInputRequest() {
+            //     let _this = this;
+            //
+            //     this.inputReqGrid = new wijmo.grid.FlexGrid('#inputReqGrid', {
+            //         selectionMode: wijmo.grid.SelectionMode.Row,
+            //         headersVisibility: wijmo.grid.HeadersVisibility.Column,
+            //         autoGenerateColumns: false,
+            //         showMarquee: true,
+            //         isReadOnly: true,
+            //         formatItem: (sender, e) => {
+            //             if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+            //                 e.cell.style.textAlign = 'center';
+            //             }
+            //         },
+            //         columns: [
+            //             {binding: 'req_pk', header: '투입 요청 번호', width: 120, align: 'center'},
+            //             {binding: 'mat_type_name', header: '품목 유형', width: 120, align: 'center'},
+            //             {binding: 'mat_code', header: '품목 코드', width: 120, align: 'left'},
+            //             {binding: 'mat_name', header: '품목 명', width: 200, align: 'left'},
+            //             {binding: 'unit_name', header: '단위', width: 100, align: 'center'},
+            //             {binding: 'req_qty', header: '요청량', width: 100, align: 'right',},
+            //             {binding: 'state_name', header: '상태', width: 100, align: 'center',},
+            //             {binding: 'material_stock', header: '자재창고 재고', width: 120, align: 'right',},
+            //             {binding: 'process_stock', header: '공정창고 재고', width: 120, align: 'right',},
+            //             {binding: 'proc_safety_stock', header: '공정안전재고', width: 150, align: 'right',},
+            //         ]
+            //     });
+            //
+            //     new FlexGridContextMenu(this.inputReqGrid);
+            //     this.inputReqGrid.downloadFileName = '투입 요청 내역';
+            //
+            //     // 투입요청내역 조회
+            //     $('#btnInputReqSearch').click(function (e) {
+            //
+            //         let items = _this.grid.selectedItems;
+            //
+            //         if (items.length === 0) {
+            //             Alert.alert('', '투입 요청 번호가 없습니다.');  //자재공정투입요청번호를 확인할 수 없습니다.
+            //             return;
+            //         } else {
+            //             // 1 개 이상이고 각각 다른 자재 공정투입요청번호가 있을 경우는 어떻할 것인지?
+            //         }
+            //         let proc_input_req_id = items[0].proc_input_req_id;
+            //         if (proc_input_req_id == "" || proc_input_req_id == null) {
+            //             Alert.alert('', '투입 요청 번호가 없습니다.'); //자재공정투입요청번호를 확인할 수 없습니다.
+            //             return;
+            //         }
+            //         _this.loadInputReqList(proc_input_req_id);
+            //
+            //     });
+            // }
+
+            // 투입요청목록 내역
+            // loadInputReqList(proc_input_req_id) {
+            //     let _this = this;
+            //     let data = {
+            //         req_pk: proc_input_req_id
+            //     };
+            //
+            //     let fnsuccess = function (result) {
+            //         if (result != null) {
+            //             _this.inputReqGrid.itemsSource = result.data;
+            //         }
+            //     };
+            //     AjaxUtil.getAsyncData(this.url + '/mat_proc_input_list', data, fnsuccess);
+            // }
+
+
+        }
+
+        let pagePrepareProduction;
+
+        $(document).ready(function (e) {
+            pagePrepareProduction = new PrepareProduction();
+            pagePrepareProduction.jobOrderSearch();
+
+        });
+
+    </script>
+</th:block>
+</html>

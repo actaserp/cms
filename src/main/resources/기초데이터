@@ -1,0 +1,683 @@
+--20230220 skua
+insert into sys_code("CodeType", "Code", "Value", "Description", "_ordering", _created) values ('task_group_code', 'haccp_diary', 'HACCP일지', 'HACCP일지', 100, now() )
+insert into task_master ("Code","GroupCode","TaskName","Description","Line1Name","Approver1_id","Line2Name","Approver2_id","CycleBase","CycleNumber","NotificationYN","NotificationBefore","NotificationPlanDate","LastWriteDate","NextWriteDate","_status","_created","_modified","_creater_id","_modifier_id","Line3Name","Approver3_id","Line4Name","Approver4_id","WriterGroup_id") values
+('CCP가열(굽기)일지','haccp_diary','CCP가열(굽기)일지',NULL,'',NULL,'',NULL,'D',1.0,'',0.0,NULL,NULL,NULL,NULL,'2023-02-28 09:47:13.141+09','2023-02-28 09:49:04.93+09',3,3,'',NULL,'',NULL,2),
+('CCP가열(유탕)일지','haccp_diary','CCP가열(유탕)일지',NULL,'',NULL,'',NULL,'D',1.0,'',0.0,NULL,NULL,NULL,NULL,'2023-02-28 09:47:13.141+09','2023-02-28 09:49:04.93+09',3,3,'',NULL,'',NULL,2),
+('CCP이물검출일지','haccp_diary','CCP이물검출일지',NULL,'',NULL,'',NULL,'D',1.0,'',0.0,NULL,NULL,NULL,NULL,'2023-02-28 09:48:26.051+09','2023-02-28 09:49:35.51+09',3,3,'',NULL,'',NULL,NULL)
+
+
+
+--2023.03.03 ybna
+--WriterGroup_id 추가
+CREATE TABLE public.task_master (
+	id serial4 NOT NULL,
+	"Code" varchar(40) NULL,
+	"GroupCode" varchar(40) NULL,
+	"TaskName" varchar(40) NOT NULL,
+	"Description" varchar(2000) NULL,
+	"Line1Name" varchar(20) NULL,
+	"Approver1_id" int4 NULL,
+	"Line2Name" varchar(20) NULL,
+	"Approver2_id" int4 NULL,
+	"CycleBase" varchar(20) NULL,
+	"CycleNumber" float8 NULL,
+	"NotificationYN" varchar(1) NULL,
+	"NotificationBefore" float8 NULL,
+	"NotificationPlanDate" date NULL,
+	"LastWriteDate" date NULL,
+	"NextWriteDate" date NULL,
+	"_status" varchar(10) NULL,
+	"_created" timestamptz NOT NULL,
+	"_modified" timestamptz NULL,
+	"_creater_id" int4 NULL,
+	"_modifier_id" int4 NULL,
+	"Line3Name" varchar(20) NULL,
+	"Approver3_id" int4 NULL,
+	"Line4Name" varchar(20) NULL,
+	"Approver4_id" int4 NULL,
+	"WriterGroup_id" int4 NULL,
+	CONSTRAINT task_master_code_8628eeac_uniq UNIQUE ("Code"),
+	CONSTRAINT task_master_pkey PRIMARY KEY (id)
+);
+
+
+--2023.03.03 ybna
+-- minValue, maxValue 추가 - 수치형 결과 입력 시 기준
+CREATE TABLE public.check_item (
+	id serial4 NOT NULL,
+	"CheckMaster_id" int4 NOT NULL,
+	"Code" varchar(30) NULL,
+	"Name" varchar(500) NOT NULL,
+	"ItemGroup1" varchar(100) NULL,
+	"ItemGroup2" varchar(100) NULL,
+	"ItemGroup3" varchar(100) NULL,
+	"CycleValue" int2 NULL,
+	"CycleType" varchar(100) NULL,
+	"ResultType" varchar(10) NULL,
+	"StartDate" date NOT NULL,
+	"EndDate" date NOT NULL,
+	"_status" varchar(10) NULL,
+	"_created" timestamptz NOT NULL,
+	"_modified" timestamptz NULL,
+	"_creater_id" int4 NULL,
+	"_modifier_id" int4 NULL,
+	"_order" int4 NULL,
+	"minValue" int4 NULL,
+	"maxValue" int4 NULL,
+	CONSTRAINT check_item_pkey PRIMARY KEY (id)
+);
+
+-- public.check_item foreign keys
+ALTER TABLE public.check_item ADD CONSTRAINT "check_item_CheckMaster_id_6efe8440_fk_checkmaster_id" FOREIGN KEY ("CheckMaster_id") REFERENCES public.check_mast(id);
+
+
+
+
+--2023.03.03 skua
+ALTER TABLE haccp_proc ADD "Standard" text NULL;
+
+--2023.03.06 skua
+ALTER TABLE haccp_test ADD "Equipment_id" int NULL;
+ALTER TABLE haccp_test  ADD CONSTRAINT fk_haccp_test_equ FOREIGN KEY ("Equipment_id") REFERENCES equ (id);
+ALTER TABLE haccp_item_result add "CharResult" varchar(100) null;
+
+CREATE TABLE edu_result_student (
+    id serial4 NOT NULL,
+    "StudentName" varchar(100) NOT NULL,
+    "SourceDataPk" int4 NULL,
+    "SourceTableName" varchar(50) NULL,
+    "EduResult_id" int4 NOT NULL,
+    "_status" varchar(10) NULL,
+    "_created" timestamptz NOT NULL,
+    "_modified" timestamptz NULL,
+    "_creater_id" int4 NULL,
+    "_modifier_id" int4 NULL,
+    CONSTRAINT edu_result_student_pkey PRIMARY KEY (id)
+);
+
+
+--2023.03.07 ybna
+-- v_appr_result 뷰 생성
+
+CREATE OR REPLACE VIEW public.v_appr_result
+AS SELECT r.id,
+    r."SourceDataPk",
+    r."SourceTableName",
+    r."OriginTableName",
+    r."OriginGui",
+    r."OriginGuiParam",
+    r."State",
+    sc."Value" AS "StateName",
+    ( SELECT string_agg(concat(rr."LineName", ': ', up."Name", '(',
+                CASE
+                    WHEN rr."Line" = 0 THEN '상신'::text
+                    WHEN rr."State"::text = ANY (ARRAY['approval'::character varying::text, 'reject'::character varying::text]) THEN rsc."Value"::text
+                    ELSE
+                    CASE
+                        WHEN rr."ApprStepYN" = 'Y'::bpchar THEN '진행중'::text
+                        ELSE '-'::text
+                    END
+                END, ')'), ' ▶ '::text) AS string_agg
+           FROM appr_result rr
+             JOIN user_profile up ON rr."Approver_id" = up."User_id"
+             LEFT JOIN sys_code rsc ON rr."State"::text = rsc."Code"::text AND rsc."CodeType"::text = 'appr_status'::text
+          WHERE rr._status::text = 'A'::text AND r."SourceDataPk" = rr."SourceDataPk" AND r."SourceTableName"::text = rr."SourceTableName"::text AND rr."Line" > '-1'::integer) AS "LineName",
+    ( SELECT string_agg(
+                CASE
+                    WHEN rr."ApprStepYN" = 'Y'::bpchar THEN 'process'::character varying
+                    WHEN rr."State" IS NULL THEN 'do_process'::character varying
+                    ELSE rr."State"
+                END::text, '||'::text) AS string_agg
+           FROM appr_result rr
+             JOIN user_profile up ON rr."Approver_id" = up."User_id"
+             LEFT JOIN sys_code rsc ON rr."State"::text = rsc."Code"::text AND rsc."CodeType"::text = 'appr_status'::text
+          WHERE rr._status::text = 'A'::text AND r."SourceDataPk" = rr."SourceDataPk" AND r."SourceTableName"::text = rr."SourceTableName"::text AND rr."Line" > '-1'::integer) AS "LineNameState",
+    r."ApprDate",
+    r."Approver_id",
+    u."Name",
+        CASE
+            WHEN r."State"::text = ANY (ARRAY['write'::character varying::text, 'process'::character varying::text, 'approval'::character varying::text, 'reject'::character varying::text, 'reprocess'::character varying::text]) THEN 'Y'::text
+            ELSE 'N'::text
+        END AS "SearchYN",
+        CASE
+            WHEN r."State"::text = ANY (ARRAY['write'::character varying::text, 'reject'::character varying::text]) THEN 'Y'::text
+            ELSE 'N'::text
+        END AS "EditYN",
+        CASE
+            WHEN r."State"::text = ANY (ARRAY['write'::character varying::text, 'reject'::character varying::text]) THEN 'Y'::text
+            ELSE 'N'::text
+        END AS "DeleteYN",
+    r._created,
+    r._creater_id,
+    r._modified,
+    r._modifier_id
+   FROM appr_result r
+     JOIN user_profile u ON r."Approver_id" = u."User_id"
+     JOIN sys_code sc ON r."State"::text = sc."Code"::text AND sc."CodeType"::text = 'appr_status'::text
+  WHERE r._status::text = 'A'::text AND r."Line" = '-1'::integer;
+
+--20230309
+ALTER TABLE public.haccp_diary ALTER COLUMN "WorkCenter_id" DROP NOT NULL;
+
+
+--2023.03.10 ybna
+--SourceDataPk,SourceTableName 추가
+CREATE TABLE public.hand_over (
+	id serial4 NOT NULL,
+	"StartDate" date NOT NULL,
+	"EndDate" date NOT NULL,
+	"FromName" varchar(50) NOT NULL,
+	"FromDataPk" int4 NULL,
+	"FromTableName" varchar(50) NULL,
+	"FromTel" varchar(50) NULL,
+	"ToName" varchar(50) NOT NULL,
+	"ToDataPk" int4 NULL,
+	"ToTableName" varchar(50) NULL,
+	"ToTel" varchar(50) NULL,
+	"Reason" varchar(100) NULL,
+	"Description" varchar(2000) NULL,
+	"_status" varchar(10) NULL,
+	"_created" timestamptz NOT NULL,
+	"_modified" timestamptz NULL,
+	"_creater_id" int4 NULL,
+	"_modifier_id" int4 NULL,
+	"SourceDataPk" int4 NULL,
+	"SourceTableName" varchar(50) NULL,
+	CONSTRAINT hand_over_pkey PRIMARY KEY (id)
+);
+
+--2023.03.15 skua
+ALTER TABLE test_method ADD "Description" varchar(2000) NULL;
+
+--2023.03.16 skua 테이블명 변경, 컬럼추가
+
+DROP TABLE public.haccp_diary_frgn_detect;
+
+CREATE TABLE public.haccp_diary_devi_detect (
+    id serial,
+    "HaccpDiary_id" int4 NOT NULL,
+    "HaccpTest_id" int4 null,
+    "HaccpItem_id" int4 NULL,
+    "HappenPlace" varchar(100) NULL,    
+    "StartTime" time NOT NULL,
+    "EndTime" time NULL,
+    "HappenTime" time(0) NULL,
+    "AbnormalDetail" varchar(2000) NULL,
+    "ActionDetail" varchar(2000) NULL,
+    "ActorName" varchar(20) NULL,
+    "Substance" varchar(200) NULL,  
+    "Quantity" float8 NULL,
+    "Material_id" int4 NULL,
+    "Description" varchar(2000) NULL,    
+    "_status" varchar(10) NULL,
+    "_created" timestamptz NOT NULL,
+    "_modified" timestamptz NULL,
+    "_creater_id" int4 NULL,
+    "_modifier_id" int4 NULL,   
+    CONSTRAINT haccp_diary_devi_detect_pkey PRIMARY KEY (id)
+);
+CREATE INDEX "haccp_diary_devi_detect_HaccpDiary_id_b9342d63" ON public.haccp_diary_devi_detect USING btree ("HaccpDiary_id");
+CREATE INDEX "haccp_diary_devi_detect_Material_id_4a8278d4" ON public.haccp_diary_devi_detect USING btree ("Material_id");
+ALTER TABLE public.haccp_diary_devi_detect ADD CONSTRAINT haccp_diary_devi_detect_haccp_item FOREIGN KEY ("HaccpItem_id") REFERENCES public.haccp_item(id);
+ALTER TABLE public.haccp_diary_devi_detect ADD CONSTRAINT haccp_diary_devi_detect_haccp_test FOREIGN KEY ("HaccpTest_id") REFERENCES public.haccp_test(id);
+
+ALTER TABLE haccp_diary_devi_detect ADD "ActionCode" varchar(20) NULL;
+
+--2023-03-20 shyun
+ALTER TABLE public.test_item_result ADD "TestDateTime" timestamp(0) NULL;
+ALTER TABLE public.test_item_result ADD "JudgeCode" varchar NULL;
+ALTER TABLE public.test_item_result ADD "Char1" varchar NULL;
+ALTER TABLE public.test_item_result ADD "SourceTableName" varchar NULL;
+ALTER TABLE public.test_item_result ADD "SourceDataPk" int4 NULL;
+
+
+--2023-03-22 shyun
+ALTER TABLE public.mat_inout ADD "EffectiveDate" timestamp(0) NULL;
+ALTER TABLE public.test_item_result ADD "Char2" varchar NULL;
+
+-- public.v_appr_result source
+
+----20230322
+CREATE OR REPLACE VIEW public.v_appr_result
+AS SELECT r.id,
+    r."SourceDataPk",
+    r."SourceTableName",
+    r."OriginTableName",
+    r."OriginGui",
+    r."OriginGuiParam",
+    r."State",
+    sc."Value" AS "StateName",
+    ( SELECT string_agg(concat(rr."LineName", ': ', rr."Name", '(',
+                CASE
+                    WHEN rr."Line" = 0 THEN '상신'::text
+                    WHEN rr."State"::text = ANY (ARRAY['approval'::character varying::text, 'reject'::character varying::text]) THEN rr."Value"::text
+                    ELSE
+                    CASE
+                        WHEN rr."ApprStepYN" = 'Y'::bpchar THEN '진행중'::text
+                        ELSE '-'::text
+                    END
+                END, ')'), ' ▶ '::text) AS string_agg
+           FROM ( SELECT arr."LineName",
+                    up."Name",
+                    arr."Line",
+                    arr."State",
+                    rsc."Value",
+                    arr."ApprStepYN"
+                   FROM appr_result arr
+                     LEFT JOIN user_profile up ON arr."Approver_id" = up."User_id"
+                     LEFT JOIN sys_code rsc ON arr."State"::text = rsc."Code"::text AND rsc."CodeType"::text = 'appr_status'::text
+                  WHERE arr._status::text = 'A'::text AND arr."SourceDataPk" = r."SourceDataPk" AND arr."SourceTableName"::text = r."SourceTableName"::text AND arr."Line" > '-1'::integer
+                  ORDER BY arr."Line") rr) AS "LineName",
+    ( SELECT string_agg(
+                CASE
+                    WHEN rr."ApprStepYN" = 'Y'::bpchar THEN 'process'::character varying
+                    WHEN rr."State" IS NULL THEN 'do_process'::character varying
+                    ELSE rr."State"
+                END::text, '||'::text) AS string_agg
+           FROM ( SELECT arr."LineName",
+                    up."Name",
+                    arr."Line",
+                    arr."State",
+                    rsc."Value",
+                    arr."ApprStepYN"
+                   FROM appr_result arr
+                     LEFT JOIN user_profile up ON arr."Approver_id" = up."User_id"
+                     LEFT JOIN sys_code rsc ON arr."State"::text = rsc."Code"::text AND rsc."CodeType"::text = 'appr_status'::text
+                  WHERE arr._status::text = 'A'::text AND arr."SourceDataPk" = r."SourceDataPk" AND arr."SourceTableName"::text = r."SourceTableName"::text AND arr."Line" > '-1'::integer
+                  ORDER BY arr."Line") rr) AS "LineNameState",
+    r."ApprDate",
+    r."Approver_id",
+    u."Name",
+        CASE
+            WHEN r."State"::text = ANY (ARRAY['write'::character varying::text, 'process'::character varying::text, 'approval'::character varying::text, 'reject'::character varying::text, 'reprocess'::character varying::text]) THEN 'Y'::text
+            ELSE 'N'::text
+        END AS "SearchYN",
+        CASE
+            WHEN r."State"::text = ANY (ARRAY['write'::character varying::text, 'reject'::character varying::text]) THEN 'Y'::text
+            ELSE 'N'::text
+        END AS "EditYN",
+        CASE
+            WHEN r."State"::text = ANY (ARRAY['write'::character varying::text, 'reject'::character varying::text]) THEN 'Y'::text
+            ELSE 'N'::text
+        END AS "DeleteYN",
+    r._created,
+    r._creater_id,
+    r._modified,
+    r._modifier_id
+   FROM appr_result r
+     JOIN user_profile u ON r."Approver_id" = u."User_id"
+     JOIN sys_code sc ON r."State"::text = sc."Code"::text AND sc."CodeType"::text = 'appr_status'::text
+  WHERE r._status::text = 'A'::text AND r."Line" = '-1'::integer;
+  
+  
+  
+  ALTER TABLE haccp_proc_item  ADD CONSTRAINT "haccp_proc_item_HaccpItem_id_6efe8440_fk_HaccpItem_id" FOREIGN KEY ("HaccpItem_id") REFERENCES haccp_item(id);
+  
+insert into sys_code("CodeType", "Code","Value","Description","_ordering","_created")
+values('haccp_result_type', 'OX','OX','해썹결과타입', 1, now())
+,('haccp_result_type', 'N','수치형','해썹결과타입', 2, now())
+,('haccp_result_type', 'text','text','해썹결과타입', 3, now())
+
+
+
+
+
+-- 이태균 2023-03-23
+ALTER TABLE public.bundle_head ADD "Char4" varchar NULL;
+
+-- shyun 2023-03-29
+ALTER TABLE public.cust_complain ADD "CheckName" varchar NULL;
+ALTER TABLE public.cust_complain ADD "CheckDate" date NULL;
+ALTER TABLE public.cust_complain ADD "CheckState" varchar NULL;
+ALTER TABLE public.cust_complain ADD "FinishDate" date NULL;
+
+
+-- 이태균 2023-03-30
+ALTER TABLE public.test_item ADD "ItemType" varchar NULL;
+
+-- 2023.04.04 ybna
+-- 연간교육훈련계획서 비고, 결재기능 추가(DataPk, TableName <-bundle_head)
+CREATE TABLE public.edu_year_target (
+	id serial4 NOT NULL,
+	"DataYear" int4 NOT NULL,
+	"EduTitle" varchar(100) NOT NULL,
+	"EduTarget" varchar(500) NULL,
+	"EduContent" varchar(500) NULL,
+	"_order" int4 NULL,
+	"_status" varchar(10) NULL,
+	"_created" timestamptz NOT NULL,
+	"_modified" timestamptz NULL,
+	"_creater_id" int4 NULL,
+	"_modifier_id" int4 NULL,
+	"Remark" varchar(2000) NULL,
+	"DataPk" int4 NULL,
+	"TableName" varchar(50) NULL,
+	CONSTRAINT edu_year_target_pkey PRIMARY KEY (id)
+);
+
+-- 2023.04.04 ybna
+-- 설비점겸이력 결재기능 추가(SourceDataPk, SourceTableName <-bundle_head)
+CREATE TABLE public.equip_history (
+	id serial4 NOT NULL,
+	"Equipment_id" int4 NOT NULL,
+	"DataDate" date NOT NULL,
+	"Description" varchar(1000) NULL,
+	"Content" varchar(1000) NULL,
+	"Cost" int4 NOT NULL,
+	"_status" varchar(10) NULL,
+	"_created" timestamptz NOT NULL,
+	"_modified" timestamptz NULL,
+	"_creater_id" int4 NULL,
+	"_modifier_id" int4 NULL,
+	"Char1" varchar NULL,
+	"Char2" varchar NULL,
+	"SourceDataPk" int4 NULL,
+	"SourceTableName" varchar(50) NULL,
+	CONSTRAINT pk__equip_hi__3213e83fa572defc PRIMARY KEY (id)
+);
+CREATE INDEX equip_history_ix01 ON public.equip_history USING btree ("DataDate");
+CREATE INDEX equip_history_ix02 ON public.equip_history USING btree ("Equipment_id");
+-- public.equip_history foreign keys
+ALTER TABLE public.equip_history ADD CONSTRAINT equip_history_equipment_id_fk_equ_id FOREIGN KEY ("Equipment_id") REFERENCES public.equ(id);
+
+-- 이태균 2023-03-30
+ALTER TABLE public.test_item ADD "ItemType" varchar NULL;
+
+-- 이태균 2023-03-23
+ALTER TABLE public.bundle_head ADD "Char4" varchar NULL;
+
+-- 윤석훈 2023-04-04
+ALTER TABLE public.mat_inout ADD "InState" varchar NULL;
+ALTER TABLE public.mat_inout ADD "CheckInTest" varchar NULL;
+
+-- 윤석훈 2023-04-07
+ALTER TABLE public.action_data ADD "Char1" varchar NULL;
+ALTER TABLE public.action_data ADD "Char2" varchar NULL;
+ALTER TABLE public.action_data ADD "Char3" varchar NULL;
+ALTER TABLE public.action_data ADD "StartDate" date NULL;
+ALTER TABLE public.action_data ADD "EndDate" date NULL;
+ALTER TABLE public.action_data ADD "DataPk2" int4 NULL;
+ALTER TABLE public.action_data ADD "TableName2" varchar NULL;
+
+
+-- 장치욱 2023-04-18
+CREATE TABLE stock_lot_take (
+    id serial4 NOT NULL,
+    "MaterialLot_id" int4 NOT NULL,
+    "StoreHouse_id" int4 NOT NULL,
+    "TakeDate" date NULL,
+    "TakeTime" time NULL,
+    "AccountStock" float8 NULL,
+    "RealStock" float8 NULL,
+    "Gap" float8 NULL,
+    "Description" varchar(500) NULL,
+    "State" varchar(20) NULL,
+    "Taker_id" int4 NULL,
+    "Confirmer_id" int4 NULL,
+    "ConfirmDateTime" timestamptz NULL,
+    "_status" varchar(10) NULL,
+    "_created" timestamptz NOT NULL,
+    "_modified" timestamptz NULL,
+    "_creater_id" int4 NULL,
+    "_modifier_id" int4 NULL,
+    CONSTRAINT stock_lot_take_pkey PRIMARY KEY (id)
+);
+CREATE INDEX "stock_lot_take_MaterialLot_id_8c37e3dd" ON stock_lot_take USING btree ("MaterialLot_id");
+CREATE INDEX "stock_lot_take_MaterialLot_id_TakeDate_36188b1b_idx" ON stock_lot_take USING btree ("MaterialLot_id", "TakeDate");
+CREATE INDEX "stock_lot_take_StoreHouse_id_TakeDate_bf6fac79_idx" ON stock_lot_take USING btree ("StoreHouse_id", "TakeDate");
+CREATE INDEX "stock_lot_take_StoreHouse_id_f2650aa0" ON stock_lot_take USING btree ("StoreHouse_id");
+CREATE INDEX "stock_lot_take_TakeDate_c747fe1e_idx" ON stock_lot_take USING btree ("TakeDate");
+
+
+-- stock_lot_take foreign keys
+
+ALTER TABLE stock_lot_take ADD CONSTRAINT "stock_lot_take_MaterialLot_id_8c37e3dd_fk_mat_lot_id" FOREIGN KEY ("MaterialLot_id") REFERENCES public.mat_lot(id) DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE stock_lot_take ADD CONSTRAINT "stock_lot_take_StoreHouse_id_f2650aa0_fk_store_house_id" FOREIGN KEY ("StoreHouse_id") REFERENCES public.store_house(id) DEFERRABLE INITIALLY DEFERRED;
+
+
+-- stock_lot_take 트리거 오류 수정
+CREATE OR REPLACE FUNCTION public.stock_lot_take_trigger()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+declare
+
+    v_action varchar(10);
+    v_mat_pk int;
+    v_lot_pk int;
+    v_house_pk int;
+    v_account_stock float;
+    v_gap float;
+
+    v_date date;
+    v_time time;
+    
+begin
+
+    v_action = '';
+      
+    if TG_OP in ('INSERT') then
+        if coalesce(new."State",'t') != 'confirmed' then 
+            return new;
+        end if;     
+    
+        v_action := 'INSERT';
+    
+        v_lot_pk := new."MaterialLot_id";
+        v_house_pk := new."StoreHouse_id";
+        v_account_stock := new."AccountStock";
+        v_gap := new."Gap";
+        v_date := now()::date;
+        v_time := now()::time;  
+    end if;
+
+    if TG_OP in ('DELETE') then
+        if coalesce(old."State",'t') != 'confirmed' then 
+            return old;
+        end if; 
+        
+        v_action := 'DELETE';
+    
+        v_lot_pk := old."MaterialLot_id";
+        v_account_stock := old."AccountStock";
+        v_gap := old."Gap";
+        v_date := now()::date;
+        v_time := now()::time;      
+    end if;
+
+    if TG_OP = 'UPDATE' then 
+        if coalesce(old."State",'t') != 'confirmed' and coalesce(new."State",'t') != 'confirmed' then
+            return new;
+        end if;     
+    
+        if coalesce(old."State",'t') != 'confirmed' and new."State" = 'confirmed' then
+            v_action := 'INSERT';
+        end if;     
+    
+        if old."State" = 'confirmed' and coalesce(new."State",'t') != 'confirmed' then
+            v_action := 'DELETE';
+        end if; 
+    
+        if v_action = '' then
+            v_action := 'UPDATE';   
+            if old."Gap" = new."Gap" then
+                return new;
+            end if;
+        end if;
+        
+        v_lot_pk := new."MaterialLot_id";
+        v_house_pk := new."StoreHouse_id";
+        v_account_stock := new."AccountStock";
+        v_gap := new."Gap";
+        v_date := coalesce(new."ConfirmDateTime", new._modified)::date;
+        v_time := coalesce(new."ConfirmDateTime", new._modified)::time; 
+    end if;
+
+    /*
+    if v_gap = 0 then
+        if v_action = 'DELETE' then
+            return old;
+        else
+            return new;
+        end if;
+    end if;
+    */
+
+    select ml."Material_id"
+    into v_mat_pk 
+    from stock_lot_take slt
+    inner join mat_lot ml on ml.id=slt."MaterialLot_id" 
+    where slt."MaterialLot_id" = v_lot_pk
+    ;
+
+    if v_action = 'INSERT' then
+        if v_gap > 0 then
+            insert into mat_inout ("Material_id", "StoreHouse_id", "InOut", "InputType", "InputQty"
+                ,"InoutDate", "InoutTime" 
+                , "State", _status, "SourceDataPk", "SourceTableName", "_created")
+            values(v_mat_pk, v_house_pk, 'in', 'gap_in', v_gap
+                , v_date, v_time
+                , 'confirmed', 'a', new.id, 'stock_lot_take', now() );      
+        else
+            insert into mat_inout ("Material_id", "StoreHouse_id", "InOut", "OutputType", "OutputQty"
+                ,"InoutDate", "InoutTime" 
+                , "State", _status, "SourceDataPk", "SourceTableName", "_created")
+            values(v_mat_pk, v_house_pk, 'out', 'gap_out', -1 * v_gap
+                , v_date, v_time
+                , 'confirmed', 'a', new.id, 'stock_lot_take', now() );
+        end if;
+    
+        insert into mat_lot_cons ("MaterialLot_id"  , "PrevStock", "OutputQty"
+        ,"OutputDateTime"
+        , _status, "SourceDataPk", "SourceTableName", "_created")
+        values (v_lot_pk, v_account_stock, -1 * v_gap
+        , now()
+        , 'a', new.id, 'stock_lot_take', now() );
+        
+        INSERT INTO sys_log("Type","Source","Message",_created)
+        values('info','stock_lot_take_trigger','insert success. pk='||new.id||'. gap='||v_gap, now());          
+    
+        return new;
+    end if; -- insert 
+        
+    if v_action in ('DELETE') then
+        insert into sys_log("Type","Source","Message",_created) values('info','stock_lot_take_trigger',concat('3333 action : ',v_action), now());
+        delete from mat_inout 
+        where "SourceDataPk" = old.id 
+        and  "SourceTableName" = 'stock_lot_take'
+        and "Material_id" = v_mat_pk
+        and "StoreHouse_id" = v_house_pk;
+    
+        delete from mat_inout where "SourceDataPk" = old.id and "SourceTableName" = 'stock_lot_take';   
+        delete from mat_lot_cons where "SourceDataPk" = old.id and  "SourceTableName" = 'stock_lot_take';
+
+        insert into sys_log("Type","Source","Message",_created)
+        values('info','stock_lot_take_trigger','delete success. pk='||old.id||'. gap='||v_gap, now());          
+        
+        if TG_OP = 'DELETE' then
+            return old;
+        else
+            return new;
+        end if;
+    end if; -- delete
+    
+    if v_action in ('UPDATE') then
+    
+            update mat_inout 
+            set "InOut" = case when v_gap > 0 then 'in' else 'out' end
+            , "InputType" = case when v_gap > 0 then 'gap_in' else null end
+            , "OutputType" = case when v_gap > 0 then null else 'gap_out' end
+            , "InputQty" = case when v_gap > 0 then v_gap else null end
+            , "OutputQty" = case when v_gap > 0 then null else -1 * v_gap end 
+            where "SourceDataPk" = new.id 
+            and  "SourceTableName" = 'stock_lot_take'
+            and "StoreHouse_id" = v_house_pk
+            and "Material_id" = v_mat_pk
+            ;
+        
+            update mat_lot_cons 
+            set "PrevStock" = v_account_stock
+            , "OutputQty" = -1 * v_gap  
+            where "SourceDataPk" = new.id 
+            and  "SourceTableName" = 'stock_lot_take'
+            --and "StoreHouse_id" = v_house_pk
+            --and "MaterialLot_id" = v_lot_pk
+            ;       
+        
+        /*
+        if v_gap > 0 then
+            update mat_inout 
+            set "InputQty" = v_gap
+            where "SourceDataPk" = new.id 
+            and  "SourceTableName" = 'stock_lot_take'
+            and "StoreHouse_id" = v_house_pk
+            and "Material_id" = v_mat_pk
+            --and "InOut" = 'in'
+            --and "OutputType" = 'gap_in'
+            ;   
+        else
+            update mat_inout 
+            set "OutputQty" = -1 * v_gap
+            where "SourceDataPk" = new.id 
+            and  "SourceTableName" = 'stock_lot_take'
+            and "StoreHouse_id" = v_house_pk
+            and "Material_id" = v_mat_pk
+            --and "InOut" = 'out'
+            --and "OutputType" = 'gap_out'
+            ;       
+        end if;
+        */
+    
+        INSERT INTO sys_log("Type","Source","Message",_created)
+        values('info','stock_lot_take_trigger','update success. pk='||new.id||'. gap='||v_qty, now());    
+    
+        
+        return new;
+    end if; -- update
+    
+    return new;
+
+EXCEPTION WHEN OTHERS then
+  
+    if TG_OP = 'DELETE' then
+        INSERT INTO sys_log("Type","Source","Message",_created)
+        values('error','stock_lot_take_trigger', 'error. pk='||old.id||'. '||SQLERRM, now());  
+        return old;
+    else
+        INSERT INTO sys_log("Type","Source","Message",_created)
+        values('error','stock_lot_take_trigger', 'error. pk='||new.id||'. '||SQLERRM, now());  
+        return new;
+    end if;
+end     
+$function$
+;
+
+--2023-05-03 shyun
+ALTER TABLE public.job_res ADD "EndDate" date NULL;
+
+
+--2023-05-04 장치욱
+insert into user_code ("Code", "Value", "_created", "_creater_id")
+values ('haccp_cream_devi_action','CCP크림/무스 이탈사항', now(), 3),('haccp_rapid_freeze_devi_action','CCP급속동결 이탈사항', now(), 3),('haccp_add_ethanol_devi_action','CCP주정첨가 이탈사항', now(), 3);
+
+108 haccp_cream_devi_action CCP크림/무스 이탈사항
+109 haccp_rapid_freeze_devi_action  CCP급속동결 이탈사항
+110 haccp_add_ethanol_devi_action   CCP주정첨가 이탈사항
+
+insert into user_code ("Code", "Value", "Description", "_order", "Parent_id", "_created", "_creater_id")
+values 
+('haccp_cream_f01', '조치사항1', '', 10, 108, now(),3),
+('haccp_cream_f02', '조치사항2', '', 20, 108, now(),3),
+('직접입력', '직접입력', '', 30, 108, now(),3);
+
+insert into user_code ("Code", "Value", "Description", "_order", "Parent_id", "_created", "_creater_id")
+values 
+('haccp_rapid_freeze_f01', '조치사항1', '', 10, 109, now(),3),
+('haccp_rapid_freeze_f02', '조치사항2', '', 20, 109, now(),3),
+('직접입력', '직접입력', '', 30, 109, now(),3);
+
+insert into user_code ("Code", "Value", "Description", "_order", "Parent_id", "_created", "_creater_id")
+values 
+('haccp_add_ethanol_f01', '조치사항1', '', 10, 110, now(),3),
+('haccp_add_ethanol_f02', '조치사항2', '', 20, 110, now(),3),
+('직접입력', '직접입력', '', 30, 110, now(),3);

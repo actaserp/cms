@@ -1,0 +1,538 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents" id="tab_week">
+        <input type="hidden" id="bhId" th:value="${bh_id}" />
+        <input type="hidden" id="data_date" th:value="${data_date}" />
+        <input type="hidden" id="search_cond" th:value="${searchcond}" />
+        <input type="hidden" id="viewMode" th:value="${view_mode}" />
+        <input type="hidden" id="verifi_type" th:value="${verifi_type}" />
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>검증점검표-haccp(일반haccp)</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP 관리</li>
+                <li>검증점검표-haccp(일반haccp)</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-card-wrap" style="margin-bottom: 0;">
+                <div class="col-5">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">일지명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="title" name="title" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="dataDate">점검일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="dataDate" name="dataDate" readonly>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="verifiType">검증종류</label>
+                            </th>
+                            <td>
+                                <select class="form-control2" type="text" id="verifiType" name="verifiType"></select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="creater_name">작성자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="firstName" name="firstName" disabled />
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-6">
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <h3>점검목록</h3>
+                </div>
+                <div class="button-wrap">
+                    <button type="button" class="btn" id="btnReqAppr">결재상신</button>
+                    <button type="button" class="btn" id="btnAppr" style="display:none;">승인</button>
+                    <button type="button" class="btn" id="btnReject" style="display:none;">반려</button>
+                    <button type="button" class="btn" id="btnSave">저장</button>
+                    <button type="button" class="btn" id="btnDelete">삭제</button>
+                    <button type="button" class="btn" id="btnList">목록</button>
+                </div>
+
+            </div>
+            <div>
+
+                <div class="container-fluid">
+                    <div id="check_item_first_grid" style="height: 300px;"></div>
+                </div>
+            </div>
+            <div>
+
+                <div class="container-fluid">
+                    <div id="check_item_second_grid" style="height: 300px;"></div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12 col-md-12 col-lg-12">
+                    <div class="input-group">
+                        <div class="grid_box col-12" id="file_upload_idv"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader" ></th:block>
+    <script type="text/javascript">
+        class CheckResultDiaryPage {
+            constructor() {
+                this.grid = null;
+                this.grid2 = null;
+
+                this.approveBoxUtil = null;
+
+                this.uploader = null;
+                this.checkMasterName = '검증점검표-haccp(일반haccp)'
+                this.baseUrl = '/api/haccp/verifi_check_haccp_normal';
+                this.table_name = 'verification_checklist_haccp_normal';
+
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                this.gparam = {
+                    bh_id : $('#bhId').val(),
+                    data_date : $('#data_date').val(),
+                    search_cond: $('#search_cond').val(),
+                    view_mode: $('#viewMode').val(),
+                    verifi_type: $('#verifi_type').val(),
+                };
+
+                this.grid = new wijmo.grid.FlexGrid('#check_item_first_grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false,
+                    columns: [
+
+                        {binding: 'id', header: '번호', width: 100, align: 'right' , visible: false},
+                        {binding: 'group1', header: '구분1', width: 130, align: 'center' , isReadOnly: true},
+                        {binding: 'group2', header: '구분2', width: 130, align: 'center', visible: false },
+                        {binding: 'group3', header: '구분3', width: 130, align: 'center', visible: false },
+                        {binding: 'index_order', header: '순번', width: 50, align: 'center', isReadOnly: true },
+                        {binding: 'item_name', header: '점검항목', width: 300, align: 'left', isReadOnly: true},
+                        {binding: 'result1', header: '점검내용(입력)', width: 300, align: 'center'},
+
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '점검항목1';
+
+
+                this.grid2 = new wijmo.grid.FlexGrid('#check_item_second_grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false,
+                    columns: [
+
+                        {binding: 'id', header: '번호', width: 100, align: 'right' , visible: false},
+                        {binding: 'group1', header: '구분1', width: 130, align: 'center' , visible: false, isReadOnly: true},
+                        {binding: 'group2', header: '구분2', width: 130, align: 'center',  isReadOnly: true},
+                        {binding: 'group3', header: '구분3', width: 130, align: 'center', visible: false },
+                        {binding: 'index_order', header: '순번', width: 50, align: 'center' ,isReadOnly: true},
+                        {binding: 'item_name', header: '점검항목', width: 300, align: 'left' ,isReadOnly: true},
+                        {binding: 'result1', header: '점검내용(입력)', width: 300, align: 'center'},
+                    ],
+                    itemsSource: this.viewData2,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                });
+                new FlexGridContextMenu(this.grid2);
+                this.grid2.downloadFileName = '점검항목2';
+
+            }
+
+            // 일지 리스트
+            searchMainData() {
+                let _this = this;
+                $('#btnDiaryPrint').hide();
+                $('#btnDelete').hide();
+
+                $('#firstName').val(userinfo.username);
+                $('#title').val(_this.checkMasterName);
+                $('#verifiType').val(_this.gparam.verifi_type);
+
+                if ($('#bhId').val() > 0) {
+                    let param = {
+                        'bh_id': $('#bhId').val(),
+                    };
+
+                    let result = AjaxUtil.getSyncData(_this.baseUrl + '/read', param);
+
+                    if (result != null) {
+                        let headInfo = result.data.head_info;
+                        let diaryInfo = result.data.diary_info;
+
+                        $('#title').val(headInfo.Title);
+                        $('#dataDate').val(headInfo.DataDate);
+                        $('#firstName').val(headInfo.FirstName);
+                        $('#verifiType').val(headInfo.verifi_type);
+
+                        let firstList = diaryInfo.filter(list => list.group1 != "");
+                        let secondList = diaryInfo.filter(list => list.group2 != "");
+
+                        _this.viewData.sourceCollection = firstList;
+
+                        _this.viewData2.sourceCollection = secondList;
+
+                        _this.viewModeSetting(headInfo)
+                    }
+
+                }else {
+                    _this.searchItemList();
+                    _this.setUploader(0, true);
+                }
+
+                // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+                _this.approveBoxUtil = new ApproveBoxUtil(0, _this.checkMasterName, $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+            }
+
+            // 일지 리스트
+            searchItemList() {
+                let _this = this;
+
+                let param = {
+                    //'action': 'read',
+                    'srch_check_name': _this.checkMasterName
+                }
+
+                let check_master_info = AjaxUtil.getSyncData('/api/check/check_master/read', param);
+                _this.check_master_id = check_master_info.data[0].id
+
+                let data = {
+                    //'action': 'read',
+                    'check_master_id': _this.check_master_id,
+                    'check_date': $('#dataDate').val(),
+                    'start_date': $('#dataDate').val(),
+                    'end_date': $('#dataDate').val(),
+                }
+
+                let result = AjaxUtil.getSyncData('/api/check/check_item/read', data);
+
+                let firstList = result.data.filter(list => list.group1 != "");
+                let secondList = result.data.filter(list => list.group2 != "");
+
+                _this.viewData.sourceCollection = firstList;
+                _this.viewData2.sourceCollection = secondList;
+
+            }
+
+            viewModeSetting(headInfo) {
+                let _this = this;
+                // 데이터에 따른 버튼 설정
+                if ($('#viewMode').val().toLowerCase() == 'true') {
+                    //보기 모드일 경우 CRUD 버튼 숨김
+                    $('#btnDiaryPrint').hide();
+                    $('#btnReqAppr').hide();
+                    $('#btnSave').hide();
+                    $('#btnDelete').hide();
+                    $('#btnAllItem').hide();
+                    if (headInfo.State == 'approval') {
+                        $('#btnDiaryPrint').show();
+                    }
+
+                    $('#title').attr('disabled', 'disabled');
+                    $('#dataDate').attr('disabled', 'disabled');
+
+                    $('#verifiType').attr('disabled', 'disabled');
+
+                    _this.setUploader($('#bhId').val(), false)
+                }
+                else {
+                    // State : 작성, 미결재, 승인, 반려, 재상신
+                    $('#btnDelete').show();
+                    $('#btnDiaryPrint').hide();
+                    if (headInfo.State == 'process' || headInfo.State == 'reprocess') {
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        $('#btnAllItem').hide();
+                    } else if (headInfo.State == 'approval') {
+                        $('#btnDiaryPrint').show();
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        $('#btnAllItem').hide();
+                    }
+
+                    if (parseInt($('#bhId').val(), 10) > 0) {
+                        $('#dataDate').attr('disabled', 'disabled');
+                    } else {
+                        $('#btnDelete').hide();
+                    }
+                    _this.setUploader($('#bhId').val(), true)
+                }
+            }
+
+            //파일 업로더
+            setUploader(id, viewFlag) {
+                let _this = this;
+                let uploader = new ax5FileUploadClass('file_upload_idv', id,
+                    {
+                        table_name: _this.table_name,
+                        attach_name: 'basic',
+                        accept_files: 'hwp,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,gif,mbp,png,txt,zip,pdf',
+                        multiple: true,
+                        max_count: 5,
+                        file_size: 100,
+                        upload_callback: function (param) {
+                            //uploader.showLastImage('imgPhoto');
+                        },
+                        delete_callback: function (param) {
+                            //$('#imgPhoto').attr('src', '');
+                        },
+                        file_click_callback: function (file_id) {
+                            //uploader.showImage('imgPhoto', file_id);
+                        },
+                        can_write: viewFlag,
+                    });
+            }
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    $('#btnList').click();
+                });
+            }
+
+            //결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit';
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'data_date': $('#dataDate').val(),
+                };
+
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+            //저장
+            save(isAppr) {
+                let _this = this;
+                let resultNullCheck = false;
+
+                let resultGridList = _this.grid.collectionView.items.concat(_this.grid2.collectionView.items)
+                /* 점검내용 입력 필수 해제
+                for (let i = 0; i < resultGridList.length; i++) {
+                    if (resultGridList[i].result1 == null || resultGridList[i].result1 == '')
+                        resultNullCheck = true;
+                }
+                */
+                let callback = function () {
+
+                    let items = [];
+                    $.each(resultGridList, function (idx, item) {
+                        items.push({ id: item.id, 'result1': item.result1, 'order': item.__original_index });
+                    });
+
+                    let data = {
+                        bh_id: $('#bhId').val(),
+                        check_master_id: _this.check_master_id,
+                        title: $('#title').val(),
+                        data_date: $('#dataDate').val(),
+                        verifi_type: $('#verifiType').val(),
+                        fileId: $("#srchFileId").val(),
+                        Q: JSON.stringify(items),
+                    };
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            $('#bhId').val(resp.data.id);
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                Notify.success('저장하였습니다.');
+                                $('#btnDelete').show();
+                                $('#dataDate').attr('disabled', 'disabled');
+                                _this.searchMainData();
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    let action = $('#bhId').val() > 0 ? '/save' : '/insert';
+
+                    AjaxUtil.postAsyncData(_this.baseUrl + action, data, fnSuccess);
+                }
+                /*
+                if (resultNullCheck) {
+                    Alert.alert("", "점검결과를 모두 입력해주세요.");
+                    return;
+                }
+                */
+                if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+                else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+
+            //삭제
+            delete() {
+                let _this = this;
+                Alert.confirm('', '삭제하시겠습니까?', function () {
+                    // 삭제 서비스 호출
+                    let param = {
+                        bh_id: $('#bhId').val(),
+                        table_name:  _this.table_name,
+                        attach_name: 'basic',
+                    }
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            Notify.success('삭제하였습니다.');
+                            $('#btnList').click();
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/delete', param, fnSuccess);
+                });
+            }
+        }
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new CheckResultDiaryPage();
+
+            if(page.gparam.verifi_type){
+                AjaxUtil.fillSelectOptions($("#verifiType"), "system_code", page.gparam.verifi_type, '', "verification_type");
+            }else{
+                AjaxUtil.fillSelectOptions($("#verifiType"), "system_code", "all", '', "verification_type");
+            }
+
+            $('#dataDate').val(page.gparam.data_date);
+
+            $('#btnAllItem').click(function (e) {
+                page.checkAllItem();
+            });
+
+            // 일자 변경
+            $('#dataDate').change(function () {
+                page.searchMainData();
+            });
+
+            // 일지 출력
+            $('#btnDiaryPrint').on('click', function () {
+                page.printDiary();
+            });
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+
+            // 임시저장
+            $('#btnSave').on('click', function () {
+                if ($('#verifiType').val() == '' || $('#verifiType').val() == null) {
+                    Alert.alert("", "검증종류를 선택해주세요.");
+                    return;
+                }
+                page.save(false);
+            });
+
+            // 삭제
+            $('#btnDelete').on('click', function () {
+                page.delete();
+            });
+
+            // 목록
+            $('#btnList').on('click', function () {
+                if (page.gparam.appr_view) {
+                    location.href = encodeURI('/gui/' + page.gparam.appr_view + '?searchcond=' + page.gparam.search_cond);
+                }
+                else {
+                    location.href = encodeURI('/gui/' + gui.gui_code + '?searchcond=' + page.gparam.search_cond);
+                }
+            });
+            page.searchMainData();
+        });
+    </script>
+</th:block>
+</html>

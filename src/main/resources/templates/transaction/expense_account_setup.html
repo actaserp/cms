@@ -1,0 +1,555 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>비용항목등록</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>출금관리</li>
+        <li>비용항목등록</li>
+      </ul>
+    </div>
+    <section class="section">
+      <input type="hidden" id="spjangcdHidden">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>
+              <label for="txtDescription">
+                그룹명
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input class="form-control2" type="text" id="txtDescription" name="txtDescription" placeholder="그룹명" style="width:200px"/>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <ul>
+                <li>
+                  <a class="btn btn-delete" title="검색" id="btnSearch">
+                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                    검색
+                  </a>
+                </li>
+              </ul>
+            </dd>
+          </dl>
+        </div>
+        <div class="button-wrap" style="border-top:none; text-align: right; !important;">
+          <ul>
+            <li>
+              <a class="btn btn-excell" title="신규등록" id="Newbtn">
+                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                신규등록
+              </a>
+            </li>
+            <li>
+              <a class="btn btn-edit" id="btnSave" title="저장">
+                <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                저장
+              </a>
+            </li>
+            <li>
+              <a class="btn btn-delete" title="삭제" id="btnDelete">
+                <img th:src="@{/images/icon/ico-delete.svg}" alt="엑셀 아이콘">
+                삭제
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="container-fluid">
+        <div class="row">
+          <div class="wp20">
+            <div class="container-fluid col">
+              <p id="selectedItem"></p>
+              <div id="theGrid" style="height:780px"></div>
+            </div>
+          </div>
+          <div class="col 80">
+            <div class="section">
+              <form id="CategoryForm">
+                <!-- Hidden Fields -->
+                <!-- Table Wrap -->
+                <div class="table-wrap">
+                  <table class="view-table" id="selectedData">
+                    <caption>비용항목 등록</caption>
+                    <tbody>
+                    <tr>
+                      <th><label for="gartcd">그룹코드</label></th>
+                      <td>
+                        <input type="text" id="gartcd" name="gartcd" class="wp100" max="99" placeholder="그룹코드" readonly/>
+                      </td>
+                      <th><label for="gart_name">그룸명</label></th>
+                      <td>
+                        <input type="text" id="gart_name" name="gart_name" class="wp100" placeholder="그룸명"/>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th><label for="remark">비고</label></th>
+                      <td>
+                        <input type="text" id="remark" name="remark" class="wp100" placeholder="비고"/>
+                      </td>
+                    </tr>
+                    </tbody>
+                  </table>
+                  <dl style="text-align: right; ">
+                    <dt></dt>
+                    <dd>
+                      <button type="button" class="btn-excellt btn-default" id="btnAddSubject" style="width: 115px; height: 36px;"><i class="fas fa-plus"></i> 행추가</button>
+                      <button type="button" class="btn-delete btn-danger" id="btnAccDel" style=" width: 115px; height: 36px;"><i class="fas fa-trash"></i> 행삭제</button>
+                    </dd>
+                  </dl>
+                  <div class="container-fluid">
+                    <div id="theGrid2" style="height: 640px; margin-top: 10px"></div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <!--<th:block th:replace="/common/columns_setting :: columns_setting"></th:block>-->
+  <th:block th:replace="/common/multiform_material :: multiform_material"></th:block>
+  <th:block th:replace="/common/popup_acccd :: popup_acccd"/>
+
+  <script type="text/javascript">
+    class ExpenseAccountSetupPage {
+      constructor() {
+        this.grid = null;
+        this.grid2 = null;
+        this.$btnEdit = $('#btnEdit');
+        this.$btnAddNew = $('#btnAddNew');
+        this.viewData = new wijmo.collections.CollectionView();
+        this.spjangcd = $('#spjangcdHidden');
+        this.groupListData = new wijmo.collections.CollectionView([]);   // 왼쪽
+        this.detailListData = new wijmo.collections.CollectionView([]); // 오른쪽
+        this.init();
+      }
+
+      init() {
+        let _this = this;
+        this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+          autoGenerateColumns: false,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          isReadOnly: false,
+          showMarquee: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'code', header: '코드', width: 70},
+            {binding: 'group_name', header: '그룹명', width: '*'}
+          ],
+          itemsSource: this.viewData, // 데이터를 설정할 배열
+        });
+
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '그룹 항목';
+        this.grid.hostElement.addEventListener('click', (e) => {
+          let ht = this.grid.hitTest(e);
+
+          // 클릭된 셀이 데이터 셀(CellType.Cell)인지 확인
+          if (ht.cellType === wijmo.grid.CellType.Cell) {
+            const row = this.grid.rows[ht.row];
+            const item = row.dataItem;
+            $('#gartcd').prop('readonly', true);
+            if (item) {
+              // Form 값 채우기
+              $('#gartcd').val(item.code);
+              $('#gart_name').val(item.group_name);
+              $('#remark').val(item.remark || '');
+
+              // 상세항목 로드
+              this.loadDetailItems(item.code);
+            }
+          }
+        });
+        //콤보박스 처리
+        const tempSelect1 = $('<select>');
+        const jiflagRows = AjaxUtil.fillSelectOptions(tempSelect1, 'system_code', 'choose', null, 'jiflag');
+        const jiflagMap = new wijmo.grid.DataMap(jiflagRows, 'value', 'text');
+
+        const tempSelect2 = $('<select>');
+        const gflagRows = AjaxUtil.fillSelectOptions(tempSelect2, 'system_code', 'choose', null, 'gflag');
+        const gflagMap = new wijmo.grid.DataMap(gflagRows, 'value', 'text');
+
+
+        this.grid2 = new wijmo.grid.FlexGrid('#theGrid2', {
+          autoGenerateColumns: false,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          isReadOnly: false,
+          showMarquee: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+              const col = sender.columns[e.col];
+              const row = sender.rows[e.row];
+              if (col.binding === 'jiflag' && row.dataItem.locked) {
+                const select = e.cell.querySelector('select');
+                if (select) {
+                  select.disabled = true;
+                  select.style.backgroundColor = '#f5f5f5';
+                }
+              }
+            }
+          },
+          columns: [
+            {binding: 'useyn', header: '사용', width: 60, dataType: 'Boolean', align: 'center'},
+            {binding: 'artcd', header: '코드', width: 90 , align: 'center', isReadOnly: true},
+            {binding: 'artnm', header: '매입항목', width: 160, align: 'center'},
+            {binding: 'jiflag', header: '고정비', width: 110, dataMap: jiflagMap, cellTemplate: '${text}'},
+            {binding: 'gflag', header: '비용분류', width: 110, dataMap: gflagMap, cellTemplate: '${text}'},
+            {binding: 'acccd', header: '비용계정', width: 90, align: 'center'},
+            {binding: 'accnm', header: '비용계정명', width: 130, align: 'center', isReadOnly: true },
+            {binding: 'wacccd', header: '원가계정', width: 90, align: 'center'},
+            {binding: 'waccnm', header: '원가계정명', width: 130, align: 'center', isReadOnly: true},
+            {binding: 'sacccd', header: '상대계정', width: 90, align: 'center'},
+            {binding: 'saccnm', header: '상대계정명', width: 130, align: 'center', isReadOnly: true},
+          ],
+          itemsSource: this.detailListData,
+
+        });
+
+        new FlexGridContextMenu(this.grid2);
+        this.grid2.downloadFileName = '그룹 항목';
+        this.grid2.beginningEdit.addHandler(function (s, e) {
+          const col = s.columns[e.col];
+          const item = s.rows[e.row].dataItem;
+
+          if (col.binding === 'acccd') {
+            e.cancel = true; // 기본 편집기 막기
+
+            let popup = new PopAccountCodeComponent();
+            popup.show(function (selected) {
+              if (selected) {
+                item.acccd = selected.acccd;
+                item.accnm = selected.accnm;
+                s.refresh(); // 화면에 즉시 반영
+              }
+            });
+          }
+          if (col.binding === 'sacccd') {
+            e.cancel = true;
+
+            let popup = new PopAccountCodeComponent();
+            popup.show(function (selected) {
+              if (selected) {
+                item.sacccd = selected.acccd;
+                item.saccnm = selected.accnm;
+                s.refresh();
+              }
+            });
+          }
+          if (col.binding === 'wacccd') {
+            e.cancel = true;
+
+            let popup = new PopAccountCodeComponent();
+            popup.show(function (selected) {
+              if (selected) {
+                item.wacccd = selected.acccd;
+                item.waccnm = selected.accnm;
+                s.refresh();
+              }
+            });
+          }
+        });
+
+        // 엔터키 검색
+        $('#txtDescription').on('keypress', function (e) {
+          if (e.keyCode === 13) {
+            _this.searchMainData();
+          }
+        });
+      }
+
+      searchMainData() {
+        let _this = this;
+        let url = '/api/transaction/ExpenseAccountSetup/read';
+
+        let data = {
+          'txtDescription': $("#txtDescription").val(),
+          spjangcd: this.spjangcd.val()
+        };
+
+        let fnsuccess = function (result) {
+          if (result && Array.isArray(result.data) && result.data.length > 0) {
+            _this.groupListData = new wijmo.collections.CollectionView(result.data);
+          } else {
+            _this.groupListData = new wijmo.collections.CollectionView([]);
+          }
+          _this.grid.itemsSource = _this.groupListData;
+        };
+
+        AjaxUtil.getAsyncData(url, data, fnsuccess);
+      }
+
+
+      loadDetailItems(groupCode) {
+        let _this = this;
+        let url = '/api/transaction/ExpenseAccountSetup/readDetail';
+
+        let data = { groupCode: groupCode,
+            spjangcd: this.spjangcd.val()};
+
+        AjaxUtil.getAsyncData(url, data, function(result) {
+          if (result && Array.isArray(result.data)) {
+            _this.detailListData = new wijmo.collections.CollectionView(result.data);
+          } else {
+            _this.detailListData = new wijmo.collections.CollectionView([]);
+          }
+          _this.grid2.itemsSource = _this.detailListData;
+        });
+      }
+
+      saveMainData() {
+        const _this = this;
+        const url = '/api/transaction/ExpenseAccountSetup/save';
+
+        const grid = wijmo.Control.getControl('#theGrid2');
+        const details = grid.collectionView.items;
+
+        const gartcd = $('#gartcd').val();
+
+        const data = {
+          gartcd: gartcd,
+          gart_name: $('#gart_name').val(),
+          remark: $('#remark').val(),
+          spjangcd: this.spjangcd.val(),
+          details: details
+        };
+
+        //콜백 기반 confirm 사용
+        Alert.confirm('', '저장하시겠습니까?', function () {
+          //JSON 방식으로 postAsyncData 호출
+          $.ajax({
+            url: url,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            headers: {
+              'X-CSRF-Token': $('[name=_csrf]').val()
+            },
+            success: function(result) {
+              if (result && result.success) {
+                Alert.alert('', '저장 완료');
+                $('#CategoryForm')[0].reset();
+                _this.searchMainData();
+                // 그리드 초기화
+                let theGrid = wijmo.Control.getControl('#theGrid2');
+                if (theGrid) {
+                  theGrid.itemsSource = new wijmo.collections.CollectionView([]);
+                }
+                //_this.loadDetailItems(gartcd);
+              } else {
+                Alert.alert('', '저장에 실패했습니다.');
+              }
+            },
+            error: function(xhr) {
+              Alert.alert('에러', '서버 오류 발생: ' + xhr.statusText);
+            }
+          });
+        });
+      }
+
+      //행 삭제
+      DeleteData(artcd, gartcd){
+        const _this = this;
+        const url = '/api/transaction/ExpenseAccountSetup/delete';
+        const data = {
+          artcd: artcd,
+          gartcd: gartcd,
+          spjangcd: this.spjangcd.val()
+        };
+
+        const fnsuccess = function (result) {
+          if (result && result.success) {
+            Alert.alert('','삭제되었습니다.');
+            _this.searchMainData();
+          } else {
+            Alert.alert('','삭제에 실패했습니다.');
+          }
+        };
+        AjaxUtil.postAsyncData(url, data, fnsuccess);
+      }
+
+      DeletedeleteGroup (gartcd) {
+        const _this = this;
+        const url = '/api/transaction/ExpenseAccountSetup/deleteGroup';
+
+        const data = {
+          gartcd: gartcd,
+          spjangcd: this.spjangcd.val()
+        };
+
+        $.ajax({
+          url: url,
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          headers: {
+            'X-CSRF-Token': $('[name=_csrf]').val()
+          },
+          success: function (result) {
+            if (result && result.success) {
+              Alert.alert('', '삭제되었습니다.');
+              _this.searchMainData(); // 목록 갱신
+              // 그리드 초기화
+              let theGrid = wijmo.Control.getControl('#theGrid2');
+              if (theGrid) {
+                theGrid.itemsSource = new wijmo.collections.CollectionView([]);
+              }
+              $('#CategoryForm')[0].reset();
+
+              let grid = wijmo.Control.getControl('#theGrid2');
+              if (grid) {
+                grid.itemsSource = new wijmo.collections.CollectionView([]);
+              }
+            } else {
+              Alert.alert('', result.message || '삭제에 실패했습니다.');
+            }
+          },
+          error: function (xhr) {
+            Alert.alert('에러', '서버 오류 발생: ' + xhr.statusText);
+          }
+        });
+      }
+    }
+
+    let page = null;
+
+    $(document).ready(function (e) {
+
+      const spjangcd = sessionStorage.getItem('spjangcd');
+      if (spjangcd) {
+        $('#spjangcdHidden').val(spjangcd);  // hidden input이 있어야 함
+      }
+
+      page = new ExpenseAccountSetupPage();
+
+      AjaxUtil.fillSelectOptions($('#cboYear'), 'data_year', '', false);
+
+      page.searchMainData();
+
+      // 검색
+      $('#btnSearch').click(function (e) {
+          page.searchMainData();
+      });
+
+      $('#btnAddSubject').on('click', function () {
+        if (!page.detailListData) return;
+
+        page.detailListData.sourceCollection.push({
+          useyn: 0,
+          artcd: '',
+          artnm: '',
+          jiflag: '',
+          gflag: '',
+          acccd: '',
+          accnm: '',
+          wacccd: '',
+          waccnm: '',
+          sacccd: '',
+          saccnm: ''
+        });
+        page.detailListData.refresh();
+      });
+
+      //행삭제
+      $('#btnAccDel').on('click', function () {
+        const sel = page.grid2.selection;
+        if (sel && sel.row >= 0) {
+          const item = page.grid2.rows[sel.row].dataItem;
+          const idx = page.detailListData.sourceCollection.indexOf(item);
+          if (idx > -1) {
+            Alert.confirm('', '행을 삭제하시겠습니까?',
+              function () {
+                //확인 시 실행
+                page.DeleteData(item.artcd, item.gartcd);
+                page.detailListData.sourceCollection.splice(idx, 1);
+                page.detailListData.refresh();
+              },
+              function () {
+                //취소 시 아무것도 안 함 (선택사항)
+              }
+            );
+          }
+        }
+      });
+
+      //계정과목 팝업
+      $('#btnAccountName').click(function () {
+        let poppage = new PopAccountCodeComponent();
+        let searchcallback = function (items) {
+          //console.log('btnAccountName items : ', items);
+          document.getElementById('acccd').value = items.acccd;
+          document.getElementById('accnm').value = items.accnm;
+        };
+        poppage.show(searchcallback);
+      });
+
+      // 신규등록(초기화)
+      $('#Newbtn').click(function(e) {
+        e.preventDefault();
+
+        // 폼 초기화
+        $('#CategoryForm')[0].reset();
+
+        // 그리드 초기화
+        let theGrid = wijmo.Control.getControl('#theGrid2');
+        if (theGrid) {
+          theGrid.itemsSource = new wijmo.collections.CollectionView([]);
+        }
+        // readonly 속성 해제
+        $('#gartcd').prop('readonly', false);
+      });
+
+
+      //저장
+      $('#btnSave').click(function (e) {
+        e.preventDefault();
+        page.saveMainData();
+      });
+
+      //전체삭제(그룹+ 행)
+      $('#btnDelete').click(function (e) {
+        e.preventDefault();
+
+        const gartcd = $('#gartcd').val();
+
+        if (!gartcd) {
+          Alert.alert('', '삭제할 그룹코드를 선택해주세요.');
+          return;
+        }
+
+        Alert.confirm('', '정말 삭제하시겠습니까?', function () {
+          page.DeletedeleteGroup(gartcd);
+        });
+      });
+
+
+    })
+  </script>
+
+</th:block>
+
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html>

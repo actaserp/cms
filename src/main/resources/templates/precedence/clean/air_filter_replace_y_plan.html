@@ -1,0 +1,267 @@
+<html layout:decorate="~{layout_page}" xmlns="http://www.w3.org/1999/html">
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>공조필터교체 계획</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>일지 및 데이터</li>
+                <li>선행요건일지</li>
+                <li>공조필터교체계획</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <form id="searchForm" autocomplete="off">
+                    <div class="search-wrap">
+
+                        <dl>
+                            <dt>
+                                조회년도<span class="eq"></span>
+                            </dt>
+                            <dd>
+                                <select id="cboDataYear" name="cboDataYear" class="form-control2"></select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label>주기</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" class="form-control2" id="txtPeriod" name="txtPeriod">
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </form>
+                <div class="button-wrap">
+                    <dl>
+                        <dt></dt>
+                        <dd>
+                            <button type="button" class="btn-default y_write_auth" id="btnSave"><i
+                                    class="fas fa-save"></i></button>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="container-fluid">
+                <p id="selectedItem"></p>
+                <div id="theGrid" style="height: 630px; max-height: 630px;"></div>
+            </div>
+            <!--<div class="h-630" data-ax5grid="filter-plan-grid"></div>-->
+        </section>
+
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+    <script>
+        class FilterPlanPage {
+            constructor() {
+                this.grid = null;
+                this.baseUrl = '/api/precedence/air_filter_replace';
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    showMarquee: true,
+                    columns: [
+                        {binding: 'master_name', header: '용도', width: 100, align: 'left', isReadOnly: false},
+                        {binding: 'master_descr', header: '설치장소', width: 100, align: 'left', isReadOnly: false},
+                        {binding: 'master_type2', header: '종류', width: 100, align: 'left', isReadOnly: false},
+                        {binding: 'master_type', header: '필터종류', width: 100, align: 'left', isReadOnly: false},
+                        {binding: 'master_period', header: '주기', width: 100, align: 'left', isReadOnly: false},
+                        {binding: 'p1', header: '1월', width: "*", align: 'center', dataType: wijmo.DataType.Boolean},
+                        {binding: 'p2', header: '2월', width: "*", align: 'center', dataType: wijmo.DataType.Boolean},
+                        {binding: 'p3', header: '3월', width: "*", align: 'center', dataType: wijmo.DataType.Boolean},
+                        {binding: 'p4', header: '4월', width: "*", align: 'center', dataType: wijmo.DataType.Boolean},
+                        {binding: 'p5', header: '5월', width: "*", align: 'center', dataType: wijmo.DataType.Boolean},
+                        {binding: 'p6', header: '6월', width: "*", align: 'center', dataType: wijmo.DataType.Boolean},
+                        {binding: 'p7', header: '7월', width: "*", align: 'center', dataType: wijmo.DataType.Boolean},
+                        {binding: 'p8', header: '8월', width: "*", align: 'center', dataType: wijmo.DataType.Boolean},
+                        {binding: 'p9', header: '9월', width: "*", align: 'center', dataType: wijmo.DataType.Boolean},
+                        {binding: 'p10', header: '10월', width: "*", align: 'center', dataType: wijmo.DataType.Boolean},
+                        {binding: 'p11', header: '11월', width: "*", align: 'center', dataType: wijmo.DataType.Boolean},
+                        {binding: 'p12', header: '12월', width: "*", align: 'center', dataType: wijmo.DataType.Boolean},
+                    ],
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                    beginningEdit: (s, e) => {
+                        const column = s.columns[e.col];
+                        if (['master_name', 'master_descr', 'master_type2', 'master_type', 'master_period'].includes(column.binding)) {
+                            // Text Editor 예제
+                            const input = document.createElement('input');
+                            input.type = 'text';
+                            input.value = s.getCellData(e.row, e.col, true);
+                            input.style.width = '100%';
+                            input.style.boxSizing = 'border-box';
+                            e.cell.textContent = '';
+                            e.cell.appendChild(input);
+
+                            // 편집 종료 시 처리
+                            input.addEventListener('blur', () => {
+                                s.setCellData(e.row, e.col, input.value);
+                            });
+                        }
+                    },
+                    cellEditEnding: (s, e) => {
+                        const column = s.columns[e.col];
+                        if (['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12'].includes(column.binding)) {
+                            // Boolean 값 처리를 위한 로직
+                            const value = s.getCellData(e.row, e.col, true);
+                            s.setCellData(e.row, e.col, value ? false : true); // 토글
+                        }
+                    }
+                });
+
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '공조필터교체 계획';
+
+
+                /* let config = {
+                     target: $('[data-ax5grid="filter-plan-grid"]'),
+                     frozenColumnIndex: 0,
+                     frozenRowIndex: 0,
+                     showLineNumber: true,
+                     showRowSelector: false,
+                     multipleSelector: false,
+                     sortable: false,
+                     multiSort: false,
+                     header: {
+                         align: 'center',
+                         columnHeight: 38
+                     },
+                     body: {
+                         columnHeight: 25,
+                         onClick: function (e) {
+                             //_this.grid.select(this.dindex);
+                         }
+                     },
+                     page: {
+                         display: true,
+                         statusDisplay: true
+                     },
+                     columns: [
+                         { key: 'master_name', label: '용도', width: 100, align: 'left', editor: { type: 'text' } },
+                         { key: 'master_descr', label: '설치장소', width: 100, align: 'left', editor: { type: 'text' } },
+                         { key: 'master_type2', label: '종류', width: 100, align: 'left', editor: { type: 'text' } },
+                         { key: 'master_type', label: '필터종류', width: 100, align: 'left', editor: { type: 'text' } },
+                         { key: 'master_period', label: '주기', width: 100, align: 'left', editor: { type: 'text' } },
+                         { key: 'p1', label: '1월', width: 60, align: 'center', editor: { type: 'checkbox' } },
+                         { key: 'p2', label: '2월', width: 60, align: 'center', editor: { type: 'checkbox' } },
+                         { key: 'p3', label: '3월', width: 60, align: 'center', editor: { type: 'checkbox' } },
+                         { key: 'p4', label: '4월', width: 60, align: 'center', editor: { type: 'checkbox' } },
+                         { key: 'p5', label: '5월', width: 60, align: 'center', editor: { type: 'checkbox' } },
+                         { key: 'p6', label: '6월', width: 60, align: 'center', editor: { type: 'checkbox' } },
+                         { key: 'p7', label: '7월', width: 60, align: 'center', editor: { type: 'checkbox' } },
+                         { key: 'p8', label: '8월', width: 60, align: 'center', editor: { type: 'checkbox' } },
+                         { key: 'p9', label: '9월', width: 60, align: 'center', editor: { type: 'checkbox' } },
+                         { key: 'p10', label: '10월', width: 60, align: 'center', editor: { type: 'checkbox' } },
+                         { key: 'p11', label: '11월', width: 60, align: 'center', editor: { type: 'checkbox' } },
+                         { key: 'p12', label: '12월', width: 60, align: 'center', editor: { type: 'checkbox' } },
+                     ]
+                 }
+
+                 _this.grid = new ax5.ui.grid(config);
+                 _this.filter_config = config;*/
+            }
+
+            //조회
+            searchMainData() {
+                let _this = this;
+                let url = _this.baseUrl;
+                let data_year = $('#cboDataYear').val();
+                let period = $('#txtPeriod').val();
+                let data = {
+                    'action': 'year_month_plan_result_sheet',
+                    'data_year': data_year,
+                    'period': period
+                };
+
+                let result = AjaxUtil.getSyncData(url + '/year_month_plan_result_sheet', data);
+
+                if (result.data != null) {
+                    _this.viewData.sourceCollection = result.data;
+                }
+            }
+
+            // 저장 버튼
+            savePlan() {
+                let _this = this;
+                let url = _this.baseUrl + '/save_year_plan';
+                let items = _this.grid.getList('modified')
+                let searhDt = $('#cboDataYear').val().split('-');
+                let data = {
+                    Q: JSON.stringify(items),
+                    'data_year': Number(searhDt[0]),
+                };
+
+
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Notify.success('저장되었습니다'); // Notification
+                        _this.searchMainData();
+                    }
+                };
+
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+        }
+
+        let page = null;
+
+        $(document.body).ready(function (e) {
+            page = new FilterPlanPage();
+
+            let today_string = CommonUtil.getYYYYMMDD();
+            let this_year = today_string.substring(0, 4);
+
+            //콤보박스
+            AjaxUtil.fillSelectOptions($('#cboDataYear'), 'data_year', '', this_year);
+
+            page.searchMainData();
+
+            //조회 버튼
+            $('#btnSearch').click(function () {
+                page.searchMainData();
+            });
+
+            //저장 버튼
+            $('#btnSave').click(function (e) {
+                page.savePlan();
+            });
+        });
+
+    </script>
+</th:block>
+</html>

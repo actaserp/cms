@@ -1,0 +1,626 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>매입/매출 현황</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>생산 관리</li>
+        <li>작업 지시 등록</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>
+              생산일<span class="eq">*</span>
+            </dt>
+            <dd>
+              <ul class="date-box">
+                <li>
+                  <input type="date" id="date_from" name="date_from">
+                  <label for="date_from" class="hide">시작일</label>
+                </li>
+                <li>
+                  <input type="date" id="date_to" name="date_to">
+                  <label for="date_to" class="hide">종료일</label>
+                </li>
+              </ul>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label for="cboWorkcenter">
+                워크센터<span class="eq"></span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboWorkcenter" name="cboWorkcenter">
+                </select>
+              </div>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label for="cboMatType">
+                품목구분<span class="eq"></span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboMatType" name="cboMatType">
+                </select>
+              </div>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label for="cboMatGroup">
+                품목그룹
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboMatGroup" name="cboMatGroup">
+                </select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              <label for="keyword">
+                품목명/코드
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input id="keyword" name="keyword" />
+              </div>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" title="검색" id="btnMainSearch">
+                  <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                  <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+        <div class="button-wrap">
+          <ul>
+            <li>
+              <a class="btn btn-excell" title="등록" id="btnPlanInput">
+                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                등록
+              </a>
+            </li>
+            <li>
+              <a class="btn btn-delete" title="삭제" id="btnPlanDel">
+                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                삭제
+              </a>
+            </li>
+            <li>
+              <a class="btn btn-edit" title="수정" id="btnPlanSave">
+                <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">
+                수정
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="container-fluid">
+        <div id="theGrid" style="height: 680px;"></div>
+      </div>
+    </section>
+  </div>
+
+  <script type="text/x-tmpl" id="production_order">
+    <div class="content_wrap popup">
+        <div class="table-wrap">
+            <form id="productionOrderForm" class="form-group">
+                <table class="write-table">
+                    <caption>작업 지시 테이블</caption>
+                    <input type="hidden" id="id" name="id" value="{%=o.id%}">
+                    <tbody>
+                        {% if (o.id != '') { %}
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="workorder_number">작지번호</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac readonly" id="workorder_number" name="workorder_number" type="text" readonly="readonly" value="{%=o.workorder_number%}" />
+                            </td>
+                            <th style="text-align: center">
+                                <label for="cboState">상태</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac readonly" id="cboState" name="cboState" type="text" readonly="readonly" value="{%=o.state_name%}" />
+                            </td>
+                        </tr>
+                        {% } %}
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="cboMaterialGrp">품목그룹</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" id="cboMaterialGrp" name="cboMaterialGrp" readonly type="hidden">
+                                <input class="form-control2" id="cboMaterialGrpName" name="cboMaterialGrpName" readonly>
+                            </td>
+                            <th style="text-align: center">
+                                <label for="mat_code">품목코드</label>
+                            </th>
+                            <td>
+                                <input type="text" class="form-control2" id="mat_code" name="mat_code" readonly value="{%=o.mat_code%}" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="cboMaterial">제품*</label>
+                            </th>
+                            <td colspan="3">
+                                <input id="cboMaterial" type="hidden" name="cboMaterial" readonly >
+                                <input id="cboMaterialName" name="cboMaterialName" readonly placeholder="검색버튼을 클릭하여 제품을 검색하세요">
+                                <a class="btn btn-delete" id="btnMaterialSearch" title="품목검색">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    품목 검색
+                                </a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="txtOrderQty">지시량*</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tar" type="number" id="txtOrderQty" name="txtOrderQty" value="{%=o.order_qty%}" min="1" />
+                            </td>
+                            <th style="text-align: center">
+                                <label for="txtUnit">단위</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac readonly" type="text" id="txtUnit" name="txtUnit" value="{%=o.unit_name%}" readonly="readonly" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="production_date">생산일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="date" id="production_date" name="production_date" value="{%=o.production_date%}" />
+                            </td>
+                            <th style="text-align: center">
+                                <label for="cboShiftCode">근무조*</label>
+                            </th>
+                            <td>
+                                <select class="form-control2" id="cboShiftCode" name="cboShiftCode" value="{%=o.shift_name%}"></select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="cboWorcenter">워크센터*</label>
+                            </th>
+                            <td>
+                                <select class="form-control2" id="cboWorcenter" name="cboWorcenter"></select>
+                            </td>
+                            <th style="text-align: center">
+                                <label for="cboEquipment">설비</label>
+                            </th>
+                            <td>
+                                <select class="form-control2" id="cboEquipment" name="cboEquipment"></select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="txtDescription">비고</label>
+                            </th>
+                            <td colspan="3">
+                                <textarea class="form-control2" id="txtDescription" name="txtDescription">{%=o.description%}</textarea>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </form>
+        </div>
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="btn_save" ><span data-labelCd="저장">저장</span></button>
+            <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    </div>
+  </script>
+
+  <th:block layout:fragment="scripts">
+    <th:block th:replace="/common/multiform_material :: multiform_material"></th:block>
+    <script type="text/javascript">
+
+      class production_require {
+        constructor() {
+          this.grid = null;
+          this.init();
+        }
+
+        init() {
+          let _this = this;
+          this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+            autoGenerateColumns: false,
+            selectionMode: wijmo.grid.SelectionMode.Row,
+            headersVisibility: wijmo.grid.HeadersVisibility.Column,
+            isReadOnly: true,
+            showMarquee: true,
+            formatItem: (sender, e) => {
+              if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                e.cell.style.textAlign = 'center';
+              }
+            },
+            columns: [
+              {binding: 'workorder_number', header: '작지번호', width: 150, align: 'center'},
+              {binding: 'production_date', header: '생산일', width: 120, align: 'center'},
+              {binding: 'shift_name', header: '근무조', width: 100, align: 'center'},
+              {binding: 'mat_type_name', header: '제품구분', width: 100, align: 'center'},
+              {binding: 'mat_grp_name', header: '제품그룹', width: 120, align: 'left'},
+              {binding: 'mat_code', header: '제품코드', width: 100, align: 'left'},
+              {binding: 'mat_name', header: '제품명', width: 180, align: 'left'},
+              {binding: 'unit_name', header: '단위', width: 60, align: 'center'},
+              {binding: 'order_qty', header: '지시량', width: 100, align: 'right'},
+              {binding: 'workcenter_name', header: '워크센터', width: 150, align: 'left'},
+              {binding: 'equip_name', header: '설비', width: 100, align: 'left'},
+              {binding: 'state_name', header: '상태', width: 100, align: 'center'},
+              {binding: 'description', header: '비고', width: 100, align: 'left'}
+            ]
+          });
+
+          new FlexGridContextMenu(this.grid);
+          this.grid.downloadFileName = '작업 지시 등록 내역';
+
+          this.grid.hostElement.addEventListener('dblclick', function (e) {
+            let items = _this.grid.selectedItems;
+            if (items.length === 0) {
+              return false;
+            }
+            $('#btnPlanSave').trigger('click');
+          });
+
+          AjaxUtil.fillSelectOptions($('#cboMatType'), 'system_code', 'all', false, 'mat_type', 'product,semi');
+          AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false, $('#cboMatType').val());
+          AjaxUtil.fillSelectOptions($('#cboWorkcenter'), 'workcenter', 'choose', false);
+          $('#cboMatType').change(function (e) {
+            AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false, $('#cboMatType').val());
+          });
+        }
+
+        searchMainData() {
+          let _this = this;
+          let date_from = $('#date_from').val();
+          let date_to = $('#date_to').val();
+          let cboMatType = $('#cboMatType').val();
+          let cboMatGroup = $('#cboMatGroup').val();
+          let keyword = $('#keyword').val();
+          let cboWorkcenter = $('#cboWorkcenter').val();
+          let url = '/api/production/prod_order_a'
+          let data = {
+            'date_from': date_from,
+            'date_to': date_to,
+            'workcenter_pk': cboWorkcenter,
+            'mat_type': cboMatType,
+            'mat_grp_pk': cboMatGroup,
+            'keyword': keyword,
+          };
+          let result = AjaxUtil.getSyncData(url + "/read", data);
+          if (result.data != null) {
+            _this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+          }
+
+        }
+
+        //저장
+        saveOrder($form, modalContainer) {
+          let _this = this;
+          let url = '/api/production/prod_order_a/save';
+          let data = FormUtil.extractForm($form);
+
+          let fnSuccess = function (res) {
+            if (!res.success) {
+              modalContainer.close();
+              Alert.alert('', res.message);
+            } else {
+              modalContainer.close();
+              Notify.success('저장되었습니다.');
+              _this.searchMainData();
+            }
+          }
+
+          AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        //삭제
+        deleteOrder(id) {
+          let _this = this;
+          let url = '/api/production/prod_order_a/delete';
+          let data = {'id': id}
+
+          let fnSuccess = function (res) {
+            if (res.success) {
+              Notify.success('삭제되었습니다.');
+              _this.searchMainData();
+            } else {
+              Notify.success('삭제에 실패하였습니다.');
+              _this.searchMainData();
+            }
+          }
+
+          AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        showPopUp(data, action) {
+          let _this = this;
+          let content = tmpl('production_order', data);
+          let $content = $(content);
+          let $form = $content.find('#productionOrderForm');
+          let today = CommonUtil.getYYYYMMDD();
+
+          let modalContainer = null;
+          if (action === 'update') {
+            modalContainer = new PopupDraggable('작업 지시 수정');
+            modalContainer.open({width: 1000, height: 550, $content});
+          } else if (action === 'new') {
+            modalContainer = new PopupDraggable('작업 지시 등록');
+            modalContainer.open({width: 1000, height: 480, $content});
+          }
+
+          let $btnMaterialSearch = $content.find('#btnMaterialSearch');
+
+          // $('#srchDt').ax5DatePicker({direction: 'top'});
+          $('production_date').val(today);
+
+          AjaxUtil.fillSelectOptions($content.find('#cboShiftCode'), 'shift', 'choose', false);
+          AjaxUtil.fillSelectOptions($content.find('#cboMaterialGrp'), 'material_group', 'choose', false, 'product,semi');
+          AjaxUtil.fillSelectOptions($content.find('#cboWorcenter'), 'workcenter', 'choose', false);
+
+          $content.find('#cboWorcenter').off('change').on('change', function () {
+            const workcenterId = $content.find('#cboWorcenter').val();
+            if (!workcenterId) return;
+            AjaxUtil.fillSelectOptions($content.find('#cboEquipment'), 'equipment_code', 'choose', '', $content.find('#cboWorcenter').val());
+          });
+          AjaxUtil.fillSelectOptions($content.find('#cboMaterial'), 'material', 'choose', false);
+
+          if (action === 'update') {
+            AjaxUtil.fillSelectOptions($content.find('#cboMaterial'), 'material', 'choose', false, data.mat_grp_id);
+            $content.find('#cboShiftCode').val(data.shift_code);
+            $content.find('#cboMaterialGrp').val(data.mat_grp_id);
+            $content.find('#cboMaterial').val(data.mat_id);
+            $content.find('#cboMaterialGrpName').val(data.mat_grp_name);
+            $content.find('#cboMaterialName').val(data.mat_name);
+            $content.find('#cboWorcenter').val(data.workcenter_id);
+            $content.find('#cboEquipment').val(data.equip_id);
+          } else {
+            $btnMaterialSearch.removeAttr('disabled');
+            $btnMaterialSearch.click(function (e) {
+
+              let pop = new PopMatComponent();
+              pop.material_type = 'product,semi';
+              pop.show(function (item) {
+                $content.find('#cboMaterial').val(item.id);
+                $content.find('#cboMaterialGrp').val(item.MaterialGroup_id);
+                $content.find('#cboMaterialName').val(item.Name);
+                $content.find('#cboMaterialGrpName').val(item.group_name);
+                $content.find('#mat_code').val(item.Code);
+                $content.find('#cboWorcenter').val(item.WorkCenter_id);
+                $content.find('#cboEquipment').val(item.Equipment_id);
+
+                const $cboEquipment = $content.find('#cboEquipment');
+                const $cboWorcenter = $content.find('#cboWorcenter');
+
+                if (item.WorkCenter_id) {
+                  // 워크센터 선택 → 그에 맞는 설비 옵션 채우기
+                  AjaxUtil.fillSelectOptions($cboEquipment, 'equipment_code', 'choose', item.Equipment_id, item.WorkCenter_id, function () {
+                    // 설비 옵션이 로드된 뒤, 일치하는 Equipment_id가 있으면 선택
+                    if (item.Equipment_id) {
+                      $cboEquipment.val(item.Equipment_id);
+                    }
+                  });
+                } else {
+                  $cboEquipment.empty(); // 워크센터 없으면 설비 초기화
+                }
+
+                // 워크센터 변경 시 설비 옵션 다시 채우기
+                $cboWorcenter.off('change').on('change', function () {
+                  const workcenterId = $(this).val();
+                  if (!workcenterId) return;
+
+                  AjaxUtil.fillSelectOptions($cboEquipment, 'equipment_code', 'choose', '', workcenterId);
+                });
+              });
+              pop.searchDataBind();
+
+            });
+
+          }
+
+
+
+          $('#cboMaterialGrp').change(function (e) {
+            AjaxUtil.fillSelectOptions($content.find('#cboMaterial'), 'material', 'choose', false, $content.find('#cboMaterialGrp').val());
+          });
+
+
+          $('#cboMaterial').change(function (e) {
+            let url = '/api/production/prod_order_a/mat_info';
+            let id = $content.find('#cboMaterial').val();
+            let data = {'id': id};
+            let result = AjaxUtil.getSyncData(url, data);
+            if (result.data != null) {
+              $content.find('#cboWorcenter').val(result.data.workcenter_pk);
+              $content.find('#txtUnit').val(result.data.unit_name);
+            } else {
+              $content.find('#cboWorcenter').val(null);
+              $content.find('#txtUnit').val(null);
+            }
+            //$content.find('#cboWorcenter').val(result.workcenter_pk);
+            //$content.find('#cboEquipment').val(result.equip_pk);
+
+          })
+
+
+          $content.find('#btn_save').on('click', function (e) {
+
+            // 필수입력 check routine
+
+            if (!$('#cboShiftCode').val()) {
+              Alert.alert('', '근무조를 선택해 주세요.');
+              return false;
+            }
+
+            if (!$('#cboWorcenter').val()) {
+              Alert.alert('', '워크센터를 선택해 주세요.');
+              return false;
+            }
+
+            if (!$('#cboMaterialGrp').val()) {
+              Alert.alert('', '제품 그룹을 선택해 주세요.');
+              return false;
+            }
+
+            if (!$('#cboMaterial').val()) {
+              Alert.alert('', '제품을 선택해 주세요.');
+              return false;
+            }
+
+            if (!$('#txtOrderQty').val()) {
+              Alert.alert('', '지시량을 입력해 주세요.');
+              return false;
+            } else if ($('#txtOrderQty').val() < 1) {
+              Alert.alert('', '지시량을 확인해 주세요.');
+              return false;
+            }
+
+            Alert.confirm('', "저장하시겠습니까?",
+                    function () {
+                      _this.saveOrder($form, modalContainer);
+                    }
+            );
+
+          });
+        }
+
+        //버튼 활성화
+        setButtonState() {
+          let pk = this.grid.selectedItems;
+          $('#btnNew').prop('disabled', false);
+          $('#btnSave').prop('disabled', false);
+          if (pk) {
+            $('#btnDel').prop('disabled', false);
+          } else {
+            $('#btnDel').prop('disabled', true);
+          }
+        }
+
+      }
+
+      let page = null;
+
+      $(document).ready(function (e) {
+        page = new production_require();
+
+        let date_from = CommonUtil.getYYYYMMDD(-7);
+        let today = CommonUtil.getYYYYMMDD();
+
+        $('#date_from').val(date_from);
+        $('#date_to').val(today);
+
+        // 검색
+        $('#btnMainSearch').click(function (e) {
+          page.searchMainData();
+        });
+
+        // 엑셀 다운로드
+        $('#btnExcel').on('click', function () {
+          page.exportExcel();
+        });
+
+        // 계획수정
+        $('#btnPlanSave').click(function (e) {
+          let items = page.grid.selectedItems;
+          let result = null;
+          let action = 'update';
+          if (!items.length) {
+            Alert.alert('', "항목을 선택해주세요.");
+            return false;
+          }
+          if (items.length > 0) {
+            let data = {'jr_pk': items[0].id};
+            let url = '/api/production/prod_order_a/detail';
+            result = AjaxUtil.getSyncData(url, data);
+          }
+          page.showPopUp(result.data, action);
+        });
+
+        // 삭제
+        $('#btnPlanDel').click(function (e) {
+          let items = page.grid.selectedItems;
+          if (items.length > 0) {
+            if (items[0].state != "ordered") {
+              Alert.alert('', "지시상태만 삭제할 수 있습니다.")
+              return;
+            }
+            Alert.confirm('', "삭제하시겠습니까?",
+                    function () {
+                      let id = items[0].id;
+                      page.deleteOrder(id);
+                    }
+            );
+          } else if (items.length < 1) {
+            Alert.alert('', "지시목록를 선택해 주세요.")
+          }
+
+        });
+
+        // 지시등록
+        $('#btnPlanInput').on('click', function () {
+
+          let data = {
+            'id': '',
+            'shift_name': '',
+            'shift_code': '',
+            'mat_name': '',
+            'order_qty': '',
+            'unit_name': '',
+            'workcenter_name': '',
+            'equip_name': '',
+            'description': '',
+            'production_date': today,
+          }
+          let action = 'new';
+
+
+          page.showPopUp(data, action);
+        });
+
+
+        if (userinfo.group_code == 'admin') {
+          $('#btnGridSetting').css('visibility', 'visible');
+        }
+
+        page.searchMainData();
+
+      })
+    </script>
+  </th:block>
+</html>

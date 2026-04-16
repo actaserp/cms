@@ -1,0 +1,493 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        #matListTb input, #matListTb textarea {
+            width: 100px;
+            height: 40px;
+        }
+
+        input[type="date"][readonly] {
+            background-color: #EDEFF5;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>계획 대비 실적 현황</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산 관리</li>
+                <li>계획 대비 실적 현황</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label for="cboDateKind">
+                                계획일자<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboDateKind" name="cboDateKind">
+                                    <!--                                    <option value="selectDate" >기간</option>-->
+                                    <option value="week" selected>주간</option>
+                                    <option value="month">월간</option>
+                                </select>
+                                <div id="extraSelectBox" style="display:inline-block; margin-left: 10px;"></div>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            조회기간<span class="eq">*</span>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input type="date" id="srchStartDt" name="srchStartDt">
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input type="date" id="srchEndDt" name="srchEndDt">
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+<!--                <div class="button-wrap">-->
+<!--                    <ul>-->
+<!--                        <li>-->
+<!--                            <a class="btn btn-excell" title="등록" id="btnAddNew">-->
+<!--                                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">-->
+<!--                                등록-->
+<!--                            </a>-->
+<!--                        </li>-->
+<!--                        <li>-->
+<!--                            <a class="btn btn-delete" title="삭제" id="btnDelete">-->
+<!--                                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">-->
+<!--                                삭제-->
+<!--                            </a>-->
+<!--                        </li>-->
+<!--                        <li>-->
+<!--                            <a class="btn btn-edit" title="수정" id="btnEdit">-->
+<!--                                <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">-->
+<!--                                수정-->
+<!--                            </a>-->
+<!--                        </li>-->
+<!--                        <li>-->
+<!--                            <a class="btn" title="엑셀 업로드" id="btnShowUpload">-->
+<!--                                엑셀 업로드-->
+<!--                            </a>-->
+<!--                        </li>-->
+<!--                        <li>-->
+<!--                            <a class="btn" title="양식 다운로드" id="btnDownloadTemplate">-->
+<!--                                양식 다운로드-->
+<!--                            </a>-->
+<!--                        </li>-->
+<!--                    </ul>-->
+<!--                </div>-->
+            </div>
+            <div class="container-fluid">
+                <div id="theGrid" style="height: 730px;"></div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+
+    <script type="text/javascript">
+
+        class JobActualPlanPage {
+            constructor() {
+                this.url = '/api/production/job_plan';
+                this.grid = null;
+                this.$btnEdit = $('#btnEdit');
+                this.$btnAddNew = $('#btnAddNew');
+
+                this.cv = new wijmo.collections.CollectionView([], {
+                    groupDescriptions: [
+                        new wijmo.collections.PropertyGroupDescription(
+                            'mat_code',
+                            (item/*, prop*/) => `${item.mat_code} , 품목명 :  ${item.mat_name}` // ← 그룹 키 생성
+                        )
+                    ]
+                });
+                this.init();
+
+            }
+
+            resetPlanListIndex() {
+                this.planListIndex = 0;
+            }
+
+            nextPlanListIndex() {
+                return this.planListIndex++;
+            }
+
+            init() {
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    autoGenerateColumns: false,
+                    isReadOnly: true,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    itemsSource: this.cv,
+                    columns: [
+                        { binding: 'stdate', header: '계획 시작일', width: 120, align: 'center' },
+                        { binding: 'eddate', header: '계획 종료일', width: 120, align: 'center' },
+                        { binding: 'work_date', header: '생산일', width: 120, align: 'center' },
+                        { binding: 'actnm', header: '현장명', width: 200 },
+                        { binding: 'mat_code', header: '품목 코드', width: 130, align: 'center' },
+                        { binding: 'mat_name', header: '품목', width: 300 },
+                        { binding: 'plan_qty', header: '계획 수량', width: 100, format: 'n0', aggregate: wijmo.Aggregate.Sum, align: 'right' },
+                        { binding: 'actual_qty', header: '생산 수량', width: 100, format: 'n0', aggregate: wijmo.Aggregate.Sum, align: 'right' },
+                        { binding: 'diff_qty', header: '미달 수량', width: 100, format: 'n0', aggregate: wijmo.Aggregate.Sum, align: 'right' },
+                        { binding: 'achievement_rate', header: '달성률(%)', width: 100 , aggregate: wijmo.Aggregate.Sum, align: 'right'},
+                        { binding: 'remark', header: '메모', width: '*' },
+                    ],
+                    formatItem: (s, e) => {
+                        const col = s.columns[e.col];
+
+                        // 셀 스타일 초기화 (모든 셀 공통)
+                        e.cell.style.fontWeight = '';
+                        e.cell.style.color = '';
+                        e.cell.style.textAlign = '';
+
+                        // 헤더 가운데 정렬
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                            return;
+                        }
+
+                        // 본문 셀
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            const row = s.rows[e.row];
+
+                            // 날짜 포맷
+                            if (col.binding === 'stdate' || col.binding === 'eddate'|| col.binding === 'work_date') {
+                                const raw = e.cell.textContent?.trim();
+                                if (raw && /^\d{8}$/.test(raw)) {
+                                    e.cell.textContent = `${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`;
+                                }
+                            }
+
+                            // 그룹 행의 미달 수량 계산
+                            if (row instanceof wijmo.grid.GroupRow && col.binding === 'diff_qty') {
+                                const group = row.dataItem;
+                                const sumPlan = group.getAggregate(wijmo.Aggregate.Sum, 'plan_qty') || 0;
+                                const sumActual = group.getAggregate(wijmo.Aggregate.Sum, 'actual_qty') || 0;
+
+                                if (sumPlan > 0) {
+                                    const diff = Math.max(sumPlan - sumActual, 0);
+                                    e.cell.textContent = diff.toLocaleString();
+                                    e.cell.style.color = '#e53935'; // 붉은색 강조
+                                } else {
+                                    e.cell.textContent = '';
+                                }
+                                return;
+                            }
+
+                            // 그룹 행의 달성률 계산
+                            if (row instanceof wijmo.grid.GroupRow && col.binding === 'achievement_rate') {
+                                const group = row.dataItem;
+                                const sumPlan   = group.getAggregate(wijmo.Aggregate.Sum, 'plan_qty')   || 0;
+                                const sumActual = group.getAggregate(wijmo.Aggregate.Sum, 'actual_qty') || 0;
+
+                                if (sumPlan > 0) {
+                                    const rate = (sumActual / sumPlan) * 100;
+                                    e.cell.textContent = rate.toFixed(1) + '%';
+                                    e.cell.style.fontWeight = '700';
+                                    e.cell.style.color = '#1e88e5';
+                                } else {
+                                    e.cell.textContent = '';
+                                }
+                                return;
+                            }
+
+                        }
+
+                        if (e.panel === s.columnFooters && col.binding === 'diff_qty') {
+                            const sumPlan = this.cv.getAggregate(wijmo.Aggregate.Sum, 'plan_qty') || 0;
+                            const sumActual = this.cv.getAggregate(wijmo.Aggregate.Sum, 'actual_qty') || 0;
+
+                            if (sumPlan > 0) {
+                                const diff = Math.max(sumPlan - sumActual, 0);
+                                e.cell.textContent = diff.toLocaleString();
+                                e.cell.style.color = '#e53935';
+                            } else {
+                                e.cell.textContent = '';
+                            }
+                        }
+
+                        // 푸터 달성률
+                        if (e.panel === s.columnFooters && col.binding === 'achievement_rate') {
+                            const sumPlan   = this.cv.getAggregate(wijmo.Aggregate.Sum, 'plan_qty')   || 0;
+                            const sumActual = this.cv.getAggregate(wijmo.Aggregate.Sum, 'actual_qty') || 0;
+                            if (sumPlan > 0) {
+                                const rate = (sumActual / sumPlan) * 100;
+                                e.cell.textContent = rate.toFixed(1) + '%';
+                                e.cell.style.color = '#1e88e5';
+                                e.cell.style.fontWeight = '700';
+                            } else {
+                                e.cell.textContent = '';
+                            }
+                        }
+                    }
+                });
+
+                const cf = this.grid.columnFooters;
+                cf.rows.push(new wijmo.grid.GroupRow());
+                cf.setCellData(0, 0, '총계');
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '생산 계획대비실적';
+
+                // 엔터키 검색
+                $('#keyword').on('keypress', (e) => {
+                    if (e.keyCode === 13) {
+                        this.searchMainData();
+                    }
+                });
+
+            }
+
+            searchMainData() {
+                let _this = this;
+                let date_kind = $('#cboDateKind').val();
+                let start = $('#srchStartDt').val();
+                let end = $('#srchEndDt').val();
+                let url = this.url + '/read_actual_plan';
+
+                let data = {
+                    'date_kind': date_kind,
+                    'start': start,
+                    'end': end,
+                    'action': 'read'
+                };
+
+                let fnsuccess = function (result) {
+                    if (result != null) {
+                        let mergedData = [];
+
+                        let planList = result.data.planList || [];
+                        let actualList = result.data.actualList || [];
+
+                        // 계획 데이터
+                        planList.forEach(plan => {
+                            mergedData.push({
+                                type: '계획',
+                                material_id: plan.material_id,
+                                mat_code: plan.mat_code,
+                                mat_name: plan.mat_name,
+                                actnm: plan.actnm,
+                                stdate: plan.stdate,
+                                eddate: plan.eddate,
+                                plan_qty: plan.plan_qty,
+                                actual_qty: '',       // 계획에는 없음
+                                work_date: '',        // 계획에는 없음
+                                remark: plan.remark || ''
+                            });
+                        });
+
+                        // 생산 데이터
+                        actualList.forEach(act => {
+                            mergedData.push({
+                                type: '생산',
+                                material_id: act.material_id,
+                                mat_code: act.mat_code,
+                                mat_name: act.mat_name,
+                                actnm: act.actnm,
+                                stdate: '',
+                                eddate: '',
+                                plan_qty: '',
+                                actual_qty: act.actual_qty,
+                                work_date: act.work_date,
+                                remark: act.remark || ''
+                            });
+                        });
+
+                        _this.cv.sourceCollection = mergedData;
+                        _this.cv.refresh();
+
+                        // 그룹 처음부터 접혀있도록
+                        // setTimeout(() => {
+                        //     _this.grid.rows.forEach(row => {
+                        //         if (row instanceof wijmo.grid.GroupRow) {
+                        //             row.isCollapsed = true;
+                        //         }
+                        //     });
+                        // }, 50);
+                    }
+                };
+                AjaxUtil.getAsyncData(url, data, fnsuccess);
+
+            }
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+
+            page = new JobActualPlanPage();
+
+            // 검색
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+
+        })
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const cboDateKind = document.getElementById("cboDateKind");
+            const extraSelectBox = document.getElementById("extraSelectBox");
+            const srchStartDt = document.getElementById("srchStartDt");
+            const srchEndDt = document.getElementById("srchEndDt");
+
+            cboDateKind.addEventListener("change", function () {
+                const type = this.value;
+
+                extraSelectBox.innerHTML = ""; // 초기화
+                srchStartDt.value = "";
+                srchEndDt.value = "";
+                srchStartDt.readOnly = false;
+                srchEndDt.readOnly = false;
+
+                if (type === "week") {
+                    const select = document.createElement("select");
+                    select.id = "weekSelector";
+
+                    const now = new Date();
+                    const currentYear = now.getFullYear();
+                    const currentWeek = getISOWeekNumber(now);
+                    for (let i = 1; i <= 52; i++) {
+                        const option = document.createElement("option");
+                        option.value = `${currentYear}-W${String(i).padStart(2, "0")}`;
+                        option.textContent = `${currentYear}년 ${i}주차`;
+                        if (i === currentWeek) {
+                            option.selected = true; // ← 현재 주차 자동 선택
+                        }
+                        select.appendChild(option);
+                    }
+
+                    select.addEventListener("change", function () {
+                        const week = this.value;
+                        const [year, weekNumStr] = week.split("-W");
+                        const weekNum = parseInt(weekNumStr, 10);
+
+                        const start = getDateOfISOWeek(weekNum, year);
+                        const end = new Date(start);
+                        end.setDate(start.getDate() + 6);
+
+                        srchStartDt.value = formatDate(start);
+                        srchEndDt.value = formatDate(end);
+                        srchStartDt.readOnly = true;
+                        srchEndDt.readOnly = true;
+                    });
+
+                    extraSelectBox.appendChild(select);
+                    select.dispatchEvent(new Event("change")); // 초기 선택값 반영
+                } else if (type === "month") {
+                    const select = document.createElement("select");
+                    select.id = "monthSelector";
+
+                    const now = new Date();
+                    const currentYear = now.getFullYear();
+                    const currentMonth = now.getMonth();
+
+                    for (let i = 0; i < 12; i++) {
+                        const month = new Date(currentYear, i, 1);
+                        const option = document.createElement("option");
+                        option.value = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
+                        option.textContent = `${month.getFullYear()}년 ${month.getMonth() + 1}월`;
+                        if (i === currentMonth) {
+                            option.selected = true; // ← 현재 달 자동 선택
+                        }
+                        select.appendChild(option);
+                    }
+
+                    select.selectedIndex = currentMonth;
+
+                    select.addEventListener("change", function () {
+                        const [year, month] = this.value.split("-");
+                        const start = new Date(parseInt(year), parseInt(month) - 1, 1);
+                        const end = new Date(parseInt(year), parseInt(month), 0); // 말일
+
+                        srchStartDt.value = formatDate(start);
+                        srchEndDt.value = formatDate(end);
+                        srchStartDt.readOnly = true;
+                        srchEndDt.readOnly = true;
+                    });
+
+                    extraSelectBox.appendChild(select);
+                    select.dispatchEvent(new Event("change")); // 초기 선택값 반영
+                } else {
+                    const startVal = CommonUtil.getYYYYMMDD(-7);
+                    const endVal = CommonUtil.getYYYYMMDD();
+
+                    $('#srchStartDt').val(startVal).prop('readOnly', false);
+                    $('#srchEndDt').val(endVal).prop('readOnly', false);
+                }
+            });
+
+            function getDateOfISOWeek(week, year) {
+                const jan4 = new Date(year, 0, 4); // 항상 1월 4일 기준
+                const day = jan4.getDay() || 7;
+                const start = new Date(jan4);
+                start.setDate(jan4.getDate() - day + 1 + (week - 1) * 7);
+                return start;
+            }
+
+            function formatDate(date) {
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, "0");
+                const d = String(date.getDate()).padStart(2, "0");
+                return `${y}-${m}-${d}`;
+            }
+
+            function getISOWeekNumber(date) {
+                const target = new Date(date.valueOf());
+                const dayNum = (date.getDay() + 6) % 7;
+                target.setDate(target.getDate() - dayNum + 3);
+                const firstThursday = new Date(target.getFullYear(), 0, 4);
+                const diff = target - firstThursday;
+                return 1 + Math.round(diff / (7 * 24 * 60 * 60 * 1000));
+            }
+
+            cboDateKind.dispatchEvent(new Event("change"));
+
+            // 날짜가 세팅된 다음에 검색 호출
+            page.searchMainData();
+        });
+
+
+    </script>
+
+</th:block>
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html>

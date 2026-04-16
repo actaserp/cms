@@ -1,0 +1,678 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <input type="hidden" id="bhId" th:value="${bh_id}"/>
+        <input type="hidden" id="viewMode" th:value="${view_mode}"/>
+        <input type="hidden" id="data_date" th:value="${data_date}"/>
+        <input type="hidden" id="apprView" th:value="${appr_view}"/>
+        <input type="hidden" id="id"/>
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>교육결과보고서 일지</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP 관리</li>
+                <li>교육결과보고서 일지</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-card-wrap" style="margin-bottom: 0;">
+                <div class="col-5">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">일지명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="title" name="title" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="dataDate">일자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="date" id="dataDate" name="dataDate"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="firstName">작성자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="firstName" name="firstName" disabled/>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-6">
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+        </section>
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <h3>교육결과 목록</h3>
+                </div>
+                <div class="button-wrap">
+                    <button type="button" class="btn" id="btnDiaryPrint">일지출력</button>
+                    <button type="button" class="btn" id="btnReqAppr">결재상신</button>
+                    <button type="button" class="btn" id="btnAppr" style="display:none;">승인</button>
+                    <button type="button" class="btn" id="btnReject" style="display:none;">반려</button>
+                    <button type="button" class="btn" id="btnSave">저장</button>
+                    <button type="button" class="btn" id="btnDelete">삭제</button>
+                    <button type="button" class="btn" id="btnList">목록</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <input id="id" type="hidden" name="id" value="" />
+                <table class="work-table">
+                    <caption>작업 지시 테이블</caption>
+                    <colgroup>
+
+                    </colgroup>
+                    <tbody>
+                    <tr>
+                        <th><label for="StartDate">구분</label></th>
+                        <td><select class="form-control2 tac" style="width: 100%" type="text" id="eduType" name="eduType"></select></td>
+                        <th><label for="EndDate">교육일</label></th>
+                        <td><input type="date" id="EduDate" style="width: 100%" name="EduDate" /></td>
+                        <th><label for="ReasonCode">교육명</label></th>
+                        <td><input class="form-control2" type="text" id="EduTitle" name="EduTitle" /></td>
+                        <th><label for="ReasonCode">교육장소</label></th>
+                        <td><input class="form-control2" type="text" id="EduPlace" name="EduPlace" /></td>
+                    </tr>
+                    <tr>
+                        <th><label for="FromName">교육주관</label></th>
+                        <td><input class="form-control2" type="text" style="width: 100%" id="Teacher" name="Teacher" /></td>
+                        <th><label for="FromTel">교육대상</label></th>
+                        <td><input class="form-control2" type="text" id="EduTarget" name="EduTarget"/></td>
+                        <th><label for="ToName">참여자수</label></th>
+                        <td><input class="form-control2" type="text" id="StudentCount" name="StudentCount"/></td>
+                        <th><label for="ToTel">대상자수</label></th>
+                        <td><input class="form-control2" type="number" id="TargetCount" name="TargetCount"/></td>
+                    </tr>
+                    <tr>
+                        <th><label for="FromName">교육시간</label></th>
+                        <td>
+                            <div data-ax5picker="multi" id="srchDt">
+                                <div class="input-group-append">
+                                    <input class="form-control2 tac" type="text" style="width: 120px" id="StartTime" name="StartTime"/>
+                                    <span class="slow_sign">~</span>
+                                    <input class="form-control2 tac" type="text" style="width: 120px" id="EndTime" name="EndTime"/>
+                                </div>
+                            </div>
+                        </td>
+
+                        <th><label for="FromName">시간</label></th>
+                        <td><input class="form-control2 tac" type="number" id="EduHour" name="EduHour"/></td>
+
+                        <th><label for="ToTel">사용교재</label></th>
+                        <td><input class="form-control2" type="text" id="EduMaterial" name="EduMaterial"/></td>
+
+                        <th><label for="ToTel">불참자처리</label></th>
+                        <td><input class="form-control2" type="text" id="AbsenteeProcess" name="AbsenteeProcess"/></td>
+                    </tr>
+                    <tr>
+                        <th><label for="FromName">교육내용</label></th>
+                        <td colspan="8"><textarea class="form-control2" id="EduContent" name="EduContent"></textarea></td>
+                    </tr>
+                    <tr>
+                        <th><label for="FromName">교육평가</label></th>
+                        <td colspan="8"><textarea class="form-control2" id="EduEvaluation" name="EduEvaluation"></textarea></td>
+                    </tr>
+                    <tr>
+                        <th><label for="FromName">시간</label></th>
+                        <td colspan="8">
+                            <div class="input-group">
+                                <div style = "display: block; height:auto;">
+                                    <span class="input-group-text fit_box_t4_area" data-labelcd="참석자 정보" style="height:100% !important">참석자 정보</span>
+                                </div>
+                                <div style="border: 0.5px solid lightgray;">
+                                    <div class="p-2" style="text-align: right;">
+                                        <button id="addRow" class="btn-popup"> 참석자 추가</button>
+                                    </div>
+                                    <table class="m-3" style="border-color:lightgray; margin: 0 !important;">
+                                        <thead>
+                                        <tr class="text-center" style="background-color: #f3f3f3; border: 1px solid #E5E5E5; height:30px;">
+                                            <th style="width:200px;">참석자</th>
+                                            <th style="width:400px;">서명</th>
+                                            <th style="width:100px">열삭제</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody id="table_body">
+
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div class="grid_box col-12" id="file_upload_idv"></div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader" ></th:block>
+    <th:block th:replace="/common/approve_box :: approve_box" ></th:block>
+    <th:block th:replace="/common/popup_sign.html :: popup_sign" ></th:block>
+    <script type="text/javascript">
+        class ReportDiaryPage {
+            constructor() {
+                this.grid = null;
+                this.uploader = null;
+                this.approveBoxUtil = null;
+                this.baseUrl = '/api/haccp/edu_result';
+                this.table_name = 'edu_result';
+                this.init();
+            }
+
+            init(){
+                let _this = this
+                $('#table_body').on('click', "button", function(e){
+                    let $btn = $(this);
+                    let t =$btn.attr('t');
+                    if(t=='delete'){
+                        $btn.parent().parent().remove();
+                    } else if (t=='editSign') {
+                        _this.editSign($btn)
+                    }
+
+                });
+            }
+
+            searchMainData() {
+
+                let _this = this;
+
+                let data = {
+                    'action': 'read_in',
+                    'bh_id': $('#bhId').val(),
+                    'data_date': $('#dataDate').val(),
+                    'edu_type': $('#eduType').val(),
+                }
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/read_in', data);
+
+                if (result.data != null) {
+                    let headInfo = result.data.head_info;
+                    let diaryInfo = result.data.diary_info;
+                    let studentInfo = result.data.student_info;
+
+                    $('#title').val(headInfo.Title);
+                    $('#dataDate').val(headInfo.DataDate);
+                    $('#firstName').val(headInfo.FirstName);
+                    $('#eduType').val(headInfo.EduType);
+                    if (diaryInfo != '') {
+                        $('#id').val(diaryInfo[0].id);
+                        $('#EduDate').val(diaryInfo[0].edu_date);
+                        $('#EduTitle').val(diaryInfo[0].edu_title);
+                        $('#EduPlace').val(diaryInfo[0].edu_place);
+                        $('#Teacher').val(diaryInfo[0].teacher);
+                        $('#EduTarget').val(diaryInfo[0].edu_target);
+                        $('#StudentCount').val(diaryInfo[0].student_count);
+                        $('#TargetCount').val(diaryInfo[0].target_count);
+                        $('#StartTime').val(diaryInfo[0].start_time);
+                        $('#EndTime').val(diaryInfo[0].end_time);
+                        $('#EduHour').val(diaryInfo[0].edu_hour);
+                        $('#EduMaterial').val(diaryInfo[0].edu_material);
+                        $('#AbsenteeProcess').val(diaryInfo[0].absentee_process);
+                        $('#EduContent').val(diaryInfo[0].edu_content);
+                        $('#EduEvaluation').val(diaryInfo[0].edu_evaluation);
+
+                    }
+
+                    if (studentInfo != null) {
+                        for(var i = 0; i < studentInfo.length; i++) {
+                            $('#table_body').append(
+                                " <tr>"
+                                + "  <td class='p-2'>"
+                                + "    <input type='text' name = 'studentName' class='form_control' value=" + studentInfo[i].StudentName + ">"
+                                + "  </td>"
+                                + "  <td class='text-center'>"
+                                + "    <button t='editSign'> "
+                                + "    <img t='editImg' name = 'signImg' id = 'signImg" +studentInfo[i].id +"'></img>"
+                                + "  	  <i class='fas fa-pen'></i> "
+                                + "  </button>"
+                                + "  </td>"
+                                + "  <td class='text-center'>"
+                                + "      <button t='delete'>"
+                                + "     	 <i class='fas fa-trash'></i>"
+                                + "      </button>"
+                                + "  </td>"
+                                + "</tr>"
+                            )
+
+                            _this.setImg(studentInfo[i].id);
+                        }
+                    }
+
+                    // 데이터에 따른 버튼 설정
+                    if ($('#viewMode').val().toLowerCase() == 'true') {
+                        //보기 모드일 경우 CRUD 버튼 숨김
+                        $('#btnDiaryPrint').hide();
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        if (headInfo.State == 'approval') {
+                            $('#btnDiaryPrint').show();
+                        }
+
+                        $('#title').attr('disabled', 'disabled');
+                        $('#dataDate').attr('disabled', 'disabled');
+                        $('#eduType').attr('disabled', 'disabled');
+
+                        $('#EduDate').attr('disabled', 'disabled');
+                        $('#EduTitle').attr('disabled', 'disabled');
+                        $('#EduPlace').attr('disabled', 'disabled');
+                        $('#Teacher').attr('disabled', 'disabled');
+                        $('#EduTarget').attr('disabled', 'disabled');
+                        $('#StudentCount').attr('disabled', 'disabled');
+                        $('#TargetCount').attr('disabled', 'disabled');
+                        $('#StartTime').attr('disabled', 'disabled');
+                        $('#EndTime').attr('disabled', 'disabled');
+                        $('#EduHour').attr('disabled', 'disabled');
+                        $('#EduMaterial').attr('disabled', 'disabled');
+                        $('#AbsenteeProcess').attr('disabled', 'disabled');
+                        $('#EduContent').attr('disabled', 'disabled');
+                        $('#EduEvaluation').attr('disabled', 'disabled');
+
+                        _this.setUploader(diaryInfo[0].id, false);
+
+                    }
+                    else {
+                        // State : 작성, 미결재, 승인, 반려, 재상신
+                        $('#btnDiaryPrint').hide();
+                        if (headInfo.State == 'process' || headInfo.State == 'reprocess') {
+                            $('#btnReqAppr').hide();
+                            $('#btnSave').hide();
+                            $('#btnDelete').hide();
+                        } else if (headInfo.State == 'approval') {
+                            $('#btnDiaryPrint').show();
+                            $('#btnReqAppr').hide();
+                            $('#btnSave').hide();
+                            $('#btnDelete').hide();
+                        }
+
+                        if (diaryInfo == '')
+                            _this.setUploader(0, true);
+                        else
+                            _this.setUploader(diaryInfo[0].id, true);
+
+                        if (parseInt($('#bhId').val(), 10) > 0) {
+                            $('#dataDate').attr('disabled', 'disabled');
+                        } else {
+                            $('#btnDelete').hide();
+                        }
+                    }
+                    if ($('#eduType').val() == '사내교육일지') {
+                        // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+                        _this.approveBoxUtil = new ApproveBoxUtil(0, '사내교육일지', $('#bhId').val(), 'bundle_head', false, false);
+                        _this.approveBoxUtil.print($('#viewMode').val());
+                        if (_this.approveBoxUtil.isApprUser()) {
+                            // 결재자의 경우 버튼 처리
+                            $('#btnAppr').show();
+                            $('#btnReject').show();
+                        }
+
+                    } else if ($('#eduType').val() == '사외교육일지') {
+                        // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+                        _this.approveBoxUtil = new ApproveBoxUtil(0, '사외교육일지', $('#bhId').val(), 'bundle_head', false, false);
+                        _this.approveBoxUtil.print($('#viewMode').val());
+                        if (_this.approveBoxUtil.isApprUser()) {
+                            // 결재자의 경우 버튼 처리
+                            $('#btnAppr').show();
+                            $('#btnReject').show();
+                        }
+                    }
+                }
+            }
+
+
+            //파일 업로더
+            setUploader(id, viewFlag) {
+                let _this = this;
+                let uploader = new ax5FileUploadClass('file_upload_idv', id,
+                    {
+                        table_name: _this.table_name,
+                        attach_name: 'basic',
+                        accept_files: 'hwp,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,gif,mbp,png,txt,zip,pdf',
+                        multiple: true,
+                        max_count: 5,
+                        file_size: 100,
+                        upload_callback: function (param) {
+                            //uploader.showLastImage('imgPhoto');
+                        },
+                        delete_callback: function (param) {
+                            //$('#imgPhoto').attr('src', '');
+                        },
+                        file_click_callback: function (file_id) {
+                            //uploader.showImage('imgPhoto', file_id);
+                        },
+                        can_write: viewFlag,
+                    });
+            }
+
+            // 일지 출력
+            printDiary() {
+                Alert.alert('', '기능 준비중입니다.');
+            }
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    $('#btnList').click();
+                });
+            }
+
+            //결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit';
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'data_date': $('#dataDate').val(),
+                    'edu_type': $('#eduType').val(),
+                };
+
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+            //저장
+            save(isAppr) {
+                let trList = $('#table_body').find('tr').length;
+
+                let _this = this;
+
+                let arrayList = [];
+
+                for(var i = 0; i < trList; i++) {
+                    let studentName = document.getElementsByName("studentName")[i].value;
+
+                    // 참석자명 체크
+                    if(studentName == '') {
+                        Alert.alert('', '참석자명을 입력해주세요');
+                        return
+                    }
+                    // base64로 이미지 변환
+                    let img = document.getElementsByName("signImg")[i];
+
+                    //이미지 체크
+                    if (img.src == '') {
+                        Alert.alert('', '서명을 작성 해주세요');
+                        return
+                    }
+
+                    let canvas = document.createElement('canvas');
+                    let ctx = canvas.getContext('2d');
+
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+
+                    var base64 = canvas.toDataURL('image/*');
+                    var strImage = "data:image/;base64," + base64.replace(/^data:image\/[a-z]+;base64,/, "");
+
+                    arrayList.push(
+                        {'studentName': studentName, 'signImg': strImage}
+                    )
+                }
+
+                let callback = function () {
+                    let data = {
+                        bh_id: $('#bhId').val(),
+                        id: $('#id').val(),
+                        title: $('#title').val(),
+                        data_date: $('#dataDate').val(),
+                        edu_type: $("#eduType").val(),
+                        edu_date: $('#EduDate').val(),
+                        edu_title: $('#EduTitle').val(),
+                        edu_place: $('#EduPlace').val(),
+                        teacher: $('#Teacher').val(),
+                        edu_target: $('#EduTarget').val(),
+                        student_count: $('#StudentCount').val(),
+                        target_count: $('#TargetCount').val(),
+                        start_time: $('#StartTime').val(),
+                        end_time: $("#EndTime").val(),
+                        edu_hour: $('#EduHour').val(),
+                        edu_material: $('#EduMaterial').val(),
+                        absentee_process: $('#AbsenteeProcess').val(),
+                        edu_content: $("#EduContent").val(),
+                        edu_evaluation: $("#EduEvaluation").val(),
+                        fileId: $("#srchFileId").val(),
+                        Q: JSON.stringify(arrayList)
+
+                    }
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            $('#bhId').val(resp.data.id);
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                Notify.success('저장하였습니다.');
+                                $('#btnDelete').show();
+                                $('#dataDate').attr('disabled', 'disabled');
+                                $('#eduType').attr('disabled', 'disabled');
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/save_edu', data, fnSuccess);
+                }
+                if ($("#eduType").val() == '') {
+                    Alert.alert('', '구분을 선택해주세요.')
+                    return
+                }
+                if ($("#EduDate").val() == '') {
+                    Alert.alert('', '교육일을 입력해주세요.');
+                    return false;
+                }
+                if ($("#EduTitle").val() == '') {
+                    Alert.alert('', '교육명을 입력해주세요.');
+                    return false;
+                }
+                if ($("#StudentCount").val() == '') {
+                    Alert.alert('', '참여수자를 입력해주세요.');
+                    return false;
+                }
+                if ($("#TargetCount").val() == '') {
+                    Alert.alert('', '대상자수를 입력해주세요.');
+                    return false;
+                }
+                if ($("#StartTime").val() == '') {
+                    Alert.alert('', '교육시간을 입력해주세요.');
+                    return false;
+                }
+                if ($("#EndTime").val() == '') {
+                    Alert.alert('', '교육시간을 입력해주세요.');
+                    return false;
+                }
+
+                if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+                else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+
+            //삭제
+            delete() {
+                let _this = this;
+                Alert.confirm('', '삭제하시겠습니까?', function () {
+                    // 삭제 서비스 호출
+                    let param = {
+                        bh_id: $('#bhId').val(),
+                    }
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            Notify.success('삭제하였습니다.');
+                            $('#btnList').click();
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/delete_edu', param, fnSuccess);
+                });
+            }
+
+            editSign(dom) {
+                let popupPage = new SignPage();
+                popupPage.show(function (data) {
+                    let imgUrl = data.src
+                    dom.children()[0].setAttribute('src',imgUrl)
+                });
+            }
+
+            addRow() {//행 추가
+                $('#table_body').append(
+                    " <tr>"
+                    + "  <td class='p-2'>"
+                    + "    <input type='text' name = 'studentName' class='form_control'>"
+                    + "  </td>"
+                    + "  <td class='text-center'>"
+                    + "    <button t='editSign'> "
+                    + "    <img t='editImg' name = 'signImg'></img>"
+                    + "  	  <i class='fas fa-pen'></i> "
+                    + "  </button>"
+                    + "  </td>"
+                    + "  <td class='text-center'>"
+                    + "      <button t='delete'>"
+                    + "     	 <i class='fas fa-trash'></i>"
+                    + "      </button>"
+                    + "  </td>"
+                    + "</tr>"
+                )
+            }
+            setImg(id) {
+                let imgUrl = this.baseUrl + '/sign/download?id=' + id;
+                $('#signImg' + id).attr('src', imgUrl);
+            }
+
+
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+
+            page = new ReportDiaryPage();
+
+            AjaxUtil.fillSelectOptions($("#eduType"), "system_code", "choose", '', "edu_result_type");
+            $('#dataDate').val($('#data_date').val());
+
+            $('#StartTime').blur(function (event) {
+                DataValidation.validateTime(event.target);
+                var start = new Date('2023-01-01 ' + $('#StartTime').val() + ':00');
+                var end = new Date('2023-01-01 ' + $('#EndTime').val() + ':00');
+                let time = (end.getTime() - start.getTime()) / (1000*60*60)
+                $('#EduHour').val(Math.round(time * 10)/10)
+            });
+            $('#EndTime').blur(function (event) {
+                DataValidation.validateTime(event.target);
+                var start = new Date('2023-01-01 ' + $('#StartTime').val() + ':00');
+                var end = new Date('2023-01-01 ' + $('#EndTime').val() + ':00');
+                let time = (end.getTime() - start.getTime()) / (1000*60*60)
+
+                $('#EduHour').val(Math.round(time * 10)/10)
+            });
+
+            $('#TargetCount').blur(function (event) {
+                $('#AbsenteeProcess').val($('#TargetCount').val() - $('#StudentCount').val())
+            });
+
+            $('#StudentCount').blur(function (event) {
+                $('#AbsenteeProcess').val($('#TargetCount').val() - $('#StudentCount').val())
+            });
+
+            $("#eduType").change(function(){
+                let _this = this
+                if ($('#eduType').val() == '사내교육일지') {
+                    // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+                    _this.approveBoxUtil = new ApproveBoxUtil(0, '사내교육일지', $('#bhId').val(), 'bundle_head', false, false);
+                    _this.approveBoxUtil.print($('#viewMode').val());
+                } else if ($('#eduType').val() == '사외교육일지') {
+                    // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+                    _this.approveBoxUtil = new ApproveBoxUtil(0, '사외교육일지', $('#bhId').val(), 'bundle_head', false, false);
+                    _this.approveBoxUtil.print($('#viewMode').val());
+                }
+            })
+            // 일지 출력
+            $('#btnDiaryPrint').on('click', function () {
+                page.printDiary();
+            });
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+
+            // 임시저장
+            $('#btnSave').on('click', function () {
+                page.save(false);
+            });
+
+            // 삭제
+            $('#btnDelete').on('click', function () {
+                page.delete();
+            });
+
+            // 행추가
+            $('#addRow').on('click', function () {
+                page.addRow();
+            });
+
+            // 목록
+            $('#btnList').on('click', function () {
+                if (this.appr_view) {
+                    location.href = '/gui/' + this.appr_view
+                }
+                else {
+                    location.href = '/gui/' + gui.gui_code
+                }
+            });
+            page.searchMainData();
+
+        });
+
+
+
+    </script>
+</th:block>
+</html>

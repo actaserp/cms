@@ -1,0 +1,640 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>공지사항</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>조치 및 통계</li>
+                <li>업무지원</li>
+                <li>공지사항</li>
+            </ul>
+        </div>
+        <section class="section">
+            <div class="section-top">
+                <form id="searchForm">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                작성일<span class="eq"></span>
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <input class="tac w150 date_from " type="date" id="srchStartDt"
+                                               name="srchStartDt"/>
+                                        <label for="srchStartDt" class="hide">시작일</label>
+                                    </li>
+                                    <li>
+                                        <input class="tac w150 date_to" type="date" id="srchEndDt" name="srchEndDt"/>
+                                        <label for="srchEndDt" class="hide">종료일</label>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label for="keyword">
+                                    공지 제목<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" class="form-control2" id="keyword" name="keyword"
+                                           style="border-radius: 5px 5px 5px 5px;">
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </form>
+             <!--//section-top end -->
+
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <a class="btn btn-excell" title="신규등록" id="btnNew">
+                                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                신규등록
+                            </a>
+                            <!-- <button type="button" class="btn btn-excel" id="btnNew" name="btnNew" title="신규">
+                                 <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                 신규</button>-->
+                        </li>
+                        <li>
+                            <a class="btn btn-edit" id="btnUpdate" title="수정">
+                                <img th:src="@{/images/icon/ico-save.svg}" alt="수정 아이콘">
+                                수정
+                            </a>
+                        </li>
+                        <!-- <button type="button" class="btn btn-edit" id="btnSave"  title="저장">
+                             <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">저장</button>-->
+                        <li>
+                            <a class="btn btn-delete y_write_auth" title="삭제" id="btnDel">
+                                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                삭제
+                            </a>
+                            <!-- <button type="button" class="btn btn-delete" id="btnDel" title="삭제">
+                                 <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                 삭제</button>-->
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="theGrid"></div>
+            </div>
+            <div class="btn-wrap">
+            </div>
+        </section>
+    </div> <!--//layout-contents end -->
+
+    <footer style="margin-top: 24px;">
+        <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+    </footer>
+
+<!--공지사항 등록 스크립트-->
+    <script type="text/x-tmpl" id="noticeTmpl">
+        <div class="content_wrap popup">
+            <div class="table-wrap">
+                <form id="editorForm">
+                    <table class="write-table">
+                          <input type="hidden" id="id" name="id" value="{%=o.id%}">
+                        <caption>주문등록 테이블</caption>
+                        <tbody>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="title">공지제목</label>
+                                </th>
+                                <td colspan="3">
+                                       <input class="form-control2" id="title" name="title" value="{%=o.title%}" disabled style="width:100%;" />
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="notice_yn">공지여부</label>
+                                </th>
+                                <td>
+                                     <select class="form-control2" id="notice_yn" name="notice_yn" disabled >
+                                        <option value="Y">예</option>
+                                        <option value="N" selected>아니오</option>
+                                     </select>
+                                </td>
+                                <th style="text-align: center">
+                                    <label for="notice_end_date">공지종료일</label>
+                                </th>
+                                <td style="text-align: center">
+                                    <input class="form-control2 tac" type="date" id="notice_end_date" name="notice_end_date"  value="{%=o.notice_end_date%}" disabled />
+                                        <!--<span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color" ></i></span>-->
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                        <div class="textarea_group" id="divContent">
+                           <textarea id="content" name="content" style="width:100%" >{%=o.content%}</textarea>
+                        </div>
+                </form>
+                <div class="grid_box" id='image_upload1'></div>
+            </div>
+
+            <div class="popup-button">
+              <button type="button" class="btn-popup y_write_auth" id="btn_modal_save" ><span data-labelCd="저장">저장</span></button>
+              <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+            </div>
+
+            <!--<section class="pt-2">
+                <form id="editorForm">
+                    <input type="hidden" id="id" name="id" value="{%=o.id%}">
+                    <div class="table_box search" id="detail_box">
+                        <div class="row">
+
+                                <div class="col-12" >
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_md">공지제목</span>
+                                        </div>
+                                            <input class="form-control2" id="title" name="title" value="{%=o.title%}" disabled />
+                                    </div>
+                                </div>
+
+                                <div class="col-3" >
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_md">공지여부</span>
+                                        </div>
+                                                <select class="form-control2" id="notice_yn" name="notice_yn" disabled >
+                                                    <option value="Y">예</option>
+                                                    <option value="N" selected>아니오</option>
+                                                </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-6">
+                                    <div class="input-group" data-ax5picker="basic" id="srchDt">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_md">공지종료일</span>
+                                        </div>
+                                        <input class="form-control2 tac" type="text" id="notice_end_date" name="notice_end_date"  value="{%=o.notice_end_date%}" disabled />
+                                        <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color" ></i></span>
+                                    </div>
+                                </div>
+
+                                    <div class="col-12" >
+                                            <div class="textarea_group" id="divContent">
+                                                <textarea style="height:310px;width:100%" id="content" name="content" >{%=o.content%}</textarea>
+                                            </div>
+                                </div>
+
+                        </div>
+                    </div>
+                </form>
+                <div class="grid_box" id='image_upload1'></div>
+
+            </section>
+            <section class="section">
+                <div class="popup_button_group bottom">
+                    <div class="left_align">
+                        <button type="button" class="btn-popup y_write_auth" id="btn_modal_save"><span>저장</span></button>
+                        <button type="button" class="btn-popup" id="modal-close-button"><span>닫기</span></button>
+                    </div>
+                </div>
+            </section>-->
+        </div>
+    </script>
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+    <script type="text/javascript">
+        var oEditors = [];
+        var theGrid;
+        var viewdata;
+
+        let columns = [
+            {binding: 'id', header: '번호', width: 200, align: 'center'},
+            {binding: 'title', header: '제목', width: 200, align: 'center'},
+            {binding: 'write_date_time', header: '작성일', width: 250, align: 'center'},
+            {binding: '', header: '', width: "*", align: 'center'}
+        ];
+
+        function edit() {
+            nhn.husky.EZCreator.createInIFrame({
+                oAppRef: oEditors,
+                elPlaceHolder: 'content', //textarea id
+                sSkinURI: '/resource/se2/SmartEditor2Skin.html',
+                htParams: {
+                    bUseToolbar: true,				// 툴바 사용 여부 (true:사용/ false:사용하지 않음)
+                    bUseVerticalResizer: true,		// 입력창 크기 조절바 사용 여부 (true:사용/ false:사용하지 않음)
+                    bUseModeChanger: true,			// 모드 탭(Editor | HTML | TEXT) 사용 여부 (true:사용/ false:사용하지 않음)
+                    //bSkipXssFilter : true,		// client-side xss filter 무시 여부 (true:사용하지 않음 / 그외:사용)
+                    //aAdditionalFontList : aAdditionalFontSet,		// 추가 글꼴 목록
+                    fOnBeforeUnload: function () {
+                        Alert.alert('',"완료!");
+                    }
+                }, //boolean
+                fOnAppLoad: function () {
+
+                    //예제 코드
+                    //oEditors.getById["content"].exec("PASTE_HTML", ["/*dfdfd*/"]);
+
+                    //초기 readonly 시키는 부분
+                    //var editor = oEditors.getById["content"];
+                    //editor.exec("DISABLE_WYSIWYG");
+                    //editor.exec("DISABLE_ALL_UI");
+                    //page.searchMain();
+                },
+                fCreator: 'createSEditor2'
+            });
+        };
+
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            let data2 = [];
+
+            let keyword = $('#keyword').val();
+            let srchStartDt = $('#srchStartDt').val();
+            let srchEndDt = $('#srchEndDt').val();
+
+            $.ajax({
+                url: withCtx('/api/support/notice/read'),
+                type: 'GET',
+                data: {
+                    'keyword': keyword,
+                    'srchStartDt': srchStartDt,
+                    'srchEndDt': srchEndDt
+                },
+                async: false,
+                success: function (data) {
+                    data2 = data.data;
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_count data:', textStatus, errorThrown);
+                }
+            })
+
+            viewdata = new wijmo.collections.CollectionView(data2);
+
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+            /*  new FlexGridContextMenu(theGrid);*/
+
+        }
+
+
+        function searchMain() {
+            let keyword = $('#keyword').val();
+            let srchStartDt = $('#srchStartDt').val();
+            let srchEndDt = $('#srchEndDt').val();
+
+            $.ajax({
+                url: '/api/support/notice/read',
+                type: 'GET',
+                data: {
+                    'keyword': keyword,
+                    'srchStartDt': srchStartDt,
+                    'srchEndDt': srchEndDt
+                },
+                async: false,
+                success: function (result) {
+                    if (result.success) {
+                        grid_binding(result.data);
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+
+                }
+            });
+
+        }
+
+        function grid_binding(data) {
+            if (!Array.isArray(data)) {
+                console.error('데이터가 배열 형식이 아닙니다:', data);
+                return;
+            }
+
+            let menulogData = data.map(item => ({
+                id: item.id,
+                title: item.title,
+                write_date_time: item.write_date_time
+
+            }));
+
+            if (typeof theGrid === 'undefined' || typeof viewdata === 'undefined') {
+                console.error('theGrid 또는 viewdata가 정의되지 않았습니다.');
+                return;
+            }
+
+            theGrid.columns.clear();
+            theGrid.autoGenerateColumns = false;
+
+            // columns 배열이 정의되어 있는지 확인
+            if (typeof columns === 'undefined' || !Array.isArray(columns)) {
+                console.error('columns 배열이 정의되지 않았습니다.');
+                return;
+            }
+
+            columns.forEach(columnDef => {
+                var col = new wijmo.grid.Column(columnDef);
+                theGrid.columns.push(col);
+            });
+
+            viewdata = new wijmo.collections.CollectionView(menulogData);
+
+            theGrid.itemsSource = viewdata;
+            theGrid.refresh();
+        }
+
+        //모달
+        function showNoticeEdit(data) {
+            let _this = this;
+            let content = tmpl('noticeTmpl', data);
+            let $content = $(content);
+            let modalContainer;
+            if (!data.id) {	//if (!data.id) {
+                modalContainer = new PopupDraggable('공지 사항 등록');
+            } else {
+                modalContainer = new PopupDraggable('공지 사항 수정');
+            }
+            modalContainer.open({width: 1010, height: 670, $content});
+            $content.find('#srchDt').ax5DatePicker({direction: 'top'});
+            edit();
+
+            $content.find('#btn_modal_save').on('click', function () {
+                let $form = $content.find('#editorForm');
+                saveData($form, modalContainer);
+            });
+
+        }
+
+        //저장
+        function saveData($form, modalContainer) {
+            oEditors.getById["content"].exec("UPDATE_CONTENTS_FIELD", []);
+            let url = '/api/support/notice/save';
+
+            let data = FormUtil.extractForm($('#editorForm'));
+            data['title'] = $("#title").val();
+            data['fileId'] = $("#srchFileId").val();
+
+            if (!data.title) {
+                Alert.alert('', '제목을 입력해주세요.');
+                return false;
+            }
+            if (!data.notice_yn) {
+                Alert.alert('', "공지여부를 선택하세요.");
+                return false;
+            }
+
+            if (data.notice_yn) {
+                if (!data.notice_end_date) {
+                    Alert.alert('', "공지종료일을 설정하세요.");
+                    return false;
+                }
+            }
+
+
+            Alert.confirm('', '저장하시겠습니까?', function () {
+                let fnSuccess = function (result) {
+                    if (result.success) {
+                        Alert.alert('', '저장되었습니다');
+                        modalContainer.close();
+                        searchMain(); // 저장 후 데이터 갱신
+                        oEditors.getById["content"].exec("SET_IR", [""]);
+                    } else {
+                        Alert.alert('저장 실패', result.message);
+                        console.error('저장 실패:', result.message);
+                    }
+                };
+
+                // 데이터 저장 요청
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            });
+
+
+        }
+
+        //삭제
+        function deleteData(id) {
+            let url = '/api/support/notice';
+            let data = {'id': id};
+            let fnSuccess = function () {
+                deleteDocFile(id);
+            }
+            AjaxUtil.postAsyncData(url + '/delete', data, fnSuccess);
+        }
+
+
+        function deleteDocFile(id) {
+            let url = '/api/common/attach_file/deleteFile';
+            //let id = $('#docForm').find('#id').val();
+            let data = {'DataPk': id};
+
+            Alert.confirm('', '삭제하시겠습니까?', function () {
+                let fnSuccess = function (result) {
+                    if (result.success) {
+                        Alert.alert('', '삭제되었습니다');
+                        searchMain(); // 저장 후 데이터 갱신
+                    } else {
+                        Alert.alert('삭제 실패', result.message);
+                        console.error('저장 실패:', result.message);
+                    }
+                };
+
+                // 데이터 저장 요청
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            });
+
+        }
+
+        function setUploader(id) {
+            let _this = this;
+            // 파일 업로드에 관련된 권한처리는 나중에 적용
+            $('#addFile').prop('disabled', false);
+
+            let accept_files = 'hwp,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,gif,mbp,png,txt,zip,pdf';
+            let accept = '.' + accept_files.split(',').join(',.');
+
+            let uploader = new ax5FileUploadClass('image_upload1', id,
+                {
+                    table_name: 'NOTICE',
+                    attach_name: 'basic',
+                    accept_files: accept_files,
+                    multiple: true,
+                    max_count: 5,
+                    file_size: 500,
+                    upload_callback: function (param) {
+                        // uploader.showLastImage('imgPhoto');
+                        return;
+                    },
+                    delete_callback: function (param) {
+                        //  $('#imgPhoto').attr('src', '');
+                        return;
+                    },
+                    file_click_callback: function (file_id) {
+                        // uploader.showImage('imgPhoto', file_id);
+                        return;
+                    },
+                    can_write: userinfo.can_write(),
+                });
+            _this.uploader = uploader;
+        }
+
+
+        $(document).ready(function () {
+
+
+
+            const currentDate = new Date();
+            // 오늘 날짜를 'YYYY-MM-DD' 형식으로 변환
+            const today = currentDate.toISOString().split('T')[0];
+
+            // 1개월 전 날짜 계산
+            const oneMonthAgo = new Date(currentDate);
+            oneMonthAgo.setMonth(currentDate.getMonth() - 1); // 한 달 전으로 설정
+            const oneMonthAgoFormatted = oneMonthAgo.toISOString().split('T')[0];
+
+            // 기본값 설정
+            $('.date_from').val(oneMonthAgoFormatted);
+            $('.date_to').val(today);
+
+
+            //공지여부
+            $("#notice_yn").change(function (e) {
+                if ($("#notice_yn").val() == "Y") {
+                    $("#notice_end_date").prop("disabled", false);
+                } else {
+                    $("#notice_end_date").prop("disabled", true);
+                    $("#notice_end_date").val("");
+                }
+            });
+
+            //검색버튼클릭
+            $("#btnSearch").click(function (e) {
+                searchMain();
+            });
+
+            $('#keyword').on('keypress', function (e) {
+                if (e.keyCode == 13) {  // 'event' 대신 'e' 사용
+                    e.preventDefault(); // 기본 동작(폼 제출) 방지
+                    searchMain();
+                }
+            });
+
+
+            //저장버튼
+            $('#btn_modal_save').click(function (e) {
+                saveData();
+            });
+
+
+
+            //신규버튼
+            $("#btnNew").click(function (e) {
+                let today_string = CommonUtil.getYYYYMMDD();
+                let data = {
+                    'id': '',
+                    'notice_end_date': today_string,
+                    'title': '',
+                    'content': '',
+                };
+                showNoticeEdit(data);
+                setUploader();
+                uploader.mode = 'active';
+                $("#title").prop('disabled', false);
+                $("#notice_yn").prop('disabled', false);
+                $("#notice_end_date").prop('disabled', false);
+                $('editorForm').find('#srchDt').ax5DatePicker({direction: 'top'});
+                $('#notice_end_date').val(CommonUtil.getYYYYMMDD());
+                $('#srchFileId').val('');
+            });
+
+            //수정버튼
+            $("#btnUpdate").click(function (e) {
+                /*let items = page.grid.getList("selected");*/
+                let selectedRow  = theGrid.selection.row;
+                let selectedItem = theGrid.rows[selectedRow]?.dataItem; // 선택된 행이 없는 경우 undefined 방지
+
+                if (selectedItem) {  // 객체 존재 여부 확인
+                    let id = selectedItem.id;  // 배열이 아니라 객체이므로 selectedItem[0]이 아니라 selectedItem.id 사용
+                    data = AjaxUtil.getSyncData('/api/support/notice/detail', {'id': id});
+                    showNoticeEdit(data.data);
+                    setUploader(id);
+                    uploader.mode = 'active';
+                    $("#title").prop('disabled', false);
+                    $("#notice_yn").prop('disabled', false);
+                    $("#notice_end_date").prop('disabled', false);
+                    $('editorForm').find('#srchDt').ax5DatePicker({direction: 'top'});
+                    $('#notice_yn').val(data.data.notice_yn).prop('selected', true);
+
+                    // 파일 조회
+                    let attparam = {"action": 'detailFiles', "TableName": "NOTICE", 'DataPk': id, attachName: 'basic'};
+                    YuFileUploader.getAttachFiles(attparam);
+                } else {
+                    Alert.alert('', '수정할 공지를 선택해 주세요');
+                }
+
+            });
+
+            //삭제버튼
+            $("#btnDel").click(function (e) {
+                let selectedRow = theGrid.selection.row;
+                if (selectedRow >= 0) {
+                    let selectedItem = theGrid.rows[selectedRow].dataItem;
+                    let id = selectedItem.id;
+                    $('#srchFileId').val('');
+                    deleteData(id);
+
+                } else {
+                    Alert.alert('', "삭제할 공지를 선택해 주세요.")
+                }
+            });
+
+        });
+
+    </script>
+</th:block>
+
+</html>

@@ -1,0 +1,167 @@
+<th:block th:fragment="popup_tax_office">
+  <script type="text/x-tmpl" id="popup_taxSearchTemplate">
+    <div class="content_wrap popup">
+      <section class="section" style="padding-top: 10px;">
+        <div class="section-top">
+          <div class="search-wrap" style="text-align: left;">
+            <dl>
+              <dt><label for="taxcd">세무서코드</label></dt>
+              <dd><input type="text" id="taxcd" name="taxcd" style="width:160px;"></dd>
+            </dl>
+            <dl>
+              <dt><label for="taxnm2">세무서명</label></dt>
+              <dd><input type="text" id="taxnm2" name="taxnm2" style="width:160px;"></dd>
+            </dl>
+            <dl>
+              <dt><label for="taxjiyuk">관할구역</label></dt>
+              <dd><input class="form-control2" type="text" id="taxjiyuk" name="taxjiyuk" style="width:160px;"></dd>
+            </dl>
+            <dl>
+              <dt>&nbsp;</dt>
+              <dd>
+                <li>
+                  <a class="btn btn-delete" title="검색" id="btnCompSearch">
+                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
+                  </a>
+                </li>
+              </dd>
+            </dl>
+          </div>
+          <div class="container-fluid">
+            <div id="theGrid2" style="height: 300px;"></div>
+          </div>
+        </div>
+      </section>
+      <div class="popup-button">
+        <button type="button" class="btn-popup" id="btnCompSelect"><span>선택</span></button>
+        <button type="button" class="btn-popup" id="btn-search-close"><span>닫기</span></button>
+      </div>
+    </div>
+  </script>
+
+  <script type="text/javascript">
+    class PopTaxComponent {
+      static currentInstance = null;
+
+      constructor() {
+        if (PopTaxComponent.currentInstance) {
+          PopTaxComponent.currentInstance.close();
+        }
+        PopTaxComponent.currentInstance = this;
+
+        this.grid = null;
+        this.viewData = new wijmo.collections.CollectionView();
+        this.selectedItem = null;
+        this.callback = null;
+        this.modalContainer = new PopupDraggable('업체 선택');
+      }
+
+      searchDataBind() {
+        let _this = this;
+        let url = '/api/workplace/readPopup';
+        let data = {
+          'taxcd' : document.getElementById('taxcd').value,
+          'spjangcd' : sessionStorage.getItem('spjangcd'),
+          'taxnm2' : document.getElementById('taxnm2').value,
+          'taxjiyuk' : document.getElementById('taxjiyuk').value
+        };
+
+        AjaxUtil.getAsyncData(url, data, function (result) {
+          if (result && result.data) {
+            console.log('result.data : ', result.data);
+            const list = result.data;
+            _this.viewData.sourceCollection = list;
+
+            setTimeout(() => {
+              if (_this.grid && _this.grid.rows.length > 0) {
+                _this.grid.select(0, 0);
+                _this.grid.focus();
+              }
+            }, 100);
+          }
+        });
+
+        this.selectedItem = null;
+      }
+
+      selectData(item) {
+        if (typeof this.callback === 'function') {
+          this.callback(item);
+        }
+        this.close();
+      }
+
+      show(callback) {
+        let _this = this;
+        this.callback = callback;
+
+        let content = tmpl('popup_taxSearchTemplate', {});
+        let $content = $(content);
+        this.modalContainer.open({width: 800, height: 500, $content});
+
+        setTimeout(() => {
+          const el = document.getElementById('theGrid2');
+          const existingGrid = wijmo.Control.getControl(el);
+          if (existingGrid) existingGrid.dispose();
+
+          this.grid = new wijmo.grid.FlexGrid('#theGrid2', {
+            selectionMode: wijmo.grid.SelectionMode.Row,
+            autoGenerateColumns: false,
+            showMarquee: true,
+            isReadOnly: true,
+            columns: [
+              {binding: 'taxcd', header: '세무서코드', width: 100, align: 'center'},
+              {binding: 'taxnm', header: '세무서명', width: 150, align: 'left'},
+              {binding: 'taxjiyuk', header: '관할구역', width: '*', align: 'left'},
+              {binding: 'taxtelnum', header: '전화번호', width: 150, align: 'center'}
+            ],
+            itemsSource: this.viewData,
+          });
+
+          this.$btnCompSearch = $content.find('#btnCompSearch');
+          this.$taxcd = $content.find('#taxcd');
+          this.$taxnm2 = $content.find('#taxnm2');
+          this.$taxjiyuk = $content.find('#taxjiyuk');
+          this.$btnCompSelect = $content.find('#btnCompSelect');
+
+          this.$btnCompSearch.click(() => _this.searchDataBind());
+          this.$btnCompSelect.click(() => {
+            const items = _this.grid.selectedItems;
+            if (items.length === 0) return;
+            _this.selectData(items[0]);
+          });
+
+          this.grid.hostElement.addEventListener('dblclick', function (e) {
+            console.log('dbclick function')
+            let items = _this.grid.selectedItems;
+            if (items.length === 0) {
+              return false;
+            }
+            _this.selectData(items[0]); // btnCompSelect 클릭과 동일한 동작
+          });
+
+          $content.find('#btn-search-close').click(() => _this.close());
+
+          ['#taxcd', '#taxnm2', '#taxjiyuk'].forEach(id => {
+            $(document).on('keydown', id, function (e) {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                $('#btnCompSearch').trigger('click');
+              }
+            });
+          });
+          _this.searchDataBind();
+
+        }, 50);
+      }
+
+      close() {
+        this.modalContainer.close();
+        if (this.modalContainer.$content) this.modalContainer.$content.remove();
+        if (PopTaxComponent.currentInstance === this) {
+          PopTaxComponent.currentInstance = null;
+        }
+      }
+    }
+  </script>
+</th:block>

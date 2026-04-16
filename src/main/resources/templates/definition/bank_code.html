@@ -1,0 +1,305 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>은행코드관리</h2>
+                <a title="북마크" class="bookmark toggle">내메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>은행코드</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px">
+            <section class="section" style="width: 60%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt><label>은행명</label></dt>
+                            <dd><div class="srch-box"><input type="text" class="form-control2" id="txtUnit" name="txtUnit"></div></dd>
+                        </dl>
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li><a class="btn btn-delete" title="검색" id="btnSearch"><img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색</a></li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <p id="selectedItem"></p>
+                    <div id="theGrid" style=""></div>
+                </div>
+            </section>
+
+            <section style="width: 40%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <ul>
+                            <li><button type="button" class="btn-default" id="btnNew">신규등록</button></li>
+                            <li><button type="button" class="btn-default" id="btnSave">저장</button></li>
+                            <li><button type="button" class="btn-danger" id="btnDel">삭제</button></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="table-wrap" style="overflow-x: auto;">
+                    <form id="bankCodeForm">
+                        <table class="write-table" style="width: 100%; border-collapse: collapse;">
+                            <caption style="text-align: left; margin-bottom: 8px;">등록테이블</caption>
+                            <colgroup>
+                                <col class="wp20">
+                                <col class="wp80">
+                            </colgroup>
+                            <input type="hidden" id="id" name="id"/>
+                            <tbody>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="name"><span class="eq">*</span>은행명</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" id="name" name="name" style="width: 100%;">
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="bankcd"><span class="eq"></span>은행코드</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" id="bankcd" name="bankcd" style="width: 100%;">
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="subcd"><span class="eq"></span>지점코드</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" id="subcd" name="subcd" style="width: 100%;">
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="bankpopcd">팝빌기관코드</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <select id="bankpopcd" name="bankpopcd" style="width: 100%;">
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="remark"><span class="eq"></span>설명</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" id="remark" name="remark" style="width: 100%;">
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="banksubcd">참가기관코드</label>
+                                </th>
+                                <td style="padding: 5px; border: 1px solid #ddd;" colspan="3">
+                                    <select id="banksubcd" name="banksubcd" style="width: 100%;">
+                                    </select>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <footer style="margin-top: 24px;">
+        <p>Copyright⒲ 0000 corp. All rights reserved.</p>
+    </footer>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        var theGrid;
+        var viewdata;
+
+        let columns = [
+            {binding: 'id', header: 'id', width: 200, align: 'center', visible: false},
+            {binding: 'name', header: '은행명', width: 200, align: 'center'},
+            {binding: 'bankcd', header: '은행코드', width: 100, align: 'center'},
+            {binding: 'subcd', header: '지점코드', width: 100, align: 'center'},
+            {binding: 'bankpopcd', header: '팝빌기관코드', width: 100, align: 'center'},
+            {binding: 'refbankpopnm', header: '팝빌기관명', width: 200, align: 'center'},
+            {binding: 'banksubcd', header: '참가기관코드', width: 100, align: 'center'},
+            {binding: 'refbanksubnm', header: '참가기관명', width: 200, align: 'center'},
+            {binding: 'remark', header: '설명', width: 250, align: 'center'},
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            searchMainData();
+        }
+
+        function searchMainData() {
+            let bank_name = $('#txtUnit').val();
+            $.ajax({
+                url: withCtx('/api/definition/bank_code/read'),
+                type: 'GET',
+                data: {'bank_name': bank_name},
+                success: function(result) {
+                    if (result.success) {
+                        if (theGrid) {
+                            theGrid.dispose();  // ✅ 기존 그리드 제거 (중복 방지)
+                        }
+                        grid_binding(result.data); // ✅ 새로 데이터 바인딩
+                    }
+                },
+                error: function() {
+                    console.error('Error fetching bank_code data');
+                }
+            });
+        }
+
+        function grid_binding(data) {
+            viewdata = new wijmo.collections.CollectionView(data);
+
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+
+            theGrid.hostElement.addEventListener('dblclick', function (e) {
+                let selectedItem = theGrid.selectedItems[0];
+                document.getElementById('id').value = selectedItem.id;
+                document.getElementById('name').value = selectedItem.name;
+                document.getElementById('bankcd').value = selectedItem.bankcd;
+                document.getElementById('subcd').value = selectedItem.subcd;
+                document.getElementById('remark').value = selectedItem.remark;
+                document.getElementById('bankpopcd').value = selectedItem.bankpopcd;
+                document.getElementById('banksubcd').value = selectedItem.banksubcd;
+
+                setButtonState();
+            });
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+        }
+
+        function setButtonState() {
+            let pk = $('#id').val();
+            $('#btnNew').prop('disabled', false);
+            $('#btnSave').prop('disabled', false);
+            $('#btnDel').prop('disabled', !pk);
+        }
+
+        function saveUnit() {
+            let url = '/api/definition/bank_code/save';
+            let data = FormUtil.extractForm($('#bankCodeForm'));
+
+            if (!data.name) {
+                Alert.alert('', '은행명을 입력해주세요.');
+                $('#name').focus();
+                return false;
+            }
+            //else if (!data.description) {
+            //    Alert.alert('', '설명을 입력해주세요.');
+            //    $('#description').focus();
+            //    return false;
+            //}
+
+            Alert.confirm('', '저장하시겠습니까?', function() {
+                AjaxUtil.postAsyncData(url, data, function (result) {
+                    if (result.success) {
+                        Alert.alert('', '저장되었습니다');
+                        searchMainData();
+                    } else {
+                        Alert.alert('저장 실패', result.message);
+                    }
+                });
+            });
+        }
+
+        function deleteUnit() {
+            let url = '/api/definition/bank_code/delete';
+            let id = $('#id').val();
+
+            if (!id) {
+                Alert.alert('', '삭제할 대상을 선택하세요.');
+                return;
+            }
+
+            Alert.confirm('', '삭제하시겠습니까?', function() {
+                AjaxUtil.postAsyncData(url, {id: id}, function(result) {
+                    if (result.success) {
+                        Alert.alert('', '삭제되었습니다');
+                        searchMainData();
+                    } else {
+                        Alert.alert('삭제 실패', result.message);
+                    }
+                });
+            });
+        }
+
+        $(document).ready(function() {
+            $('#btnSearch').click(searchMainData);
+            $('#btnNew').click(function() { $('#bankCodeForm')[0].reset(); });
+            $('#btnSave').click(saveUnit);
+            $('#btnDel').click(deleteUnit);
+
+            // 팝빌기관코드 select 채우기
+            $.ajax({
+                url: withCtx('/api/definition/bank_code/popbill_list'),
+                type: 'GET',
+                success: function (result) {
+                    if (result.success && result.data.length > 0) {
+                        let options = '<option value="">선택</option>';
+                        result.data.forEach(function(item) {
+                            options += '<option value="' + item.code + '">' + item.name + ' (' + item.code + ')</option>';
+                        });
+                        $('#bankpopcd').html(options);
+                    }
+                },
+                error: function() {
+                    console.error('팝빌기관코드 조회 실패');
+                }
+            });
+
+            // 참가기관코드 select 채우기
+            $.ajax({
+                url: withCtx('/api/definition/bank_code/participant_list'),
+                type: 'GET',
+                success: function (result) {
+                    if (result.success && result.data.length > 0) {
+                        let options = '<option value="">선택</option>';
+                        result.data.forEach(function(item) {
+                            options += '<option value="' + item.code + '">' + item.name + ' (' + item.code + ')</option>';
+                        });
+                        $('#banksubcd').html(options);
+                    }
+                },
+                error: function() {
+                    console.error('참가기관코드 조회 실패');
+                }
+            });
+
+        });
+    </script>
+</th:block>
+
+</html>

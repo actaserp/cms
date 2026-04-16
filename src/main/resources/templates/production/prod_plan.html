@@ -1,0 +1,429 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>작업 계획 등록</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>생산 관리</li>
+        <li>작업 계획 등록</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>
+              <label for="cboDateKind">
+                검색 구분<span class="eq"></span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboDateKind" name="cboDateKind">
+                  <option value="suju_date" data-labelCd="수주일">수주일</option>
+                  <option value="due_date" data-labelCd="납기일">납기일</option>
+                </select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              조회기간<span class="eq">*</span>
+            </dt>
+            <dd>
+              <ul class="date-box">
+                <li>
+                  <input type="date" id="srchStartDt" name="srchStartDt">
+                  <label for="srchStartDt" class="hide">시작일</label>
+                </li>
+                <li>
+                  <input type="date" id="srchEndDt" name="srchEndDt">
+                  <label for="srchEndDt" class="hide">종료일</label>
+                </li>
+              </ul>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label for="cboMatType">
+                제품 구분<span class="eq"></span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboMatType" name="cboMatType">
+                  <option value="product">제품</option>
+                  <option value="semi">반제품</option>
+                </select>
+              </div>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label for="cboMatGroup">
+                제품 그룹<span class="eq"></span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboMatGroup" name="cboMatGroup">
+                </select>
+              </div>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label for="txtMatName">
+                제품명
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input class="form-control2" type="text" id="txtMatName" name="txtMatName" placeholder="제품명"/>
+              </div>
+            </dd>
+          </dl>
+
+          <!--<dl>
+            <dt>
+              <label for="chkNoActionFlag">
+
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input type="checkbox" id="chkNoActionFlag" name="NoActionFlag" value="NOT"/>
+                미지시 건 만
+              </div>
+            </dd>
+          </dl>-->
+
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" title="검색" id="btnMainSearch">
+                  <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                  <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+      </div>
+
+      <div class="grid_box">
+        <div class="search-wrap">
+
+          <!--<dl>
+            <dt>
+              생산일
+            </dt>
+            <dd>
+              <ul class="date-box">
+                <li>
+                  <input type="date" id="ProductionDate" name="ProductionDate">
+                  <label for="ProductionDate" class="hide">생산일</label>
+                </li>
+              </ul>
+            </dd>
+          </dl>-->
+
+        </div>
+        <div id="theGrid" style="height: 550px;"></div>
+      </div>
+
+    </section>
+    <!--<div class="tab-wrap">
+
+      <ul class="tab-links">
+        <li><a href="#tabJobRes">제품 지시내역</a></li>
+        <li><a href="#tabSemi">반제품 작업지시</a></li>
+        <li><a href="#tabConsumed">반제품 지시내역</a></li>
+      </ul>
+      <div>
+        <section class="tab-item" id="tabJobRes" style="border-top-left-radius: 0;">
+
+          <div class="section-top">
+            <div class="button-wrap">
+              <ul>
+                <li>
+                  <a class="btn btn-edit" title="작업 지시 수정" id="btnJobResDetail">
+                    <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">
+                    작업 지시 수정
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <div id="jobResGrid" style="height: 220px;"></div>
+          </div>
+        </section>
+        <section class="tab-item" id="tabSemi" style="border-top-left-radius: 0;">
+          <div class="section-top">
+            <div id="semiGrid" style="height: 270px;"></div>
+          </div>
+        </section>
+        <section class="tab-item" id="tabConsumed" style="border-top-left-radius: 0;">
+          <div class="section-top">
+            <div class="button-wrap">
+              <ul>
+                <li>
+                  <a class="btn btn-edit" title="작업 지시 상세" id="btnSemiJobResDetail">
+                    <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">
+                    작업 지시 상세
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <div id="semiJobResGrid" style="height: 220px;"></div>
+          </div>
+        </section>
+      </div>
+    </div>-->
+  </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <!--    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>-->
+  <!--    <script type="text/javascript" th:src="@{/js/grid.js}"></script>-->
+  <script type="text/javascript">
+
+    class ProdPlanPage {
+      constructor() {
+        this.grid = null;
+        this.semiGrid = null;
+        this.jobResGrid = null;
+        this.semiJobResGrid = null;
+        //this.$cboMatType = null;
+        this.$cboMatGroup = null;
+        this.workshifOptions = [];
+        this.workcenterOptions = [];
+        this.selectedIndex = 0;
+
+        this.url = '/api/production/prod_plan';
+
+        this.initSuju();
+      }
+
+      initSuju() {
+        let _this = this;
+
+        // 근무조
+        this.workshifOptions = AjaxUtil.getSelectDataWithNull('shift', 'choose');
+
+        let dicWorkShift = {};
+        $.each(this.workshifOptions, function (idx, item) {
+          dicWorkShift[item.value] = item.text
+        });
+
+        // 워크센터a
+        this.workcenterOptions = AjaxUtil.getSelectDataWithNull('workcenter', 'choose');
+
+        let dicWorkCenter = {};
+        $.each(this.workcenterOptions, function (idx, item) {
+          dicWorkCenter[item.value] = item.text;
+        });
+
+        // Wijmo FlexGrid 설정
+        this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+          autoGenerateColumns: false,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          showMarquee: true,
+          formatItem: (s, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'id', header: '수주pk', width: 120, visible: false, isReadOnly: true},
+            {binding: 'JumunNumber', header: '주문번호', width: 140, align: 'center', isReadOnly: true},
+            {binding: 'JumunDate', header: '수주일', width: 110, align: 'center', isReadOnly: true},
+            {binding: 'DueDate', header: '납기일', width: 110, align: 'center', isReadOnly: true},
+            {binding: 'CompanyName', header: '판매처', width: 150, align: 'left', isReadOnly: true},
+            {binding: 'mat_type_name', header: '제품구분', width: 80, align: 'center', isReadOnly: true},
+            {binding: 'MaterialGroupName', header: '제품그룹', width: 130, align: 'left', isReadOnly: true},
+            {binding: 'mat_code', header: '제품코드', width: 120, align: 'center', isReadOnly: true},
+            {binding: 'mat_pk', header: '제품pk', width: 80, visible: false, isReadOnly: true},
+            {binding: 'mat_name', header: '제품명', width: '*', align: 'left', isReadOnly: true},
+            {binding: 'unit_name', header: '단위', width: 60, align: 'center', isReadOnly: true},
+            {binding: 'SujuQty', header: '수주량', width: 100, align: 'right', isReadOnly: true},
+            {
+              binding: 'order_action',
+              header: '확정',
+              width: 80,
+              align: 'center',
+              // cellTemplate: ctx => userinfo.can_write() ? `<button class="btn-default" style="width: 100%;height: 25px;">지시</button>` : '권한없음',
+              isReadOnly: true
+            },
+            {binding: 'description', header: '비고', width: 150, align: 'left', isReadOnly: true}
+          ],
+          itemFormatter: function (panel, row, col, cell) {
+            if (panel.cellType === wijmo.grid.CellType.Cell) { // 일반 셀 확인
+              let column = panel.columns[col];
+              let item = panel.rows[row].dataItem;
+
+              if (column.binding === 'remain_qty' && item.remain_qty > 0) {
+                cell.style.backgroundColor = '#ffd800'; // 잔여량이 0보다 크면 배경색 노란색
+              }
+            }
+          },
+
+        });
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '작업 지시 목록';
+
+        _this.grid.formatItem.addHandler(function (s, e) {
+          if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+            let col = s.columns[e.col];
+
+            if (col.binding === 'order_action' && userinfo.can_write()) {
+              let btn = document.createElement("button");
+              btn.className = "btn-default";
+              btn.style.width = "100%";
+              btn.style.height = "25px";
+              btn.innerText = "확정";
+              let row = s.rows[e.row];
+              btn.onclick = function () {
+                let selectedItem = row.dataItem;
+                _this.selectedIndex = s.rows.findIndex(r => r.dataItem === selectedItem);
+                handleOrderClick(_this.selectedIndex, row.dataItem);
+              };
+              e.cell.innerHTML = "";
+              e.cell.appendChild(btn);
+            }
+          }
+        });
+
+        // 수주목록내 작업지시 버튼 클릭
+        function handleOrderClick(rowIndex, selectedItem) {
+
+          let data = {
+            suju_id: selectedItem.id,
+          };
+
+          Alert.confirm('', '작업계획를 확정하시겠습니까?', function () {
+            _this.makeOrder(data);
+          });
+        }
+
+
+        this.$cboMatType = $('#cboMatType');
+        this.$cboMatGroup = $('#cboMatGroup');
+
+        //품목유형
+        // product, semi 만
+        AjaxUtil.fillSelectOptions(this.$cboMatType, 'system_code', 'all', false, 'mat_type', 'product,semi');
+
+        //품목그룹
+        AjaxUtil.fillSelectOptions(this.$cboMatGroup, 'material_group', 'all', false);
+        this.$cboMatType.on('change', function (e) {
+          let matType = _this.$cboMatType.val();
+          AjaxUtil.fillSelectOptions(_this.$cboMatGroup, 'material_group', 'all', false, matType);
+        });
+
+        // 기간 초기화
+        $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+        $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+        $('#ProductionDate').val(CommonUtil.getYYYYMMDD());
+
+        // 수주 검색
+        $('#btnMainSearch').on('click', function (e) {
+          _this.sujuSearch();
+        });
+      }
+
+      makeOrder(data) {
+        let _this = this;
+        let url = _this.url + '/plane_confirm';
+
+        let fnsuccess = function (result) {
+          if (result.success) {
+            Alert.alert('', '작업 계획이 확정 되었습니다.');
+            _this.sujuSearch();
+          }
+        };
+
+        AjaxUtil.postAsyncData(url, data, fnsuccess);
+      }
+
+      // 수주검색
+      sujuSearch() {
+
+        let _this = this;
+        let date_kind = $('#cboDateKind').val();
+        let $cboMatGroup = $('#cboMatGroup');
+        let mat_grp = $cboMatGroup.val();
+        let not_flag = $("input:checkbox[id='chkNoActionFlag']").is(":checked") ? 'NOT' : '';
+        let $ProductionDate = $('#ProductionDate');
+
+        let data = {
+          date_kind: date_kind,
+          start: $('#srchStartDt').val(),
+          end: $('#srchEndDt').val(),
+          mat_group: mat_grp,
+          not_flag: not_flag,
+          mat_name: $('#txtMatName').val()
+        };
+
+        let fnsuccess = function (result) {
+          let prod_date = $ProductionDate.val();
+          if (result.data != null) {
+            $.each(result.data, function (idx, item) {
+              item['prod_date'] = prod_date;
+              if (!item.workshift) {
+                item.workshift = _this.workshifOptions.length > 0 ? _this.workshifOptions[1].value : null;
+              }
+            });
+
+            _this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+
+           let restoreIndex = _this.selectedIndex || 0;
+            _this.grid.selectedIndex = -1;
+            /*setTimeout(() => {
+              _this.grid.select(restoreIndex, 0);
+
+              let item = _this.grid.rows[restoreIndex]?.dataItem;
+              if (item) {
+                _this.loadJobResList(item);
+                _this.loadSemiJobResList(item);
+              }
+              _this.semiJobRes();
+              _this.selectedIndex = 0; // 초기화
+            }, 10);*/
+          }
+        };
+
+        AjaxUtil.getAsyncData(this.url + '/suju_list', data, fnsuccess);
+        /*_this.jobResGrid.itemsSource = new wijmo.collections.CollectionView([]);
+        _this.semiGrid.itemsSource = new wijmo.collections.CollectionView([]);
+        _this.semiJobResGrid.itemsSource = new wijmo.collections.CollectionView([]);*/
+        $('#btnJobResDetail').attr('disabled', true);
+        $('#btnSemiJobResDetail').attr('disabled', true);
+      }//sujuSearch
+    }//ProdPlanPage
+
+    let pageProdOrder;
+
+    $(document).ready(function (e) {
+      pageProdOrder = new ProdPlanPage();
+      pageProdOrder.sujuSearch();
+    });
+
+  </script>
+</th:block>
+</html>

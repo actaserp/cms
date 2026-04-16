@@ -1,0 +1,212 @@
+<th:block th:fragment="popup_select_user_code">
+<script type="text/x-tmpl" id="select-user-code-template">
+    <div class="content_wrap popup">
+        <section class="pt-2">
+            <div class="table_box search" name="select-user-code-info">
+            </div>
+            <div class="table_box sub" name="select-user-code-manual">
+                <div class="row">
+                    <div class="col-12">
+                        <table class="write-table">
+                            <tbody>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="">직접입력</label>
+                                </th>
+                                <td>
+                                    <input style="width:100%;" type="text" value="" name="select-user-code-manual-input" />
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="grid_box">
+                <div id="select-user-code-grid" style="height: 200px;"></div>
+            </div>
+        </section>
+
+        <div class="popup-button">
+                <button type="button" class="btn-popup" name="btn-select-user-code"><span data-commonCd="선택">선택</span></button>
+                <button type="button" class="btn-popup" name="btn-close-user-code"><span data-commonCd="닫기">닫기</span></button>
+        </div>
+    </div>
+</script>
+
+<script type="text/javascript">
+
+    class PopupSelectUserCodePage {
+        constructor(_option) {
+            this.option = {
+                'title': '사용자코드',
+                'parentCode': '',
+                'infoData': [],
+                'showManual': true,
+                'popupWidth': 850,
+                'popupHeight': 500,
+                'selectBtnLabel': '선택',
+                'gridColumns': [
+                    { binding: 'id', header: 'ID', width: 0, visible: false },
+                    { binding: 'Code', header: '코드', width: '*', align: 'center', visible: false },
+                    { binding: 'Value', header: '코드명', width: '*', align: 'left' }
+                ],
+                'gridShowCode': false,
+                'gridCodeLabel': '',
+                'gridValueLabel': '',
+                'closeManual': false,
+            };
+
+            $.extend(this.option, _option);
+
+            let _this = this;
+            if (this.option.gridShowCode) {
+                this.option.gridColumns.forEach(col => {
+                    if (col.binding === 'Code') {
+                        col.visible = true;
+                    }
+                });
+            }
+            if (this.option.gridCodeLabel) {
+                this.option.gridColumns.forEach(col => {
+                    if (col.binding === 'Code') {
+                        col.header = this.option.gridCodeLabel;
+                    }
+                });
+            }
+            if (this.option.gridValueLabel) {
+                this.option.gridColumns.forEach(col => {
+                    if (col.binding === 'Value') {
+                        col.header = this.option.gridValueLabel;
+                    }
+                });
+            }
+
+            this.grid = null;
+            this.selectedItem = null;
+            this.callback = null;
+            this.modalContainer = new PopupDraggable(this.option.title);
+        }
+
+        show(callback) {
+            let _this = this;
+
+            this.callback = callback;
+
+            let content = tmpl('select-user-code-template', {});
+            let $content = $(content);
+            this.modalContainer.open({ width: this.option.popupWidth, height: this.option.popupHeight, $content });
+
+            if (this.option.infoHtml === '') {
+                $($content.find('[name=select-user-code-info]:eq(0)')).hide();
+            } else {
+                $($content.find('[name=select-user-code-info]:eq(0)')).show();
+                $($content.find('[name=select-user-code-info]:eq(0)')).html(this.option.infoHtml)
+            }
+
+            if (this.option.showManual) {
+                $($content.find('[name=select-user-code-manual]:eq(0)')).show();
+            } else {
+                $($content.find('[name=select-user-code-manual]:eq(0)')).hide();
+            }
+
+            if (this.option.infoData.length > 0) {
+                $($content.find('[name=select-user-code-info]:eq(0)')).show();
+                let $row = $('<div class="row"></div >');
+
+                $.each(this.option.infoData, function (index, item) {
+                    let o = {
+                        'label': '-',
+                        'value': '-',
+                        'width': '12',
+                    }
+
+                    $.extend(o, item);
+
+                    let html = '<div class="col-' + o.width + '">'
+                    html += '   <table class="write-table">'
+                    html += '      <tbody>'
+                    html += '          <tr>'
+                    html += '              <th style="text-align: center"> ' + o.label + ' </th>'
+                    html += '              <td><input class="form-control2" type="text" value="' + o.value + '" disabled /></td>'
+                    html += '          </tr>'
+                    html += '      </tbody>';
+                    html += '   </table>';
+                    html += '   </div>';
+
+                    $row.append($(html));
+                });
+
+                $($content.find('[name=select-user-code-info]:eq(0)')).append($row);
+            } else {
+                $($content.find('[name=select-user-code-info]:eq(0)')).hide();
+            }
+
+            $($content.find('[name=btn-select-user-code]:eq(0)')).html('<span data-commonCd="' + this.option.selectBtnLabel + '">' + this.option.selectBtnLabel + '</span>');
+            $($content.find('[name=btn-select-user-code]:eq(0)')).click(function () {
+                _this.select();
+            });
+            $($content.find('[name=btn-close-user-code]:eq(0)')).click(function () {
+                _this.close();
+            });
+
+            this.grid = new wijmo.grid.FlexGrid('#select-user-code-grid', {
+                autoGenerateColumns: false,
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                frozenColumns: 0,
+                frozenRows: 0,
+                allowSorting: true,
+                isReadOnly: true,
+                headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                itemsSource: new wijmo.collections.CollectionView([]),
+                formatItem: (s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                    }
+                },
+                columns: this.option.gridColumns
+            });
+
+            let url = '/api/popup/search_user_code/read';
+            let data = {
+                'parent_code': this.option.parentCode,
+            };
+
+            let result = AjaxUtil.getSyncData(url, data);
+            if (result != null) {
+                this.grid.itemsSource.sourceCollection = result;
+                this.grid.refresh();
+            }
+            //setTimeout(function(){_this.grid.align();}, 1000);
+        }
+
+        select() {
+            const selectedItems = this.grid.selectedItems[0];
+
+            if (this.option.showManual) {
+                const $input = document.querySelector('[name=select-user-code-manual-input]:nth-of-type(1)');
+                if ((!selectedItems || selectedItems.length === 0) && (!$input || $input.value.trim() === '')) {
+                    Alert.alert('', '직접입력 및 선택된 항목이 없습니다.');
+                } else {
+                    this.callback({ 'selected': selectedItems, 'input': $input ? $input.value : '' });
+                    if (!this.option.closeManual) {
+                        this.close();
+                    }
+                }
+            } else {
+                if (!selectedItems || selectedItems.length === 0) {
+                    Alert.alert('', '선택된 항목이 없습니다.');
+                } else {
+                    this.callback({ 'selected': selectedItems, 'input': '' });
+                    if (!this.option.closeManual) {
+                        this.close();
+                    }
+                }
+            }
+        }
+
+        close() {
+            this.modalContainer.close();
+        }
+    }
+</script>

@@ -1,0 +1,542 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="content_wrap">
+        <section>
+            <div class="title_box ">
+                <div class="left_align">
+                    <h3 data-labelCd="공정별 BOM">공정별 BOM</h3>
+                </div>
+                <small2></small2>
+                <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i
+                        class="fas fa-filter"></i></button>
+                <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i
+                        class="fas fa-compress" id="iCompress"></i></button>
+            </div>
+
+            <div class="table_box search">
+                <div class="row">
+
+                    <div class="col-6 col-md-3 col-xl-2">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="라우팅명">라우팅명</span>
+                            </div>
+                            <input class="form-control2" id="txtRouting" name="txtRouting"/>
+                        </div>
+                    </div>
+
+                    <div class="col-1">
+                        <button type="button" class="btn-default" id="btnSearch" title="조회"><i
+                                class="fas fa-search"></i></button>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="mb-1">
+                <label class="switch">
+                    <input type="checkbox" checked id="btnRoutingGridToggle"><span class="slider round"></span>
+                </label>
+                라우팅 목록 보기/감추기
+            </div>
+
+            <div class="grid_box" id="routingList">
+                <div class="title_box">
+                    <span class="right_align rpt" data-labelCd="라우팅 목록">라우팅 목록</span>
+                    <button type="button" class="btn-default" id="btnExcel" title="엑셀 다운로드"><i
+                            class="fas fa-file-excel"></i></button>
+                    <button type="button" class="btn-default" id="btnRoutingGridSetting" style="visibility:hidden"><i
+                            class="fas fa-cog"></i> Setting
+                    </button>
+                </div>
+                <div class="h-250" data-ax5grid="routing-grid"></div>
+            </div>
+        </section>
+
+        <section>
+            <div class="grid_box">
+                <div class="title_box">
+                    <span class="right_align rpt" data-labelCd="해당제품">해당제품</span>
+                    <button type="button" class="btn-default" id="btnExcel1" title="엑셀 다운로드"><i
+                            class="fas fa-file-excel"></i></button>
+                    <button type="button" class="btn-default" id="btnProductGridSetting" style="visibility:hidden"><i
+                            class="fas fa-cog"></i> Setting
+                    </button>
+                </div>
+                <div class="h-250" data-ax5grid="product-grid"></div>
+            </div>
+        </section>
+
+        <section>
+            <div class="grid_box">
+                <div class="title_box">
+                    <span class="right_align rpt" data-labelCd="공정별 BOM">공정별 BOM</span>
+                    <select id="bomVersion" name="bomVersion"></select>
+                    <button type="button" class="btn-default" id="btnBomSearch" title="BOM 조회"><i
+                            class="fas fa-search"></i></button>
+                    <button type="button" class="btn-default" id="btnBomSave" title="BOM 저장"><i
+                            class="fas fa-save"></i></button>
+                    <button type="button" class="btn-default" id="btnExcel2" title="엑셀 다운로드"><i
+                            class="fas fa-file-excel"></i></button>
+                    <button type="button" class="btn-default" id="btnBomGridSetting" style="visibility:hidden"><i
+                            class="fas fa-cog"></i> Setting
+                    </button>
+                </div>
+                <div class="h-250" data-ax5grid="bom-grid"></div>
+            </div>
+        </section>
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+
+    <script type="text/javascript">
+        class BomProcCompPage {
+            constructor() {
+                this.routingGrid = null;
+                this.productGrid = null;
+                this.bomGrid = null;
+
+                this.selectedRoutingId = null;
+                this.selectedProdId = null;
+                this.selectedBomId = null;
+                this.procList = [];
+
+                this.baseUrl = '/api/definition/bom_proc_comp';
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+                let routingConfig = {
+                    target: $('[data-ax5grid="routing-grid"]'),
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: true, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 38  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            this.self.select(this.dindex);
+                            _this.initSelectedInfo();
+                            _this.showProductList(this.item.routing_id);
+                        }
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        {key: 'routing_name', label: '라우팅명', width: 200, align: 'left'},
+                        {key: 'proc_count', label: '공정수', width: 120, align: 'right', formatter: 'money'},
+                        {key: 'mat_count', label: '해당제품수', width: 120, align: 'right', formatter: 'money'},
+                        {key: 'routing_desc', label: '라우팅 비고', width: 300, align: 'left'},
+                    ]
+                };
+
+                this.routingGridConfig = routingConfig;  // 컬럼설정 팝업에 넘기기 위한 용도로 저장해 놓음.
+                this.routingGrid = new ax5.ui.grid(routingConfig);
+
+                let productConfig = {
+                    target: $('[data-ax5grid="product-grid"]'),
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: true, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 38  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            this.self.select(this.dindex);
+                            _this.initSelectedInfo();
+
+                            _this.selectedRoutingId = this.item.routing_pk;
+                            _this.selectedProdId = this.item.prod_pk;
+                            _this.selectedBomId = this.item.bom_id;
+
+                            _this.bomGrid.setData([]);
+                            //_this.showBomList(this.item.bom_id, this.item.routing_pk);
+                            AjaxUtil.fillSelectOptions($('#bomVersion'), 'bom_version', 'choose', this.item.bom_id, this.item.prod_pk);
+                        }
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        {key: 'prod_grp_name', label: '제품그룹', width: 200, align: 'left'},
+                        {key: 'prod_code', label: '제품코드', width: 200, align: 'left'},
+                        {key: 'prod_name', label: '제품명', width: 200, align: 'left'},
+                        {key: 'base_prod_qty', label: '기준생산량', width: 120, align: 'right', formatter: 'money'},
+                        {key: 'bom_version', label: 'BOM버전', width: 120, align: 'center', formatter: 'money'},
+                        {key: 'pc_check', label: '공정별 BOM', width: 120, align: 'center'},
+                    ]
+                };
+
+                this.productGridConfig = productConfig;  // 컬럼설정 팝업에 넘기기 위한 용도로 저장해 놓음.
+                this.productGrid = new ax5.ui.grid(productConfig);
+
+                let bomConfig = {
+                    target: $('[data-ax5grid="bom-grid"]'),
+                    frozenColumnIndex: 6, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: true, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 30  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            this.self.select(this.dindex);
+                        },
+                        onDataChanged: function () {
+                            let row = this;
+                            let bom_sum = 0;
+
+                            Object.keys(this.item).map(function (key) {
+                                if (key.includes('amount_')) {
+                                    if (row.item[key]) {
+                                        bom_sum += parseFloat(row.item[key]);
+                                    }
+                                }
+                            });
+
+                            _this.bomGrid.setValue(this.dindex, 'bom_sum', bom_sum)
+                        }
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        {key: 'mat_grp_name', label: '품목그룹', width: 120, align: 'left'},
+                        {key: 'mat_code', label: '품목코드', width: 100, align: 'left'},
+                        {key: 'mat_name', label: '품목명', width: 200, align: 'left'},
+                        {key: 'unit_name', label: '단위', width: 80, align: 'left'},
+                        {key: 'tot_amount', label: '전체수량', width: 100, align: 'right', formatter: 'money'},
+                        {key: 'bom_sum', label: '공정별 합계', width: 100, align: 'right', formatter: 'money'},
+                    ]
+                }
+
+                this.bomGridConfig = bomConfig;
+                this.bomGrid = new ax5.ui.grid(bomConfig);
+            }
+
+            // 라우팅 목록 조회
+            searchMainData() {
+                let _this = this;
+
+                let param = {
+                    'action': 'routing_list',
+                    'routing_name': $('#txtRouting').val()
+                }
+
+                let result = AjaxUtil.getSyncData(this.baseUrl, param);
+                if (result) {
+                    let recordsTotal = result.length;
+                    this.routingGrid.setData({
+                        list: result,
+                        page: {
+                            display: true,
+                            totalElements: recordsTotal
+                        }
+                    });
+                }
+
+                this.productGrid.setData([]);
+                this.bomGrid.setData([]);
+                AjaxUtil.fillSelectOptions($('#bomVersion'), '', 'choose', false);
+                this.initSelectedInfo();
+            }
+
+            // page 변수 및 bomGrid 컬럼 초기화
+            initSelectedInfo() {
+                this.selectedRoutingId = null;
+                this.selectedProdId = null;
+                this.selectedBomId = null;
+                this.procList = [];
+
+                this.deleteProcessColumn();
+            }
+
+            // 해당제품 목록 조회
+            showProductList(routingId) {
+                let _this = this;
+
+                let param = {
+                    'action': 'routing_prod_list',
+                    'routing_pk': routingId,
+                }
+
+                let result = AjaxUtil.getSyncData(this.baseUrl, param);
+                if (result) {
+                    let recordsTotal = result.length;
+                    this.productGrid.setData({
+                        list: result,
+                        page: {
+                            display: true,
+                            totalElements: recordsTotal
+                        }
+                    });
+                }
+
+                this.bomGrid.setData([]);
+                AjaxUtil.fillSelectOptions($('#bomVersion'), '', 'choose', false);
+            }
+
+            // 공정별 BOM 조회
+            showBomList(bomId, routingId) {
+                let _this = this;
+
+                let param = {
+                    'action': 'bom_proc_comp_sheet',
+                    'bom_pk': bomId,
+                    'routing_pk': routingId,
+                }
+
+                this.bomGrid.setData([]);
+
+                if (bomId && routingId) {
+                    let result = AjaxUtil.getSyncData(this.baseUrl, param);
+                    if (result) {
+                        _this.addProcessColumn(result.process);
+                        let recordsTotal = result.length;
+                        this.bomGrid.setData({
+                            list: result.sheet,
+                            page: {
+                                display: true,
+                                totalElements: recordsTotal
+                            }
+                        });
+                    }
+                }
+            }
+
+            // 공정별 BOM 저장
+            saveBomProc() {
+                let _this = this;
+                let valid = true;
+                let selectedProductItem = this.productGrid.getList('selected')[0];
+                let bomList = this.bomGrid.getList();
+                let url = '/api/definition/bom_proc_comp?action=save_bom_proc_comp';
+
+                if (bomList.length == 0) {
+                    Alert.alert('', 'BOM목록이 없습니다.');
+                    return;
+                }
+
+                bomList.forEach(function (item) {
+                    if (!item.tot_amount || !item.bom_sum) {
+                        valid = false;
+                    } else if (item.tot_amount != item.bom_sum) {
+                        valid = false;
+                    }
+                });
+
+                if (valid) {
+                    let data = {
+                        'routing_pk': this.selectedRoutingId,
+                        'prod_pk': this.selectedProdId,
+                        'bom_pk': $('#bomVersion').val(),
+                        'proc_list': JSON.stringify(this.procList),
+                        'amount_list': JSON.stringify(bomList),
+                    }
+
+                    let fnSuccess = function (res) {
+                        if (res.success) {
+                            Notify.success('저장되었습니다');
+
+                            // productGrid update
+                            selectedProductItem.pc_check = 'O';
+                            _this.productGrid.updateRow(selectedProductItem, parseInt(selectedProductItem.__index));
+
+                            // bomGrid refresh
+                            _this.deleteProcessColumn();
+                            _this.showBomList($('#bomVersion').val(), _this.selectedRoutingId);
+                        }
+                    }
+
+                    AjaxUtil.postAsyncData(url, data, fnSuccess);
+                } else {
+                    Alert.alert('', '전체 수량과 공정별 수량 합계가 \n 일치하지 않습니다.');
+                }
+            }
+
+            // BOM Grid 공정 컬럼 삭제
+            deleteProcessColumn() {
+                let _this = this;
+
+                let frozenColIdx = this.bomGridConfig.frozenColumnIndex;
+                let colLength = this.bomGrid.columns.length;
+                let delCnt = colLength - frozenColIdx;
+
+                for (var i = 0; i < delCnt; i++) {
+                    this.bomGrid.removeColumn();
+                }
+            }
+
+            // BOM Grid 공정 컬럼 추가
+            addProcessColumn(process) {
+                let _this = this;
+
+                this.procList = [];
+
+                process.forEach(function (item, idx) {
+                    // 컬럼추가
+                    let colProcess = {
+                        key: 'amount_' + (idx + 1),
+                        label: '<span class="editable_clr">' + item.Name + '</span>',
+                        width: 120, align: 'right', editor: {type: 'number'}, formatter: 'money'
+                    };
+
+                    _this.bomGrid.addColumn(colProcess);
+
+                    // 공정정보 추가
+                    let processInfo = {
+                        proc_id: item.proc_id,
+                        proc_name: item.Name,
+                        col_key: 'amount_' + (idx + 1),
+                    }
+
+                    _this.procList.push(processInfo);
+                });
+            }
+
+            // 엑셀 다운로드
+            exportExcel(type) {
+                let _this = this;
+                let targetView = null;
+                let excelName = '';
+
+                if (type == 'routing') {
+                    targetView = this.routingGrid;
+                    excelName = '라우팅내역.xls';
+                } else if (type == 'product') {
+                    targetView = this.productGrid;
+                    excelName = '제품내역.xls';
+                } else if (type == 'bom') {
+                    targetView = this.bomGrid;
+                    excelName = 'BOM내역.xls';
+                }
+
+                targetView.exportExcel(excelName);
+            }
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new BomProcCompPage();
+            AjaxUtil.fillSelectOptions($('#bomVersion'), '', 'choose', false);
+
+            // 검색
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            // 엑셀 다운로드
+            $('#btnExcel').on('click', function () {
+                page.exportExcel('routing');
+            });
+            $('#btnExcel1').on('click', function () {
+                page.exportExcel('product');
+            });
+            $('#btnExcel2').on('click', function () {
+                page.exportExcel('bom');
+            });
+
+            // 보기/감추기 버튼
+            $('#btnRoutingGridToggle').click(function (e) {
+                $("#routingList").toggle(300);
+            });
+
+            // 공정별 BOM 조회
+            $('#btnBomSearch').click(function (e) {
+                if ($('#bomVersion').val() && page.selectedRoutingId) {
+                    page.deleteProcessColumn();
+                    page.showBomList($('#bomVersion').val(), page.selectedRoutingId);
+                } else {
+                    Alert.alert('', '라우팅, 제품, BOM버전을 선택해주세요.');
+                }
+            });
+
+            // bom version 변경시 bom list 조회
+            $('#bomVersion').change(function () {
+                if ($('#bomVersion').val()) {
+                    page.deleteProcessColumn();
+                    page.showBomList($('#bomVersion').val(), page.selectedRoutingId);
+                } else {
+                    page.deleteProcessColumn();
+                    page.bomGrid.setData([]);
+                }
+            });
+
+            // 공정별 BOM 저장
+            $('#btnBomSave').click(function (e) {
+                page.saveBomProc();
+            });
+
+            //그리드 컬럼 설정 버튼
+            page.popColSetting = new popColSetting();
+            let columns1 = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'routingGrid', page.routingGrid);
+            let columns2 = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'productGrid', page.productGrid);
+            let columns3 = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'bomGrid', page.bomGrid);
+
+            if (userinfo.group_code == 'admin') {
+                $('#btnRoutingGridSetting').css('visibility', 'visible');
+                $('#btnProductGridSetting').css('visibility', 'visible');
+                $('#btnBomGridSetting').css('visibility', 'visible');
+            }
+
+            $('#btnRoutingGridSetting').click(function (e) {
+                let fix_cols = page.routingGridConfig.frozenColumnIndex;
+                page.popColSetting.show(gui.gui_code, gui.template_key, 'routingGrid', page.routingGridConfig.columns, page.routingGrid, {
+                    'order_fix': false,
+                    'fix_cols': fix_cols
+                });
+            });
+
+            $('#btnProductGridSetting').click(function (e) {
+                let fix_cols = page.productGridConfig.frozenColumnIndex;
+                page.popColSetting.show(gui.gui_code, gui.template_key, 'productGrid', page.productGridConfig.columns, page.productGrid, {
+                    'order_fix': false,
+                    'fix_cols': fix_cols
+                });
+            });
+
+            $('#btnBomGridSetting').click(function (e) {
+                let fix_cols = page.bomGridConfig.frozenColumnIndex;
+                page.popColSetting.show(gui.gui_code, gui.template_key, 'bomGrid', page.bomGridConfig.columns, page.bomGrid, {
+                    'order_fix': false,
+                    'fix_cols': fix_cols
+                });
+            });
+
+            page.searchMainData();
+
+        });
+    </script>
+</th:block>
+</html>

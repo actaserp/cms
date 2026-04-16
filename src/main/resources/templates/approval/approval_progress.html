@@ -1,0 +1,595 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<style>
+  #theGrid {
+    width: 100%;
+    height: 400px;
+    overflow: auto; /* 스크롤 활성화 */
+  }
+
+  .wj-flexgrid .wj-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    overflow: auto;
+  }
+
+</style>
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <!-- Page Title -->
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>결재진행현황</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>전자결재</li>
+        <li>결재진행현황</li>
+      </ul>
+    </div>
+    <!-- Select -->
+    <div class="search-wrap" id="searchWrap" style="display: none; padding-top:10px">
+      <ul>
+        <li>
+          <select title="사업장코드" id="search_spjangcd" name="search_sjangcd"
+                  onchange="init()">
+            <option value="" hidden selected disabled>선택</option>
+            <option value="ZZ">대한럭비협회</option>
+            <option value="PP"></option>
+            <!-- 지역 옵션을 JavaScript에서 동적으로 채움 -->
+          </select>
+        </li>
+      </ul>
+    </div>
+    <div class="tab-contents">
+      <section class="tab-item" id="tab2" style="overflow: hidden;">
+        <div class="section-top">
+          <div class="search-wrap">
+            <dl>
+              <dt>
+                <label for="searchUserNm">
+                  작성일자<span class="eq">*</span>
+                </label>
+              </dt>
+              <dd>
+                <ul class="date-box">
+                  <li>
+                    <input type="date" id="startDate" name="startDate">
+                    <label for="startDate" class="hide">시작일</label>
+                  </li>
+                  <li>
+                    <input type="date" id="endDate" name="endDate">
+                    <label for="endDate" class="hide">종료일</label>
+                  </li>
+                </ul>
+              </dd>
+            </dl>
+            <dl>
+              <dt>
+                <label for="SearchPayment">
+                  진행구분<span class="eq"></span>
+                </label>
+              </dt>
+              <dd>
+                <div class="srch-box">
+                  <select id="SearchPayment" name="SearchPayment">
+                    <option value="all"></option>
+                  </select>
+                </div>
+              </dd>
+            </dl>
+            <dl>
+              <dt>
+                <label for="searchUserNm">
+                  제목<span class="eq">*</span>
+                </label>
+              </dt>
+              <dd>
+                <div class="srch-box">
+                  <input type="text" id="searchUserNm" name="searchUserNm" class="input-srch"
+                         placeholder="제목" style="border-radius: 5px;">
+                </div>
+              </dd>
+            </dl>
+            <dl>
+              <dt>&nbsp;</dt>
+              <dd>
+                <li>
+                  <a class="btn btn-delete" title="검색" id="searchButton1" onclick="Search()">
+                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                    검색
+                  </a>
+                </li>
+              </dd>
+            </dl>
+          </div>
+        </div>
+
+        <div class="container-fluid">
+          <p id="selectedItem"></p>
+          <div id="theGrid1" ></div>
+          <div id="theGrid"  style="height: 400px"></div>
+          <div id="theGrid2" style="max-height: 250px"></div>
+        </div>
+      </section>
+    </div> <!--//tab-wrap end-->
+  </div> <!--//layout-contents end -->
+  <footer>
+    <p>ⓒ factCheck corp.All rights reserved.</p>
+  </footer>
+
+</th:block>
+<th:block layout:fragment="scripts">
+  <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="text/javascript">
+    let theGrid;
+    let theGrid1;
+    let theGrid2;
+    // let isBindSpjangcdCalled = false;
+
+    $(document).ready(function () {
+      // 현재 날짜 설정
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth();
+      AjaxUtil.fillSelectOptions($('#SearchPayment'), 'system_code', 'choose', false, 'approval_status');
+
+      //시작일: 이번 달 1일
+      const startOfMonth = new Date(year, month, 1);
+      const startFormatted = `${startOfMonth.getFullYear()}-${String(startOfMonth.getMonth() + 1).padStart(2, '0')}-${String(startOfMonth.getDate()).padStart(2, '0')}`;
+      $('#startDate').val(startFormatted);
+
+      // 종료일
+      const endOfMonth = new Date(year, month + 1, 0);
+      const endMonthFormatted = `${endOfMonth.getFullYear()}-${String(endOfMonth.getMonth() + 1).padStart(2, '0')}-${String(endOfMonth.getDate()).padStart(2, '0')}`;
+      $('#endDate').val(endMonthFormatted);
+      init();
+    });
+
+    document.getElementById('searchUserNm').addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') {
+        Search(); // 엔터 키를 눌렀을 때 실행할 함수
+      }
+    })
+
+    function init() {
+      // if (!isBindSpjangcdCalled) {
+      //   bindSpjangcd();
+      //   isBindSpjangcdCalled = true; // 플래그 업데이트
+      // }
+      fetchListData();
+      fetchListData1();
+    }
+
+    function Search(){
+      fetchListData();
+      fetchListData1();
+    }
+
+    function fetchListData() {
+      let data = [];
+
+      const params = {
+        search_spjangcd: sessionStorage.getItem('spjangcd'),
+        startDate: $('#startDate').val(),
+        endDate: $('#endDate').val(),
+        SearchPayment:$('#SearchPayment').val(),
+        searchUserNm: $('#searchUserNm').val()
+      };
+
+      console.log("수집 데이터(결재 목록)",params);
+
+      // 서버에서 데이터 가져오기
+      $.ajax({
+        url: '/api/PaymentList/read',
+        type: 'GET',
+        data: params,
+        async: false,
+        success: function (response) {
+          console.log("서버에서 받은 데이터(결재 목록) :", response);
+          // 응답이 올바르게 도착했고, data 속성이 배열인지 확인
+          if (response && Array.isArray(response.data)) {
+            console.log("서버에서 받은 데이터 목록:", response.data); //실제 데이터 확인
+          }
+          if (response && Array.isArray(response.data)) {
+            data = response.data.map((item, index) => ({
+              rownum: index + 1,
+              appdate: item.appdate ||'',
+              appgubun : item.appgubun || '',
+              appgubun_display: item.appgubun_display ||'',
+              appnum: item.appnum || '',
+              appperid: item.appperid||'',
+              papercd: item.papercd || '',
+              papercd_name : item.papercd_name || '',
+              remark :item.remark ||'',
+              repodate: item.repodate || '' ,
+              repoperid: item.repoperid || '' ,
+              repopernm : item.repopernm||'',
+              title: item.title ||'',
+              fileList: item.fileList || [],
+              isdownload: item.isdownload || false,
+              indate: item.indate || ''
+
+            }));
+            const jeonpyoFiles = [];
+            const atchFiles = [];
+
+            data.forEach(item => {
+              if (item.isdownload && item.fileList.length > 0) {
+                item.fileList.forEach(file => {
+                  const fileInfo = {
+                    filepath: file.filepath,
+                    filesvnm: file.filesvnm,
+                    fileornm: file.fileornm
+                  };
+                  if (file.fileType === '전표') {
+                    jeonpyoFiles.push(fileInfo);
+                  } else if (file.fileType === '첨부') {
+                    atchFiles.push(fileInfo);
+                  }
+                });
+              }
+            });
+          }
+        },
+        error: function () {
+          console.error("데이터를 가져오는 중 오류가 발생했습니다.");
+        }
+      });
+
+      while (data.length < 12) {
+        data.push({
+          rownum: data.length + 1,
+          appdate: '',
+          appgubun:'',
+          appgubun_display:'',
+          appnum:'',
+          appperid:'',
+          papercd:'',
+          papercd_name:'',
+          remark:'',
+          repodate:'',
+          repoperid:'',
+          repopernm:'',
+          title:'' ,
+          fileList:'',
+          jeonpyoFiles:'',
+          atchFiles:'',
+          isdownload: '',
+          indate: ''
+        });
+      }
+
+      const viewdata = new wijmo.collections.CollectionView(data);
+
+      if (!theGrid) {
+        theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          selectionMode: 'ListBox',
+          virtualizationThreshold: 1,
+          columns: [
+            {binding: 'rownum', header: '순번', width: 70, align: 'center'},
+            {binding: 'appnum', header: '문서번호', width: '*', minWidth: 200, align: 'center', visible: false},
+            {binding: 'indate', header: '상신일자', width: '*', minWidth: 120, align: 'center'},
+            {binding: 'repopernm', header: '작성자명', width: '*', minWidth: 110, align: 'center'},
+            {binding: 'papercd', header: '문서명', width: '*', minWidth: 250, align: 'center', visible: false},
+            {binding: 'papercd_name', header: '문서명', width: '*', minWidth: 250, align: 'center'},
+            {binding: 'appgubun', header: '결재구분', width: '*', minWidth: 100, align: 'center',  visible: false },
+            {binding: 'appgubun_display', header: '결재구분', width: '*', minWidth: 100, align: 'center'},
+            {binding: 'repodate', header: '결재일자', width: '*', minWidth: 120, align: 'center'},
+            {binding: 'title', header: '제목', width: '*', align: 'center', minWidth: 150},
+            {binding: 'remark', header: '사유',width: '*' ,align: 'left', minWidth: 150},
+            {binding: 'fileList', header: '다운로드', width: '*', minWidth: 120, align: 'center', visible: false },
+            {binding: 'jeonpyoFiles', header: '전표파일', width: '*', minWidth: 120, align: 'center', visible: false },
+            {binding: 'atchFiles', header: '첨부파일', width: '*', minWidth: 120, align: 'center',  visible: false },
+            {binding:'appperid', header: '', visible: false },
+            {binding:'repoperid', header: '', visible: false },
+            {binding: 'isdownload', visible: false},
+          ],
+          itemsSource: viewdata,
+          itemFormatter: function (panel, r, c, cell) {
+            if (panel.cellType === wijmo.grid.CellType.Cell) {
+              let item = panel.rows[r].dataItem;
+              let col = panel.columns[c];
+
+              // 📥 전체 다운로드 컬럼
+              if (panel.columns[c].binding === 'fileList') {
+                cell.innerHTML = ''; // 기존 내용 삭제
+
+                if (item.isdownload && item.fileList.length > 0) {
+                  let file = item.fileList[0]; // 첫 번째 파일
+                  let downloadBtn = document.createElement("a");
+                  downloadBtn.href = "#";
+                  downloadBtn.classList.add("btn-filedown");
+                  downloadBtn.title = "다운로드"
+                  downloadBtn.textContent = file.fileornm;
+
+                  downloadBtn.onclick = function (event) {
+                    event.preventDefault();
+                    downloadFile(item.fileList);
+                  };
+
+                  cell.appendChild(downloadBtn);
+                }
+              }
+
+              // 📄 전표파일 컬럼
+              else if (col.binding === 'jeonpyoFiles') {
+                const jeonpyoFiles = Array.isArray(item.fileList)
+                        ? item.fileList.filter(f => f.fileType === '전표')
+                        : [];
+                if (jeonpyoFiles.length > 0) {
+                  jeonpyoFiles.forEach(file => {
+                    const btn = document.createElement("a");
+                    btn.href = "#";
+                    btn.classList.add("btn-filedown");
+                    btn.title = "전표파일";
+                    btn.textContent = file.fileornm;
+                    btn.onclick = function (e) {
+                      e.preventDefault();
+                      downloadFile([file]);
+                    };
+                    cell.appendChild(btn);
+                    cell.appendChild(document.createElement("br"));
+                  });
+                } else {
+                  cell.textContent = '';
+                }
+              }
+              // 📎 첨부파일 컬럼
+              else if (col.binding === 'atchFiles') {
+                const atchFiles = Array.isArray(item.fileList)
+                        ? item.fileList.filter(f => f.fileType === '첨부')
+                        : [];
+                if (atchFiles.length > 0) {
+                  atchFiles.forEach(file => {
+                    const btn = document.createElement("a");
+                    btn.href = "#";
+                    btn.classList.add("btn-filedown");
+                    btn.title = "첨부파일";
+                    btn.textContent = file.fileornm;
+                    btn.onclick = function (e) {
+                      e.preventDefault();
+                      downloadFile([file]);
+                    };
+                    cell.appendChild(btn);
+                    cell.appendChild(document.createElement("br"));
+                  });
+                } else {
+                  cell.textContent = '';
+                }
+              }
+            }
+          }
+        });
+        theGrid.rowHeaders.columns.splice(0, 1);
+        attachClickEvent(theGrid); //더블 클릭 이벤트
+        new FlexGridContextMenu(theGrid);
+        window.downloadFileName = '결재 목록';
+      } else {
+        theGrid.itemsSource = viewdata;
+      }
+    }
+
+    function attachClickEvent(grid) {
+      grid.hostElement.addEventListener('click', function (e) {
+        const ht = grid.hitTest(e);
+
+        if (ht.cellType === wijmo.grid.CellType.Cell) {
+          const rowData = grid.rows[ht.row].dataItem; // 클릭한 행의 데이터
+          console.log('Row Data:', rowData); // 디버깅
+
+          if (rowData) {
+            fetchListData2(rowData);
+          }
+        }
+      });
+    }
+
+    function fetchListData1() {
+      let data = [];
+
+      const params = {
+        search_spjangcd: sessionStorage.getItem('spjangcd'),
+        startDate: $('#startDate').val(),
+        endDate: $('#endDate').val(),
+        searchUserNm: $('#searchUserNm').val()
+      };
+
+      // 서버에서 데이터 가져오기
+      $.ajax({
+        url: '/api/PaymentList/read1',
+        type: 'GET',
+        data: params,
+        async: false,
+        success: function (response) {
+          console.log("서버에서 받은 데이터:", response);
+
+          if (response && response.data) {
+            const userName = response.data.userName || ''; // 사용자 이름 가져오기
+            const paymentList = response.data.paymentList || []; // 결재 목록 가져오기
+
+            if (Array.isArray(paymentList)) {
+              console.log("서버에서 받은 데이터 목록:", paymentList);
+
+              data = paymentList.map((item) => ({
+                userName: userName, // 모든 항목에 동일한 사용자 이름 추가
+                appgubun1: (item.appgubun1 || '0') + "건",
+                appgubun2: (item.appgubun2 || '0') + "건",
+                appgubun3: (item.appgubun3 || '0') + "건",
+                appgubun4: (item.appgubun4 || '0') + "건"
+              }));
+            }
+          }
+        },
+        error: function () {
+          console.error("데이터를 가져오는 중 오류가 발생했습니다.");
+        }
+      });
+
+      // 데이터가 비어 있으면 기본값 추가 (그리드가 깨지지 않도록)
+      if (data.length < 1) {
+        data.push({
+          userName: '',
+          appgubun1: '',
+          appgubun2: '',
+          appgubun3: '',
+          appgubun4: ''
+
+        });
+      }
+
+      const viewdata = new wijmo.collections.CollectionView(data);
+
+      if (!theGrid1) {
+        theGrid1 = new wijmo.grid.FlexGrid('#theGrid1', {
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          columns: [
+            { binding: 'userName', header: '결재자명', width: '*', minWidth: 100, align: 'center' },
+            { binding: 'appgubun1', header: '결재대기', width: '*', minWidth: 100, align: 'center' },
+            { binding: 'appgubun2', header: '결재문서', width: '*', minWidth: 100, align: 'center' },
+            { binding: 'appgubun4', header: '보류문서', width: '*', minWidth: 100, align: 'center' },
+            { binding: 'appgubun3', header: '반려문서', width: '*', minWidth: 100, align: 'center' },
+          ],
+          itemsSource: viewdata,
+        });
+        theGrid1.rowHeaders.columns.splice(0, 1);
+        new FlexGridContextMenu(theGrid1);
+        window.downloadFileName = '문서 현황';
+      } else {
+        theGrid1.itemsSource = viewdata;
+      }
+    }
+
+    function fetchListData2(rowData) {
+      let data = [];
+
+      appnum = rowData.appnum || '';
+
+      params={
+        appnum : appnum,
+        search_spjangcd: sessionStorage.getItem('spjangcd'),
+      }
+
+      // 서버에서 데이터 가져오기
+      $.ajax({
+        url: '/api/PaymentList/read2',
+        type: 'GET',
+        data: params,
+        async: false,
+        success: function (response) {
+          console.log("서버에서 받은 데이터:", response);
+          if (response && Array.isArray(response.data)) {
+            data = response.data.map((item, index) => ({
+              appnum:  item.appnum || '',
+              seq: item.seq || '' ,
+              personid: item.personid || '',
+              personnm: item.personnm || '',
+              appgubun_display: item.appgubun_display || '',
+              rspnm : item.rspnm ||'',
+              divinm : item.divinm || '',
+              appgubun : item.appgubun || '',
+              repodate: item.repodate || '',
+              remark : item.remark ||''
+            }));
+          }
+        },
+        error: function () {
+          console.error("데이터를 가져오는 중 오류가 발생했습니다.");
+        }
+      });
+
+      // 데이터가 비어 있으면 기본값 추가 (그리드가 깨지지 않도록)
+      if (data.length < 1) {
+        data.push({
+          appnum:  '',
+          seq:  '' ,
+          personid:  '',
+          personnm: '',
+          appgubun_display:'',
+          rspnm : '',
+          divinm:'',
+          appgubun :'',
+          repodate:  '',
+          remark : ''
+        });
+      }
+
+      const viewdata = new wijmo.collections.CollectionView(data);
+
+      if (!theGrid2) {
+        theGrid2 = new wijmo.grid.FlexGrid('#theGrid2', {
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          columns: [
+            {binding: 'appnum', header: '문서번호', width: '*', minWidth: 100, align: 'center',  visible: false},
+            {binding: 'seq', header: '결재순서', width: '*', minWidth: 100, align: 'center'},
+            {binding: 'personid', header: '결제사원코드', width: '*', minWidth: 100, align: 'center'},
+            {binding: 'personnm', header: '결재자명', width: '*', minWidth: 100, align: 'center'},
+            {binding: 'divinm', header: '부서명', width: '*', minWidth: 100, align: 'center'},
+            {binding: 'rspnm', header: '직급', width: '*', minWidth: 100, align: 'center'},
+            {binding: 'appgubun', header: '결재구분', width: '*', minWidth: 100, align: 'center', visible: false},
+            {binding: 'appgubun_display', header: '결재구분', width: '*', minWidth: 100, align: 'center'},
+            {binding: 'repodate', header: '결재일자', width: '*', minWidth: 100, align: 'center'},
+            {binding: 'remark', header: '사유', width: '*', minWidth: 100, align: 'left'},
+          ],
+          itemsSource: viewdata,
+          formatItem: function (s, e) {
+            if (e.panel == s.cells) {
+              const col = s.columns[e.col];
+              const item = s.rows[e.row].dataItem;
+
+              if (col.binding === 'appgubun_display') {
+                if (item.appgubun_display === '결재') {
+                  e.cell.style.color = 'red';
+                  e.cell.style.fontWeight = 'bold';
+                } else {
+                  // 스타일 초기화
+                  e.cell.style.color = '';
+                  e.cell.style.fontWeight = '';
+                }
+              }
+            }
+          }
+        });
+        theGrid2.rowHeaders.columns.splice(0, 1);
+        new FlexGridContextMenu(theGrid2);
+        window.downloadFileName = '결재 라인';
+      } else {
+        theGrid2.itemsSource = viewdata;
+      }
+    }
+
+    function downloadFile(fileList) {
+      if (!fileList || fileList.length === 0) {
+        console.warn("다운로드할 파일이 없습니다.");
+        return;
+      }
+
+      console.log("다운로드할 파일 목록:", fileList);
+
+      let downloadList = fileList.map(file => ({
+        filepath: file.filepath,
+        filesvnm: file.filesvnm,
+        fileornm: file.fileornm
+      }));
+
+      let downloadUrl = '/api/PaymentList/downloader';
+
+      // 파일 리스트를 서버에 전송하여 다운로드 실행
+      downloadFiles(downloadList, downloadUrl);
+    }
+
+
+  </script>
+</th:block>
+</html>

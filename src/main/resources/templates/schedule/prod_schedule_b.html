@@ -1,0 +1,1564 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+<div class="content_wrap">
+    <section>
+        <div class="title_box ">
+            <div class="left_align">
+                <h3 data-labelCd="임의 생산계획">임의 생산계획</h3>
+            </div>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>
+        </div>
+
+        <div class="table_box search">
+            <div class="row">
+                <div class="col-11 col-lg-6 col-xl-4" >
+                    <div class="input-group" >
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_sm" data-labelCd="등록일">등록일</span>
+                        </div> 
+                        <div data-ax5picker="multi" id="date_div">
+                            <div class="input-group-append">
+                                <input class="tac " type="text" id="date_from" name="date_from" />
+                                    <span class="input-group-text fs-xl">
+                                        <i class="fas fa-calendar-alt calendar_color" ></i>
+                                    </span>
+                                <span class="slow_sign">~</span>
+                                <input class="tac " type="text" id="date_to" name="date_to" />
+                                    <span class="input-group-text fs-xl">
+                                        <i class="fas fa-calendar-alt calendar_color"></i>
+                                    </span>
+                            </div>
+                            
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-1" >
+                        <button type="button" class="btn-default" id="btnBundleSearch" title="조회"><i class="fas fa-search"></i></button>
+                </div> 
+            </div>
+        </div>
+    </section>
+    <section>
+        <div class="grid_box" id="divList">
+            <div class="title_box">
+            <span class="left_align">새 생산계획을 만드려면 수주추가 탭에서 수주건들을 선택한 후 새 생산계획을 만들어야 합니다.</span>
+                <span class="right_align rpt" data-labelCd="생산계획">생산계획</span>
+            </div>
+                <div class="h-280" data-ax5grid="bundleHeadGrid" ></div>
+        </div>
+    </section>    
+    <section>
+        <div class="row">
+            <div class="tabs" data-tab="tabWrap">
+                <div class="title_box ">
+                    <div class="left_align">
+                        <ul class="tab_links">
+                            <li><a href="#" data-tablink=".tabs .tab1" id="tab1" class="tab" data-labelCd="수주추가">수주추가</a></li>
+                            <li><a href="#" data-tablink=".tabs .tab2" id="tab2" class="tab" data-labelCd="수주내역">수주내역</a></li>
+                            <li><a href="#" data-tablink=".tabs .tab3" id="tab3" class="tab" data-labelCd="제품필요량">제품필요량</a></li>
+                            <li><a href="#" data-tablink=".tabs .tab4" id="tab4" class="tab" data-labelCd="반제품소요량">반제품소요량</a></li>
+                            <li><a href="#" data-tablink=".tabs .tab5" id="tab5" class="tab" data-labelCd="원부자재소요량">원부자재소요량</a></li>
+                            <!--
+                            <li><a href="#" data-tablink=".tabs .tab6" id="tab6" class="tab">발주요청내역</a></li>
+                            -->
+                        </ul>
+                    </div>
+                </div>
+                <div class="tab-content">
+                    <div class="tab tab1">
+                        <div class="grid_box">
+                            <div class="title_box buttons">
+                                <span class="right_align rpt" data-labelCd="수주 추가">수주 추가</span>
+                                <div class="input-group-tab" >
+                                    <div class="input-group-append-tab">
+                                        <span class="input-group-text fit_box_sm" data-labelCd="일자">일자</span>
+                                    </div> 
+                                    <div data-ax5picker="multi2" id="date_div2" class="mr-1">
+                                        <div class="input-group-append-tab">
+                                            <input class="tac " type="text" id="plan_from" name="plan_from" />
+                                                <span class="input-group-text fs-xl">
+                                                    <i class="fas fa-calendar-alt calendar_color" ></i>
+                                                </span>
+                                            <span class="slow_sign">~</span>
+                                            <input class="tac " type="text" id="plan_to" name="plan_to" />
+                                                <span class="input-group-text fs-xl">
+                                                    <i class="fas fa-calendar-alt calendar_color"></i>
+                                                </span>
+                                        </div>
+                                    </div>
+                                    <button type="button" id="btnNotCountedSujuSearch" class="btn-default mr-1"><span data-labelCd="조회">조회</span></button>
+                                    <button type="button" id="btnNewBundleHeaderQty" class="btn-danger mr-1 y_write_auth"><span data-labelCd="새 생산계획 저장">새 생산계획 저장</span></button>
+                                    <button type="button" id="btnAddBundleSujuQty" class="btn-default mr-1 y_write_auth"><span data-labelCd="생산계획에 추가">생산계획에 추가</span></button>
+                                    <button type="button" class="btn-default" id="btnExcel1" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                                </div>
+                            </div>
+                            <div class="h-250" data-ax5grid="notCountedSujuGrid" ></div>
+                        </div>
+                    </div>
+
+                    <div class="tab tab2">
+                        <div class="grid_box">
+                            <div class="title_box">
+                                <span class="right_align rpt" data-labelCd="수주 내역">수주 내역</span>
+                                <button type="button" id="btnProdRequSum" class="btn-danger y_write_auth"><span data-labelCd="제품 필요량 집계">제품 필요량 집계</span></button>
+                                <button type="button" class="btn-default" id="btnExcel2" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                            </div>
+                            <div class="h-250" data-ax5grid="bundledSujuListGrid" ></div>
+                        </div>
+                    </div>
+
+                    <div class="tab tab3">
+                        <div class="grid_box">
+                            <div class="title_box buttons">
+                                <span class="right_align rpt" data-labelCd="제품 필요량">제품 필요량</span>
+                                <button type="button" id="btnProdRequSearch" class="btn-default"><span data-labelCd="조회">조회</span></button>
+                                <button type="button" id="btnProdReservation" class="btn-default y_write_auth"><span data-labelCd="재고예약">재고예약</span></button>
+                                <button type="button" id="btnProdQtySave" class="btn-default y_write_auth"><span data-labelCd="생산필요량저장">생산 필요량 저장</span></button>
+                                <button type="button" id="btnProdQtyConfirm" class="btn-danger y_write_auth"><span data-labelCd="생산필요량확정">생산 필요량 확정</span></button>
+                                <button type="button" class="btn-default" id="btnExcel3" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                            </div>
+                            <div class="h-250" data-ax5grid="productRequirementGrid" ></div>
+                        </div>
+                    </div>
+
+                    <div class="tab tab4">
+                        <div class="grid_box">
+                            <div class="title_box buttons">
+                                <span class="right_align rpt" data-labelCd="반제품 소요량">반제품 소요량</span>
+                                <button type="button" id="btnSemiRequSearch" class="btn-default"><span data-labelCd="반제품 소요량 조회">반제품 소요량 조회</span></button>
+                                <button type="button" id="btnSemiRequCalc" class="btn-danger y_write_auth"><span data-labelCd="소요량산출">소요량 산출</span></button>
+                                <button type="button" id="btnSemiReservation" class="btn-default y_write_auth"><span data-labelCd="재고예약">재고예약</span></button>
+                                <button type="button" id="btnSemiProdQtySave" class="btn-default y_write_auth"><span data-labelCd="반제품필요량저장">반제품 필요량 저장</span></button>
+                                <button type="button" id="btnSemiProdQtyConfirm" class="btn-danger y_write_auth"><span data-labelCd="반제품필요량확정">반제품 필요량 확정</span></button>
+                                <button type="button" class="btn-default" id="btnExcel4" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                            </div>
+                            <div class="h-250" data-ax5grid="semiProductRequiredGrid"></div>
+                        </div>
+                    </div>
+
+                    <div class="tab tab5">
+                        <div class="grid_box">
+                            <div class="title_box buttons">
+                                <span class="right_align rpt" data-labelCd="원부자재 소요량">원부자재 소요량</span>
+                                <button type="button" id="btnMatRequSearch" class="btn-default"><span data-labelCd="원부자재 소요량 조회">원부자재 소요량 조회</span></button>
+                                <button type="button" id="btnMatRequCalc" class="btn-danger y_write_auth"><span data-labelCd="소요량 산출">소요량 산출</span></button>
+                                <button type="button" id="btnMatReservation" class="btn-default y_write_auth"><span data-labelCd="재고예약">재고예약</span></button>
+                                <button type="button" id="btnMatRequestQtySave" class="btn-default y_write_auth"><span data-labelCd="발주 요청량 저장">발주 요청량 저장</span></button>
+                                <button type="button" id="btnMatRequestQtyConfirm" class="btn-danger y_write_auth"><span data-labelCd="발주 요청량 확정">발주 요청량 확정</span></button>
+                                <button type="button" class="btn-default" id="btnExcel5" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                            </div>
+                            <div class="h-250" data-ax5grid="rawMatRequiredGrid"></div>
+                        </div>
+                    </div>
+                    <!--
+                    <div  class="tab tab6">
+                        <div class="grid_box">
+                            <div class="title_box">
+                                <span class="right_align rpt">원부자재 발주요청 내역</span>
+                                <button type="button" id="btnRawMatPurchaseCancel" class="btn-danger"><span>발주 요청 취소</span></button>
+                            </div>
+                            <div style="position: relative;height:260px;">
+                                <div data-ax5grid="rawMatPurchaseRequestGrid" style="height: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    -->
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+
+<script type="text/javascript">
+    class SujuMaterialRequirementPage {
+        constructor() {
+
+            this.url = '/api/schedule/prod_schedule_b';
+            this.bundleGrid = null; //소요량산출
+            this.notCountedSujuGrid = null; //수주추가
+            this.bundledSujuListGrid = null; //수주내역
+            this.productRequirementGrid = null; // 제품필요량
+            this.semiProdRequiredGrid = null; //반제품소요량
+            this.rawMatRequiredGrid = null; // 원부자재소요량
+            //this.rawMatPurchaseRequestGrid = null; //발주요청내역
+
+            this.init();
+        }
+
+        init() {
+            this.initBundle();
+            this.initNotCountedSuju();
+            this.initBundledSujuList();
+            this.initProductRequirement();
+            this.initSemiProductRequirement();
+            this.initRawMaterialRequirement();
+            //this.initPurchaseRequest();
+        }
+
+        //소요량산출그리드
+        initBundle() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="bundleHeadGrid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 32  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        this.self.select(this.dindex);
+                        _this.onSelectBundleData(e.item);
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'head_id', label: '헤더번호', width: 100, align: 'center' },
+                    { key: 'created', label: '등록일', width: 150, align: 'center' },
+                    { key: 'modified', label: '변경일', width: 150, align: 'center' },
+                    { key: 'state_name', label: '상태', width: 100, align: 'center', },
+                ]
+            };
+
+            this.bundleGrid = new ax5.ui.grid(config);
+            //$('#date_div').ax5DatePicker({ direction: 'top' });
+            $('#date_from').val(CommonUtil.getYYYYMMDD(-15));
+            $('#date_to').val(CommonUtil.getYYYYMMDD());
+
+            $('#btnBundleSearch').click(function (e) {
+                _this.searchBundleHeadList();
+            });
+        }
+
+        //미반영 수주내역
+        initNotCountedSuju() {
+
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="notCountedSujuGrid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: true,  // checkbox(선택) 보이기 여부
+                multipleSelect: true, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 35  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 35, // body의 기본 높이
+                    onClick: function (e) {
+                        this.self.select(this.dindex);
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'company_name', label: '업체', width: 150, align: 'left' },
+                    { key: 'MaterialGroupName', label: '제품그룹', width: 120, align: 'center' },
+                    { key: 'product_code', label: '제품코드', width: 80, align: 'center' },
+                    { key: 'product_name', label: '제품', width: 200, align: 'left' },
+                    { key: 'unit_name', label: '단위', width: 100, align: 'center' },
+                    { key: 'SujuQty', label: '수주량', width: 100, align: 'right', formatter: 'money' },
+                    { key: 'JumunDate', label: '주문일', width: 100, align: 'center' },
+                    { key: 'production_plan_date', label: '생산계획일', width: 100, align: 'center' },
+                    { key: 'DueDate', label: '납기일', width: 100, align: 'center' },
+                    { key: 'StateName', label: '상태', width: 100, align: 'center', },
+                    { key: 'Description', label: '비고', width: 200, align: 'left', },
+                ]
+            };
+            this.notCountedSujuGrid = new ax5.ui.grid(config);
+
+            //$('#date_div2').ax5DatePicker({ direction: 'top' });
+            $('#plan_from').val(CommonUtil.getYYYYMMDD(-15));
+            $('#plan_to').val(CommonUtil.getYYYYMMDD());
+
+            // 소요량 반영되지 않은 수주 리스트업
+            $('#btnNotCountedSujuSearch').click(function (e) {
+                page.searchNotCountedSujuList();
+            });
+
+            // 새 소요량 산출 저장
+            $('#btnNewBundleHeaderQty').click(function (e) {
+                _this.newBundleHeadQty();
+            });
+
+            // 번들헤드 항목을 하나 선택해야 활성화됨
+            $('#btnAddBundleSujuQty').click(function (e) {
+                _this.addBundleSujuQty();
+            });
+        }
+
+        //수주내역
+        initBundledSujuList() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="bundledSujuListGrid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 32  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        this.self.select(this.dindex);
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'head_id', label: '헤더번호', width: 100, align: 'center' },
+                    { key: 'company_name', label: '업체', width: 150, align: 'left' },
+                    { key: 'MaterialGroupName', label: '제품그룹', width: 120, align: 'center' },
+                    { key: 'product_code', label: '제품코드', width: 80, align: 'center' },
+                    { key: 'product_name', label: '제품', width: 200, align: 'left' },
+                    { key: 'unit_name', label: '단위', width: 100, align: 'center' },
+                    { key: 'SujuQty', label: '수주량', width: 100, align: 'right', formatter: 'money' },
+                    { key: 'JumunDate', label: '주문일', width: 100, align: 'center' },
+                    { key: 'production_plan_date', label: '생산계획일', width: 100, align: 'center' },
+                    { key: 'DueDate', label: '납기일', width: 100, align: 'center' },
+                    { key: 'StateName', label: '상태', width: 100, align: 'center', },
+                    { key: 'Description', label: '비고', width: 200, align: 'left', },
+                ]
+            };
+            this.bundledSujuListGrid = new ax5.ui.grid(config);
+
+            // 제품필요량 집계버튼 클릭
+            $('#btnProdRequSum').click(function (e) {
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+                Alert.confirm('', '제품 필요량을 집계하시겠습니까?', function () {  
+                    let head_id = selectedBundleItems[0].head_id;
+                    _this.saveProductRequiredSum(head_id);
+                });
+            });
+        }
+
+        //제품필요량
+        initProductRequirement() {
+
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="productRequirementGrid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 32  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        this.self.select(this.dindex);
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'mat_group_name', label: '제품그룹', width: 150, align: 'center' },
+                    { key: 'mat_name', label: '제품', width: 200, align: 'left' },
+                    { key: 'UnitName', label: '단위', width: 100, align: 'center' },
+                    { key: 'AvailableStock', label: '당시가용재고', width: 100, align: 'right', formatter: 'money' },
+                    { key: 'SafetyStock', label: '안전재고', width: 100, align: 'right', formatter: 'money' },
+                    { key: 'RequireQty1', label: '수주량', width: 100, align: 'right', formatter: 'money' },
+                    
+                    { key: 'ReservationStock', label: '예약량', width: 100, align: 'right', formatter: 'money' },
+                    {
+                        key: 'ReservationStock_input', label: '<span style="color:blue">예약량(입력)</span>', width: 100, align: 'right', formatter: 'money',
+                        editor: {type:'number'}
+                    },
+                    { key: 'RequireQty2', label: '수주-예약', width: 100, align: 'right', formatter: 'money' },
+                    {
+                        key: 'RequestQty_input', label: '<span style="color:blue">생산필요량(입력)</span>', width: 120, align: 'right', formatter: 'money',
+                        editor: {type:'number'}
+                    },
+                    { key: 'RequestQty', label: '생산필요량', width: 100, align: 'right', formatter: 'money' },
+                    { key: 'modified', label: '변경일시', width: 150, align: 'center' },
+                ]
+            };
+            this.productRequirementGrid = new ax5.ui.grid(config);
+
+            // 제품재고 예약 
+            $('#btnProdReservation').bind('click', function (e) {
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+                let head_id = selectedBundleItems[0].head_id;
+                _this.saveProdudctReservation(head_id);
+
+                //Alert.confirm('', '제품 재고를 예약하시겠습니가?', function () {  
+                //    let head_id = selectedBundleItems[0].head_id;
+                //    _this.saveProdudctReservation(head_id);
+                //});
+            });
+
+            // 제품 생산필요량 저장
+            $('#btnProdQtySave').click(function (e) {
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+                let head_id = selectedBundleItems[0].head_id;
+                _this.saveProdudctionQty(head_id);
+
+                //Alert.confirm('', '제품 생산 필요량을 저장하시겠습니가?', function () {  
+                //    let head_id = selectedBundleItems[0].head_id;
+                //    _this.saveProdudctionQty(head_id);
+                //});
+            });
+
+            /// 제품 생산필요량 확정
+            $('#btnProdQtyConfirm').click(function (e) {
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+                Alert.confirm('', '제품필요량을 확정하시겠습니까?', function () {
+                    let bundleItem = selectedBundleItems[0];
+                    _this.confirmProductionQty(bundleItem);
+                });
+            });
+
+        }
+
+        //반제품 필요량
+        initSemiProductRequirement() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="semiProductRequiredGrid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 32  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        this.self.select(this.dindex);
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'mat_group_name', label: '품목그룹', width: 150, align: 'center' },
+                    { key: 'mat_name', label: '폼목명', width: 200, align: 'left' },
+                    { key: 'UnitName', label: '단위', width: 100, align: 'center' },
+                    { key: 'AvailableStock', label: '당시가용재고', width: 100, align: 'right', formatter: 'money' },
+                    { key: 'SafetyStock', label: '안전재고', width: 100, align: 'right', formatter: 'money' },
+                    { key: 'RequireQty1', label: '소요량', width: 100, align: 'right', formatter: 'money' },
+                    
+                    { key: 'ReservationStock', label: '예약량', width: 100, align: 'right', formatter: 'money' },
+                    {
+                        key: 'ReservationStock_input', label: '<span style="color:blue">예약량(입력)</span>', width: 100, align: 'right', formatter: 'money',
+                        editor: {type:'number'}
+                    },
+                    { key: 'RequireQty2', label: '소요량-예약', width: 100, align: 'right', formatter: 'money' },
+                    {
+                        key: 'RequestQty_input', label: '<span style="color:blue">필요량(입력)</span>', width: 120, align: 'right', formatter: 'money',
+                        editor: {type:'number'}
+                    },
+                    { key: 'RequestQty', label: '생산필요량', width: 100, align: 'right', formatter: 'money' },
+                    { key: 'modified', label: '변경일시', width: 150, align: 'center' },
+                ]
+            };
+
+            this.semiProdRequiredGrid = new ax5.ui.grid(config);
+
+            // 반제품 소요량 조회
+            $('#btnSemiRequSearch').click(function (e) {
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+                let head_id = selectedBundleItems[0].head_id;
+                _this.searchSemiProdRequired(head_id);
+            });
+
+            //반제품 소요량 계산 저장
+            $('#btnSemiRequCalc').click(function (e) {
+
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+                let head_id = selectedBundleItems[0].head_id;
+                Alert.confirm('', '반제품 소요량을 산출하시겠습니까?', function () {
+                    _this.saveSemiProductRequiredCalc(head_id);
+                });
+                
+            });
+
+            //반제품 재고 예약
+            $('#btnSemiReservation').click(function (e) {
+
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+                let head_id = selectedBundleItems[0].head_id;
+                let items = _this.semiProdRequiredGrid.list;
+                if (items.length == 0) {
+                    Alert.alert('', '반제품 예약량 데이터가 없습니다.');
+                    return;
+                }
+
+                _this.saveSemiProdudctReservation(head_id, items);
+                //Alert.confirm('', '반제품 재고를 예약하시겠습니까?', function () {});
+            });
+
+            // 반제품 필요량 저장
+            $('#btnSemiProdQtySave').click(function (e) {
+
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+                let head_id = selectedBundleItems[0].head_id;
+                let items = _this.semiProdRequiredGrid.list;
+                if (items.length == 0) {
+                    Alert.alert('', '반제품 필요량 데이터가 없습니다.');
+                    return;
+                }
+
+                _this.saveSemiProdudctionQty(head_id, items);
+            });
+
+            // 반제품 필요량 확정
+            $('#btnSemiProdQtyConfirm').click(function (e) {
+
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+                let items = _this.semiProdRequiredGrid.list;
+                if (items.length == 0) {
+                    Alert.alert('', '반제품 필요량 데이터가 없습니다.');
+                    return;
+                }
+
+                Alert.confirm('', '반제품 필요량을 확정하시겠습니까?', function () {
+                    _this.confirmSemiProductionQty(selectedBundleItems[0], items);
+                });
+
+            });
+        }
+
+        //원부자재 소요량
+        initRawMaterialRequirement() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="rawMatRequiredGrid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 32  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        this.self.select(this.dindex);
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'mat_group_name', label: '품목그룹', width: 150, align: 'center' },
+                    { key: 'mat_name', label: '품목명', width: 200, align: 'left' },
+                    { key: 'UnitName', label: '단위', width: 100, align: 'center' },
+                    { key: 'AvailableStock', label: '당시가용재고', width: 100, align: 'right', formatter: 'money' },
+                    { key: 'SafetyStock', label: '안전재고', width: 100, align: 'right', formatter: 'money' },
+                    { key: 'RequireQty1', label: '소요량', width: 100, align: 'right', formatter: 'money' },
+                    
+                    { key: 'ReservationStock', label: '예약량', width: 100, align: 'right', formatter: 'money' },
+                    {
+                        key: 'ReservationStock_input', label: '<span style="color:blue">예약량(입력)</span>', width: 100, align: 'right', formatter: 'money',
+                        editor: { type: 'number' }
+                    },
+                    { key: 'RequireQty2', label: '소요량-예약', width: 100, align: 'right', formatter: 'money' },
+                    {
+                        key: 'RequestQty_input', label: '<span style="color:blue">발주요청(입력)</span>', width: 120, align: 'right', formatter: 'money',
+                        editor: { type: 'number' }
+                    },
+                    { key: 'RequestQty', label: '발주요청량', width: 100, align: 'right', formatter: 'money' },
+                    { key: 'modified', label: '변경일시', width: 150, align: 'center' },
+                ]
+            };
+
+            this.rawMatRequiredGrid = new ax5.ui.grid(config);
+
+            // 원부자재소요량 조회
+            $('#btnMatRequSearch').click(function (e) {
+
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+                let head_id = selectedBundleItems[0].head_id;
+                _this.searchRawMatRequired(head_id);
+            });
+
+            // 원부자재 소요량 산출
+            $('#btnMatRequCalc').click(function (e) {
+
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+                let head_id = selectedBundleItems[0].head_id;
+                //rawmat_required_save
+                Alert.confirm('', '원부자재 소요량을 산출하시겠습니까? 기존데이터는 삭제됩니다.', function () {
+                    _this.saveMaterialRequiredCalc(head_id);
+                });
+            });
+
+            // 원부자재 재고 예약
+            $('#btnMatReservation').click(function (e) {
+
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+                let head_id = selectedBundleItems[0].head_id;
+                let items = _this.rawMatRequiredGrid.list;
+                if (items.length == 0) {
+                    Alert.alert('', '원부자재 데이터가 없습니다.');
+                    return;
+                }
+
+                Alert.confirm('', '원부자재 재고를 예약하시겠습니까?', function () {
+                    _this.saveMaterialReservation(head_id, items);
+                });
+            });
+
+            // 발주요청량저장
+            $('#btnMatRequestQtySave').click(function (e) {
+
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+                let head_id = selectedBundleItems[0].head_id;
+                let items = _this.rawMatRequiredGrid.list;
+                if (items.length == 0) {
+                    Alert.alert('', '원부자재 데이터가 없습니다.');
+                    return;
+                }
+
+                Alert.alert('', '발주요청량을 저장하시겠습니까?', function () {
+                    _this.saveMaterialQty(head_id, items);
+                });
+
+            });
+            
+            // 발주요청량 확정상태
+            $('#btnMatRequestQtyConfirm').click(function (e) {
+
+                let selectedBundleItems = _this.bundleGrid.getList('selected');
+                if (selectedBundleItems.length == 0) {
+                    Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                    return;
+                }
+
+
+                let items = _this.rawMatRequiredGrid.list;
+                if (items.length == 0) {
+                    Alert.alert('', '원부자재 데이터가 없습니다.');
+                    return;
+                }
+
+                Alert.alert('', '발주요청량을 확정하시겠습니까?', function () {
+                    _this.confirmMaterialPurcaseQty(selectedBundleItems[0], items);
+                });
+
+            });
+
+        }
+
+        // 발주요청내역
+        //initPurchaseRequest() {
+        //    let _this = this;
+        //    let config = {
+        //        target: $('[data-ax5grid="rawMatPurchaseRequestGrid"]'),
+        //        frozenColumnIndex: 0, // 열 고정
+        //        frozenRowIndex: 0,    // 행 고정
+        //        showLineNumber: false, // 열의 번호 보이기 여부
+        //        showRowSelector: true,  // checkbox(선택) 보이기 여부
+        //        multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+        //        sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+        //        multiSort: false, // 다중 정렬 여부
+        //        header: {
+        //            align: 'center',  // 헤더의 기본 정렬
+        //            columnHeight: 32  // 헤더 높이
+        //        },
+        //        body: {
+        //            columnHeight: 25, // body의 기본 높이
+        //            onClick: function (e) {
+        //                //this.self.select(this.dindex);
+        //            },
+        //        },
+        //        page: {
+        //            display: true,  // 페이징 보이기 여부
+        //            statusDisplay: true,
+        //        },
+        //        columns: [
+        //            { key: 'StateName', label: '상태', width: 100, align: 'center' },
+        //            { key: 'Material_Code', label: '품목코드', width: 80, align: 'center' },
+        //            { key: 'Material_Name', label: '품목명', width: 200, align: 'left' },
+        //            { key: 'UnitName', label: '단위', width: 80, align: 'center' },
+        //            {
+        //                key: 'RequestQty', label: '발주요청량', width: 100, align: 'right'
+        //                , formatter: 'money',
+        //            },
+        //            { key: 'RequestDate', label: '요청일', width: 150, align: 'center' },
+        //        ]
+        //    };
+
+        //    this.rawMatPurchaseRequestGrid = new ax5.ui.grid(config);
+
+
+        //    // 원부자재 발주요청 취소
+        //    $('#btnRawMatPurchaseCancel').on('click', function () {
+        //        _this.doMaterialOrderCancel();
+        //    });
+        //}
+
+        // 소요량 산출 ROW 클릭
+        onSelectBundleData(item) {
+            let head_id = item.head_id;
+            $('#btnAddRequirementQty').removeAttr('disabled');
+
+            //번들수주내역
+            this.searchBundledSujuList(head_id);
+
+            //제품필요량
+            this.searchProductRequiredList(head_id);
+
+            //반제품필요량
+            this.searchSemiProdRequired(head_id);
+
+            //원부자재소요량
+            this.searchRawMatRequired(head_id);
+
+            // 발주요청 내역
+            //this.searchMaterialOrderList(head_id);
+        }
+
+        //소요량산출 헤드리스트
+        searchBundleHeadList() {
+            let _this = this;
+            let date_from = $('#date_from').val();
+            let date_to = $('#date_to').val();
+            let data = {
+                date_from : date_from,
+                date_to : date_to
+            };
+            let fnsuccess = function (result) {
+                let recordsTotal = result.data.length;
+                _this.bundleGrid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+
+                $('#btnAddRequirementQty').prop('disabled', true);
+
+
+                let defaultEmptyData = {
+                    list: [],
+                    page: {
+                        display: true,
+                        totalElements: 0,
+                    }
+                };
+
+                //head 가 사라짐, 따라서 초기화함
+                _this.bundledSujuListGrid.setData(defaultEmptyData);
+                _this.productRequirementGrid.setData(defaultEmptyData);
+
+
+            };
+            AjaxUtil.getAsyncData(this.url + '/bundle_head_list', data, fnsuccess);
+        }
+
+        //not bundled suju list
+        searchNotCountedSujuList() {
+            let _this = this;
+            let data = {
+                plan_from: $('#plan_from').val(),
+                plan_to: $('#plan_to').val()
+            }
+
+            let fnsuccess = function (result) {
+                let recordsTotal = result.data.length;
+                console.log('result.data', result.data);
+                _this.notCountedSujuGrid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            };
+            AjaxUtil.getAsyncData(this.url + '/not_counted_suju_search', data, fnsuccess);
+        }
+
+        //bundled suju list
+        searchBundledSujuList(head_id) {
+            let _this = this;
+            let data = {
+                head_id: head_id,
+            };
+
+            let fnsuccess = function (result) {
+                let recordsTotal = result.data.length;
+                _this.bundledSujuListGrid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            };
+
+            AjaxUtil.getAsyncData(this.url + '/bundled_suju_list', data, fnsuccess);
+        }
+
+        //새 소요량 산출 번들 생성
+        newBundleHeadQty() {
+            let _this = this;
+            let selectedItems = _this.notCountedSujuGrid.getList('selected');
+            if (selectedItems.length == 0) {
+                Alert.alert('', '선택된 수주데이터가 없습니다.');
+                return;
+            }
+
+            Alert.confirm('', '새 생산계획을 등록하시겠습니까?', function () {
+                let arrData = [];
+                $.each(selectedItems, function (idx, item) {
+                    arrData.push(item.id);
+                });
+
+                let data = {
+                    Q: JSON.stringify(arrData),
+                };
+                let fnsuccess = function (result) {
+                    Notify.success('생성되었습니다.');
+                    _this.searchBundleHeadList();
+                    _this.searchNotCountedSujuList()
+                    let head_id = result.data.id;
+                    _this.searchBundledSujuList(head_id);
+                    //_this.searchBundledSujuList(result.head_id);
+                };
+
+                AjaxUtil.postAsyncData(_this.url + '/create_bundle', data, fnsuccess);
+            });
+        }
+
+        //소요량 산출에 추가
+        addBundleSujuQty() {
+            let _this = this;
+
+            let selectedBundleItems = _this.bundleGrid.getList('selected');
+            if (selectedBundleItems.length == 0) {
+                Alert.alert('', '소요량 산출 헤더 항목을 선택하세요.');
+                return;
+            }
+            let head_id = selectedBundleItems[0].head_id;
+
+            let selectedSujuItems = _this.notCountedSujuGrid.getList('selected');
+            if (selectedSujuItems.length == 0) {
+                Alert.alert('', '수주 항목을 선택하세요.');
+                return;
+            }
+
+            Alert.confirm('', '소요량 산출에 해당 수주를 추가하시겠습니까?', function () {
+                let arrData = [];
+                $.each(selectedSujuItems, function (idx, item) {
+                    arrData.push(item.id);
+                });
+
+                let data = {
+                    head_id : head_id,
+                    Q: JSON.stringify(arrData),
+                };
+
+                let fnsuccess = function (result) {
+                    Notify.success('추가 되었습니다.');
+                    _this.searchNotCountedSujuList();
+                    _this.searchBundledSujuList(head_id);
+                };
+
+                let url = _this.url + '/add_bundle_suju';
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            });
+        }
+
+        //제품필요량 집계
+        saveProductRequiredSum(head_id) {
+            let _this = this;
+            let data = {
+                head_id: head_id
+            };
+
+            let fnsuccess = function (result) {
+                Alert.alert('', '제품 필요량이 집계되었습니다.');
+                _this.searchProductRequiredList(head_id);
+            };
+
+            let url = this.url + '/save_product_required_sum';
+            AjaxUtil.postAsyncData(url, data, fnsuccess);
+        }
+
+        //제품재고 예약
+        saveProdudctReservation(head_id) {
+            let _this = this;
+            //제품재고예약
+            let items = _this.productRequirementGrid.list;
+            if (items.length == 0) {
+                Alert.alert('', '제품 필요량 데이터가 없습니다.');
+                return;
+            }
+
+            let arrData = [];
+            let validFlag = true;
+            $.each(items, function (idx, item) {
+                if (typeof item.ReservationStock_input === 'undefined') {
+                    item.ReservationStock_input = 0;
+                }
+
+                if (item.ReservationStock_input != item.ReservationStock) {
+                    arrData.push({ id: item.id, Material_id: item.Material_id, ReservationStock_input: item.ReservationStock_input });
+                    if (item.ReservationStock_input < 0) {
+                        item.ReservationStock_input = 0;
+                        validFlag = false;
+                    }
+                }
+            });
+
+            if (validFlag == false) {
+                Alert.alert('', '예약량은 0 보다 커야 합니다.');
+                return;
+            }
+
+            let data = {
+                Q: JSON.stringify(arrData)
+            };
+
+            let url = _this.url + '/product_reservation';
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '재고가 예약되었습니다.');
+                    _this.searchProductRequiredList(head_id);
+                } else {
+                    Notify.error('오류가 있습니다.');
+                }
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnsuccess);
+
+            
+
+        }
+
+        // 제품 생산 필요량 저장
+        saveProdudctionQty(head_id) {
+            let _this = this;
+            let arrData = [];
+            let items = this.productRequirementGrid.list;
+
+        $.each(items, function (idx, item) {
+                if (item.RequestQty_input != item.RequestQty)
+                    arrData.push({ id: item.id, Material_id: item.Material_id, RequestQty: item.RequestQty_input });
+            });
+
+            let data = {
+                head_id: head_id,
+                Q: JSON.stringify(arrData)
+            };
+
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '생산필요량을 저장했습니다.');
+                    _this.searchProductRequiredList(head_id);
+                } else {
+                    Notify.error('오류가 발생했습니다.');
+                }
+            };
+
+            let url = this.url + '/production_qty_save';
+            AjaxUtil.postAsyncData(url, data, fnsuccess);
+        }
+
+        // 제품 생산 필요량 확정
+        confirmProductionQty(bundleItem) {
+            let _this = this;
+            let head_id = bundleItem.head_id;
+            let arrData = [];
+            let items = _this.productRequirementGrid.list;
+
+        $.each(items, function (idx, item) {
+                if (item.RequestQty_input != item.RequestQty)
+                    arrData.push({ id: item.id, Material_id: item.Material_id, RequestQty: item.RequestQty_input });
+            });
+
+            let data = {
+                head_id: head_id,
+                Q: JSON.stringify(arrData)
+            };
+
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '생산필요량이 확정되었습니다.');
+                    bundleItem.StateName = result.StateName;
+                    //bundleItem.StateName = result.StateName;
+                    _this.bundleGrid.updateRow(bundleItem, bundleItem.__index);
+                    _this.searchProductRequiredList(head_id);
+                } else {
+                    Notify.error('오류가 발생했습니다.');
+                }
+            };
+
+            let url = this.url + '/production_qty_confirm';
+            AjaxUtil.postAsyncData(url, data, fnsuccess);
+        }
+
+        // 제품필요량 조회
+        searchProductRequiredList(head_id) {
+            let _this = this;
+            let data = {
+                head_id : head_id
+            }
+
+            let fnsuccess = function (result) {
+                let recordsTotal = result.data.length;
+                _this.productRequirementGrid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            };
+
+            AjaxUtil.getAsyncData(this.url + '/product_required_list', data, fnsuccess);
+        }
+
+        // 반제품 소요량 산출저장
+        saveSemiProductRequiredCalc(head_id) {
+            let _this = this;
+            // 1. 제품필요량 목록가져옴
+            let items = _this.productRequirementGrid.list;
+            if (items.length == 0) {
+                Alert.alert('', '반제품 필요량이 조회되지 않아 반제품 소요량을 계산할 수 없습니다.');
+                return;
+            }
+
+            let data = {
+                head_id: head_id
+            };
+
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '반제품 소요량을 산출했습니다.');
+                    _this.searchSemiProdRequired(head_id)
+                }
+            };
+
+            let url = _this.url + '/semiprod_required_save';
+            AjaxUtil.postAsyncData(url, data, fnsuccess);
+        }
+
+        // 반제품 재고 예약
+        saveSemiProdudctReservation(head_id, items) {
+            let _this = this;
+            let arrData = [];
+            $.each(items, function (idx, item) {
+                if (item.ReservationStock_input != item.ReservationStock)
+                    arrData.push({id: item.id, Material_id: item.Material_id, ReservationStock_input: item.ReservationStock_input  });
+            });
+
+            let data = {
+                Q: JSON.stringify(arrData)
+            };
+
+            let url = _this.url + '/semi_product_reservation';
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '반제품 재고가 예약되었습니다.');
+                    _this.searchSemiProdRequired(head_id);
+
+                } else {
+                    Notify.error('오류가 있습니다.');
+                }
+            }
+            AjaxUtil.postAsyncData(url, data, fnsuccess);
+        }
+
+        // 반제품 필요량 저장
+        saveSemiProdudctionQty(head_id, items) {
+            let _this = this;
+            let arrData = [];
+            $.each(items, function (idx, item) {
+                if (item.RequestQty_input != item.RequestQty)
+                    arrData.push({id: item.id, Material_id: item.Material_id, RequestQty: item.RequestQty_input  });
+            });
+
+            let data = {
+                head_id: head_id,
+                Q: JSON.stringify(arrData)
+            };
+
+            let url = _this.url + '/semiprod_qty_save';
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '반제품 필요량이 저장되었습니다.');
+                    _this.searchSemiProdRequired(head_id);
+
+                } else {
+                    Notify.error('오류가 있습니다.');
+                }
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnsuccess);
+        }
+
+        // 반제품 필요량 확정
+        confirmSemiProductionQty(bundleItem, items) {
+            let _this = this;
+            let head_id = bundleItem.head_id;
+            let arrData = [];
+            $.each(items, function (idx, item) {
+                if (item.RequestQty_input != item.RequestQty)
+                    arrData.push({id: item.id, Material_id: item.Material_id, RequestQty: item.RequestQty_input  });
+            });
+
+            let data = {
+                head_id: head_id,
+                Q: JSON.stringify(arrData)
+            };
+
+            let url = _this.url + '/semiprod_qty_confirm';
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '반제품 필요량이 확정되었습니다.');
+                    bundleItem.StateName = result.StateName;
+                    _this.bundleGrid.updateRow(bundleItem, bundleItem.__index);
+                    _this.searchSemiProdRequired(head_id);
+                } else {
+                    Notify.error('오류가 있습니다.');
+                }
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnsuccess);
+        }
+
+        // 반제품소요량조회
+        searchSemiProdRequired(head_id) {
+            let _this = this;
+            let data = {
+                head_id: head_id
+            };
+
+            let fnsuccess = function (result) {
+                if (result != null) {
+                    let recordsTotal = result.data.length;
+                    _this.semiProdRequiredGrid.setData({
+                        list: result.data,
+                        page: {
+                            display: true,
+                            totalElements: recordsTotal,
+                        }
+                    });
+                }
+            };
+
+            AjaxUtil.getAsyncData(this.url + '/semiprod_required_list', data, fnsuccess);
+        }
+
+        // 원부자재 소요량 산출
+        saveMaterialRequiredCalc(head_id) {
+            let _this = this;
+            let url = this.url + '/rawmat_required_save';
+            let data = { head_id: head_id };
+            let fnsuccess = function (result) {
+                Alert.alert('', '원부자재 소요량이 산출되었습니다.');
+                _this.searchRawMatRequired(head_id);
+            };
+            AjaxUtil.postAsyncData(url, data, fnsuccess);
+        }
+
+        // 원부자재 재고 예약
+        saveMaterialReservation(head_id, items) {
+            let _this = this;
+            let arrData = [];
+            $.each(items, function (idx, item) {
+                if (item.ReservationStock_input != item.ReservationStock)
+                    arrData.push({id: item.id, Material_id: item.Material_id, ReservationStock_input: item.ReservationStock_input  });
+            });
+
+            let data = {
+                Q: JSON.stringify(arrData)
+            };
+            
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '원부자재 재고가 예약되었습니다.');
+                    _this.searchRawMatRequired(head_id);
+                }
+            };
+            let url = _this.url + '/rawmat_reservation';
+            AjaxUtil.postAsyncData(url, data, fnsuccess);
+        }
+
+        // 원부자재 발주요청량 저장
+        saveMaterialQty(head_id, items) {
+
+            let _this = this;
+            let arrData = [];
+            let validFlag = true;
+            $.each(items, function (idx, item) {
+                if (item.RequestQty_input != item.RequestQty)
+                    arrData.push({id: item.id, Material_id: item.Material_id, RequestQty: item.RequestQty_input  });
+            });
+
+
+            let data = {
+                head_id: head_id,
+                Q: JSON.stringify(arrData)
+            };
+                
+            let url = this.url + '/rawmat_qty_purchase_save';
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '발주요청량을 저장했습니다');
+                    _this.searchRawMatRequired(head_id);
+
+                } else {
+                    Notify.error('오류가 있습니다.');
+                }
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnsuccess);
+        }
+
+        // 원부자재 발주요청량 저장 확정
+        confirmMaterialPurcaseQty(bundleItem, items) {
+
+            let _this = this;
+            let head_id = bundleItem.head_id;
+            let arrData = [];
+            let validFlag = true;
+            $.each(items, function (idx, item) {
+                if (item.RequestQty_input != item.RequestQty)
+                    arrData.push({id: item.id, Material_id: item.Material_id, RequestQty: item.RequestQty_input  });
+            });
+
+
+            let data = {
+                head_id: head_id,
+                Q: JSON.stringify(arrData)
+            };
+                
+            let url = this.url + '/rawmat_qty_purchase_confirm';
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '발주요청 되었습니다.');
+                    bundleItem.StateName = result.StateName;
+                    _this.bundleGrid.updateRow(bundleItem, bundleItem.__index);
+                    //_this.bundleGrid.updateRow(gitems[0], bundleItem.__index);
+                    _this.searchRawMatRequired(head_id);
+                } else {
+                    Notify.error('오류가 있습니다.');
+                }
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnsuccess);
+
+        }
+
+        // 원부자재 소요량 조회
+        searchRawMatRequired(head_id) {
+
+            let _this = this;
+            let data = {
+                head_id : head_id
+            };
+
+            let fnsuccess = function (result) {
+                if (result != null) {
+                    let recordsTotal = result.data.length;
+                    _this.rawMatRequiredGrid.setData({
+                        list: result.data,
+                        page: {
+                            display: true,
+                            totalElements: recordsTotal,
+                        }
+                    });
+                }
+            };
+
+            AjaxUtil.getAsyncData(this.url + '/rawmat_required_list', data, fnsuccess);
+        }
+
+        // 원부자재 발주요청 취소(삭제) 전용
+        //doMaterialOrderCancel() {
+
+        //    let _this = this;
+        //    let msg;
+        //    let items = _this.rawMatPurchaseRequestGrid.getList("selected");
+
+        //    // 등록 상태만 취소 가능
+        //    let data = items.filter(x => { return x.State == 'registered'; });
+        //    if (data.length == 0) {
+        //        Alert.alert('', '취소 가능한 데이터가 없습니다.');
+        //        return;
+        //    }
+        //    Alert.confirm('', msg, function () {
+        //        let fnSuccess = function (res) {
+        //            Notify.success('처리되었습니다');
+        //            _this.searchDataBind();
+        //        };
+
+        //        let url = _this.url + '?action=material_order_cancel';
+        //        let p = {
+        //            mo : JSON.stringify(data),
+        //        };
+
+        //        AjaxUtil.postAsyncData(url, p, fnSuccess);
+        //    });
+
+        //}
+
+        // 발주요청 내역
+        //searchMaterialOrderList(head_id) {
+
+        //    let _this = this;
+        //    let data = {
+        //        action: 'search_material_order_list',
+        //        head_id : head_id
+        //    };
+
+        //    let fnsuccess = function (result) {
+        //        if (result != null) {
+        //            let recordsTotal = result.length;
+        //            _this.rawMatPurchaseRequestGrid.setData({
+        //                list: result,
+        //                page: {
+        //                    display: true,
+        //                    totalElements: recordsTotal,
+        //                }
+        //            });
+        //        }
+        //    };
+        //    AjaxUtil.getAsyncData(this.url, data, fnsuccess);
+        //}
+
+        // 엑셀 다운로드
+        exportExcel(target) {
+
+            if (target == 'tab1') {
+                var targetview = this.notCountedSujuGrid;
+                targetview.exportExcel('수주추가내역.xls');
+            }else if (target == 'tab2') {
+                var targetview = this.bundledSujuListGrid;
+                targetview.exportExcel('수주내역.xls');
+            }else if (target == 'tab3') {
+                 var targetview = this.productRequirementGrid;
+                targetview.exportExcel('제품필요량.xls');
+            }else if (target == 'tab4') {
+                 var targetview = this.semiProdRequiredGrid;
+                targetview.exportExcel('반제품소요량.xls');
+            }else if (target == 'tab5') {
+                 var targetview = this.rawMatRequiredGrid;
+                targetview.exportExcel('원부자재소요량.xls');
+            }
+
+        }
+
+
+    }
+
+    let page = null;
+    var picker = new ax5.ui.picker();
+
+    $(document).ready(function (e) {
+        page = new SujuMaterialRequirementPage();
+      
+
+
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),
+            direction: "top",
+            content: {
+                width: 206,  //130 270
+                margin: 10,
+                type: 'date',
+                config: {
+                    control: {
+                        left: '<i class="fa fa-chevron-left"></i>',
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-chevron-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            },
+            btns: {
+                /*ok: {
+                    label: "닫기1", theme: "default", onClick: function () {
+                        this.self.close();
+                    }
+                }*/
+            }
+        });
+
+        picker.bind({
+            target: $('[data-ax5picker="multi2"]'),
+            direction: "top",
+            content: {
+                width: 206,  //130 270
+                margin: 10,
+                type: 'date',
+                config: {
+                    control: {
+                        left: '<i class="fa fa-chevron-left"></i>',
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-chevron-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            },
+            btns: {
+                /*ok: {
+                    label: "닫기2", theme: "default", onClick: function () {
+                        this.self.close();
+                    }
+                }*/
+            }
+        });
+
+
+        page.searchBundleHeadList();
+
+
+        let target = 'tab1';
+        $('.tab_links .tab').click(function (e) {
+            target = e.currentTarget.id;
+
+        });
+
+        // 엑셀 다운로드
+        $('#btnExcel1').on('click', function () {
+            page.exportExcel(target);
+        });
+        $('#btnExcel2').on('click', function () {
+            page.exportExcel(target);
+        });
+        $('#btnExcel3').on('click', function () {
+            page.exportExcel(target);
+        });	
+        $('#btnExcel4').on('click', function () {
+            page.exportExcel(target);
+        });	
+        $('#btnExcel5').on('click', function () {
+            page.exportExcel(target);
+        });	
+      
+
+
+    });
+
+</script>
+</th:block>
+</html>

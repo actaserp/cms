@@ -1,0 +1,325 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+  <style>
+      .wj-header {
+          text-align: center !important;
+      }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+
+
+  <div class="layout-contents">
+    <!-- Page Title -->
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>시스템 로그</h2>
+        <!--                <a title="북마크" class="bookmark toggle">-->
+        <!--                    내메뉴-->
+        <!--                </a>-->
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>시스템관리</li>
+        <li>시스템로그</li>
+      </ul>
+    </div>
+
+    <div style="display: flex; gap: 5px;">
+      <section class="section" style="flex: 0 0 65%;">
+        <div class="section-top">
+          <div class="search-wrap">
+            <dl>
+              <dt>
+                생성일
+              </dt>
+              <dd>
+                <ul class="date-box">
+                  <li>
+                    <input class="tac date_from" type="date" id="srchStartDt"
+                           name="srchStartDt"/>
+                    <label for="srchStartDt" class="hide">시작일</label>
+                  </li>
+                  <li>
+                    <input class="tac date_to" type="date" id="srchEndDt"
+                           name="srchEndDt"/>
+                    <label for="srchEndDt" class="hide">종료일</label>
+                  </li>
+                </ul>
+              </dd>
+            </dl>
+            <dl>
+              <dt>
+                <label for="srchType">
+                  구분
+                </label>
+              </dt>
+              <dd>
+                <div class="srch-box">
+                  <input class="form-control2" id="srchType" name="srchType"/>
+                </div>
+              </dd>
+            </dl>
+
+            <dl>
+              <dt>
+                <label for="srchSource">
+                  에러위치
+                </label>
+              </dt>
+              <dd>
+                <div class="srch-box">
+                  <input class="form-control2" id="srchSource" name="srchSource"/>
+                </div>
+              </dd>
+            </dl>
+
+            <dl>
+              <dt><span class="eq"></span></dt>
+              <dd>
+                <li>
+                  <a class="btn btn-delete" title="검색" id="btnSearch">
+                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                    검색
+                  </a>
+                </li>
+              </dd>
+            </dl>
+          </div>
+        </div> <!--//section-top end -->
+        <div class="container-fluid">
+          <p id="selectedItem"></p>
+          <div id="theGrid" ></div>
+        </div>
+        <div class="btn-wrap">
+        </div>
+      </section>
+
+      <section class="section" style="">
+        <div class="table-wrap" style="flex: 0 0 35%; min-width: 0; margin-top: 10px;">
+          <table class="write-table">
+            <caption>시스템로그 상세테이블</caption>
+            <input type="hidden" id="reqnum" name="reqnum">
+            <tbody>
+            <tr>
+              <th style="text-align: center">
+                <label for="type">
+                  구분
+                </label>
+              </th>
+              <td>
+                <input type="text" id="type" name="type" style="width: 100%;">
+              </td>
+            </tr>
+            <tr>
+              <th style="text-align: center">
+                <label for="source">
+                  에러위치
+                </label>
+              </th>
+              <td>
+                <input type="text" id="source" name="source" style="width: 100%;">
+              </td>
+            </tr>
+            <tr>
+              <th style="text-align: center">
+                <label for="created">
+                  발생일
+                </label>
+              </th>
+              <td>
+                <input type="text" id="created" name="created" style="width: 100%;">
+              </td>
+            </tr>
+
+            <tr>
+              <th style="text-align: center">
+                <label for="message">
+                  설명
+                </label>
+              </th>
+              <td>
+<!--                <textarea id="message" name="message"></textarea>-->
+                <input type="text" id="message" name="message" style="width: 100%;">
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div> <!--//layout-contents end -->
+
+  <footer style="margin-top: 24px;">
+    <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+  </footer>
+
+</th:block>
+<th:block layout:fragment="scripts">
+  <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+  <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+  <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+  <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+  <script type="text/javascript">
+
+    var theGrid;
+    var viewdata;
+
+    let columns = [
+      {binding: 'row_num', header: 'No', width: 140, align: 'center'},
+      {binding: 'type', header: '구분', width: 140, align: 'center'},
+      {binding: 'source', header: '에러위치', width: 220, align: 'center'},
+      {binding: 'message', header: '설명', width: 300, align: 'center'},
+      {binding: 'created', header: '생성일', width: 260, align: 'center'},
+      {binding: '', header: '', width: "*", align: 'center'},
+    ];
+
+
+    document.readyState === 'complete' ? init() : window.onload = init;
+
+
+    <!-- 초반 페이지 진입시 그리드 바인딩 끝-->
+    function init() {
+      let data2 = [];
+
+      let srchStartDt = $('#srchStartDt').val();
+      let srchEndDt = $('#srchEndDt').val();
+      let srchType = $('#srchType').val();
+      let srchSource = $('#srchSource').val();
+
+
+      $.ajax({
+        url: '/api/system/systemlog/read',
+        type: 'GET',
+        data: {
+          'srchStartDt': srchStartDt,
+          'srchEndDt': srchEndDt,
+          'srchType': srchType,
+          'srchSource': srchSource,
+
+        },
+        async: false,
+        success: function (data) {
+          console.log('wijmo', data.data);
+          data2 = data.data;
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          console.error('Error fetching log_list data:', textStatus, errorThrown);
+        }
+      });
+
+      /*// 데이터 배열이 비어있을 경우 여러 개의 빈 객체 추가
+      if (data2.length === 0) {
+          let emptyRowsCount = 8;  // 원하는 빈 행의 수
+          for (let i = 0; i < emptyRowsCount; i++) {
+              data2.push({});
+          }
+          console.log('Grid initialized with empty data.');
+      }*/
+
+      viewdata = new wijmo.collections.CollectionView(data2);
+      // 데이터 그리드에 바인딩
+      theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+        autoGenerateColumns: false,
+        showMarquee: true,
+        columns: columns,
+        isReadOnly: true,
+        itemsSource: viewdata
+      });
+
+      theGrid.hostElement.addEventListener('dblclick', function (e) {
+        let selectedItem = theGrid.selectedItems[0];
+
+        document.getElementById('type').value = selectedItem.type;
+        document.getElementById('source').value = selectedItem.source;
+        document.getElementById('message').value = selectedItem.message;
+        document.getElementById('created').value = selectedItem.created;
+      });
+
+      theGrid.rowHeaders.columns.splice(0, 1);  //맨 앞에 헤더부분 없애기
+
+      /*new FlexGridContextMenu(theGrid);*/
+    }
+
+    $('#btnSearch').click(searchData);
+
+    function searchData() {
+
+      let data = {
+        'srchStartDt': $('#srchStartDt').val(),
+        'srchEndDt': $('#srchEndDt').val(),
+        'srchType': $('#srchType').val(),
+        'srchSource': $('#srchSource').val()
+      }
+
+      $.ajax({
+        url: '/api/system/systemlog/read',
+        type: 'GET',
+        data: data,
+        success: function (result) {
+          if (result.success) {
+            /*console.log("Result data:", result.data);*/
+            grid_binding(result.data);
+            resetSearchFields();
+          } else {
+            console.log("Error occurred");
+          }
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          console.error('Error fetching log_list data:', textStatus, errorThrown);
+        }
+      });
+    }
+
+    // 입력 필드 초기화
+    function resetSearchFields() {
+      let fields = ['#id', '#type', '#source', '#created', '#message'];
+      fields.forEach(field => $(field).val(''));
+    }
+
+    function grid_binding(data) {
+
+      let formattedData = data.map(item => ({
+        row_num: item.row_num,
+        id: item.id,
+        type: item.type,
+        source: item.source,
+        message: item.message,
+        created: item.created
+      }));
+
+      theGrid.columns.clear();
+      theGrid.autoGenerateColumns = false;
+
+      columns.forEach(colDef => {
+        let col = new wijmo.grid.Column(colDef);
+        theGrid.columns.push(col);
+      });
+
+      viewdata = new wijmo.collections.CollectionView(formattedData);
+
+      theGrid.itemsSource = viewdata;
+      theGrid.refresh();
+    }
+
+    // let gridContainer = $('#theGridContainer');
+    // let emptyMessage = $('#emptyMessage');
+    // $('#theGrid').remove();  // 기존 그리드를 제거합니다.
+    // gridContainer.prepend('<div id="theGrid"></div>');  // 새로운 그리드 요소를 추가합니다.
+
+    $(document).ready(function (e) {
+
+      const currentDate = new Date();
+      const today = currentDate.toISOString().split('T')[0];
+      const startDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-01`;
+
+      $('.date_from').val(startDate);
+      $('.date_to').val(today);
+
+    });
+  </script>
+</th:block>
+
+</html>

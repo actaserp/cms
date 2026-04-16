@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>ACTAS MES</title>
+    <meta charset="UTF-8"/>
+    <meta name="ctx" th:content="@{/}">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1, minimum-scale=1, maximum-scale=1">
+
+    <!-- CSS -->
+    <link rel="stylesheet" th:href="@{/resource/ax5ui/ax5ui.all.css}">
+    <link rel="stylesheet" th:href="@{/resource/timepicker/jquery.timepicker.min.css}">
+    <link rel="stylesheet" th:href="@{/resource/windowContainer/css/bootstrap.4.min.css}">
+    <link rel="stylesheet" th:href="@{/css/animate.css}">
+    <link rel="stylesheet" th:href="@{/resource/select2/select2.css}">
+    <link rel="stylesheet" th:href="@{/css/sf21_all_6.css}">
+    <link rel="stylesheet" th:href="@{/css/sf21_all_5.css}">
+    <link rel="stylesheet" th:href="@{/css/sf21_frame.css}">
+    <link rel="stylesheet" th:href="@{/css/import.css}">
+
+    <!-- 외부 CDN (그대로 둠) -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/5.10.2/main.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+
+    <!-- JS -->
+    <script th:src="@{/js/vendor/jquery-3.6.0.js}"></script>
+    <script th:src="@{/js/vendor/jquery-ui.min.js}"></script>
+    <script th:src="@{/js/ui.js}"></script>
+    <script th:src="@{/js/utilscript.js}"></script>
+
+    <!-- wijmo.min.css 대신에 아래와 같이 사용자 정의 테마 사용가능 -->
+    <!-- <link href="https://cdn.grapecity.com/wijmo/5.20202.732/styles/themes/wijmo.theme.modern.min.css" rel="stylesheet"/> -->
+
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.min.js"></script>
+    <!-- Wijmo 배포라이선스키 적용 (배포 시 필요) -->
+    <script>
+        // wijmo 전역 객체 사용
+        wijmo.setLicenseKey('[[${@environment.getProperty("wizmo.license")}]]');
+
+    </script>
+
+    <!-- Wijmo 컨트롤 (옵션, 필요한 컨트롤 만 추가) -->
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.grid.min.js"></script>
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.chart.min.js"></script>
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.chart.animation.min.js"></script>
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.chart.hierarchical.min.js"></script>
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.input.min.js"></script>
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.odata.min.js"></script>
+    
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.gauge.min.js"></script>
+
+    <!-- 그리드 그룹 -->
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.grid.grouppanel.min.js"></script>
+    <!-- 그리드 excel -->
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.grid.filter.min.js"></script>
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.grid.sheet.min.js"></script>
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.xlsx.min.js"></script>
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.grid.xlsx.min.js"></script>
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.pdf.min.js"></script>
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.grid.pdf.min.js"></script>
+    <script src="https://cdn.grapecity.com/wijmo/5.20202.732/controls/wijmo.grid.selector.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.grapecity.com/wijmo/5.20202.732/styles/wijmo.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.0.0/jszip.min.js"></script>
+    <script th:src="@{/js/flex-grid-context-menu.js}"></script>
+    <script th:src="@{/js/wijmo-flex-grid.js}"></script>
+
+</head>
+<style>
+
+    .layout-contents {
+        height: 100vh; /* 푸터 높이 제외 */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .layout-contents > div[style*="display: flex"] {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+    }
+
+    section{
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    .section-top {
+        flex: 0 0 auto;
+    }
+
+    .container-fluid {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .grid_box {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .tab-wrap {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    .tab-wrap > div {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .content-wrap {
+        flex: 2;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .wj-flexgrid {
+        flex: 1 1 auto;
+        min-height: 0; /* 중요! */
+        background: #f8f8f8;
+    }
+
+    .wj-flexgrid .wj-header {
+        background-color: #EDEFF5;
+        color:black;
+        font-weight:700;
+
+        font-size: 15px;
+        line-height: 150%;
+    }
+
+    .wj-flexgrid .wj-cell {
+        padding: 9px;
+        font-size: 14px;
+    }
+
+    .wj-cells .wj-cell.wj-state-multi-selected {
+        background-color: #E5F9F9;
+        color: black;
+    }
+
+    .selected-row .wj-cell {
+        background-color: #E5F9F9;
+        color: black;
+    }
+
+    .wj-flexgrid .wj-cell input.wj-column-selector{
+        width: 16px;
+        height: 16px;
+    }
+
+    .wj-flexgrid .wj-cell input.wj-column-selector:before{
+        width: 16px;
+        height: 16px;
+    }
+
+</style>
+<body class="animated fadeIn">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+    <script th:src="@{/resource/jquery.min.js}"></script>
+    <script th:src="@{/resource/jquery-validation/1.17.0/jquery.validate.min.js}"></script>
+    <script th:src="@{/resource/jquery-validation/1.17.0/additional-methods.min.js}"></script>
+    <script th:src="@{/resource/filedownload/jquery.fileDownload.js}"></script>
+    <script th:src="@{/resource/ax5ui/ax5ui.all.min.js}"></script>
+    <script th:src="@{/resource/se2/js/HuskyEZCreator.js}"></script>
+    <script th:src="@{/resource/timepicker/jquery.timepicker.min.js}"></script>
+    <script th:src="@{/resource/jquery.multi-select-ak.js}"></script>
+    <script th:src="@{/resource/moment.min.js}"></script>
+    <script th:src="@{/resource/windowContainer/js/jquery.scrollbar.min.js}"></script>
+    <script th:src="@{/resource/windowContainer/js/bootstrap.min.js}"></script>
+    <script th:src="@{/resource/paho-mqtt/mqttws31.min.js}"></script>
+    <script th:src="@{/resource/select2/select2.min.js}"></script>
+    <script th:src="@{/resource/JavaScript-Templates/tmpl.min.js}"></script>
+
+    <th:block th:replace="system_js :: system_js"></th:block>
+
+    <script th:src="@{/js/common.js}"></script>
+    <script th:src="@{/js/yuscript.js}"></script>
+    <script th:src="@{/js/ax5commUtil.js}"></script>
+    <script th:src="@{/js/grid.js}"></script>
+
+
+    <th:block layout:fragment="content"></th:block>
+    <script type="text/javascript">
+
+
+        $(document).ready(function () {
+            yullinAuth.removeWriteButton();
+            
+            var _wintitle = CommonUtil.getParameters('wintitle');
+            if (_wintitle != '') {
+                $('title').text(_wintitle);
+            }
+            authDisableBtn(''); // 버튼권한 처리==>정리대상
+            authDisableTab(''); // TAB권한 처리==>정리대상
+            var searchheight = parseInt($('.autoheight-search').height() === null ? '0' : $('.autoheight-search').height()) + 65;
+            if ($('.autoheight-div') !== null) {
+                $('.autoheight-div').height($(document).height() - searchheight);
+            }
+            if ($('section.popupcontent') !== null) {
+                $('section.popupcontent').height($(window).height() - 130);
+            }
+
+            $('#btnHedaerFilter').click(function (e) {
+                $(".table_box.search").toggle(300);
+            });
+
+            $('#btnHeaderCompress').click(function (e) {
+                let $wrap = window.parent.$('.wrap');
+
+                window.parent.$('.header').toggle();
+                window.parent.$('.page-tabs').toggle();
+                
+                if (window.parent.$('.header').css('display') == 'none') {
+                    $('#iCompress').replaceWith("<i class='fas fa-compress-alt' id='iCompress'></i>");
+                    $wrap.addClass('menu_close');
+                } else {
+                    $('#iCompress').replaceWith("<i class='fas fa-compress' id='iCompress'></i>");
+                    $wrap.removeClass('menu_close');
+                }
+            });
+
+        });
+
+        // 셀 클릭 이벤트 처리
+        $(document).on('click', '.wj-flexgrid .wj-cell', function() {
+
+            var $grid = $(this).closest('.wj-flexgrid');
+            var $row = $(this).closest('.wj-row'); // 클릭된 행
+
+            // 그리드 내에 체크박스가 없고, 헤더 셀이 아닐 경우에만 로직 수행
+            if ($grid.find('input[type="checkbox"]').length === 0 && !$(this).hasClass('wj-header')) {
+
+                // 이미 선택된 행이면 선택 해제
+                if ($row.hasClass('selected-row')) {
+                    // 해당 행에서만 .selected-row 클래스 제거
+                    $row.removeClass('selected-row');
+                } else {
+                    // 다른 행들의 선택 상태를 유지하면서 현재 행만 선택
+                    $grid.find('.wj-row').removeClass('selected-row');
+
+                    // 현재 행에만 .selected-row 클래스 추가
+                    $row.addClass('selected-row');
+                }
+            }
+        });
+    </script>    
+    <th:block layout:fragment="scripts"></th:block>
+</body>
+</html>
+

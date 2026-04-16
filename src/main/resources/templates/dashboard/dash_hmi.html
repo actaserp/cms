@@ -1,0 +1,120 @@
+<html layout:decorate="~{layout_page}">
+<head>
+<link rel="stylesheet" href="/resource/flowchart/jquery.flowchart.css">
+<link rel="stylesheet" href="/resource/flowchart/custom.css">
+<link rel="stylesheet" href="/resource/jquery-ui/jquery-ui.min.css">
+</head>
+
+<th:block layout:fragment="content">
+<div class="content_wrap">
+    <section class="section">
+        <div class="title_box">
+            <div class="left_align">
+                <h3 data-labelCd="설비 가동 상태">설비 가동 상태</h3>
+            </div>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>
+        </div>
+
+        <div class="table_box search">
+            <form id="searchForm" autocomplete="off">
+                <div class="row">
+                    <div class="col-12 col-sm-5 col-md-3 col-lg-3 col-xl-3">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="HMI 양식 구분">HMI 양식 구분</span>
+                            </div>
+                            <select class="form-control2 " type="text" id="cboHMIType" name="hmi_type">
+                                <option value=''>전체</option>
+                                <option value='hmi_a'>A</option>
+                                <option value='hmi_b'>B</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-5 col-md-3 col-lg-3 col-xl-3">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="HMI 양식">HMI 양식</span>
+                            </div>
+                                <select class="form-control2" id="cboHmiForm" name="cboHmiForm" ></select>
+                        </div>
+                    </div>
+                    <div class="col-1" >
+                            <button type="button" class="btn-default" id="btnSearch" title="조회"><i class="fas fa-search"></i></button>
+                    </div>
+                </div>
+                        
+            </form>
+        </div>
+    </section>
+</div>
+<div style="width:100%;height:100%;">
+    <iframe src="" frameborder="0" id ="iframe-hmi" name="iframe-hmi" style="width:100%;height:100%"></iframe>
+</div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+<script type="text/javascript" src="/resource/flowchart/flowchart.js"></script>
+<script type="text/javascript" src="/resource/flowchart/panzoom.js"></script>
+<script type="text/javascript" src="/resource/jquery-ui/jquery-ui.min.js"></script>
+<script type="text/javascript" src="/resource/paho-mqtt/mqttws31.min.js"></script>
+<script type="text/javascript" src="/js/mqtt.js"></script>
+
+<script type="text/javascript">
+    class EquipmentOperationStatusPage {
+        constructor() {
+
+            this.dicGUICode = {
+                hmi_a: 'wm_hmi_form',
+                hmi_b: 'wm_hmi_form_b'
+            };
+            this.$iframe = $('#iframe-hmi');
+            this.$cboHMIType = $('#cboHMIType');
+            this.$cboHMIForm = $('#cboHmiForm');
+            this.init();   
+        }
+
+        init() {
+            let _this = this;
+			
+            AjaxUtil.fillSelectOptions(this.$cboHMIForm, 'hmi_form', false, false, '');
+            this.$cboHMIType.change(function (e) {
+                AjaxUtil.fillSelectOptions(_this.$cboHMIForm, 'hmi_form', '', false, _this.$cboHMIType.val());
+            });
+
+        }
+
+        showPage() {
+            let _this = this;
+            let key = this.$cboHMIType.val();
+            let pk = this.$cboHMIForm.val();
+            key = this.$cboHMIForm.children('option:selected').data('form_type')
+            let gui = this.dicGUICode[key];
+            let url = '/gui/' + gui + '/detail?action=storyboard&pk=' + pk;
+            //let url = '/gui/' + 'wm_hmi_form_b' + '/detail?action=storyboard&pk=' + pk;
+            this.$iframe[0].src = url;
+			
+            $('#btnHedaerFilter').trigger('click');
+
+        }
+    }
+
+    let page = null;
+    $(document).ready(function (e) {
+        page = new EquipmentOperationStatusPage();
+        page.showPage();
+        $('#btnSearch').click(function (e) {
+            if (!$('#cboHmiForm').val()) {
+                Alert.alert('', 'HMI양식을 선택해주세요.', function () {
+                    $('#cboHmiForm').focus();
+                });
+                return;
+            }
+            page.showPage();
+        });
+    });
+</script>
+</th:block>
+</html>
+

@@ -1,0 +1,126 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wx210{
+            width: 210px !important;
+        }
+        .wx190{
+            width: 150px !important;
+        }
+
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>태그 데이터 현황</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>공정 데이터</li>
+                <li>태그 데이터 현황</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="search-wrap">
+                <dl>
+                    <dt>
+                    </dt>
+                    <dd>
+                        <button type="button" class="btn-default" id="btnGridRefresh"><i class="fa fa-sync-alt"></i> </button>
+                    </dd>
+                </dl>
+            </div>
+            <div class="container-fluid">
+                <div id="theGrid" style="height: 600px;"></div>
+
+            </div>
+
+            <!--        <div class="grid_box">-->
+
+            <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
+            <!--        </div>-->
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <script type="text/javascript">
+        class EquipmentFinalTagdataPage {
+            constructor() {
+                this.grid = null;
+                this.base_url = '/api/tagdata/tag_current';
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        {binding: 'equip_name', header: '설비', width: '*', align: 'left'},
+                        {binding: 'tag_code', header: '태그코드', width: '*', align: 'left'},
+                        {binding: 'tag_name', header: '태그명', width: '*', align: 'left'},
+                        {binding: 'spec', header: '관리기준(lsl~usl)', width: '*', align: 'center'},
+                        {binding: 'data_value', header: '현재값', width: '*', align: 'right'},
+                        {binding: 'data_date', header: '일시', width: '*', align: 'center'},
+                    ],
+                    itemsSource: this.viewData,
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '태그데이터현황';
+                this.grid.hostElement.addEventListener('dblclick', (e) => {
+                    let hitTest = this.grid.hitTest(e);
+                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                        let row = hitTest.row;
+                        let item = this.grid.rows[row].dataItem;
+                        console.log('zz', item.id);
+                    }
+                });
+            }
+
+            // 태그 목록 조회
+            searchMainData() {
+                let _this = this;
+                let url = this.base_url + '/read';
+                let param = {
+                    action: 'read',
+                }
+
+                let result = AjaxUtil.getSyncData(url, param);
+                if (result != null) {
+                    _this.viewData.sourceCollection = result.data;
+                }
+
+
+            }
+        }
+
+
+        let page = null;
+
+        $(document.body).ready(function (e) {
+            page = new EquipmentFinalTagdataPage();
+
+            //새로고침
+            $('#btnGridRefresh').click(function () {
+                page.searchMainData();
+            });
+
+            page.searchMainData();
+        });
+
+    </script>
+</th:block>
+</html>

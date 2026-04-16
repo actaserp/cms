@@ -1,0 +1,1082 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+<style>
+    .background-yellow {
+        background: #ffd800
+    }
+    .background-skyblue {
+        background: #00e0ff
+    }
+    .background-white {
+        background: #ffffff
+    }
+    table.type01 {
+        border-collapse: collapse;
+        text-align: left;
+        line-height: 1.5;
+        margin: 20px 10px;
+    }
+    table.type01 th {
+        width:150px;;
+        padding: 10px;
+        font-weight: bold;
+        vertical-align: middle;
+        border: 1px solid #ccc;
+        text-align: center;
+    }
+    table.type01 td {
+        width:950px;
+        padding: 10px;
+        vertical-align: middle;
+        border: 1px solid #ccc;
+        text-align: left;
+    }
+</style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>CCP 주정첨가 일지</h2>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>중요관리점(CCP) 일지</li>
+                <li>CCP 주정첨가 일지</li>
+            </ul>
+        </div>
+
+        <input type="hidden" id="hd_id" th:value="${hd_id}"/>
+        <input type="hidden" id="hp_id" th:value="${hp_id}"/>
+        <input type="hidden" id="viewMode" th:value="${view_mode}"/>
+        <input type="hidden" id="apprView" th:value="${appr_view}"/>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="button-wrap">
+                    <button type="button" class="btn" id="btnDiaryPrint">일지출력</button>
+                    <button type="button" class="btn" id="btnReqAppr">결재상신</button>
+                    <button type="button" class="btn" id="btnAppr" style="display:none;">승인</button>
+                    <button type="button" class="btn-cancel" id="btnReject" style="display:none;">반려</button>
+                    <button type="button" class="btn" id="btnSave">일지저장</button>
+                    <button type="button" class="btn" id="btnList">목록</button>
+                </div>
+            </div>
+            <div class="section-card-wrap">
+
+                <div class="col-5">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="txtTitle">일지명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="txtTitle" name="title" value="" readonly/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="dataDate">일자</label>
+                            </th>
+                            <td>
+                                <input type="date" id="dataDate" name="dataDate" disabled/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="cboHaccpProcess">CCP가열공정</label>
+                            </th>
+                            <td>
+                                <select id="cboHaccpProcess" name="hp_id" disabled></select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="txtWriterName">작성자</label>
+                            </th>
+                            <td>
+                                <input type="text" id="txtWriterName" name="WriterName" disabled/>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-6">
+                    <div id="approveBox"></div>
+                </div>
+
+            </div>
+            <div class="title_box">
+                <div class="left_align">
+                    <label class="switch">
+                        <input type="checkbox" id="btnToggle" value="" checked><span class="slider round"></span>
+                    </label>
+                    관리기준 보기/감추기
+                </div>
+            </div>
+
+            <div id="standardDIv">
+                <div class="col-12">
+                    <table class="type01">
+                        <tr>
+                            <th scope="row">한계기준</th>
+                            <td id="Standard"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">모니터링방법</th>
+                            <td id="MonitoringMethod"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">개선조치방법</th>
+                            <td id="ActionMethod"></td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row">점검주기</th>
+                            <td id="TestCycle"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">비고</th>
+                            <td id="Description"></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label for="cboEquipment">
+                                설비
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboEquipment" name="cboEquipment"></select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            <label for="cboDataType">
+                                측정구분
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboDataType" name="DataType">
+                                    <option value="S">작업시작 전</option>
+                                    <option value="P">제품</option>
+                                    <option value="E">작업종료 후</option>
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="StartTime">
+                                측정시간
+                            </label>
+                        </dt>
+                        <dd>
+                            <input type="text" id="StartTime" name="StartTime" placeholder="00:00"
+                                   value="00:00"/>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="cboMaterialGroup">
+                                제품선택
+                            </label>
+                        </dt>
+                        <dd>
+                            <select class="form-control2" id="cboMaterialGroup" name="MaterialGroup_id"></select>
+                            <select class="form-control2" id="cboMaterial" name="Material_id">
+                                <option value="">선택
+                            </select>&nbsp;
+                        </dd>
+                    </dl>
+                </div>
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <button class="btn btn-excell" title="검사결과추가" id="btnAddTestItems">
+                                <i class="fas fa-plus" style="margin-right: 10px;"></i>
+                                검사결과 추가
+                            </button>
+                        </li>
+                        <li>
+                            <button class="btn btn-edit" title="수정" id="btnSaveItems">
+                                <i class="fas fa-save" style="margin-right: 10px;"></i>
+                                변경 저장
+                            </button>
+                        </li>
+                        <li>
+                            <button class="btn btn-delete" title="삭제" id="btnDeleteItem">
+                                <i class="fas fa-trash" style="margin-right: 10px;"></i>
+                                행 삭제
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="haccp-test-grid" style="height: 300px;"></div>
+            </div>
+        </section>
+
+        <section class="section">
+
+            <div class="section-top">
+                <div class="search-wrap">
+                    <h3>이물 발생 현황</h3>
+                </div>
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <button class="btn btn-delete" title="삭제" id="btnDeleteDetect">
+                                <i class="fas fa-trash" style="margin-right: 10px;"></i>
+                                행 삭제
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="haccp-detect-grid" style="height: 230px;"></div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="/haccp/common/pop_haccp_devi_detect :: pop_devi_detect"></th:block>
+<th:block th:replace="/common/approve_box :: approve_box"></th:block>
+
+
+<script type="text/javascript">
+class HaccpDiaryPage {
+    constructor() {
+        this.url = '/api/haccp/diary';
+        this.taskCode = 'CCP주정첨가일지';
+        this.hp_id = 13;
+        
+        this.parent_code = 'haccp_add_ethanol_devi_action';
+
+        this.grid = null;
+        this.hd_id=null;
+        this.view_mode = true;
+        this.diary = null;
+        
+        this.$dataDate = null;
+        this.$cboHaccpProcess = null;
+        this.$txtWriterName = null;
+        
+        // 이 화면에서는 bundle_head, dept_id, shift를 사용하지 않는다.
+        this.head_id = null; 
+        this.dept_id = null;
+        this.shift = "";
+
+        this.process_items = [];
+        this.dicDataType = {'S':'작업시작 전', 'P':'제품','E':'작업종료 후'};
+        
+        this.init();
+    }
+
+    init() {
+        let _this = this;
+
+        // 일지 데이터 PK 설정
+        this.hd_id = $('#hd_id').val()
+        this.hp_id = $('#hp_id').val();
+        let viewMode = $('#viewMode').val();
+
+        this.view_mode = viewMode=="true"? true:false;
+
+        // 일자
+        this.$dataDate = $('#dataDate');
+        this.$dataDate.ax5DatePicker({ direction: 'top' });
+        if (this.hd_id==="0" || this.hd_id===""){
+            this.$dataDate.val(CommonUtil.getYYYYMMDD());
+        }
+
+        // 일지명
+        $('#txtTitle').val(this.taskCode);
+        
+        // HACCP가열공정
+        this.$cboHaccpProcess = $('#cboHaccpProcess');
+        AjaxUtil.fillSelectOptions(this.$cboHaccpProcess, 'haccp_process', 'choose', this.hp_id);
+
+        // 작성자
+        this.$txtWriterName = $('#txtWriterName');
+        
+        // 동기처리
+        this.loadHaccpProcessDetail(this.hp_id);
+
+        // 결재정보 설정
+        this.loadApprData();
+
+        // 이탈검출
+        this.initDetectList();
+
+        // 일지 데이터 로드
+        this.loadDiaryData();
+
+    }
+
+    // haccp_test 그리드 초기화
+    initHaccpTestGrid(){
+        let _this = this;
+
+        let columns = [
+            {binding: 'equ_name', header: '설비명', width: 150, align: 'left', isReadOnly: true },
+            {binding: 'mat_code', header: '제품코드', width: 120, align: 'left', isReadOnly: true },
+            {binding: 'MaterialName', header: '제품명', width: 250, align: 'left', isReadOnly: true },
+            {binding: 'DataType', header: '측정구분', width: 100, align: 'center', isReadOnly: true },
+            {binding: 'StartTime', header: '측정시간', width: 100, align: 'center', isRequired: true, isReadOnly: false },
+            {binding: 'Judge', header: '판정(적합:O/부적합:X)', width: 150, align: 'center', isReadOnly: false },
+            {binding: 'TesterName', header: '모니터링 담당자', width: 120, align: 'center', isReadOnly: false },
+            {binding: 'Description', header: '비고', width: 260, align: 'left', isReadOnly: false }
+        ];
+
+        // 'StartTime' 컬럼의 다음 위치를 찾음
+        let startTimeIndex = columns.findIndex(col => col.binding === 'StartTime') + 1;
+
+        // _this.process_items 처리
+        let processColumns = [];
+        let processBindings = [];
+        _this.process_items.forEach(r => {
+            let binding = 'item_' + r.item_id;
+            let column = {
+                binding: binding,
+                header: r.item_name,
+                width: 120,
+                align: 'center',
+                isReadOnly: false
+            };
+
+            if (r.ResultType === 'OX') {
+                column.dataMap = new wijmo.grid.DataMap([
+                    {value: 'O', text: 'O'},
+                    {value: 'X', text: 'X'}
+                ], 'value', 'text');
+            } else if (r.ResultType === 'text') {
+                column.isRequired = true;
+            } else {
+                column.format = 'n0';
+            }
+
+            processBindings.push(binding);
+            processColumns.push(column);
+        });
+
+        // StartTime 다음에 processColumns 삽입
+        columns.splice(startTimeIndex, 0, ...processColumns);
+
+        // 헤더 스타일을 적용할 모든 binding 값을 배열로 저장
+        let styledBindings = ['StartTime', 'Judge', 'TesterName', 'Description', ...processBindings];
+
+        this.haccpTestGrid = new wijmo.grid.FlexGrid('#haccp-test-grid', {
+            autoGenerateColumns: false,
+            frozenColumns: 0,
+            frozenRows: 0,
+            isReadOnly: false, // 전체적으로 수정 가능
+            allowSorting: true,
+            selectionMode: wijmo.grid.SelectionMode.Row,
+            headersVisibility: wijmo.grid.HeadersVisibility.All, // 헤더 표시
+            itemsSource: new wijmo.collections.CollectionView([]),
+            columns: columns,
+            formatItem: (s, e) => {
+                if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
+                    // 헤더에 순번
+                    e.cell.textContent = (e.row + 1).toString();
+                }
+                if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                    e.cell.style.textAlign = 'center';
+                }
+                // 헤더 스타일 적용
+                if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
+                    && styledBindings.includes(s.columns[e.col].binding)
+                ) {
+                    e.cell.style.color = '#5567ff';
+                }
+                if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                    if (s.columns[e.col].binding === 'DataType') {
+                        let value = e.cell.textContent;
+                        e.cell.textContent = _this.dicDataType[value] || '-'; // 매핑된 값 또는 기본값 표시
+                    }
+                }
+            }
+        });
+
+        // 셀 편집 완료 이벤트 - 수정 플래그 설정
+        this.haccpTestGrid.cellEditEnded.addHandler((s, e) => {
+            const col = s.columns[e.col]; // 현재 수정된 컬럼
+            const item = s.collectionView.items[e.row]; // 수정된 행 데이터
+
+
+            if (col.binding === 'Judge') {
+
+                return;
+            }
+
+            // 수정 가능한 컬럼인지 확인
+            if (['StartTime', 'TesterName', 'Description'].includes(col.binding) || col.binding.startsWith('item_')) {
+                item.__modified = true; // 수정 플래그 설정
+            }
+        });
+
+        // formatItem 이벤트에 Judge 셀 클릭 이벤트 추가
+        this.haccpTestGrid.formatItem.addHandler((s, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                const col = s.columns[e.col];
+                const item = s.rows[e.row]?.dataItem;
+
+                // Judge 셀 처리
+                if (col.binding === 'Judge' && item) {
+                    e.cell.textContent = item.Judge || '-'; // 데이터 값 렌더링
+                    e.cell.style.cursor = 'pointer'; // 클릭 가능한 커서 스타일
+
+                    // 기존 클릭 이벤트 제거
+                    e.cell.removeEventListener('click', e.cell.__clickHandler);
+
+                    // 새로운 클릭 이벤트 추가
+                    e.cell.__clickHandler = () => {
+                        if (!_this.view_mode) { // 읽기 전용이 아닐 경우에만 동작
+                            const currentValue = item.Judge || '-'; // 현재 값
+                            const newValue = currentValue === 'O' ? 'X' : 'O'; // 값 토글
+                            item.Judge = newValue; // 데이터 업데이트
+                            item.__modified = true; // 수정 플래그 설정
+
+                            // 셀 값 즉시 업데이트
+                            e.cell.textContent = newValue;
+                        }
+                    };
+
+                    // 클릭 이벤트 등록
+                    e.cell.addEventListener('click', e.cell.__clickHandler);
+                }
+            }
+        });
+
+        // 목록버튼
+        this.$btnList = $('#btnList');
+        this.$btnList.click(function(e){
+            let url = '/gui/'+gui.gui_code;
+            location.href = url;
+        });
+
+        // 출력버튼
+        this.$btnDiaryPrint = $('#btnDiaryPrint');
+        this.$btnDiaryPrint.click(function (e) {
+            let url = "/api/files/haccp_diary?action=haccp_diary_download&diary_id=" + _this.hd_id;
+            //let url = "/api/files/haccp_diary?action=haccp_diary_simple&diary_id=" + _this.hd_id;
+            window.open(url, '_new', '');
+        });
+
+        //결재 상신
+        this.$btnReqAppr = $('#btnReqAppr');
+        this.$btnReqAppr.click(function(e){
+            Alert.confirm('결재상신', '상신하시겠습니까?', function(){
+            	_this.reqAppr();
+           	});
+        });
+        
+        
+        //승인
+        this.$btnAppr = $('#btnAppr');
+        this.$btnAppr.click(function(e){
+            _this.appr(true);
+        });
+        
+        
+        //반려
+        this.$btnReject = $('#btnReject');
+        this.$btnReject.click(function () {
+            _this.appr(false);
+        });        
+
+        //일지저장
+        this.$btnSave = $('#btnSave');
+        this.$btnSave.click(function(e){
+            _this.saveDiary();
+        });
+
+        // 하위 결과입력란시작
+        this.$cboEquipment = $('#cboEquipment'); //설비
+        this.$cboDataType = $('#cboDataType'); //테스트구분
+        this.$cboMaterialGroup = $('#cboMaterialGroup'); // 제품그풉
+        this.$cboMaterial = $('#cboMaterial'); //제품
+        this.$StartTime = $('#StartTime');
+
+        this.$btnAddTestItems = $('#btnAddTestItems'); //검사결과추가버튼
+        this.$btnSaveItems = $('#btnSaveItems'); //변경저장
+        this.$btnDeleteItem = $('#btnDeleteItem');  // 행삭제
+        this.$btnAddTestItems.click(function (e) {
+            _this.addTestItems();
+        });
+        
+        
+        this.$btnSaveItems.click(function(e){
+            // 수정된 항목 가져오기
+            let cv = _this.haccpTestGrid.collectionView;
+            let modifiedItems = cv.items.filter(item => item.__modified); // 수정된 데이터 필터링
+            let modifiedCount = modifiedItems.length;
+            if (modifiedCount > 0) {
+                Alert.confirm('항목저장', '항목을 저장하시겠습니까?', function () {
+                    // 저장함수 호출
+                    _this.saveHaccpTestItems(modifiedItems);
+                });
+            } else {
+                Alert.alert('항목저장', '변경된 데이터가 없습니다.');
+            }
+        });
+        
+        this.$btnDeleteItem.click(function(e){
+            let items = _this.haccpTestGrid.selectedItems;
+            if (items.length === 0) {
+                Alert.alert('항목삭제', '선택된 행이 없습니다.');
+                return;
+            }
+            Alert.confirm('항목삭제', '선택한 행을 삭제하시겠습니까?', function () {
+                _this.deleteHaccpTest(items);
+            });
+        });
+        
+
+        AjaxUtil.fillSelectOptions(this.$cboEquipment, 'equipment', 'choose', false);
+        
+        this.$cboMaterialGroup = $('#cboMaterialGroup');
+        AjaxUtil.fillSelectOptions(this.$cboMaterialGroup, 'material_group', 'choose', false, 'product');
+        
+        this.$cboMaterial = $('#cboMaterial');
+        this.$cboMaterialGroup.change(function(e){
+            let mat_grp_id = _this.$cboMaterialGroup.val();
+            AjaxUtil.fillSelectOptions(_this.$cboMaterial, 'material', 'choose', false, mat_grp_id);
+        });
+        
+        // 데이터 구분에 따라 입력 제한
+        this.$cboDataType.change(function (e) {
+            let DataType = _this.$cboDataType.val();
+
+            if (DataType === "P") {
+                _this.$cboMaterialGroup.removeAttr('disabled');
+                _this.$cboMaterial.removeAttr('disabled');
+            }
+            else {
+                _this.$cboMaterialGroup.attr('disabled', 'disabled');
+                _this.$cboMaterial.attr('disabled', 'disabled');
+                _this.$cboMaterialGroup.val('');
+                _this.$cboMaterial.val('');
+            }
+        });
+    }
+
+    deleteHaccpTest(items) {
+        let _this = this;
+        
+        let ht_item = items[0];
+        let ht_id = ht_item.ht_id;
+
+        let url = this.url + "/delete_haccp_test";
+        let data = { ht_id: ht_id };
+        let fnsuccess = function (result) {
+            if (result.success) {
+                Notify.success('삭제되었습니다.');
+                _this.showDiaryItemList();
+            }
+        };
+
+        AjaxUtil.postAsyncData(url, data, fnsuccess);
+    }
+    
+
+    initDetectList(){
+        let _this = this;
+
+        this.$btnDeleteDetect = $('#btnDeleteDetect');
+
+        let columns = [
+            {binding: 'equ_name', header: '설비명', width: 150, align: 'left', isReadOnly: true},
+            {binding: 'mat_code', header: '제품코드', width: 100, align: 'center', isReadOnly: true},
+            {binding: 'MaterialName', header: '제품명', width: 300, align: 'left', isReadOnly: true},
+            {binding: 'StartTime', header: '측정시간', width: 80, align: 'center', isRequired: true},
+            {binding: 'AbnormalDetail', header: '이탈사항(클릭)', width: 250, align: 'center', isReadOnly: true},
+            {binding: 'ActionDetail', header: '조치내역', width: 250, align: 'left', isReadOnly: true},
+            {binding: 'ActorName', header: '조치자', width: 80, align: 'center', isReadOnly: true},
+            {binding: 'writer', header: '확인자', width: 80, align: 'center', isReadOnly: true},
+            {binding: 'description', header: '비고', width: 250, align: 'left', isReadOnly: true}
+        ];
+
+        this.detectGrid = new wijmo.grid.FlexGrid('#haccp-detect-grid', {
+            autoGenerateColumns: false,
+            frozenColumns: 0,
+            frozenRows: 0,
+            isReadOnly: false,
+            allowSorting: true,
+            selectionMode: wijmo.grid.SelectionMode.Row,
+            headersVisibility: wijmo.grid.HeadersVisibility.All, // 헤더 표시
+            itemsSource: new wijmo.collections.CollectionView([]),
+            columns: columns,
+            formatItem: (s, e) => {
+                if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
+                    // 헤더에 순번
+                    e.cell.textContent = (e.row + 1).toString();
+                }
+                if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                    e.cell.style.textAlign = 'center';
+                }
+                if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
+                    && s.columns[e.col].binding === 'AbnormalDetail') {
+                    e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                }
+            }
+        });
+
+        // 클릭 이벤트 추가
+        this.detectGrid.hostElement.addEventListener('click', (e) => {
+            let ht = this.detectGrid.hitTest(e);
+            if (ht.cellType === wijmo.grid.CellType.Cell) {
+                let item = this.detectGrid.rows[ht.row].dataItem;
+                if (this.detectGrid.columns[ht.col].binding === 'AbnormalDetail' && !_this.view_mode) {
+                    _this.showDeviActionCodeSavePopup(item);
+                }
+                if (!_this.view_mode) {
+                    _this.$btnDeleteDetect.removeAttr('disabled');
+                }
+            }
+        });
+
+        // 행 삭제
+        this.$btnDeleteDetect.click(function (e) {
+            let items = _this.detectGrid.selectedItems;
+            if (items.length === 0) {
+                Alert.alert('이탈 항목 삭제', '선택된 데이터가 없습니다.');
+                return;
+            }
+            Alert.confirm('이탈 항목 삭제', '삭제하시겠습니까?', function () {
+                _this.deleteDetectItem(items[0]);
+            });
+        });
+    }
+    
+    // haccp공정별 데이터 가져옴
+    loadHaccpProcessDetail(hp_id){
+        let _this = this;
+        let param = {hp_id:this.hp_id};
+        let url = "/api/haccp/haccp_process/detail_haccp_process";
+        let result = AjaxUtil.getSyncData(url, param);
+        if(result.success){
+            let data = result.data;
+            data.Standard = data.Standard==null?"":data.Standard.replace(/\r?\n|\r/g, "<br>");
+            $('#Standard').html(data.Standard);
+            data.MonitoringMethod= data.MonitoringMethod==null?"": data.MonitoringMethod.replace(/\r?\n|\r/g, "<br>");
+            $('#MonitoringMethod').html(data.MonitoringMethod);
+            data.ActionMethod = data.ActionMethod==null?"":data.ActionMethod.replace(/\r?\n|\r/g, "<br>");
+            $('#ActionMethod').html(data.ActionMethod);
+            $('#TestCycle').html(data.TestCycle);
+            $('#Description').html(data.Description);
+
+            _this.process_items = data.haccpProcessItems;
+            _this.initHaccpTestGrid();
+        }
+        else{
+            this.process_items = [];
+        }
+    }
+
+    // 결재정보 읽어오기
+    loadApprData(){
+        let _this = this;
+        
+        //constructor(head_id, task_code, src_data_pk, src_table_name, dept_id, shift) {
+        this.approveBoxUtil = new ApproveBoxUtil(this.head_id, this.taskCode, this.hd_id, 'haccp_diary', false, false);
+        this.approveBoxUtil.print(this.view_mode);
+    }
+
+    // 일지데이터 가져오기
+    loadDiaryData(){
+        let _this = this;
+        
+        if(this.hd_id==="0" || this.hd_id===""){
+            this.$txtWriterName.val(userinfo.username);
+            this.$dataDate.removeAttr("disabled");
+         // 신규 작성이면 데이터 로드 필요없음
+            return;
+        }
+
+        let fnsuccess = function(result){
+            if(result.success){
+                _this.diary = result.data;
+                _this.$dataDate.val(result.data.DataDate);
+                _this.$txtWriterName.val(result.data.WriterName);
+
+                //테스트결과그리드
+                _this.showDiaryItemList();
+                _this.showDetectList();
+                
+                // this.view_mode에 따라 입력활성/비활성
+                _this.setApplyMode();
+
+            }
+            else{
+                Alert.alert('상세오류')
+            }
+        };
+
+        let url = this.url+'/detail';
+        let param = {hd_id : this.hd_id};
+        AjaxUtil.getAsyncData(url, param, fnsuccess);
+    }
+
+    saveDiary(){
+        let _this = this;
+        let url = this.url + '/save';
+        let param = {
+            hd_id : this.hd_id,
+            hp_id: this.hp_id,
+            data_date : this.$dataDate.val()
+        };
+        Alert.confirm('일지저장', '저장하시겠습니까?', function(){
+
+            let fnsuccess = function(result){
+                if(result.success){
+                    _this.hd_id = result.data.id;
+                    $('#hd_id').val(_this.hd_id);
+                    _this.$dataDate.val(result.data.dataDate);
+                    
+                    Notify.success("저장되었습니다.");
+                }
+                else{
+                    Alert.alert('저장오류', result.message);
+                }
+            };
+            AjaxUtil.postAsyncData(url, param, fnsuccess);
+        });
+    }
+
+
+    
+    addTestItems() {
+        let _this = this;
+        
+        if(this.hd_id==="0"){
+        	Alert.alert('알림', "일지를 먼저 저장후 결과를 입력하세요");
+        	return;
+        }
+
+        let material_id = this.$cboMaterial.val();
+        let startTime = this.$StartTime.val();
+        let dataType = this.$cboDataType.val();
+        let equipment_id = this.$cboEquipment.val();
+        
+        let haccp_grid = _this.haccpTestGrid.selectedItems;
+        if(equipment_id===""){
+            Alert.alert('입력오류', '설비를 선택해 주세요.');
+            return;
+        }
+        
+        if (haccp_grid.length === 0 && dataType !== "S") {
+            Alert.alert('입력오류', '작업시작 전 데이터를 입력해주세요.');
+            return;
+        }
+
+        if (haccp_grid.length > 0 && dataType === "S") {
+            Alert.alert('입력오류', '작업시작 전 데이터를 입력하실수 없습니다.');
+            return;
+        }
+
+        if (dataType === "P" && material_id === "") {
+            Alert.alert('입력오류', '제품을 선택하세요.');
+            return;
+        }
+
+        if (this.checkTimeFormat(startTime) === false) {
+            Alert.alert('입력오류', '측정시간 입력 오류');
+            return;
+        }
+        if (haccp_grid.length > 0) {
+            if (haccp_grid[haccp_grid.length - 1].DataType === "S" && dataType === "E") {
+                Alert.alert('입력오류', '제품데이터를 입력하세요.');
+                return;
+            }
+            if (haccp_grid[haccp_grid.length - 1].dataType === "E") {
+                Alert.alert('입력오류', '작업종료 후 데이터가 입력되어있습니다.');
+                return;
+            }
+            if (haccp_grid[haccp_grid.length - 1].startTime >= StartTime) {
+                Alert.alert('입력오류', '측정시간 입력 오류\n이전에 입력한 내용이후의 시간으로 입력해주세요.');
+                return;
+            }
+        }
+        
+        let url = this.url + "/save_haccp_test";
+        let data = {
+            'hd_id': this.hd_id,
+            'hp_id': this.hp_id,
+            'equipment_id': equipment_id,
+            'material_id': material_id,
+            'start_time': startTime,
+            'data_type': dataType
+        };
+        
+        let fnsuccess = function (result) {
+            if (result.success) {
+                Notify.success("항목이 추가되었습니다.");
+                _this.showDiaryItemList();
+                //let time = new Date(_this.$StartTime.val())
+                //time = time.setMinutes(time.getMinutes() + 1)
+                //_this.$StartTime.val(time)
+            } else {
+                Alert.alert('', result.message);
+            }
+        };
+        AjaxUtil.postAsyncData(url, data, fnsuccess);
+    }
+    
+    extractItems(row) {
+        let _this = this;
+        let haccp_items = [];
+        $.each(_this.process_items, function (idx, pi) {
+            let key = "item_" + pi.item_id;
+            let value = row[key];
+            let r = {
+                item_id: pi.item_id,
+                NumResult: value
+            };
+            haccp_items.push(r);
+        });
+        return haccp_items;
+    }    
+    saveHaccpTestItems(haccpTestItems) {
+        let _this = this;
+        let rows = [];
+        $.each(haccpTestItems, function (idx, row) {
+            let haccp_items = _this.extractItems(row);
+            let r = {
+                ht_id: row.ht_id,
+                StartTime: row.StartTime,
+                Material_id: row.Material_id,
+                Judge: row.Judge,
+                Description: row.Description,
+                TesterName: row.TesterName,
+                items: haccp_items
+            };
+            rows.push(r);
+        });
+
+        let strRows = JSON.stringify(rows);
+        let data = {
+            hd_id: this.hd_id,
+            Q: strRows
+        };
+
+        let callback = function (res) {
+            if (res.success) {
+                Notify.success('항목을 저장했습니다.');
+                _this.showDiaryItemList();
+                _this.showDetectList();
+            }
+        };
+        
+        let url = this.url + '/save_haccp_test_item_result';
+        AjaxUtil.postAsyncData(url, data, callback);
+    }
+    
+    // 상세항목 목록 조회
+    showDiaryItemList() {
+        let _this = this;
+        let hd_id = this.hd_id;
+        let data = {
+            hd_id: hd_id
+        };
+
+        let fnsuccess = function (result) {
+            let dic_haccp_test = {};
+            let items = [];
+            
+            if(result.success){
+                $.each(result.data, function (idx, r) {
+                    //부모의 경우
+                    if (r.item_id == null) {
+                        items.push(r);
+                        dic_haccp_test[r.ht_id] = r
+                    }
+                    else {
+                        let item = dic_haccp_test[r.ht_id]
+                        let k = 'item_' + r.item_id;
+                        item[k] = r.NumResult;
+                    }
+                });
+            }
+            else{
+            	
+            }
+
+            // 기존 CollectionView 업데이트
+            let collectionView = _this.haccpTestGrid.itemsSource;
+            if (collectionView) {
+                collectionView.sourceCollection = items;
+                collectionView.refresh(); // 변경 사항 반영
+
+            } else {
+                // 초기 설정
+                _this.haccpTestGrid.itemsSource = new wijmo.collections.CollectionView(items);
+            }
+
+            _this.haccp_test_items = items; // 로컬 데이터 갱신
+
+        };
+
+        let url = this.url + '/test_item_result_list';
+        AjaxUtil.getAsyncData(url, data, fnsuccess);
+    }
+
+
+    checkTimeFormat(hhmm) {
+        let isValid = /^([0-1]?[0-9]|2[0-4]):([0-5][0-9])(:[0-5][0-9])?$/.test(hhmm);
+        return isValid;
+    }
+
+    // 이탈 발생 목록 행 삭제
+    deleteDetectItem(item) {
+        let _this = this;
+        let fnsuccess = function (result) {
+            if (result.success) {
+                Notify.success("삭제되었습니다.");
+                _this.showDetectList();
+            }
+        };
+
+        let url = this.url + "/delete_haccp_devi_detect";
+        let data = { hddd_id: item.hddd_id };
+        AjaxUtil.postAsyncData(url, data, fnsuccess);
+    }
+
+    showDetectList() {
+        let _this = this;
+        let data = {
+            hd_id: this.hd_id,
+        };
+
+        let fnsuccess = function (result) {
+            if (result.success) {
+                _this.detectGrid.itemsSource.sourceCollection = result.data;
+                _this.detectGrid.itemsSource.refresh();
+            } else {
+                _this.detectGrid.itemsSource.sourceCollection = [];
+                _this.detectGrid.itemsSource.refresh();
+            }
+        };
+
+        let url = this.url + "/haccp_devi_detect_list";
+        AjaxUtil.getAsyncData(url, data, fnsuccess);
+        _this.$btnDeleteDetect.attr('disabled', 'disabled');
+    }
+    
+    showDeviActionCodeSavePopup(detectItem){
+        let _this = this;
+
+        let deviDetectPage = new PopupHaccpDeviDetect();
+        deviDetectPage.parent_code = this.parent_code;
+        deviDetectPage.hddd_id = detectItem.hddd_id;
+        
+        let fncallback = function(item){
+            _this.showDetectList();
+        };
+        deviDetectPage.show(fncallback);
+    }
+
+    setApplyMode(){
+    	let _this = this;
+    	
+        // 읽기모드 일 경우
+        if(this.view_mode){
+             this.$btnAddTestItems.attr('disabled', 'disabled');
+             this.$btnSaveItems.attr('disabled', 'disabled');
+             this.$btnDeleteItem.attr('disabled', 'disabled');
+             
+             if (_this.diary.State === 'approval') {
+                 $('#btnDiaryPrint').show();
+             }
+             $('#btnDelete').hide();
+             $('#btnReqAppr').hide();
+             $('#btnSave').hide();
+        }
+        else{
+            if (this.diary.State === 'process' || this.diary.State === 'reprocess') {
+                $('#btnReqAppr').hide();
+                $('#btnSave').hide();
+                $('#btnDelete').hide();
+            } else if (this.diary.State === 'approval') {
+                $('#btnDiaryPrint').show();
+                $('#btnReqAppr').hide();
+                $('#btnSave').hide();
+                $('#btnDelete').hide();
+            }
+        }
+        
+        if (_this.approveBoxUtil.isApprUser()) {
+            // 결재자의 경우 버튼 처리
+            $('#btnAppr').show();
+            $('#btnReject').show();
+        }
+        
+    } 
+    
+    reqAppr() {
+        let _this = this;
+        let title = $('#title').val();
+        let url = '/gui/' + gui.gui_code + '/edit';
+        
+        let urlParam = {
+            'hd_id': this.hd_id,
+            'hp_id' : this.hp_id,
+            'data_date': this.$dataDate.val(),
+        };
+
+        let ret = _this.approveBoxUtil.request(this.hd_id, this.taskCode, url, JSON.stringify(urlParam));
+        if (ret.success) {
+            Notify.success('결재상신하였습니다.');
+            
+            _this.$btnReqAppr.hide();
+            //$('#btnList').click();
+        }
+    }
+
+    //결재 : true, 반려 : false
+    appr(isAppr) {
+        let _this = this;
+        _this.approveBoxUtil.approval(isAppr, function () {
+            $('#btnList').click();
+        });
+    }
+    
+
+}
+
+$(document).ready(function (e) {
+    let page = new HaccpDiaryPage();
+    // 그리드 토글
+    $('#btnToggle').click(function (e) {
+        $("#standardDIv").toggle(300);
+    });
+    
+    $('#StartTime').timepicker({
+        show2400: true,
+        timeFormat: 'H:i'
+    }).val();
+    
+});
+</script>
+</th:block>
+</html>

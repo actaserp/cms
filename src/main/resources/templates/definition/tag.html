@@ -1,0 +1,428 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wx210{
+            width: 210px !important;
+        }
+        .wx190{
+            width: 150px !important;
+        }
+
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>태그 정보</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>공정 데이터</li>
+                <li>태그 정보</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px;">
+            <section class="section" style="flex: 2;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>
+                                    태그그룹
+                                </label>
+                            </dt>
+                            <dd>
+                                <select id="cboTagGroup" name="cboTagGroup" ></select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label>
+                                    설비명<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <select id="cboEquip" name="cboEquip" ></select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label>
+                                    태그명<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <input type="text" id="txtName" name="txtName" />
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <div id="theGrid" style="height: 300px;"></div>
+                </div>
+
+                <!--        <div class="grid_box">-->
+
+                <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
+                <!--        </div>-->
+            </section>
+
+            <section class="section" style="flex: 1; min-width: 0;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <h3>상세 정보</h3>
+                    </div>
+                    <div class="button-wrap">
+                        <ul>
+                            <li>
+                                <a class="btn btn-excell" title="신규" id="btnNew">
+                                    <img th:src="@{/images/icon/ico-plus.svg}" alt="신규 아이콘">
+                                    신규
+                                </a>
+                            </li>
+                            <li>
+                                <a class="btn btn-delete" title="삭제" id="btnDel">
+                                    <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                    삭제
+                                </a>
+                            </li>
+                            <li>
+                                <a class="btn btn-edit" title="저장" id="btnSave">
+                                    <img th:src="@{/images/icon/ico-edit.svg}" alt="저장 아이콘">
+                                    저장
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <form id="tagForm" autocomplete="off">
+                    <input class="form-control2" type="text" id="id" name="id" hidden />
+                    <div class="table-wrap" id="detail_box">
+                        <table class="write-table">
+                            <tbody>
+                            <tr>
+                                <th>
+                                    <label>
+                                        *태그코드
+                                    </label>
+                                </th>
+                                <td>
+                                    <input class="wx210" type="text"  id="tag_code" name="tag_code" required />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label>
+                                        태그그룹
+                                    </label>
+                                </th>
+                                <td>
+                                    <select class="wx210" id="tag_group_id" name="tag_group_id" disabled="disabled"></select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label>
+                                        태그명
+                                    </label>
+                                </th>
+                                <td>
+                                    <input class="wx210 " type="text" id="tag_name" name="tag_name" placeholder="" disabled="disabled" required/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="min-width: 107px;">
+                                    <label>
+                                        설비명
+                                    </label>
+                                </th>
+                                <td>
+                                    <select class="wx210" id="equipment_id" name="equipment_id" disabled="disabled" ></select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="min-width: 130px">
+                                    <label>
+                                        DAS설정
+                                    </label>
+                                </th>
+                                <td>
+                                    <select class="wx210" id="DASConfig_id" name="DASConfig_id" placeholder="" disabled="disabled"></select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="min-width: 140px">
+                                    <label>
+                                        소수점자리수
+                                    </label>
+                                </th>
+                                <td>
+                                    <input class="wx210" id="round_digit" name="round_digit" disabled="disabled"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label>
+                                        하한값
+                                    </label>
+                                </th>
+                                <td>
+                                    <input class="wx210" id="lsl" name="lsl" placeholder="" disabled="disabled" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label>
+                                        상한값
+                                    </label>
+                                </th>
+                                <td>
+                                    <input class="wx210" id="usl" name="usl" placeholder="" disabled="disabled" />
+                                </td>
+                            </tr>
+
+                            </tbody>
+                        </table>
+                    </div>
+                </form>
+                <!--        <div class="grid_box">-->
+
+                <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
+                <!--        </div>-->
+            </section>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <script type="text/javascript">
+        class TagPage {
+            constructor() {
+                this.grid = null;
+                this.base_url = '/api/definition/tag';
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        {binding: 'tag_code', header: '태그', width: '*', align : 'left'},
+                        {binding: 'tag_name', header: '태그명', width: '*', align: 'center'},
+                        {binding: 'tag_group_name', header: '태그그룹명', width: '*', align: 'left'},
+                        {binding: 'equipment_name', header: '설비명', width: '*', align: 'left'},
+                        {binding: 'config_name', header: 'DAS설정', width: '*', align: 'left'},
+                        {binding: 'round_digit', header: '소수점자리수', width: '*', align: 'left'},
+                        {binding: 'lsl', header: 'LSL', width: '*', align: 'left'},
+                        {binding: 'usl', header: 'USL', width: '*', align: 'left'},
+
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                        }
+                    },
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '태그그룹';
+                // 데이터 로드 후 초기 선택 상태 해제
+                this.grid.loadedRows.addHandler(() => {
+                    setTimeout(() => {
+                        this.grid.select(-1, -1); // 선택 상태 초기화
+                    }, 0); // 비동기로 처리하여 초기 선택 해제
+                });
+                let isInitialLoad = true; // 초기 상태 플래그
+
+                this.grid.selectionChanged.addHandler((s, e) => {
+                    if (isInitialLoad) {
+                        isInitialLoad = false; // 초기 로드 이후 플래그 해제
+                        return;
+                    }
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+
+                        _this.showDetailTag(selectedRowData.tag_code);
+
+                        console.log(`선택된 행 인덱스: ${selectedRowIndex}`);
+                        console.log('선택된 행 데이터:', selectedRowData);
+
+                    }
+                });
+
+
+                AjaxUtil.fillSelectOptions($('#cboTagGroup'), 'tag_group', 'all', false);
+                AjaxUtil.fillSelectOptions($('#cboEquip'), 'equipment', 'all', false);
+                AjaxUtil.fillSelectOptions($('#tag_group_id'), 'tag_group', 'choose', false);
+                AjaxUtil.fillSelectOptions($('#equipment_id'), 'equipment', 'choose', false);
+                AjaxUtil.fillSelectOptions($('#DASConfig_id'), 'das_config', 'choose', false);
+            }
+
+            // 태그 목록 조회
+            searchMainData() {
+                let _this = this;
+                let url = this.base_url+'/read';
+                let param = {
+                    'keyword': $('#txtName').val(),
+                    'tag_group_id': $('#cboTagGroup').val(),
+                    'equipment_id': $('#cboEquip').val()
+                };
+
+
+                let result = AjaxUtil.getSyncData(url, param);
+                if (result != null) {
+                    _this.viewData.sourceCollection = result.data;
+                }
+
+                $('#tagForm')[0].reset();
+                $('#tagForm').find('#id').val('');
+
+                $('#detail_box').find('input, select').each(function () {
+                    if (!$(this).is(':disabled')) {
+                        $(this).attr('disabled', 'disabled');
+                    }
+                });
+            }
+
+            // 태그 상세정보 조회
+            showDetailTag(tag_code) {
+                let param = { 'tag_code': tag_code};
+                let url = this.base_url+'/detail';
+                let result = AjaxUtil.getSyncData(url, param);
+                if (result != null) {
+                    //page.setButtonDisable(false, false, false);
+                    $('#tagForm').find('#id').val(result.tag_code);
+                    FormUtil.BindDataForm(result.data, $('#tagForm'));
+
+                }
+            }
+
+            // 태그 정보 저장
+            saveTag() {
+                let _this = this;
+                let url = this.base_url+'/save';
+
+                //let param = $('#tagForm').serialize();
+                let param = FormUtil.extractForm($('#tagForm'));
+
+                let fnSuccess = function () {
+                    Notify.success('저장되었습니다');
+                    _this.searchMainData();
+                };
+
+                // 필수입력 check routine
+                if (!$('#tag_code').val()) {
+                    Alert.alert('', '태그코드를 입력해주세요.');
+                    return false;
+                } else if (!$('#tag_name').val()) {
+                    Alert.alert('', '태그명을 입력해주세요.');
+                    return false;
+                }
+
+                AjaxUtil.postAsyncData(url, param, fnSuccess);
+            }
+
+            // 태그 정보 삭제
+            deleteTag() {
+                let _this = this;
+                let url = this.base_url+'/delete';
+                let tag_code = $('#tagForm').find('#tag_code').val();
+                console.log('tag_code', tag_code);
+                if(tag_code === '' || tag_code === null || tag_code.length === 0){
+                    Alert.alert('', '삭제할 행을 선택해주세요.');
+                }
+                let data = { tag_code: tag_code };
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Notify.success('삭제되었습니다');
+                        _this.searchMainData();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                }
+
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+        }
+
+
+        let page = null;
+
+        $(document.body).ready(function (e) {
+            page = new TagPage();
+
+
+            // 검색버튼
+            $('#btnSearch').click(function (e) { page.searchMainData(); });
+
+            // 신규버튼
+            $('#btnNew').click(function (e) {
+
+                $('#tagForm')[0].reset();
+                $('#tagForm').find('#id').val('');
+
+                $('#detail_box').find('input, select').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                //page.setButtonDisable(true, false, true);
+                page.setButtonState();
+            });
+
+            // 저장버튼
+            $('#btnSave').click(function (e) {
+                Alert.confirm('',
+                    "저장하시겠습니까?",
+                    function () { page.saveTag() },
+                    function () { }
+                );
+            });
+
+            // 삭제버튼
+            $('#btnDel').click(function (e) {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        page.deleteTag()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            page.searchMainData();
+        });
+
+    </script>
+</th:block>
+</html>

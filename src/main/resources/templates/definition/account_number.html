@@ -1,0 +1,511 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>계좌번호 관리</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>계좌번호관리</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px">
+            <section class="section" style="width: 60%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>은행명</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select class="form-control2" id="banknmCombo" name="banknmCombo"></select>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>계좌번호</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" id="accountnum" name="accountnum" class="form-control2"/>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div> <!--//section-top end -->
+                <div class="container-fluid">
+                    <p id="selectedItem"></p>
+                    <div id="theGrid" style=""></div>
+                </div>
+                <div class="btn-wrap">
+                </div>
+            </section>
+            <section style="width: 40%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <ul>
+                            <li>
+                                <!-- <a class="btn btn-excell" title="신규등록" id="btnNew" >
+                                     <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                     신규등록
+                                 </a>-->
+                                <button type="button" class="btn-default" id="btnNew" name="btnNew"
+                                        style="height: 36px; width:115px;"><i
+                                        class="fas fa-plus"></i>신규등록
+                                </button>
+                            </li>
+
+                            <li>
+                                <!-- <a class="btn btn-edit" id="btnSave" title="저장">
+                                     <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                                     저장
+                                 </a>-->
+                                <button type="button" class="btn-default y_write_auth" id="btnSave"
+                                        style="float:none; height: 36px; width:115px;">
+                                    <i class="fas fa-save"></i>저장
+                                </button>
+                            </li>
+
+
+                            <li>
+                                <!--  <a class="btn btn-delete" title="삭제" id="btnDel">
+                                      <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                      삭제
+                                  </a>-->
+                                <button type="button" class="btn-danger y_write_auth" id="btnDel"
+                                        style="float:none; height: 36px; width:115px;"><i
+                                        class="fas fa-trash"></i>삭제
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="table-wrap" style=" overflow-x: auto;">
+                    <form id="materialGroupForm">
+                        <table class="write-table" style="width: 100%; border-collapse: collapse; table-layout: fixed;"
+                               id="detail_box">
+                            <caption style="text-align: left; margin-bottom: 8px;">등록테이블</caption>
+                            <colgroup>
+                                <col class="wp30">
+                                <col class="wp70">
+                            </colgroup>
+                            <input type="hidden" id="id" name="id"/>
+                            <tbody>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for=""><span class="eq">*</span>은행명</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <select type="text" id="bankid" name="bankid" disabled
+                                            style="width: 100%;"></select>
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="accountNumber"><span class="eq">*</span>계좌번호</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" id="accountNumber" name="accountNumber" disabled
+                                           style="width: 100%;">
+                                </td>
+
+
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label><span class="eq">*</span>계좌명칭</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" id="accountName" name="accountName" disabled
+                                           style="width: 100%;">
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="accountType">계좌유형</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <select id="accountType" name="accountType" style="width: 100%;">
+                                        <option value="">선택</option>
+                                        <option value="0">법인</option>
+                                        <option value="1">개인</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label><span class="eq">*</span>인터넷뱅킹아이디</label><br>
+                                    <span style="color: tomato">(국민은행인 경우만)</span>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" id="onlineid" name="onlineid"
+                                           style="width: 100%;" disabled>
+                                </td>
+
+
+
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label><span class="eq">*</span>조회전용아이디</label><br>
+                                    <span style="color: tomato">(아이엠뱅크, 신한은행, 신협중앙회인 경우만)</span>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" id="viewid" name="viewid"
+                                           style="width: 100%;" disabled>
+                                </td>
+
+
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label><span class="eq">*</span>조회전용비밀번호</label><br>
+                                    <span style="color: tomato">(아이엠뱅크, 신한은행, 신협중앙회인 경우만)</span>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" id="viewpw" name="viewpw"
+                                           style="width: 100%;" disabled>
+                                </td>
+
+
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label><span class="eq">*</span>지급수수료</label><br>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" id="mijamt" name="mijamt"
+                                           style="width: 100%;" disabled>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+                <!--//tab-wrap end-->
+            </section>
+        </div>
+    </div> <!--//layout-contents end -->
+
+    <footer style="margin-top: 24px;">
+        <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+    </footer>
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+    <script type="text/javascript">
+
+        var theGrid;
+        var viewdata;
+
+        let banknmComboList = AjaxUtil.fillSelectOptions($('#banknmCombo'), 'bankid', 'choose', false);
+
+        let viewData = new wijmo.collections.CollectionView();
+
+
+        let columns = [
+            {binding: 'accid', header: '번호', width: 100, align: 'center'},
+            {binding: 'bankname', header: '은행명', width: 150, align: 'center'},
+            {binding: 'accountNumber', header: '계좌번호', width: 150, align: 'center'},
+            {binding: 'accountName', header: '계좌명칭', width: 150, align: 'center'},
+            {binding: 'onlineid', header: '인터넷뱅킹아이디', width: 200, align: 'center'},
+            {binding: 'viewid', header: '조회전용아이디', width: 200, align: 'center'},
+            {binding: 'viewpw', header: '조회전용비밀번호', width: 200, align: 'center'},
+            {binding: 'mijamt', header: '지급수수료(원)', width: 150, align: 'center'},
+            {binding: 'popyn', header: '예금연동', width: 100, align: 'center'}
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            let data2 = [];
+            let mat_grp = $('#txtMatgrp').val();
+            let mat_type = $('#cboMaterialType').val();
+
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewData
+            });
+
+            theGrid.hostElement.addEventListener('dblclick', function (e) {
+                let selectedItem = theGrid.selectedItems[0];
+                console.log('select', selectedItem);
+                selectBoxBinding('bankid' , banknmComboList);
+
+                document.getElementById('id').value = selectedItem.accid;
+                document.getElementById('accountNumber').value = selectedItem.accountNumber;
+                document.getElementById('onlineid').value = selectedItem.onlineid;
+                document.getElementById('viewid').value = selectedItem.viewid;
+                document.getElementById('viewpw').value = selectedItem.viewpw;
+                document.getElementById('mijamt').value = selectedItem.mijamt;
+                document.getElementById('accountType').value = selectedItem.accountType;
+
+                setTimeout(() => {
+                    document.getElementById('bankid').value = selectedItem.bankid;
+                }, 0);
+
+                document.getElementById('accountName').value = selectedItem.accountName;
+
+                setButtonState();
+            });
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+            /*  new FlexGridContextMenu(theGrid);*/
+            selectBoxBinding('banknmCombo' , banknmComboList);
+
+            $.ajax({
+                url: withCtx('/api/definition/account/read'),
+                type: 'GET',
+                data: {
+                    'bankid': $('#banknmCombo').val(),
+                    'accountnum': $('#accountnum').val(),
+                    'spjangcd': getSpjangcdFromSession()
+                },
+                async: false,
+                success: function (result) {
+                    grid_binding(result.data);
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_count data:', textStatus, errorThrown);
+                }
+            })
+
+
+        }
+
+        function setButtonState() {
+            //let pk = $('unitForm').find('#id').val();
+            //let pk = this.grid.getList('selected');
+            let pk = $('#id').val();
+            $('#btnNew').prop('disabled', false);
+
+
+            $('#btnSave').prop('disabled', false);
+            if (pk) {
+                $('#btnDel').prop('disabled', false);
+
+                $('#materialGroupForm input').each(function () {
+                    $(this).prop('disabled', false);
+                });
+
+                $('#materialGroupForm select').each(function () {
+                    $(this).prop('disabled', false);
+                });
+            } else {
+                $('#btnDel').prop('disabled', true);
+            }
+        }
+
+
+        function searchMainData() {
+
+
+            $.ajax({
+                url: withCtx('/api/definition/account/read'),
+                type: 'GET',
+                data: {
+                    'bankid': $('#banknmCombo').val(),
+                    'accountnum': $('#accountnum').val(),
+                    'spjangcd': getSpjangcdFromSession()
+                },
+                success: function (result) {
+                    if (result.success) {
+                        grid_binding(result.data);
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+                }
+            });
+
+            $('#materialGroupForm')[0].reset();
+            $('#materialGroupForm').find('#id').val('');
+
+            $('#detail_box').find('input, select').each(function () {
+                if (!$(this).is(':disabled')) {
+                    $(this).attr('disabled', 'disabled');
+                }
+            });
+
+            //_this.setButtonDisable(false, true, true);
+            setButtonState();
+
+        }
+
+        function grid_binding(data) {
+
+            theGrid.columns.clear();
+            theGrid.autoGenerateColumns = false;
+
+            columns.forEach(colDef => {
+                let col = new wijmo.grid.Column(colDef);
+                theGrid.columns.push(col);
+            });
+
+            viewData = new wijmo.collections.CollectionView(data);
+
+            theGrid.itemsSource = viewData;
+            theGrid.refresh();
+
+        }
+
+        function saveAccount() {
+
+            let url = '/api/definition/account/save';
+
+            let bankname = $('#bankid').val();
+            let id = $('#id').val();
+            let accnum = $('#accountNumber').val();
+            let accname = $('#accountName').val();
+
+            if(!bankname){
+                Alert.alert('', '은행명을 입력해주세요.'); return;
+            }
+            if(!accnum){
+                Alert.alert('', '계좌번호를 입력해주세요.'); return;
+            }
+            if(!accname){
+                Alert.alert('', '계좌명칭을 입력해주세요.'); return;
+            }
+
+
+            let data = FormUtil.extractForm($('#materialGroupForm'));
+
+            Alert.confirm('', '저장하시겠습니까?', function () {
+                // 데이터 저장 요청
+                let result = AjaxUtil.postJsonSyncData(url, data);
+
+                if (result.success) {
+                    Alert.alert('', '저장되었습니다');
+                    searchMainData(); // 저장 후 데이터 갱신
+                } else {
+                    Alert.alert('저장 실패', result.message);
+                    console.error('저장 실패:', result.message);
+                }
+            });
+        }
+
+        function deleteAccount() {
+            let url = '/api/definition/account/delete';
+            let id = $('#materialGroupForm').find('#id').val();
+            let data = {'id': id};
+
+            if(id === null || id === ''){
+                Alert.alert('', '삭제할 계좌를 선택해주세요.');
+                return;
+            }
+
+            Alert.confirm('', '삭제하시겠습니까?', function () {
+                let fnSuccess = function (result) {
+                    if (result.success) {
+                        Alert.alert('', '삭제되었습니다');
+                        searchMainData(); // 저장 후 데이터 갱신
+                    } else {
+                        Alert.alert('삭제 실패', result.message);
+                        console.error('저장 실패:', result.message);
+                    }
+                };
+                // 데이터 저장 요청
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            });
+
+        }
+
+        $(document.body).ready(function (e) {
+            setButtonState();
+
+            AjaxUtil.fillSelectOptions($('#cboMaterialType'), 'system_code', 'all', false, 'mat_type');
+            AjaxUtil.fillSelectOptions($('#material_type'), 'system_code', 'choose', false, 'mat_type');
+
+
+            // 검색버튼
+            $('#btnSearch').click(function (e) {
+                searchMainData();
+            });
+
+            // 엔터키 검색
+            $('#txtMatgrp').on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    searchMainData();
+                }
+            });
+
+            // 신규버튼
+            $('#btnNew').click(function (e) {
+
+                $('#materialGroupForm')[0].reset();
+                $('#materialGroupForm').find('#id').val('');
+
+                selectBoxBinding('bankid', banknmComboList);
+
+                $('#detail_box').find('input, select').each(function () {
+                    const id = this.id;
+
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                //page.setButtonDisable(true, false, true);
+                setButtonState();
+            });
+
+            // 저장버튼
+            $('#btnSave').click(function (e) {
+                saveAccount();
+            });
+
+            // 삭제버튼
+            $('#btnDel').click(function (e) {
+                deleteAccount();
+            });
+
+        });
+
+    </script>
+</th:block>
+
+</html>

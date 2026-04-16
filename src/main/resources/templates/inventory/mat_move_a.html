@@ -1,0 +1,490 @@
+﻿<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>창고 이동</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>재고관리</li>
+                <li>창고이동</li>
+            </ul>
+        </div>
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label for="cboStoreHouse">
+                                창고
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select class="form-control2" id="cboStoreHouse" name="storehouse_id"></select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            <label for="cboMatGrp">
+                                품목그룹
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select class="form-control2" id="cboMatGrp" name="mat_gpr_pk"></select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="keyword">
+                                품목명/코드
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" class="form-control2" id="keyword" name="keyword"/>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+<!--                <div class="button-wrap">-->
+<!--                    <ul>-->
+<!--                        <li>-->
+<!--                            <span data-labelCd="받을 창고">받을 창고</span>-->
+<!--                            <select id="cboToStoreHouse" name="to_storehouse_id"></select>-->
+<!--                        </li>-->
+<!--                        <li>-->
+<!--                            <button class="btn" title="이동 처리" id="btnMove">-->
+<!--                                이동 처리-->
+<!--                            </button>-->
+<!--                        </li>-->
+<!--                        <li>-->
+<!--                            <button class="btn" title="수정" id="btnLotMove">-->
+<!--                                Lot이동 처리-->
+<!--                            </button>-->
+<!--                        </li>-->
+<!--                    </ul>-->
+<!--                </div>-->
+            </div>
+            <div class="container-fluid">
+                <div id="storehouse-mat-grid" style="height: 730px;"></div>
+            </div>
+        </section>
+    </div>
+</th:block> 
+
+<th:block layout:fragment="scripts">
+
+
+<script type="text/x-tmpl" id="LotMovePopupTmpl">
+    <div class="content_wrap popup">
+        <div class="table-wrap">
+            <form id="matForm">
+                <table class="write-table">
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="mat_code">품목코드</label>
+                            </th>
+                            <td>
+                                <input style="width:200px;" type="text" id="mat_code" name="mat_code" value="{%=o.mat_code%}"readonly />
+                            </td>
+                            <th style="text-align: center">
+                                <label for="material">품목명</label>
+                            </th>
+                            <td>
+                                <input style="width:200px;" type="text" id="material" name="material" value="{%=o.material%}" readonly />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </form>
+        </div>
+        <div class="grid_box" style="margin-top:5px;">
+            <div id="lot-search-grid" style="height: 200px;"></div>
+        </div>
+
+        <div class="table-wrap">
+            <table class="write-table">
+                <tbody>
+                    <tr>
+                        <th style="text-align: center">
+                            <label for="mat_code">받을 창고</label>
+                        </th>
+                        <td colspan="3">
+                            <select class="form-control2" id="cboPopToStoreHouse" name="to_storehouse_id"></select>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="btnLotMove" ><span data-labelCd="Lot이동">Lot이동</span></button>
+            <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    </div>
+</script>
+
+<script type="text/javascript">
+    class MaterialMovePage {
+        constructor() {
+            this.baseUrl = '/api/inventory/material_move';
+            this.grid = null;
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+
+            this.storeHouseOptions = AjaxUtil.getSelectDataWithNull('store_house', 'choose');
+
+            let dicStoreHouse = {};
+            $.each(this.storeHouseOptions, function (idx, item) {
+                dicStoreHouse[item.value] = item.text;
+            });
+
+            let storeHouseMap = new wijmo.grid.DataMap(this.storeHouseOptions, 'value', 'text');
+
+            this.grid = new wijmo.grid.FlexGrid('#storehouse-mat-grid', {
+                autoGenerateColumns: false,
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                isReadOnly: false,
+                frozenColumns: 0,
+                frozenRows: 0,
+                headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                allowSorting: true,
+                allowMerging: wijmo.grid.AllowMerging.All,
+                itemsSource: new wijmo.collections.CollectionView([]),
+                mergeManager: new wijmo.grid.MergeManager(), // 병합 관리자를 정의
+                formatItem: (s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+
+                        const item = s.rows[e.row].dataItem;
+
+                        // 병합된 셀 확인
+                        const range = s.getMergedRange(e.panel, e.row, e.col);
+                        if (range && range.row !== range.row2) {
+                            e.cell.style.display = 'flex';
+                            e.cell.style.alignItems = 'center'; // 세로 가운데 정렬
+                        }
+                        // 로트발행여부 컬럼 병합 시 센터 정렬
+                        if (s.columns[e.col].binding === 'mat_lot_check') {
+                            e.cell.style.justifyContent = 'center';
+                        }
+                        if (s.columns[e.col].binding === 'total_stock') {
+                            e.cell.style.justifyContent = 'right';
+                        }
+                    }
+
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                    }
+
+                    // 이동량 열 헤더 스타일 적용
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader &&
+                        (
+                            s.columns[e.col].binding === 'move_qty' ||
+                            s.columns[e.col].binding === 'cho_storehouse'
+                        )
+                    ){
+                        e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                    }
+                },
+                columns: [
+                    { binding: 'mat_type', header: '품목유형', width: 80, align: 'left', isReadOnly: true },
+                    { binding: 'mat_group', header: '품목그룹', width: 120, align: 'left', isReadOnly: true },
+                    // { binding: 'class1', header: '소분류', width: 100, align: 'left', isReadOnly: true },
+                    { binding: 'mat_code', header: '품목코드', width: 100, align: 'left', isReadOnly: true }, // 병합 안함
+                    { binding: 'material', header: '품목', width: 200, align: 'left', isReadOnly: true }, // 병합 안함
+                    { binding: 'total_stock', header: '총재고량', width: 100, align: 'right', isReadOnly: true },
+                    { binding: 'storehouse', header: '창고', width: 150, align: 'left', isReadOnly: true },
+                    { binding: 'current_stock', header: '현재고량', width: 100, align: 'right', isReadOnly: true},
+                    { binding: 'mat_lot_check', header: '로트발행여부', width: 120, align: 'center', isReadOnly: true },
+                    { binding: 'move_qty', header: '이동할 수량', width: 100, align: 'right', isReadOnly: false },
+                    {
+                        binding: 'cho_storehouse', header: '이동할 창고', width: 120, align: 'center',
+                        dataMap: storeHouseMap, isReadOnly: false
+                    },
+                    { binding: 'move_action', header: '이동', width: 80, align: 'center', isReadOnly: true },
+                ],
+            });
+            this.grid.beginningEdit.addHandler(function (s, e) {
+                const col = s.columns[e.col];
+                const item = s.rows[e.row].dataItem;
+
+                if (item.mat_lot_check === 'Y') {
+                    // 로트 발행인 경우: 수량 및 창고 비활성화
+                    if (col.binding === 'move_qty' || col.binding === 'cho_storehouse') {
+                        e.cancel = true; // 편집 취소
+                    }
+                }
+            });
+            this.grid.mergeManager.getMergedRange = function (panel, r, c, clip) {
+                const range = new wijmo.grid.CellRange(r, c);
+                const column = panel.columns[c];
+
+                // 특정 컬럼에 대해서만 병합
+                if (
+                    column.binding === 'mat_type' ||
+                    column.binding === 'mat_group' ||
+                    column.binding === 'class1' ||
+                    column.binding === 'mat_code' ||
+                    column.binding === 'material' ||
+                    column.binding === 'total_stock'
+                ) {
+                    const value = panel.getCellData(r, c, false);
+
+                    // 현재 컬럼 외에 병합 기준 컬럼 (품목코드)
+                    const codeIndex = panel.columns.findIndex(col => col.binding === 'mat_code');
+
+                    // 병합 범위 확장 (아래 방향)
+                    for (let i = range.row; i < panel.rows.length; i++) {
+                        const currentValue = panel.getCellData(i, c, false);
+                        const currentCode = panel.getCellData(i, codeIndex, false); // 현재 품목코드
+                        const baseCode = panel.getCellData(range.row, codeIndex, false); // 기준 품목코드
+
+                        if (currentValue !== value || currentCode !== baseCode) break; // 값이 다르거나 품목코드가 다르면 병합 중단
+                        range.row2 = i;
+                    }
+
+                    // 병합 범위 확장 (위 방향)
+                    for (let i = range.row; i >= 0; i--) {
+                        const currentValue = panel.getCellData(i, c, false);
+                        const currentCode = panel.getCellData(i, codeIndex, false); // 현재 품목코드
+                        const baseCode = panel.getCellData(range.row, codeIndex, false); // 기준 품목코드
+
+                        if (currentValue !== value || currentCode !== baseCode) break; // 값이 다르거나 품목코드가 다르면 병합 중단
+                        range.row = i;
+                    }
+                }
+
+                return range.isValid ? range : null;
+            };
+
+            _this.grid.formatItem.addHandler(function (s, e) {
+                if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                    let col = s.columns[e.col];
+
+                    if (col.binding === 'move_action' && userinfo.can_write()) {
+                        let btn = document.createElement("button");
+                        btn.className = "btn-default";
+                        btn.style.width = "100%";
+                        btn.style.height = "25px";
+
+                        let row = s.rows[e.row];
+
+                        if (row.dataItem.mat_lot_check === 'Y') {
+                            btn.innerText = "이동";
+                            btn.onclick = function () {
+                                GridUtil.saveView(_this.grid, row.dataItem, { idField: 'mat_code' });
+                                _this.moveMaterialLot(row.dataItem);
+                            };
+                        } else {
+                            btn.innerText = "이동";
+                            btn.onclick = function () {
+                                GridUtil.saveView(_this.grid, row.dataItem, { idField: 'mat_code' });
+                                _this.moveMaterial(row.dataItem);
+                            };
+                        }
+
+                        e.cell.innerHTML = "";
+                        e.cell.appendChild(btn);
+                    }
+                }
+            });
+
+            new FlexGridContextMenu(this.grid);
+            this.grid.downloadFileName = '창고 이동 내역';
+
+
+            AjaxUtil.fillSelectOptions($('#cboStoreHouse'), 'store_house', 'all', false);
+            AjaxUtil.fillSelectOptions($('#cboMatGrp'), 'material_group', 'all', false);
+            AjaxUtil.fillSelectOptions($('#cboToStoreHouse'), 'store_house', 'all', false);
+        }
+
+        // 창고재고 목록 조회
+        searchMainData() {
+            let _this = this;
+            let param = {
+                'storehouse_id': $('#cboStoreHouse').val(),
+                'mat_grp_pk': $('#cboMatGrp').val(),
+                'keyword': $('#keyword').val(),
+            }
+            let url = this.baseUrl + "/read_house"
+            AjaxUtil.getAsyncData(url, param, function(result){
+                if (result.success) {
+                    _this.grid.itemsSource.sourceCollection = result.data;
+                    // 위치 불러오기
+                    GridUtil.restoreView(_this.grid, { idField: 'mat_code' });
+                }
+            });
+        }
+
+        // 이동처리
+        moveMaterial(selectedItem) {
+            let _this = this;
+
+            if (!selectedItem.cho_storehouse) {
+                Alert.alert('', '이동할 창고를 선택해주세요.');
+                return;
+            }
+
+            if (!selectedItem.move_qty) {
+                Alert.alert('', '이동할 수량을 넣어주세요.');
+                return;
+            }
+
+
+            let data = {
+                'to_storehouse_id': selectedItem.cho_storehouse,
+                'move_list': JSON.stringify([selectedItem]),
+            }
+
+            let fnSuccess = function (res) {
+                Notify.success('이동처리 되었습니다.');
+                _this.searchMainData();
+            }
+            
+            let fnConfirmOk = function(){
+                let url = _this.baseUrl+"/material_move"
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            };
+            Alert.confirm('창고이동', '이동하시겠습니까?', fnConfirmOk);
+        }
+
+        // Lot이동처리
+        moveMaterialLot(selectedItem) {
+            let _this = this;
+
+            let toStoreHouse = $('#cboToStoreHouse').val();
+
+            let item = selectedItem;
+            let content = tmpl('LotMovePopupTmpl', item);
+            let $content = $(content);
+            let modalContainer = new PopupDraggable('Lot이동처리');
+            modalContainer.open({ width: 800, height: 450, $content });
+
+            this.lotSearchGrid = new wijmo.grid.FlexGrid('#lot-search-grid', {
+                autoGenerateColumns: false,
+                allowSorting: false,
+                selectionMode: wijmo.grid.SelectionMode.ListBox,
+                headersVisibility: wijmo.grid.HeadersVisibility.All,
+                isReadOnly: true,
+                columns: [
+                    { binding: 'LotNumber', header: 'LOT', width: 220, align: 'center' },
+                    { binding: 'storehouse_name', header: '창고위치', width: 220, align: 'left' },
+                    { binding: 'InputQty', header: '초기수량', width: 100, align: 'right', format: 'n0' },
+                    { binding: 'CurrentStock', header: '현재고', width: 100, align: 'right', format: 'n0' },
+                    { binding: 'unit_name', header: '단위', width: 100, align: 'center' }
+                ]
+            });
+
+            let selector = new wijmo.grid.selector.Selector(this.lotSearchGrid, {
+                itemChecked: function () {
+
+                }
+            })
+            let data = {
+                'material_id': item.mat_id,
+                'storehouse_id': item.storehouse_id
+            }
+
+            let fnMatLotList = function(){
+                let url = _this.baseUrl + "/mat_lot_list";
+                AjaxUtil.getAsyncData(url, data, function (result) {
+                    if (result.success) {
+                        _this.lotSearchGrid.itemsSource = new wijmo.collections.CollectionView(result.data);
+                    }
+                });
+            };
+            
+            fnMatLotList();
+
+            let $cboPopToStoreHouse = $content.find('#cboPopToStoreHouse');
+            AjaxUtil.fillSelectOptions($cboPopToStoreHouse, 'store_house', 'choose', toStoreHouse);
+            
+            //로트이동버튼 클릭시
+            $content.find('#btnLotMove').click(function (e) {
+                let lot_items = _this.lotSearchGrid.selectedItems;
+                if (lot_items.length === 0) {
+                    Alert.alert('로트이동오류', '로트가 선택되지 않았습니다.');
+                    return;
+                }
+
+                let to_storehouse_id = $cboPopToStoreHouse.val();
+                if(to_storehouse_id===""){
+                	Alert.alert('LOT이동', '받을 창고가 지정되지 않았습니다.');
+                	return;
+                }
+
+                let lotMoveParam = {
+                    'to_storehouse_id': to_storehouse_id,
+                    'lot_list' : JSON.stringify(lot_items)
+                }
+                
+                let fnConfirmOk = function(){
+                    let url = _this.baseUrl + '/material_lot_move';
+                    AjaxUtil.postAsyncData(url, lotMoveParam, function (result) {
+                        if (result.success) {
+                            Notify.success('Lot 이동되었습니다.');
+                            fnMatLotList();
+                            _this.searchMainData();
+                        }
+                    });
+                };
+                Alert.confirm("LOT이동처리", "이동하시겠습니까?", fnConfirmOk);
+            });
+        }
+    }
+
+    $(document.body).ready(function (e) {
+        let page = new MaterialMovePage();
+
+        page.searchMainData();
+
+        // 검색버튼 클릭
+        $('#btnSearch').click(function (e) { page.searchMainData(); });
+
+        //엔터키 검색
+        $('#material').on('keypress', function (e) {
+            if (event.keyCode == 13) {
+                page.searchMainData();
+            }
+        });
+
+        // 이동처리 버튼 클릭
+        $('#btnMove').click(function (e) { page.moveMaterial(); });
+
+        // Lot이동처리 버튼 클릭
+        $('#btnLotMove').click(function (e) {
+            page.moveMaterialLot();
+        });
+
+    });
+
+</script>
+</th:block>
+</html>

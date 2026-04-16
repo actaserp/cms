@@ -1,0 +1,1178 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+
+        #thumbnail div img:hover {
+            opacity: 0.5
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>설비 정보</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산 관리</li>
+                <li>설비 관리</li>
+                <li>설비 정보</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px;">
+            <section class="section" style="flex: 1;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>설비그룹</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select type="text" class="form-control2" id="cboEquipmentGroup"
+                                            name="cboEquipmentGroup"></select>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>워크센터</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select type="text" class="form-control2" id="cboWorkcenter"
+                                            name="cboWorkcenter"></select>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>설비명</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" class="form-control2" id="txtEquipment" name="txtEquipment">
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <div id="equipment-grid"></div>
+                </div>
+            </section>
+
+            <div class="tab-wrap" style="flex: 1; min-width: 0;">
+                <ul class="tab-links">
+                    <li><a href="#tab_basic">설비정보</a></li>
+                    <li><a href="#tab_add" name="tab_photo" class="tab">설비구성품추가</a></li>
+                </ul>
+                <div>
+                    <section class="tab-item" id="tab_basic" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                            <div class="button-wrap">
+                                <ul>
+                                    <li>
+                                        <button type="button" class="btn-default" id="btnBasicNew" name="btnBasicNew"
+                                                style="width: 115px; height: 36px;"><i
+                                                class="fas fa-plus"></i>신규등록
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button type="button" class="btn-cancel y_write_auth btn-danger"
+                                                id="btnBasicDel" style="width: 115px; height: 36px;"><i
+                                                class="fas fa-trash"></i>삭제
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button type="button" class="btn-default y_write_auth" id="btnBasicSave"
+                                                style="width: 115px; height: 36px;"><i
+                                                class="fas fa-save"></i>저장
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div>
+                            <form id="equipmentForm">
+                                <table class="write-table"
+                                       style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                                    <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+                                    <input class="form-control2 readonly" type="hidden" id="id" name="id" readonly/>
+                                    <tbody>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="EquipmentGroup_id">설비그룹</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <select id="EquipmentGroup_id" name="EquipmentGroup_id"
+                                                    style="width: 100%;"></select>
+                                        </td>
+
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="Code"><span class="eq">*</span>설비코드</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" style="width: 100%;" id="Code"
+                                                   name="Code">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="width: 7%; padding: 5px; border: 1px solid #ddd; text-align: center;">
+                                            <label for="Name"><span class="eq">*</span>설비명</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" style="width: 100%;" id="Name" name="Name">
+                                        </td>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="WorkCenter_id"><span class="eq">*</span>워크센터</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <select id="WorkCenter_id" name="WorkCenter_id"
+                                                    style="width: 100%;"></select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="ManageNumber">관리번호</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" id="ManageNumber" name="ManageNumber"
+                                                   style="width: 100%;">
+                                        </td>
+
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="Usage">용도</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" id="Usage" name="Usage" style="width: 100%;">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="Model">모델명</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" style="width: 100%;" id="Model"
+                                                   name="Model">
+                                        </td>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="Maker">제조사</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" style="width: 100%;" id="Maker"
+                                                   name="Maker">
+                                        </td>
+                                    </tr>
+
+
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="Voltage">사용전압</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" id="Voltage" name="Voltage"
+                                                   style="width: 100%;">
+                                        </td>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="PowerWatt">용량(Watt)</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="number" id="PowerWatt" name="PowerWatt"
+                                                   style="width: 100%;">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="InputDate">입고일</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="date" style="width: 100%;" id="InputDate"
+                                                   name="InputDate">
+                                        </td>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="Depart_id">사용부서</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <select style="width: 100%;" id="Depart_id"
+                                                    name="Depart_id"></select>
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="ASTelNumber">AS전화번호</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" id="ASTelNumber" name="ASTelNumber"
+                                                   style="width: 100%;">
+                                        </td>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="SerialNumber">시리얼번호</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" id="SerialNumber" name="SerialNumber"
+                                                   style="width: 100%;">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="ProductionYear">제작년도</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="number" style="width: 100%;" id="ProductionYear"
+                                                   name="ProductionYear" min="1990" max="2030">
+                                        </td>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="PurchaseDate">구매일</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="date" style="width: 100%;" id="PurchaseDate"
+                                                   name="PurchaseDate">
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="InstallDate">설치일</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="date" id="InstallDate" name="InstallDate"
+                                                   style="width: 100%;">
+                                        </td>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="SupplierName">공급업체</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" id="SupplierName" name="SupplierName"
+                                                   style="width: 100%;">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="PurchaseCost">구매금액(원)</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="number" style="width: 100%;" id="PurchaseCost"
+                                                   name="PurchaseCost" min="0">
+                                        </td>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="OperationRateYN">가동률표시여부</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <select style="width: 100%;" id="OperationRateYN"
+                                                    name="OperationRateYN">
+                                                <option value="Y">Y</option>
+                                                <option value="N">N</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+
+
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="DisposalDate">폐기일</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="date" id="DisposalDate" name="DisposalDate"
+                                                   style="width: 100%;">
+                                        </td>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="Manager">관리책임자</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" id="Manager" name="Manager"
+                                                   style="width: 100%;">
+                                        </td>
+                                    </tr>
+
+
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="Description">설명</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;" colspan="3">
+                                            <input type="text" style="width: 100%" id="Description" name="Description">
+                                            <!--<textarea id="Description" name="Description"></textarea>-->
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="AttentionRemark">점검 및 사용상 주의점</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;" colspan="3">
+                                            <input type="text" style="width: 100%" id="AttentionRemark"
+                                                   name="AttentionRemark">
+                                            <!--<textarea id="AttentionRemark" name="AttentionRemark"></textarea>-->
+                                        </td>
+                                    </tr>
+
+                                    </tbody>
+                                </table>
+                            </form>
+                        </div>
+                    </section>
+
+                    <section class="tab-item" id="tab_add" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                            <div class="button-wrap">
+                                <ul class="button-list">
+
+                                    <li>
+                                        <button type="button" class="btn-default" id="btnComponentNew"
+                                                style="width: 115px; height: 36px;"><span
+                                                data-labelCd="신규">신규</span></button>
+                                    </li>
+
+                                    <li>
+                                        <button type="button" class="btn-default" id="btnComponentSave"
+                                                style="width: 115px; height: 36px;"><span
+                                                data-labelCd="등록">등록</span></button>
+                                    </li>
+
+                                    <li>
+                                        <button type="button" class="btn-danger" id="btnComponentDelete"
+                                                style="width: 115px; height: 36px;"><span
+                                                data-labelCd="삭제">삭제</span>
+                                        </button>
+                                    </li>
+
+                                </ul>
+                            </div>
+                        </div>
+
+
+                        <div class="table-wrap">
+                            <div class="container-fluid" style="height: 30vh;">
+                                <div id="add-grid"></div>
+                            </div>
+
+                            <div class="section" style="margin-top: 15px;">
+                                <form id="componentForm">
+                                    <table class="write-table" style="width: 100%;">
+                                        <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+                                        <colgroup>
+                                            <col class="wp20">
+                                            <col class="wp10">
+                                            <col class="wp20">
+                                            <col class="wp10">
+                                        </colgroup>
+                                        <input type="text" id="id2" name="id" hidden/>
+                                        <tbody>
+                                        <tr>
+                                            <th>
+                                                <label for="cname">설비명</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="cname" name="cname" style="width: 180px;"
+                                                       readonly>
+                                            </td>
+                                            <th>
+                                                <label for="component">구성품명</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="component" name="component"
+                                                       style="width: 180px;">
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <th>
+                                                <label for="ctype">부품유형</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="ctype" name="ctype" style="width: 180px;">
+                                            </td>
+                                            <th>
+                                                <label for="cmodel">모델명/사양</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="cmodel" name="cmodel" style="width: 180px;">
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <th>
+                                                <label for="cmake">제조사</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="cmake" name="cmake" style="width: 180px;">
+                                            </td>
+                                            <th>
+                                                <label for="camaunt">수량</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="camaunt" name="camaunt" style="width: 180px;">
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <th>
+                                                <label for="cunit">단가</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="cunit" name="cunit" style="width: 180px;">
+                                            </td>
+                                            <th>
+                                                <label for="cdate">설비일자</label>
+                                            </th>
+                                            <td>
+                                                <input type="date" id="cdate" name="cdate" style="width: 180px;">
+                                            </td>
+                                        </tr>
+
+
+                                        <tr>
+                                            <th>
+                                                <label for="cycle">교체주기</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="cycle" name="cycle" style="width: 180px;">
+                                            </td>
+                                            <th>
+                                                <label for="state">상태</label>
+                                            </th>
+                                            <td>
+                                                <select class="s-150" id="state" name="state" style="width: 180px;">
+                                                    <option value="정상">정상</option>
+                                                    <option value="이상">이상</option>
+                                                    <option value="교체필요">교체필요</option>
+                                                    <option value="수리중">수리중</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <th>
+                                                <label for="description">비고</label>
+                                            </th>
+                                            <td colspan="3">
+                                                <input type="text" id="description2" name="description"
+                                                       style="width: 100%;">
+                                            </td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </form>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+    <script type="text/javascript" th:src="@{/js/fileupload.js}"></script>
+    <script type="text/javascript">
+
+        class EquipmentPage {
+            constructor() {
+                this.grid = null;
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+                this.init();
+                this.url = '/api/definition/equipment';
+            }
+
+            init() {
+                let _this = this;
+
+                /*let config = {
+                    target: $('[data-ax5grid="equipment-grid"]'),
+                    sortable: true,
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: true, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 38  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            //e.colIndex
+                            //e.dindex
+                            //c.value
+                            //e.column
+                            //e.item
+                            //e.list
+                            let eq_pk = e.item.id;
+
+                            _this.grid.select(this.dindex);
+                            _this.showDetail(e.item.id);
+
+                            if (_this.current_tab == 'tab_photo') {
+                                _this.showPhotoFiles(eq_pk)
+                                _this.showThumbnail(eq_pk);
+
+                                $('#image_expand').attr('src', '');
+
+                            }
+                        },
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        //{ key: 'id', label: '번호', width: 80, align: 'right' },
+                        { key: 'group_name', label: '설비그룹', width: 120, align: 'left' },
+                        { key: 'Usage', label: '용도', width: 120, align: 'left' },
+                        { key: 'Code', label: '설비코드', width: 150, align: 'left' },
+                        { key: 'Name', label: '설비명', width: 200, align: 'left' },
+                        { key: 'workcenter_name', label: '워크센터', width: 150, align: 'left' },
+                        { key: 'ManageNumber', label: '관리번호', width: 250, align: 'left' },
+                        { key: 'Model', label: '모델명', width: 150, align: 'left' },
+                        { key: 'Maker', label: '제조사', width: 150, align: 'left' },
+                        { key: 'Voltage', label: '사용전압', width: 150, align: 'left' },
+                        { key: 'PowerWatt', label: '용량', width: 150, align: 'left' },
+                        { key: 'InputDate', label: '입고일', width: 150, align: 'left' },
+                        { key: 'DepartName', label: '사용부서', width: 150, align: 'left' },
+                        { key: 'ASTelNumber', label: 'AS전화번호', width: 150, align: 'left' },
+                        { key: 'SerialNumber', label: '시리얼번호', width: 150, align: 'left' },
+                        { key: 'ProductionYear', label: '제작년도', width: 150, align: 'center' },
+                        { key: 'PurchaseDate', label: '구매일', width: 150, align: 'center' },
+                        { key: 'InstallDate', label: '설치일', width: 150, align: 'center' },
+                        { key: 'SupplierName', label: '공급업체', width: 150, align: 'left' },
+                        { key: 'PurchaseCost', label: '구매금액', width: 150, align: 'right', formatter:'money' },
+                        { key: 'OperationRateYN', label: '가동률표시', width: 100, align: 'center' },
+                        { key: 'Manager', label: '관리책임자', width: 150, align: 'center' },
+                        { key: 'SupplierName', label: '공급업체', width: 150, align: 'left' },
+                        { key: 'DisposalDate', label: '폐기일', width: 150, align: 'left' },
+                        { key: 'Description', label: '설명', width: 150, align: 'left' },
+                        { key: 'AttentionRemark', label: '점검 및 사용상 주의점', width: 150, align: 'left' },
+                    ]
+                };
+
+                this.grid = new ax5.ui.grid(config);
+                this.grid_config = config;*/
+
+
+                this.grid = new wijmo.grid.FlexGrid('#equipment-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    frozenColumns: 3,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        //{ key: 'id', label: '번호', width: 80, align: 'right' },
+                        {binding: 'group_name', header: '설비그룹', width: 120, align: 'left'},
+                        {binding: 'Code', header: '설비코드', width: 150, align: 'left'},
+                        {binding: 'Usage', header: '용도', width: 120, align: 'left'},
+                        {binding: 'Name', header: '설비명', width: 200, align: 'left'},
+                        {binding: 'workcenter_name', header: '워크센터', width: 150, align: 'left'},
+                        {binding: 'ManageNumber', header: '관리번호', width: 180, align: 'left'},
+                        {binding: 'Model', header: '모델명', width: 150, align: 'left'},
+                        {binding: 'Maker', header: '제조사', width: 150, align: 'left'},
+                        {binding: 'Voltage', header: '사용전압', width: 150, align: 'left'},
+                        {binding: 'PowerWatt', header: '용량', width: 150, align: 'left'},
+                        {binding: 'InputDate', header: '입고일', width: 150, align: 'center'},
+                        {binding: 'DepartName', header: '사용부서', width: 150, align: 'left'},
+                        {binding: 'ASTelNumber', header: 'AS전화번호', width: 150, align: 'left'},
+                        {binding: 'SerialNumber', header: '시리얼번호', width: 150, align: 'left'},
+                        {binding: 'ProductionYear', header: '제작년도', width: 150, align: 'center'},
+                        {binding: 'PurchaseDate', header: '구매일', width: 150, align: 'center'},
+                        {binding: 'InstallDate', header: '설치일', width: 150, align: 'center'},
+                        {binding: 'SupplierName', header: '공급업체', width: 150, align: 'left'},
+                        {binding: 'PurchaseCost', header: '구매금액', width: 150, align: 'right'},
+                        {binding: 'OperationRateYN', header: '가동률표시', width: 100, align: 'center'},
+                        {binding: 'Manager', header: '관리책임자', width: 150, align: 'center'},
+                        {binding: 'SupplierName', header: '공급업체', width: 150, align: 'left'},
+                        {binding: 'DisposalDate', header: '폐기일', width: 150, align: 'left'},
+                        {binding: 'Description', header: '설명', width: 200, align: 'left'},
+                        {binding: 'AttentionRemark', header: '점검 및 사용상 주의점', width: 200, align: 'left'},
+                    ],
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+
+                });
+
+
+                this.grid.loadedRows.addHandler(() => {
+                    setTimeout(() => {
+                        this.grid.select(-1, -1); // 선택 상태 초기화
+                    }, 0); // 비동기로 처리하여 초기 선택 해제
+                });
+                let isInitialLoad = true; // 초기 상태 플래그
+
+                this.grid.selectionChanged.addHandler((s, e) => {
+                    if (isInitialLoad) {
+                        isInitialLoad = false; // 초기 로드 이후 플래그 해제
+                        return;
+                    }
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let id = selectedRowData.id; // 품목 ID 가져오기
+                        /*console.log(selectedRowData);*/
+
+                        _this.showDetail(id);
+                        _this.showComponentList(id);
+
+                    }
+                });
+
+
+                this.grid2 = new wijmo.grid.FlexGrid('#add-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'cname', header: '설비명', width: 170, align: 'left'},
+                        {binding: 'component', header: '구성품명', width: 150, align: 'left'},
+                        {binding: 'ctype', header: '부품유형', width: 120, align: 'left'},
+                        {binding: 'cmodel', header: '모델명/사양', width: 170, align: 'left'},
+                        {binding: 'cmake', header: '제조사', width: 150, align: 'left'},
+                        {binding: 'camaunt', header: '수량', width: 120, align: 'right'},
+                        {binding: 'cunit', header: '단가', width: 120, align: 'right'},
+                        {binding: 'cdate', header: '설비일자', width: 150, align: 'center'},
+                        {binding: 'cycle', header: '교체주기', width: 150, align: 'center'},
+                        {binding: 'state', header: '상태', width: 100, align: 'center'},
+                        {binding: 'description', header: '비고', width: 150, align: 'left'},
+                    ],
+                    itemsSource: this.viewData2, // 데이터를 설정할 배열
+
+                });
+
+                this.grid2.hostElement.addEventListener('dblclick', (e) => {
+                    let hitTest = this.grid2.hitTest(e);
+                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                        let row = hitTest.row;
+                        let selectedItem = this.grid2.rows[row].dataItem;
+                        /*console.log(selectedItem);*/
+
+                        /*_this.showPriceDetail(selectedItem.mcu_id);*/
+                        _this.showComponentDetail(selectedItem.id);
+
+                    }
+                });
+
+
+                AjaxUtil.fillSelectOptions($('#cboEquipmentGroup'), 'equipment_group', 'all', false);
+                AjaxUtil.fillSelectOptions($('#cboWorkcenter'), 'workcenter', 'all', false);
+                AjaxUtil.fillSelectOptions($('#Depart_id'), 'depart', 'choose', false);
+                this.initForm();
+            }
+
+            initForm() {
+                AjaxUtil.fillSelectOptions($('#EquipmentGroup_id'), 'equipment_group', 'choose', false);
+                AjaxUtil.fillSelectOptions($('#WorkCenter_id'), 'workcenter', 'choose', false);
+                this.setUploader();
+            }
+
+            setButtonState() {
+                let pk = $('#equipmentForm').find('#id').val();
+                $('#btnBasicNew').prop('disabled', false);
+                $('#btnBasicSave').prop('disabled', false);
+                if (pk) {
+                    $('#btnBasicDel').prop('disabled', false);
+                    $('#btnPhotoSave').prop('disabled', false);
+                } else {
+                    $('#btnBasicDel').prop('disabled', true);
+                    $('#btnPhotoSave').prop('disabled', true);
+                }
+            }
+
+
+            showDetail(idx) {
+                let _this = this;
+                let param = {'id': idx};
+                let result = AjaxUtil.getSyncData(_this.url + "/detail", param);
+                if (result != null) {
+                    FormUtil.BindDataForm(result.data, $('#equipmentForm'));
+
+                    $('#description').text(result.data.description);
+
+                    $('#cname').val(result.data.Name);
+                }
+
+                //page.setButtonDisable(false, false, false);
+                page.setButtonState();
+
+                this.uploader.mode = 'active';
+            }
+
+            searchMainData() {
+                let _this = this;
+
+                let data = {
+                    'group': $('#cboEquipmentGroup').val(),
+                    'workcenter': $('#cboWorkcenter').val(),
+                    'equipment': $('#txtEquipment').val()
+                };
+                let result = AjaxUtil.getSyncData(_this.url + "/read", data);
+
+                if (result != null) {
+                    _this.viewData.sourceCollection = result.data;
+                    /*_this.viewData2.sourceCollection = result.data;*/
+                    /*_this.showComponentList(result.data.id);*/
+                }
+
+                $('#equipmentForm')[0].reset();
+                $('#equipmentForm').find('#id').val('');
+
+                //page.setButtonDisable(false, false, false);
+                page.setButtonState();
+                this.uploader.mode = 'disable';
+            }//searchMainData
+
+            saveData() {
+                let _this = this;
+                //데이터입력체크루틴 누락
+
+                //let data = $('#equipmentForm').serialize();
+
+                let WorkCenter_id = $('#WorkCenter_id').val();
+                let Code = $('#Code').val();
+                let Name = $('#Name').val();
+
+                if (!WorkCenter_id) {
+                    Alert.alert('', '워크센터를 선택해주세요.', function () {
+                    });
+                    return;
+                } else if (!Code) {
+                    Alert.alert('', '설비코드를 입력해주세요.', function () {
+                    });
+                    return;
+                } else if (!Name) {
+                    Alert.alert('', '설비명을 입력해주세요.', function () {
+                    });
+                    return;
+                }
+
+                if ($('#PurchaseCost').val() < 0) {
+                    Alert.alert('', '구매금액을 확인해 주세요.');
+                    return;
+                }
+
+                let data = FormUtil.extractForm($('#equipmentForm'));
+
+
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Notify.success('저장되었습니다.'); // Notification
+                        _this.searchMainData();
+                    } else {
+                        Alert.alert('', res.message);
+                        return;
+                    }
+                };
+                AjaxUtil.postAsyncData(_this.url + "/save", data, fnSuccess);
+            }
+
+            deleteData() {
+                let _this = this;
+                let id = $('#equipmentForm').find('#id').val()
+                let data = {id: id};
+                let fnsuccess = function (res) {
+                    if (res.success) {
+                        Notify.success('삭제했습니다.');
+
+                        $('#equipmentForm')[0].reset();
+                        $('#equipmentForm').find('#id').val('');
+                        $('#equipmentForm #Code').attr('readonly', false);
+                        $('#equipmentForm input').each(function () {
+                            if ($(this).is(':disabled')) {
+                                $(this).removeAttr('disabled');
+                            }
+                        });
+
+                        $('#equipmentForm textarea').each(function () {
+                            let $obj = $(this);
+                            if ($obj.is(':disabled')) {
+                                $obj.removeAttr('disabled');
+                            }
+                            $obj.text('');
+                        });
+
+                        _this.searchMainData();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+
+                AjaxUtil.postAsyncData(_this.url + "/delete", data, fnsuccess);
+            }
+
+            showPhotoFiles(eq_pk) {
+                let _this = this;
+
+                let child = document.getElementById("thumbnail");
+                while (child.hasChildNodes()) {
+                    child.removeChild(child.firstChild);
+                }
+
+                //$('#addFile').prop('disabled', false);
+                $('#DataPk').val(eq_pk);
+
+                //$('#fileUploadBox').show();
+
+                //파일조회
+                let attparam = {"action": 'detailFiles', "TableName": "equ", 'DataPk': eq_pk, "attachName": 'photo'};
+                YuFileUploader.getAttachFiles(attparam);
+            }
+
+            showThumbnail(eq_pk) {
+                let _this = this;
+
+                let data = {
+                    "action": 'detailFiles',
+                    "TableName": "equ",
+                    'DataPk': eq_pk,
+                    "attachName": 'thumbnail'
+                };
+
+                let result = AjaxUtil.getSyncData('/api/common/attach_file/detailFiles', data);
+                if (result != null) {
+                    for (let i = 0; i < result.length; i++) {
+                        let url = '/api/files/image?id=' + result[i].id;
+                        $("#thumbnail").append('<div align="center" width="50px"><img id="thumbnail_show' + i + '" src="' + url + '" width="50" height="50" onclick="javascript:expand(' + result[i].id + ')"/></div>');
+                    }
+                }
+                result = [];
+            }
+
+            // 사진파일 저장
+            savePhotoFiles() {
+                let param = {
+                    'eq_id': $('#equipmentForm').find('#id').val(),
+                    'file_id': $("#srchFileId").val(),
+                };
+
+                let fnSuccess = function (res) {
+                    if (!res.success) {
+                        Alert.alert('', res.message);
+                    } else {
+                        Notify.success("저장되었습니다.");
+                        //_this.searchDataBind();
+                    }
+                };
+
+                AjaxUtil.postAsyncData(_this.url + "/save_photo", param, fnSuccess);
+            }
+
+            //파일 업로더
+            setUploader() {
+                let _this = this;
+                //$('#addFile').prop('disabled', false);
+
+                let accept_files = 'jpg,jpeg,gif,png,xlsx,xls';
+                let accept = '.' + accept_files.split(',').join(',.');
+
+                if (_this.uploader)
+                    return;
+
+                _this.uploader = $('#fileUploadDiv').yuFileUploader(
+                    {
+                        fileIdsCtl: '#srchFileId',
+                        dropZone: 'fileuploadAx',
+                        boxZone: 'fileuploadAx',
+                        others: '', // 파일저장 상위경로
+                        filepath: 'equ', // 파일저장 하위경로
+                        addfileext: 'Y', // 저장시 파일확장자 포함 파일이름저장
+                        icons: {
+                            'download': '<i class="fa fa-download" aria-hidden="true"></i>',
+                            'delete': '<i class="fa fa-minus-circle" aria-hidden="true"></i>'
+                        },
+                        emptymsg: '파일을 Drag&amp;Drop하거나 클릭하여 업로드를 진행하세요' + '(업로드 후 저장버튼을 클릭하세요.)',
+
+                        multiple: true,  // 멑티업로드 허용여부
+                        maxcnt: 5, // 업로드 최대갯수
+                        accept: accept, // 허용 확장자 image/* .gif,.jpg,.png
+                        accepts: accept_files,    // 드래그로 업로드할 때 체크할 용도
+                        fileSize: 50,   // Mega, 업로드 파일사이즈제한
+                        tableName: 'equ',
+                        attachName: 'photo',
+                        thumbnailYN: 'Y'
+                    }
+                );
+                _this.uploader.can_write = userinfo.can_write();
+                _this.uploader.mode = 'disable';
+            }
+
+            /*let Code = $('#Code').val();
+               let Name = $('#Name').val();
+
+               if (!WorkCenter_id) {
+                   Alert.alert('', '워크센터를 선택해주세요.', function () { });
+                   return;
+               } else if (!Code) {
+                   Alert.alert('', '설비코드를 입력해주세요.', function () { });
+                   return;
+               } else if (!Name) {
+                   Alert.alert('', '설비명을 입력해주세요.', function () { });
+                   return;
+               }
+
+               if ($('#PurchaseCost').val() < 0) {
+                   Alert.alert('', '구매금액을 확인해 주세요.');
+                   return;
+               }*/
+
+            showComponentList(equ_pk) {
+                let _this = this;
+                let data = {'equ_pk': equ_pk};
+
+                let result = AjaxUtil.getSyncData(_this.url + '/readComponent', data);
+                if (result != null) {
+                    _this.viewData2.sourceCollection = result.data;
+                }
+            }
+
+
+            ComponentSave() {
+                let _this = this;
+
+                let equipmentId = $('#equipmentForm').find('#id').val();
+
+                let data = FormUtil.extractForm($('#componentForm'));
+                data.equipmentId = equipmentId;
+
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('', '저장되었습니다.'); // Notification
+                        $('#componentForm')[0].reset();
+                        $('#componentForm').find('#id2').val('');
+                        _this.searchMainData();
+                    } else {
+                        Alert.alert('', res.message);
+                        return;
+                    }
+                };
+                AjaxUtil.postAsyncData(_this.url + "/save_add", data, fnSuccess);
+            }
+
+            showComponentDetail(idx) {
+                let _this = this;
+                let param = {'id': idx};
+                let result = AjaxUtil.getSyncData(_this.url + "/Componentdetail", param);
+                if (result != null) {
+                    console.log(result.data);
+                    FormUtil.BindDataForm(result.data, $('#componentForm'));
+                }
+            }
+
+            deleteComponentData() {
+                let _this = this;
+                let id = $('#componentForm').find('#id2').val()
+                let id2 = $('#equipmentForm').find('#id').val()
+                let data = {id: id};
+                let fnsuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('', '삭제했습니다.');
+
+                        $('#componentForm')[0].reset();
+                        $('#componentForm').find('#id2').val('');
+
+                        _this.searchMainData();
+                        _this.showComponentList(id2);
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+
+                AjaxUtil.postAsyncData(_this.url + "/componentdelete", data, fnsuccess);
+            }
+
+
+        }
+
+        expand = function (id) {
+            let url = '/api/files/image?id=' + id;
+            $('#image_expand').attr('src', url);
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new EquipmentPage();
+
+            $('#cdate').val(CommonUtil.getYYYYMMDD());
+
+            $('#PurchaseDate').ax5DatePicker({direction: 'bottom'});
+            $('#InstallDate').ax5DatePicker({direction: 'bottom'});
+            $('#DisposalDate').ax5DatePicker({direction: 'bottom'});
+            $('#InputDate').ax5DatePicker({direction: 'bottom'});
+
+            $('#btnSearch').click(function (ex) {
+                page.searchMainData();
+            });
+
+            $('.tab_links .tab').click(function (e) {
+                let target = e.currentTarget.name;
+                page.current_tab = target;
+                let eq_pk = $('#equipmentForm').find('#id').val();
+
+                if (target == 'tab_photo') {
+                    $('#tab_photo').removeClass("hidden");
+
+                    if (eq_pk) {
+                        page.showPhotoFiles(eq_pk);
+                    }
+                }
+            });
+
+            $('#btnBasicNew').click(function (e) {
+
+                $('#equipmentForm')[0].reset();
+
+                $('#equipmentForm').find('#id').val('');
+                $('#equipmentForm #Code').attr('readonly', false);
+                $('#equipmentForm input').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+                $('#equipmentForm select').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+                $('#equipmentForm textarea').each(function () {
+                    let $obj = $(this);
+                    if ($obj.is(':disabled')) {
+                        $obj.removeAttr('disabled');
+                    }
+                    $obj.text('');
+                });
+                //page.setButtonDisable(true, false, true);
+                page.setButtonState();
+
+            });
+
+
+            $('#btnComponentNew').click(function (e) {
+                $('#componentForm')[0].reset();
+                $('#componentForm').find('#id2').val('');
+
+            });
+
+            $('#btnBasicSave').click(function (e) {
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        page.saveData()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $('#btnBasicDel').click(function (e) {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        page.deleteData()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $('#btnComponentDelete').click(function (e) {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        page.deleteComponentData()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+
+            // 사진파일 저장버튼
+            $('#btnPhotoSave').click(function (e) {
+                Alert.confirm('',
+                    '사진을 저장하시겠습니까?',
+                    function () {
+                        page.savePhotoFiles()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $('#btnComponentSave').click(function (e) {
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        page.ComponentSave()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+
+            // 엑셀 다운로드
+            $('#btnExcel').click(function (e) {
+                page.grid.exportExcel('설비정보.xls');
+            });
+
+            /* //그리드 컬럼 설정
+             page.popColSetting = new popColSetting();
+             let columns = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'grid',  page.grid);
+
+             if (userinfo.group_code == 'admin') {
+                 $('#btnGridSetting').css('visibility','visible');
+             }
+
+             $('#btnGridSetting').click(function (e) {
+                 let _this = this;
+                 let fix_cols = page.grid_config.frozenColumnIndex;
+                 page.popColSetting.show(gui.gui_code, gui.template_key, 'grid', page.grid_config.columns, page.grid, { 'order_fix':false,  'fix_cols' : fix_cols });
+             });*/
+
+            page.searchMainData();
+
+        });
+    </script>
+</th:block>
+</html>

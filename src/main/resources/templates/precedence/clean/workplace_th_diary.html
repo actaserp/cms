@@ -1,0 +1,721 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+<div class="content_wrap">
+    <input type="hidden" id="bhId" th:value="${bh_id}" />
+    <input type="hidden" id="viewMode" th:value="${view_mode}" />
+    <input type="hidden" id="apprView" th:value="${appr_view}" />
+    <input type="hidden" id="createrName" th:value="${creater_name}" />
+    <section class="section">
+        <div class="title_box ">
+            <div class="left_align">
+                <h3 data-labelCd="온/습도 관리">온/습도 관리</h3>
+            </div>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>
+        </div>
+
+        <div class="table_box search">
+            <div class="row">
+                <div class="col-6 col-lg-6 col-xl-6">
+                    <div class="row">
+                        <div class="col-12 col-lg-12 col-xl-12">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_sm" data-labelCd="점검명">점검명</span>
+                                </div>
+                                <input class="form-control2 tac" type="text" id="title" name="title" />
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-6 col-xl-6">
+                            <div class="input-group" data-ax5picker="basic" id="srchDt">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_sm" data-labelCd="점검일">점검일</span>
+                                </div>
+                                <input class="form-control2 tac" type="text" id="check_date" name="check_date" readonly>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-6 col-xl-6">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_sm" data-labelCd="작성자">작성자</span>
+                                </div>
+                                <input class="form-control2 tac" type="text" id="creater_name" name="creater_name" disabled />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-lg-6 col-xl-6">
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+        </div>
+        <div class="title_box">
+            <span class="right_align rpt" data-labelCd="관리기준">관리기준</span>
+            <div class="left_align">
+                <label class="switch">
+                    <input type="checkbox" checked id="btnToggle"><span class="slider round"></span>
+                </label>
+                관리기준 보기/감추기
+            </div>
+        </div>
+        <div id="standardDIv">
+            <div class="row">
+                <div class="col-12">
+                    <table class="type01" colspan="2">
+                        <tr>
+                            <th scope="row">점검주기</th>
+                            <td id="checkCycle">일 2회</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">판정결과</th>
+                            <td>▣온도는 소수점 첫째자리까지 기록하세요.</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="grid_box" id="prodListGrid">
+            <div class="title_box">
+                <span class="right_align rpt" data-labelCd="일지 목록">일지목록</span>                
+                <button type="button" class="btn-default" id="btnReqAppr">결재상신</button>
+                <button type="button" class="btn-default" id="btnAppr" style="display:none;">승인</button>
+                <button type="button" class="btn-cancel" id="btnReject" style="display:none;">반려</button>
+                <button type="button" class="btn-default" id="btnSave">저장</button>
+                <button type="button" class="btn-default" id="btnList">목록</button>
+            </div>
+                <div class="tab-content">
+                    <div class="tab" id="work_place">                        
+                        <section class="pt-2">                             
+                            <div class="grid_box" id="main_grid">
+                                <div class="title_box">
+                                    <div class="left_align">
+                                        <button type="button" class="btn-default" id="popBtnExcel" style="display:none">프린트</button>
+                                        <button type="button" class="btn-default" id="btnAllItem">전체적합</button>
+                                    </div>
+                                </div>
+                                <div class="h-300" data-ax5grid="check_item_week_grid" id="check_item_week_grid"></div>
+                            </div>
+                        </section>
+                        <section>
+                            <div class="grid_box" id="sub_grid">
+                                <div class="title_box" id="button_box2">
+                                    <div class="left_align">
+                                        <button type="button" class="btn-default" id="btnDeviActionSave" style="display:none">저장</button>
+                                    </div>
+                                </div>
+                                <div class="h-200" data-ax5grid="devi_action_grid"></div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+        </div>
+    </section>
+
+
+
+
+</div>
+
+<script type="text/x-tmpl" id="imagePopup">
+
+<div class="content_wrap modal-content popup">    
+        <section class="pt-2">            
+           <div class="table_box sub" >                                        
+                <div class ="row">
+                    <div class="col-12">   
+                        <div class="input-group"> 
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5" data-labelCd="점검항목명">점검항목명</span>                                                                                                                                      
+                            </div>
+                            <input class="form-control2 tac" type="text" id="pop_item_name" disabled="disabled" /> 
+                        </div>
+                    </div>
+                    </div>
+                    <div class="col-12 mx-auto" id="image_upload1"></div>                   
+            </div>                                                
+        </section>
+        <section>
+            <div class="align_left popup_button_group bottom">            
+                <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+            </div>    
+        </section>
+</div>
+</script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+<th:block th:replace="/common/approve_box :: approve_box" ></th:block>
+<th:block th:replace="/common/upload_one_image_box.html :: upload_one_image_box" ></th:block>
+<th:block th:replace="/common/popup_select_user_code.html :: popup_select_user_code" ></th:block>
+<script type="text/javascript">
+    class WorkPlaceDiaryPage {
+        constructor() {
+            this.grid = null;
+            this.approveBoxUtil = null;
+            this.appr_view = null;
+            this.baseUrl = '/api/precedence/clean/workplace_list';
+            this.init();
+        }
+
+        init() {
+            let _this = this;			
+
+			let resultConfig = {
+				target: $('[data-ax5grid="check_item_week_grid"]'),
+				frozenColumnIndex: 0, // 열 고정
+				frozenRowIndex: 0,    // 행 고정
+				showLineNumber: false, // 열의 번호 보이기 여부
+				showRowSelector: false,  // checkbox(선택) 보이기 여부
+				multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+				sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+				multiSort: false, // 다중 정렬 여부
+				header: {
+					align: 'center',  // 헤더의 기본 정렬
+					columnHeight: 30  // 헤더 높이
+				},
+				body: {
+					columnHeight: 30, // body의 기본 높이
+                    onClick: function (e) {
+                        if (e.column.key == 'result5' && !$('#viewMode').val()) {                            
+							if (e.item.result5 == null) {
+                                e.item.result5 = 'O';
+								_this.tabType.repaint();                                
+							}
+							else if (e.item.result5 == 'O') {
+                                e.item.result5 = 'X';
+								_this.tabType.repaint();        
+							}
+							else if (e.item.result5 == 'X') {
+                                e.item.result5 = null;
+								_this.tabType.repaint();
+							}
+				
+                        }                       
+                    },
+                    onDataChanged: function () {
+						  let t1 = this.item.temp_low 
+						  let t2 = this.item.temp_upper
+						  let h1 = this.item.humid_low
+						  let h2 = this.item.humid_upper
+						  let r1 = this.item.result1
+						  let r2 = this.item.result2
+						  let r3 = this.item.result3
+						  let r4 = this.item.result4
+						  
+						  let state = 'N'
+						if (t1 != undefined && t1 != '' && t2 != undefined && t2 != '') {
+							
+						    if (t1 <= r1 && r1 <= t2) {
+								state = 'Y'
+							} else {
+								state = 'N'
+							}
+							
+						    if (t1 <= r2 && r2 <= t2) {
+								state = 'Y'
+							} else {
+								state = 'N'
+							}
+						
+						} else {
+							state = 'N'
+						}
+						
+						if (h1 != undefined && h1 != '' && h2 != undefined && h2 != '') {
+							if (h1 <= r3 && r3 <= h2) {
+								state = 'Y'
+							} else {
+								state = 'N'
+							}
+							
+							if (h1 <= r4 && r4 <= h2) {
+								state = 'Y'
+							} else {
+								state = 'N'
+							}
+						} else {
+							state = 'N'
+						}
+						
+						if (state == 'Y') {
+							this.item.result5 = 'O'
+						} else {
+							this.item.result5 = 'X'
+						}
+						
+						_this.tabType.repaint(); 
+                    }
+				},
+				page: {
+					display: true,  // 페이징 보이기 여부
+					statusDisplay: false,
+				},
+				columns: [
+					{ key: 'code', label: '코드', width: 50, align: 'center' },
+					{ key: 'name', label: '대상', width: 130, align: 'center' },
+					{ key: 'temp_upper', label: '온도기준(˚C)상한', width: 110, align: 'right' },
+					{ key: 'temp_low', label: '온도기준(˚C)하한', width: 110, align: 'right' },
+					{ key: 'humid_upper', label: '습도기준(%)상한', width: 110, align: 'right' },
+					{ key: 'humid_low', label: '습도기준(%)하한', width: 110, align: 'right' },
+					{ key: 'result1', label: '온도 측정(오전)', width: 100, align: 'right', editor: {type: "text"} },
+					{ key: 'result2', label: '온도 측정(오후)', width: 100, align: 'right', editor: {type: "text"} },
+					{ key: 'result3', label: '습도 측정(오전)', width: 100, align: 'right', editor: {type: "text"} },
+					{ key: 'result4', label: '습도 측정(오후)', width: 100, align: 'right', editor: {type: "text"} },
+					{
+						key: 'result5', label: '<span class="editable_clr">판정</span>', width: 50, align: 'center'
+					},
+				]
+			} // resultConfig
+
+			this.resultGrid = new ax5.ui.grid(resultConfig);			
+            _this.tabType = this.resultGrid;
+
+            let devi_action_config = {
+                    target: $('[data-ax5grid="devi_action_grid"]'),
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: false, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 38  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            _this.deviResultGrid.select(this.dindex);
+
+                            if (e.column.key == 'action_detail' && !$('#viewMode').val()) {
+                                _this.showDeviActionCodeSavePopup(e.item);
+                            } 
+                        },
+                        onDataChanged: function (e) {                            
+                        }
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: false,
+                    },
+                    columns: [
+                        { key: 'id', label: '번호', width: 80, align: 'right', hidden:true },
+                        { key: 'src_data_pk', label: '점검항목결과번호', width: 80, align: 'right', hidden:true},
+                        //{ key: 'happen_date', label: '발생일', width: 80, align: 'left' },
+                        { key: '_order', label: '순번', width: 50, align: 'center' },
+                        { key: 'abnormal_detail', label: '이상발생내역', width: 400, align: 'left' },
+                        { key: 'action_detail', label: '<span class="editable_clr">조치내역및결과</span>', width: 250, align: 'left', editor: {} },
+                        { key: 'actor_name', label: '조치자', width: 80, align: 'left' },
+                        { key: 'creater_name', label: '작성자', width: 80, align: 'left' },
+                        { key: 'confirm_state', label: '확인', width: 80, align: 'left', hidden:true },
+                    ]
+            };
+            this.deviResultGrid = new ax5.ui.grid(devi_action_config);			
+            _this.deviTabType = this.deviResultGrid;
+         		    
+			//전체적합 버튼        
+            $('#work_place').find('#btnAllItem').click(function (e) {                
+                _this.tabType.list.forEach(function (item, idx) {					
+					 item.result5 = 'O';
+				});
+				_this.tabType.repaint();				
+            })		            
+
+            $('#title').val('온습도 관리일지');
+            //view mode
+            if ($('#viewMode').val().toLowerCase() == 'true') {                
+                $('#title').attr('disabled', 'disabled');
+                $('#check_date').attr('disabled', 'disabled');
+                $('#btnSave').hide();
+                $('#work_place').find('#btnAllItem').hide();
+                $('#work_place').find('#btnDeviActionSave').hide();
+                $('#btnReqAppr').hide();                
+            }
+        }
+        // 일지 리스트 
+        searchMainData() {
+            let _this = this;            
+
+            if ($('#bhId').val() > 0) {				                
+                let param = {
+                    'action': 'result_list',
+                    'bh_id': $('#bhId').val(),
+                }
+                
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/result_list', param);
+                if (result.data != null) {
+                    _this.item_result = result.data.item_result;
+                    _this.item_devi_result = result.data.item_devi_result;
+                    _this.mst_info = result.data.mst_info;                                                            
+
+                    $('#check_date').val(_this.mst_info.DataDate);
+                    $('#title').val(_this.mst_info.title);
+                    
+                    let count = _this.item_result.length;
+                    let deviCount = _this.item_devi_result.length;
+				
+					_this.resultGrid.setData({
+						list: _this.item_result,
+						page: {
+							display: true,
+							totalElements: count
+						}
+                    });
+                  
+                    _this.deviResultGrid.setData({
+						list: _this.item_devi_result,
+						page: {
+							display: true,
+							totalElements: deviCount
+						}
+                    });
+
+                }                                        				
+            } else {                
+                _this.searchItemList();
+            }
+
+            if ($('#bhId').val() > 0) {
+                if ($('#viewMode').val().toLowerCase() != 'true') {
+                    $('#work_place').find('#btnDeviActionSave').show();                
+                }
+                
+            }
+
+
+            _this.approveBoxUtil = new ApproveBoxUtil(0, '온습도관리', $('#bhId').val(), 'bundle_head', false, false);
+            _this.approveBoxUtil.print($('#viewMode').val());
+            if (_this.approveBoxUtil.isApprUser()) {
+                // 결재자의 경우 버튼 처리
+                $('#btnAppr').show();
+                $('#btnReject').show();
+            }
+
+        }
+
+        // 일지 리스트 
+		searchItemList(check_result_id) {
+            let _this = this;
+            
+			let param = {
+				'action': 'read',
+				'master_class': 'workplace_th',
+				'base_date': $('#check_date').val()
+			}
+			let grid_result = AjaxUtil.getSyncData('/api/haccp/workplace_th/read_master', param);
+            
+
+            grid_result.data.forEach(function (item, idx) {                
+				item.result1 = null;
+				item.result2 = null;
+				item.result3 = null;
+				item.result4 = null;
+				item.result5 = null;
+			})
+
+			let count = grid_result.data.length;
+		
+			_this.resultGrid.setData({
+				list: grid_result.data,
+				page: {
+					display: true,
+					totalElements: count
+				}
+			});                           			
+        }
+        save(isAppr) {
+            let _this = this;
+            let callback = null;
+            
+            callback = function () {
+                
+                let Q = [];
+                let data = null                                
+
+                if ($('#bhId').val() > 0) {
+                    Q =  _this.item_result,
+                    
+                      
+                    data = {
+                        bh_id: $('#bhId').val(),
+                        check_date: $('#check_date').val(),                        
+                        title: $('#title').val(),
+                        Q: JSON.stringify(Q)
+
+                    }
+                } else {                    
+                    let workplaceResult = {
+                        'tabList': _this.resultGrid.list,
+                    }
+                                                         
+                
+			        Q = [
+				        workplaceResult                
+                    ];
+
+                    
+                    
+                    data = {
+                        check_date: $('#check_date').val(),
+                        title: $('#title').val(),
+                        Q: JSON.stringify(Q)                    
+                    }       
+                }                         
+				
+				let fnSuccess = function (resp) {                    
+                    if (resp.success) {
+						$('#bhId').val(resp.data.id);
+                        if (isAppr) {                            
+							// 결재요청
+							_this.reqAppr();
+						} else {
+							// 임시저장
+							Notify.success('저장하였습니다.');
+                            $('#btnDelete').show();
+                            _this.searchMainData();
+                            
+						}
+					} else {
+						Alert.alert('', resp.message);
+					}
+                }
+                let action = $('#bhId').val() > 0 ? '/save' : '/insert'
+                
+                if (isAppr) {
+	                let checkGrid1 = _this.resultGrid.getList()
+	                let checkGrid2 = _this.deviResultGrid.getList()
+	                
+	                let result = checkGrid1.filter(function(e){
+					    return e.result5 == "X";
+					})
+	               	
+	               	if (result.length > 0) {
+						if(checkGrid2.length == 0) {
+							Alert.alert('결재상신','조치내역을 입력해주세요.');
+							return
+						}
+					}
+					
+					let result2 = checkGrid2.filter(function(e){
+					    return e.action_detail == "" || e.action_detail == null;
+					})
+					
+					if (result2.length > 0) {
+						Alert.alert('결재상신','조치내역을 입력해주세요.');
+						return
+					}
+                }
+                
+			    AjaxUtil.postAsyncData(_this.baseUrl + action, data, fnSuccess);
+            }            
+            
+			if (isAppr) {
+				Alert.confirm('', '결재상신하시겠습니까?', function () {
+					callback();
+				});
+			}
+			else {
+				Alert.confirm('', '저장하시겠습니까?', function () {
+					callback();
+				});
+			}
+        }
+
+        //결재
+        appr(isAppr) {
+            let _this = this;
+            _this.approveBoxUtil.approval(isAppr, function () {
+                $('#btnList').click();
+            });
+        }
+
+        // 결재상신
+        reqAppr() {
+            let _this = this;
+            let title = $('#title').val();
+            let url = '/gui/' + gui.gui_code + '/edit'
+            let urlParam = {
+                'bh_id': $('#bhId').val(),
+                'data_date': $('#check_date').val(),
+            };
+            
+            /**
+             * 결재선 : 푸드/박원준 , 푸드/고형석
+             * */
+            let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));            
+            if (ret.success) {
+                Notify.success('결재상신하였습니다.');
+                $('#btnList').click();
+            }
+        }
+
+       
+        showDeviActionCodeSavePopup(item) {
+
+            // 점검내역 조치내역 팝업
+            let _this = this;
+            let tempResult = _this.deviResultGrid.getList('selected')[0];            
+            let popupPage = new PopupSelectUserCodePage({
+
+                'title': '점검내역 선택',
+                'gridValueLabel': '점검항목',
+                'infoData': [
+                    { label: '이상발생내역', value: item.check_name },                    
+                ],
+                'parentCode': '온습도관리', 'closeManual': true,
+            });
+            popupPage.show(function (data) {                                
+                if (data && data.selected.Code == '직접입력') {                    
+                    item.action_detail = data.input;
+                } else {
+                    item.action_detail = data.selected.Value;
+                }
+                popupPage.close();
+                _this.deviTabType.repaint();
+                  if (item.action_detail) {
+					_this.saveDeviAction();
+                }
+            });            
+        }
+        saveDeviAction() {
+            let _this = this;
+            let url = '/api/common/devi_action/save_multi_devi_action';
+            let happen_date = $('#check_date').val();
+            let data = {
+                table_name: 'check_item_devi_result',
+                happen_date: happen_date,
+                Q: JSON.stringify(_this.deviTabType.getList()),
+            };
+            let fnSuccess = function () {
+                Notify.success('저장되었습니다');                    
+            }
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+        
+
+        // 이미지 팝업
+        setImagePopup(data) {            
+            let _this = this;
+             
+            let content = tmpl('imagePopup', data);
+            let $content = $(content);
+            let modalContainer;
+
+            if (data && data.file_id) {
+                modalContainer = new PopupDraggable('점검항목 이미지');
+                modalContainer.open({ width: 500, height: 350, $content });                
+            }
+
+            let fncCallback = function () {                
+            };
+            _this.upload = new UploadOneImage(1, {
+                table_name: 'check_item',
+                data_pk: data.checkItem_id,
+                attach_name: 'check_item_image',
+                file_id: data.file_id,
+                upload_form_id: 'upload_form1',
+                upload_div_id: 'image_upload1',
+                image_width: '100%',
+                image_height: 'auto',
+                callback: fncCallback,
+            });
+
+            _this.upload.printFormDiv();
+            $('#pop_item_name').val(data.item_name);
+            $('#btnUpload1').hide();
+            $('#btnRemoveFile1').hide();
+            $('#attachFileId1').hide();
+        }
+
+    }
+
+    $(document).ready(function (e) {
+
+		this.appr_view = $('#apprView').val()
+		
+		let creater = $('#createrName').val()
+		
+		$('#creater_name').val(creater)
+        
+        page = new WorkPlaceDiaryPage();        
+		
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+
+        $('#check_date').val(CommonUtil.getYYYYMMDD());        
+
+		// 그리드 토글
+		$('#btnToggle').click(function (e) {
+			$("#standardDIv").toggle(300);
+		});
+
+        // 목록
+        $('#btnList').on('click', function () {
+            if (this.appr_view) {
+                location.href = '/gui/' + this.appr_view
+            } else {
+                location.href = '/gui/' + gui.gui_code
+            }
+            
+        });
+
+		// 신규저장
+		$('#btnSave').on('click', function () {
+			page.save(false);
+        });
+
+        // 결재상신
+        $('#btnReqAppr').on('click', function () {
+            page.save(true);
+        });
+
+        // 승인
+        $('#btnAppr').on('click', function () {
+            page.appr(true);
+        });
+        // 반려
+        $('#btnReject').on('click', function () {
+            page.appr(false);
+        });
+        	    	        
+		page.searchMainData();        		
+    });
+</script>
+
+<style>
+    .background-yellow {
+        background: #ffd800
+    }
+    .background-skyblue {
+        background: #00e0ff
+    }
+    .background-white {
+        background: #ffffff
+    }
+    table.type01 {
+        border-collapse: collapse;
+        text-align: left;
+        line-height: 1.5;
+        margin: 20px 10px;
+    }
+    table.type01 th {
+        width: 150px;
+        padding: 10px;
+        font-weight: bold;
+        vertical-align: middle;
+        border: 1px solid #ccc;
+        text-align: center;
+    }
+    table.type01 td {
+        width: 650px;
+        padding: 10px;
+        vertical-align: middle;
+        border: 1px solid #ccc;
+    }
+</style>
+</th:block>
+</html>

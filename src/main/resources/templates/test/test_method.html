@@ -1,0 +1,597 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>검사방법</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>관리메뉴</li>
+                <li>검사관리</li>
+                <li>검사방법정보</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px;">
+            <section class="section" style="flex: 1;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>방법명</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" id="txtKeyword" name="txtKeyword" class="form-control2">
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div> <!--//section-top end -->
+
+                <div class="container-fluid">
+                    <div id="process-grid"></div>
+                </div>
+
+            </section>
+
+
+            <div class="tab-wrap" style="flex: 1; min-width: 0;">
+                <ul class="tab-links">
+                    <li><a href="#tab_basic">기본 정보</a></li>
+                    <li><a href="#tab_defect_type">해당 검사항목</a></li>
+                </ul>
+                <div>
+                    <section class="tab-item" id="tab_basic" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                            <div class="button-wrap">
+                                <ul>
+                                    <li>
+                                        <button type="button" class="btn-default" id="btnNew" name="btnNew" style="width: 115px; height: 36px;"><i
+                                                class="fas fa-plus"></i>신규등록</button>
+                                    </li>
+
+                                    <li>
+                                        <button type="button" class="btn-cancel btn-danger y_write_auth" id="btnDel" style="width: 115px; height: 36px;"><i class="fas fa-trash"></i>삭제</button>
+                                    </li>
+
+                                    <li>
+                                        <button disabled type="button" class="btn-default" id="btnSave" style="width: 115px; height: 36px;"><i class="fas fa-save">저장</i>
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div>
+                            <form id="testMethodForm">
+                                <table class="write-table"
+                                       style="width: 100%; border-collapse: collapse; ">
+                                    <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+                                    <input type="hidden" id="id" name="id"/>
+                                    <tbody>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="test_method_code"><span class="eq">*</span>코드</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" id="test_method_code" name="test_method_code"
+                                                   style="width: 100%;">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="test_method_name"><span class="eq">*</span>검사방법명</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" id="test_method_name" name="test_method_name"
+                                                   style="width: 100%;">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="equip_group_id">설비그룹</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <select style="width: 100%;" id="equip_group_id"
+                                                    name="equip_group_id"></select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center;">
+                                            <label for="description">설명</label>
+                                        </th>
+                                        <td colspan="5" style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <textarea id="description" name="description"></textarea>
+                                        </td>
+                                    </tr>
+
+                                    </tbody>
+                                </table>
+                            </form>
+                        </div>
+                    </section>
+
+                    <section class="tab-item" id="tab_defect_type" style="border-top-left-radius: 0;">
+                       <!-- <div class="grid_box">
+                            <div class="h-230" data-ax5grid="test_item_grid"></div>
+                        </div>-->
+                        <div class="container-fluid">
+                            <div id="test_item_grid" ></div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+    <script type="text/javascript">
+        class ProcessPage {
+            constructor() {
+                this.url = '/api/test/test_method';
+                this.grid = null;
+                this.grid2 = null;
+                this.test_item_grid = null;
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#process-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'id', header: '번호', width: 150, align: 'left'},
+                        {binding: 'test_method_code', header: '검사방법코드', width: 150, align: 'left'},
+                        {binding: 'test_method_name', header: '검사방법명', width: 200, align: 'left'},
+                        {binding: 'equip_group_name', header: '설비그룹', width: 150, align: 'left'},
+                        {binding: '', header: '', width: "*", align: 'left'},
+                    ],
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                });
+
+                this.grid.loadedRows.addHandler(() => {
+                    setTimeout(() => {
+                        this.grid.select(-1, -1); // 선택 상태 초기화
+                    }, 0); // 비동기로 처리하여 초기 선택 해제
+                });
+
+                let isInitialLoad = true; // 초기 상태 플래그
+
+                this.grid.selectionChanged.addHandler((s, e) => {
+                    if (isInitialLoad) {
+                        isInitialLoad = false; // 초기 로드 이후 플래그 해제
+                        return;
+                    }
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let id = selectedRowData.id; // 품목 ID 가져오기
+
+                        _this.showDetail(id);
+                        _this.showTestItem();
+
+                        /*console.log(`선택된 행 인덱스: ${selectedRowIndex}`);
+                        console.log('선택된 행 데이터:', selectedRowData);*/
+                    }
+                });
+
+                this.grid.hostElement.addEventListener('dblclick', (e) => {
+                    let hitTest = this.grid.hitTest(e);
+                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                        let row = hitTest.row;
+                        let selectedItem = this.grid.rows[row].dataItem;
+                        _this.showDetail(selectedItem.id);
+                        _this.showTestItem();
+
+                    }
+                });
+
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '검사방법 정보';
+
+                /*let config = {
+                    target: $('[data-ax5grid="process-grid"]'),
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: true, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 38  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            _this.grid.select(this.dindex);
+                            _this.showDetail(e.item.id);
+                            _this.showTestItem();
+                        }
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        {key: 'id', label: '번호', width: 150, align: 'left'},
+                        {key: 'test_method_code', label: '검사방법코드', width: 150, align: 'left'},
+                        {key: 'test_method_name', label: '검사방법명', width: 200, align: 'left'},
+                        {key: 'equip_group_name', label: '설비그룹', width: 150, align: 'left'},
+                    ]
+                };*/
+
+               /* this.grid = new ax5.ui.grid(config);
+                this.grid_config = config;*/
+
+
+                this.grid2 = new wijmo.grid.FlexGrid('#test_item_grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'id', header: '번호', width: 80, align: 'right', visible:false},
+                        {binding: 'test_item_code', header: '검사항목코드', width: 150, align: 'left'},
+                        {binding: 'test_item_name', header: '검사항목명', width: 150, align: 'left'},
+                        {binding: '', header: '', width: "*", align: 'right'},
+
+                    ],
+                    itemsSource: this.viewData2, // 데이터를 설정할 배열
+                });
+
+                new FlexGridContextMenu(this.grid2);
+                this.grid2.downloadFileName = '검사항목 지정';
+
+                /*let test_item_config = {
+                    target: $('[data-ax5grid="test_item_grid"]'),
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: false, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 38  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            _this.test_item_grid.select(this.dindex);
+
+                        }
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        {key: 'id', label: '번호', width: 80, align: 'right', hidden: true},
+                        {key: 'test_item_code', label: '검사항목코드', width: 150, align: 'left'},
+                        {key: 'test_item_name', label: '검사항목명', width: 150, align: 'left'},
+
+                    ]
+                };
+*/
+                /*this.test_item_grid = new ax5.ui.grid(test_item_config);*/
+
+            }
+
+            setButtonState() {
+                let pk = $('#id').val();
+                $('#btnNew').prop('disabled', false);
+                $('#btnSave').prop('disabled', false);
+                if (pk) {
+                    $('#btnDel').prop('disabled', false);
+                } else {
+                    $('#btnDel').prop('disabled', true);
+                }
+            }
+
+            // 검사방법 목록 조회
+            searchMainData() {
+                let _this = this;
+                let url = this.url + '/read';
+                let param = {
+                    'keyword': $('#txtKeyword').val()
+                }
+
+                let result = AjaxUtil.getSyncData(url, param);
+                if (result != null) {
+                    _this.viewData.sourceCollection = result.data;
+                }
+
+                $('#testMethodForm')[0].reset();
+                $('#testMethodForm').find('#id').val('');
+
+                $('#testMethodForm').find('input, select, textarea').each(function () {
+                    if (!$(this).is(':disabled')) {
+                        $(this).attr('disabled', 'disabled');
+                    }
+                });
+
+                //_this.setButtonDisable(false, true, true);
+                _this.setButtonState();
+            }
+
+            // 검사방법 상세정보 조회
+            showDetail(id) {
+                let param = {'id': id};
+                let url = this.url + '/detail';
+                let result = AjaxUtil.getSyncData(url, param);
+
+                if (result.success) {
+                    FormUtil.BindDataForm(result.data, $('#testMethodForm'));
+                }
+
+                //page.setButtonDisable(false, false, false);
+                page.setButtonState();
+            }
+
+            // 검사방법 정보 저장
+            saveTestMethod() {
+                let _this = this;
+                let validate = true;
+                let $target = null;
+                let url = this.url + '/save';
+
+                //let data = $('#testMethodForm').serialize();
+                let data = FormUtil.extractForm($('#testMethodForm'));
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('','저장되었습니다');
+                        _this.searchMainData();
+                        _this.showDetail(res.data);
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                }
+
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+            // 검사방법 정보 삭제
+            deleteTestMethod() {
+                let _this = this;
+                let url = this.url + '/delete';
+                let id = $('#testMethodForm').find('#id').val();
+                let data = {'id': id};
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('','삭제되었습니다');
+                        _this.searchMainData();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                }
+
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+            // 검사방법별부적합유형
+            showTestItem() {
+                let _this = this;
+                let id = $('#testMethodForm').find('#id').val();
+                let param = {
+                    'id': id,
+                };
+                let url = this.url + '/test_item_list';
+                let result = AjaxUtil.getSyncData(url, param);
+
+                if (result.success) {
+                    let count = result.data.length;
+                    /*_this.test_item_grid.setData({
+                        list: result.data,
+                        page: {
+                            display: true,
+                            totalElements: count,
+                        }
+                    });*/
+                    _this.viewData2.sourceCollection = result.data;
+                }
+            }
+
+            /*
+             addDefectTypeRow() {
+                 let row = {};
+                 let defect_type_pk = $('#cboTestItem').val();
+                 let already = false;
+                 page.test_item_grid.getList().forEach(function (row) {
+                     if (row.defect_type_id == defect_type_pk)
+                         already = true;
+                 });
+                 if (already)
+                     return;
+
+                 row["defect_type_id"] = defect_type_pk;
+                 row["defect_type_name"] = $("#cboTestItem option:selected").text();
+
+                 page.test_item_grid.addRow(
+                     row,
+                     'last',
+                     { __index: undefined }
+                 );
+             }
+
+             saveDefectType() {
+                 let _this = this;
+                 let url = '/api/test/test_method?action=save_proc_defect_type';
+                 let grid_data = JSON.stringify(_this.test_item_grid.getList());
+                 let param = {
+                     Q: grid_data,
+                     'proc_pk': $('#id').val()
+                 };
+                 let fnSuccess = function (res) {
+                     Notify.success('저장되었습니다'); // Notification
+                     _this.showTestItem();
+                 };
+                 AjaxUtil.postAsyncData(url, param, fnSuccess);
+             }
+             */
+        }
+
+        let page = null;
+
+        $(document.body).ready(function (e) {
+            page = new ProcessPage();
+
+            AjaxUtil.fillSelectOptions($('#equip_group_id'), 'equipment_group', 'choose', false);
+            AjaxUtil.fillSelectOptions($('#cboTestItem'), 'defect_type', '', false);
+
+           /* //그리드 컬럼 설정
+            page.popColSetting = new popColSetting();
+            let columns = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'grid', page.grid);
+
+            if (userinfo.group_code == 'admin') {
+                $('#btnGridSetting').css('visibility', 'visible');
+            }
+
+            $('#btnGridSetting').click(function (e) {
+                let _this = this;
+                let fix_cols = page.grid_config.frozenColumnIndex;
+                page.popColSetting.show(gui.gui_code, gui.template_key, 'grid', page.grid_config.columns, page.grid, {
+                    'order_fix': false,
+                    'fix_cols': fix_cols
+                });
+            });*/
+
+            page.searchMainData();
+
+            // 검색버튼
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            // 신규버튼
+            $('#btnNew').click(function (e) {
+
+                $('#testMethodForm')[0].reset();
+                $('#testMethodForm').find('#id').val('');
+
+                $('#testMethodForm').find('input, select, textarea').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+
+                if (page.grid2 && page.grid2.collectionView) {
+                    page.grid2.collectionView.sourceCollection.length = 0;  // 기존 CollectionView 유지하면서 데이터만 비움
+                    page.grid2.collectionView.refresh();  // 갱신
+                } else {
+                    console.log("grid2가 아직 생성되지 않았습니다.");
+                }
+
+                //page.setButtonDisable(true, false, true);
+                page.setButtonState();
+            });
+
+            // 저장버튼
+            $('#btnSave').click(function (e) {
+                let data = FormUtil.extractForm($('#testMethodForm'));
+                //if (!data.equip_group_id) {
+                //    Alert.alert('', '설비그룹을 선택해주세요.');
+                //    return false;
+                //}
+                if (!data.test_method_code) {
+                    Alert.alert('', '코드를 입력해주세요.');
+                    $('#testMethodForm #test_method_code').focus();
+                    return false;
+                }
+                if (!data.test_method_name) {
+                    Alert.alert('', '검사방법명을 입력해주세요.');
+                    $('#testMethodForm #test_method_name').focus();
+                    return false;
+                }
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        page.saveTestMethod()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            // 삭제버튼
+            $('#btnDel').click(function (e) {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        page.deleteTestMethod()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            //$('#btnAddTestItem').click(function () {
+            //    //page2.newRow();
+            //    if (!$('#cboTestItem').val()) {
+            //        Alert.alert('', '부적합유형을 선택해주세요.');
+            //        return false;
+            //    }
+            //    page.addDefectTypeRow();
+            //});
+
+            //$('#btnDelTestItem').click(function (e) {
+            //    page.test_item_grid.removeRow('selected');
+            //});
+
+            //$('#btnSaveDefectType').click(function () {
+            //    page.saveDefectType();
+            //});
+
+            // 엑셀 다운로드
+            $('#btnExcel').click(function (e) {
+                page.grid.exportExcel('검사방법정보.xls');
+            });
+
+        });
+
+
+    </script>
+</th:block>
+</html>

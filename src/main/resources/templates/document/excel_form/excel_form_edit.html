@@ -1,0 +1,393 @@
+<html layout:decorate="~{layout_page}">
+<head>
+<link rel="stylesheet" href="/resource/kendo-ui-spread/styles/kendo.common.min.css">
+<link rel="stylesheet" href="/resource/kendo-ui-spread/styles/kendo.rtl.min.css">
+<link rel="stylesheet" href="/resource/kendo-ui-spread/styles/kendo.Silver.min.css">
+<link rel="stylesheet" href="/resource/kendo-ui-spread/styles/kendo.Silver.mobile.min.css">
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>엑셀양식</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>일지 및 데이터</li>
+                <li>기준정보</li>
+                <li>엑셀양식</li>
+            </ul>
+        </div>
+
+
+    <section class="section">
+        <div class="section-top">
+            <div class="search-wrap">
+                <form id="excelForm">
+                    <div class="search-wrap">
+                        <input type="hidden" id="id" name="id" th:value="${pk}" />
+                        <input type="hidden" id="action" name="action" th:value="${action}" />
+                        <dl>
+                            <dt>
+                                <label for="form_name">양식명</label>
+                            </dt>
+                            <dd>
+                                <input class="form-control2" type="text" id="form_name" name="form_name">
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>
+                                    적용기간
+                                </label>
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <input class="tac " type="date" id="start_date" name="start_date" />
+                                        <label for="start_date" class="hide">시작일</label>
+                                    </li>
+                                    <li>
+                                        <input class="tac " type="date" id="end_date" name="end_date" />
+                                        <label for="end_date" class="hide">종료일</label>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+
+                    </div>
+                </form>
+            </div>
+            <div class="button-wrap">
+                <ul>
+                    <li>
+                        <button type="button" class="btn-default" id="btnSave" style="display:none !important;" title="저장"><i class="fas fa-save"></i></button>
+                    </li>
+                    <li>
+                        <button type="button" class="btn-danger" id="btnDel" style="display:none !important;" title="삭제"><i class="fas fa-trash"></i></button>
+                    </li>
+                    <li>
+                        <button type="button" class="btn-default" id="btnBack" title="뒤로"><i class="fa fa-arrow-circle-left"></i></button>
+                    </li>
+                    <li>
+                        <button type="button" class="btn-default" id="btnImport"><span>Import</span></button>
+                    </li>
+                    <li>
+                        <button type="button" class="btn-default" id="btnExport"><span>Export</span></button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="spread_sheet" name="spread_sheet" style="width:100%;height:650px;"></div>
+        <!--<div class="input-group">
+                <div class="input-group-prepend">
+                    <span class="input-group-text fit_box_t4_area" data-labelCd="비고">비고</span>
+                </div>
+                <textarea class="form-control2" id="description" name="description"></textarea>
+            </div>-->
+
+        <div class="table-wrap" style=" overflow-x: auto;">
+            <table class="write-table"
+                   style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                <tbody>
+                <tr>
+                    <th style="text-align: center; width: 2%; padding: 5px; border: 1px solid #ddd;">
+                        <label for="description">비고</label>
+                    </th>
+                    <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                        <textarea class="form-control2" id="description" name="description"></textarea>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </section>
+</div>
+
+<script type="text/x-templ" id="importTemplate">
+    <div class="content_wrap popup">
+        <section class="pt-2">
+            <form id="importForm">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="input-group">
+						    <textarea class="form-control2" id="values" name="values" rows="30" placeholder="값을 입력하세요." >{%=o.values%}</textarea>
+						</div>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <section class="popupcontent">
+		    <div class="align_left">
+		        {% if (o.action == 'import') { %}
+                    <button type="button" class="btn-popup" id="btnApply" ><span>적용</span></button>
+                {% } %}
+		        <button type="button" class="btn-popup" id="modal-close-button">
+		            <span>닫기</span>
+		        </button>
+		    </div>
+		</section>
+    </div>
+</script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<script type="text/javascript" src="/resource/kendo-ui-spread/js/jszip.min.js"></script>
+<script type="text/javascript" src="/resource/kendo-ui-spread/js/kendo.all.min.js"></script>
+<script type="text/javascript">
+    class ExcelFormEditPage {
+        constructor() {
+            this.init();
+            this.spread = null;
+            this.baseUrl = '/api/support/excel_form';
+        }
+
+        init() {
+            let _this = this;
+            
+            this.gui = {
+				id : $('#id').val(),
+				action : $('#action').val(),
+			};
+
+            $('#spread_sheet').kendoSpreadsheet({
+                sheets: [
+                    {
+                        name: "Sheet1",
+                        rows: []
+                    }
+                ]
+            }).data('kendoSpreadsheet');
+        }
+
+        // 스프레드시트 데이터 get ot set
+        handleSpreadsheet(action, val) {
+            let _this = this;
+            let spreadsheet = $('#spread_sheet').data('kendoSpreadsheet');
+            let ret = null;
+
+            if (action == 'set') {
+                spreadsheet.fromJSON(JSON.parse(val));
+            } else if (action == 'get') {
+                ret = JSON.stringify(spreadsheet.toJSON());
+            }
+
+            return ret;
+        }
+
+        // Import / Export 팝업
+        showPopUp(action) {
+            let _this = this;
+            let content = null;
+            let title = '';
+            let data = {
+                'action': '',
+                'values': ''
+            }
+			
+            if (action == 'import') {
+                data.action =  action;
+                title = 'Import';
+            } else if (action == 'export') {
+                data.action =  action;
+                data.values = this.handleSpreadsheet('get');
+                title = 'Export';
+            }
+           
+            content = tmpl('importTemplate', data);
+            let $content = $(content);
+
+            let modalContainer = new PopupDraggable(title);
+            modalContainer.open({ width: 740, height: 520, $content });
+
+            $content.find('#btnApply').on('click', function () {
+                let values = $content.find('#values').val();
+                let isJson = _this.isJSONString(values);
+
+                if (isJson) {
+                    _this.handleSpreadsheet('set', values);
+                    modalContainer.close();
+                } else {
+                    Alert.alert('', '입력값이 JSON형식이 아닙니다.');
+                    return;
+                }
+            });
+        }
+
+        // 엑셀양식 상세정보 조회
+        showDetailExcelForm(id) {
+            let _this = this;
+
+            let param = {
+                'id': id,
+                //'action': 'detail'
+            };
+
+            let result = AjaxUtil.getSyncData(this.baseUrl + '/detail', param);
+
+            if (result.data != null) {
+                FormUtil.BindDataForm(result.data, $('#excelForm'));
+                let $description = $('#description');
+                if ($description.length > 0) {
+                    $description.val(result.data.description);
+                }
+
+                this.handleSpreadsheet('set', result.data.form_value);
+            }
+        }
+
+        // 엑셀양식 저장
+        saveExcelForm() {
+            let _this = this;
+            let $formName = $('#excelForm').find('#form_name');
+            let $description = $('#description'); // excelForm 외부의 요소 찾기
+            let data = FormUtil.extractForm($('#excelForm'))
+
+
+            let fnSuccess = function (res) {
+                if (!res.success) {
+                    Alert.alert('', res.message);
+                } else {
+                    Alert.alert('','저장되었습니다');
+                    _this.showDetailExcelForm(res.data.id);
+                }
+            }
+
+            if (!$formName.val()) {
+                Alert.alert('', '양식명을 입력해주세요.', function () {
+                    $formName.focus();
+                });
+                return;
+            }
+
+            let formValue = this.handleSpreadsheet('get');
+
+            data['form_value'] = formValue;
+
+            // description이 존재하면 추가
+            if ($description.length > 0) {
+                data['description'] = $description.val();
+            }
+
+
+            AjaxUtil.postAsyncData(_this.baseUrl + '/save', data, fnSuccess);
+        }
+
+        // 엑셀양식 삭제
+        deleteExcelForm() {
+            let _this = this;
+            let id = $('#excelForm').find('#id').val();
+            let data = { id: id }
+
+            let fnSuccess = function () {
+                Alert.alert('',"삭제되었습니다.");
+                $('#btnBack').click();
+            }
+
+            AjaxUtil.postAsyncData(_this.baseUrl + '/delete', data, fnSuccess);
+        }
+
+        // import popup에서 적용된 값이 JSON형식인지 check
+        isJSONString(str) {
+            try {
+                var json = JSON.parse(str);
+                return (typeof json === 'object');
+            } catch (e) {
+                return false;
+            }
+        }
+    }
+
+    let page = null;
+
+    $(document.body).ready(function (e) {
+        page = new ExcelFormEditPage();
+
+        let today = CommonUtil.getYYYYMMDD();
+        $('#start_date').val(today);
+        $('#end_date').val(today);
+
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),  
+            direction: "top",
+   			locale: {
+				format: 'YYYY-MM-DD'
+			},
+            content: {
+                width:  214,  // 130, //270,
+                margin: 10,
+                type: 'date',
+                
+                config: {
+                    control: {
+                        left: '<i class="fa fa-arrow-left"></i>',   //fa-chevron-left
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-arrow-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            },
+            btns: {},
+        });	
+
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+
+        // 부모페이지의 action에 따라 버튼 보이기 여부
+        if (page.gui.action == 'new' || page.gui.action == 'edit') {
+            $('#btnSave').attr('style', 'display:inline-block !important');
+        } else if (page.gui.action == 'del') {
+            $('#btnDel').attr('style', 'display:inline-block !important');
+        }
+
+        let pk = $('#id').val();
+
+        // 신규등록이 아니면 저장된 데이터 불러오기
+        if (page.gui.action != 'new') {
+            page.showDetailExcelForm(pk);
+        }
+
+        // 저장
+        $('#btnSave').click(function (e) {
+            Alert.confirm('','저장하시겠습니까?',
+                function () { page.saveExcelForm()},
+                function () { }
+            );
+        });
+
+        // 삭제
+        $('#btnDel').click(function (e) {
+            page.deleteExcelForm();
+        });
+
+        // 뒤로
+        $('#btnBack').click(function (e) {
+            location.href = encodeURI('/gui/' + gui.gui_code);
+        });
+
+        // Import
+        $('#btnImport').click(function (e) {
+            page.showPopUp('import');
+        });
+
+        // Export
+        $('#btnExport').click(function (e) {
+            page.showPopUp('export');
+        });
+
+    });
+</script>
+</th:block>
+</html>

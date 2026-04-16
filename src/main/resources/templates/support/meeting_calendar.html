@@ -1,0 +1,761 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <link th:href="@{/resource/fullCalendar/c-main.min.css}" rel="stylesheet">
+    <style>
+        #calendar {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        .filelabel {
+            /*margin-right: 5px;*/
+            font-size: 11px;
+            vertical-align: middle;
+            line-height: 2.2em;
+            cursor: pointer;
+        }
+        .filedel {
+            vertical-align: middle;
+            padding-left: 8px;
+            cursor: pointer;
+        }
+        button.close:disabled {
+            color:#fff !important;
+            background-color:#8C8C8C !important;
+            border-color:#8C8C8C !important;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>캘린더</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>조치 및 통계</li>
+                <li>업무지원</li>
+                <li>캘린더</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="grid_box">
+                <div style="position: relative;height:760px;">
+                    <!-- <div data-ax5grid="grid1" style="height: 100%;"></div> -->
+                    <div id='calendar'></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+
+    <!--캘린더 일정등록 스크립트 -->
+    <script type="text/x-tmpl" id="eventTmpl">
+        <div class="content_wrap popup">
+            <div class="table-wrap">
+                <form id="modalForm" enctype="multipart/form-data">
+                    <table class="write-table">
+                         <input type="hidden" id="edit-id" name="edit-id" value="" />
+                        <caption>주문등록 테이블</caption>
+                        <tbody>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="edit-title">일정명</label>
+                                </th>
+                                <td>
+                                    <input class="form-control2 " type="text" name="edit-title" id="edit-title" required="required" />
+                                </td>
+                                <th style="text-align: center">
+                                    <label>하루종일</label>
+                                </th>
+                                <td style="text-align: center; vertical-align: middle;">
+                                    <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                                        <input type="checkbox" class="allDayNewEvent" id="edit-allDay" style="height:30px;width:30px" />
+                                    </div>
+                                </td>
+
+                            </tr>
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="edit-color">색상</label>
+                                </th>
+                                <td>
+                                    <input class="form-control2 " type="color" id="edit-color" value="#ffffff" />
+                                </td>
+                                <td style="text-align: center; vertical-align: middle;" colspan="2">
+                                     <div class="mt-5 tal" id="color_code" style="display: flex; justify-content: center; gap: 5px; flex-wrap: wrap;">
+                                        <input type="button" class="btn-default" style="height:30px;width:30px;background-color:#ED5D47" id="color1">
+                                        <input type="button" class="btn-default" style="height:30px;width:30px;background-color:#FF953F" id="color2">
+                                        <input type="button" class="btn-default" style="height:30px;width:30px;background-color:#FFC325" id="color3">
+                                        <input type="button" class="btn-default" style="height:30px;width:30px;background-color:#9ED900" id="color4">
+                                        <input type="button" class="btn-default" style="height:30px;width:30px;background-color:#4B5CC4" id="color5">
+                                        <input type="button" class="btn-default" style="height:30px;width:30px;background-color:#3B2E7E" id="color6">
+                                        <input type="button" class="btn-default" style="height:30px;width:30px;background-color:#8D4BBB" id="color7">
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="edit-start">시작일</label>
+                                </th>
+                                <td>
+                                     <input class="form-control2 tac" type="date" id="edit-start" name="edit-start">
+                                </td>
+                                <th style="text-align: center">
+                                    <label for="edit-start-time">시작시간</label>
+                                </th>
+                                <td>
+                                     <input class="form-control2" type="text" id="edit-start-time" name="edit-start-time"/>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="edit-end">종료일</label>
+                                </th>
+                                <td>
+                                     <input class="form-control2 tac" type="date" id="edit-end" name="edit-end">
+                                </td>
+                                <th style="text-align: center">
+                                    <label for="edit-end-time">종료시간</label>
+                                </th>
+                                <td>
+                                     <input class="form-control2" type="text" id="edit-end-time" name="edit-end-time"/>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="edit-desc">설명</label>
+                                </th>
+                                <td colspan="3">
+                                    <textarea class="form-control2" id="edit-desc" name="edit-desc"></textarea>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+
+            <div class="popup-button popup_button_group bottom">
+                <div class="left_align modalBtnContainer-addEvent">
+                      <button type="button" class="btn-popup y_write_auth" id="insertEvent" ><span data-labelCd="저장">저장</span></button>
+                      <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+                </div>
+                <div class="left_align modalBtnContainer-modifyEvent">
+                    <button type="button" class="btn-popup y_write_auth" id="updateEvent"><span data-labelCd="저장">저장</span></button>
+                    <button type="button" class="btn-popup y_write_auth" id="deleteEvent"><span data-labelCd="삭제">삭제</span></button>
+                    <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+                </div>
+            </div>
+
+
+
+            <!--<section class="pt-2">
+                <div class="table_box sub">
+                    <form id="modalForm" enctype="multipart/form-data">
+                        <input type="hidden" id="edit-id" name="edit-id" value="" />
+                            <div class="row">
+
+                                        <div class="col-9">
+                                            <div class="input-group">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text fit_box_t4" data-labelCd="일정명">일정명</span>
+                                                </div>
+                                                 <input class="form-control2 " type="text" name="edit-title" id="edit-title" required="required" />
+                                            </div>
+                                        </div>
+
+                                        <div class="col-3 mt-5 tal" >
+                                                <input type="checkbox" class="allDayNewEvent" id="edit-allDay" />
+                                            하루종일
+                                        </div>
+
+                                        <div class="col-3">
+                                            <div class="input-group">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text fit_box_t4" data-labelCd="색상">색상</span>
+                                                </div>
+                                                 <input class="form-control2 " type="color" id="edit-color" value="#ffffff" />
+                                            </div>
+                                        </div>
+
+                                        <div class="col-9 mt-5 tal" id="color_code" >
+                                            <input type="button" class="btn-default" style="height:15px;width:25px;background-color:#ED5D47" id="color1">
+                                            <input type="button" class="btn-default" style="height:15px;width:25px;background-color:#FF953F" id="color2">
+                                            <input type="button" class="btn-default" style="height:15px;width:25px;background-color:#FFC325" id="color3">
+                                            <input type="button" class="btn-default" style="height:15px;width:25px;background-color:#9ED900" id="color4">
+                                            <input type="button" class="btn-default" style="height:15px;width:25px;background-color:#4B5CC4" id="color5">
+                                            <input type="button" class="btn-default" style="height:15px;width:25px;background-color:#3B2E7E" id="color6">
+                                            <input type="button" class="btn-default" style="height:15px;width:25px;background-color:#8D4BBB" id="color7">
+                                        </div>
+
+                                        <div class="col-6 ">
+                                            <div class="input-group" data-ax5picker="basic" id="srchDt">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text fit_box_t4" data-labelCd="시작일">시작일</span>
+                                                </div>
+                                                <input class="form-control2 tac" type="text" id="edit-start" name="edit-start">
+                                                <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color" ></i></span>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-6">
+                                            <div class="input-group">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text fit_box_t4" data-labelCd="시작시간">시작시간</span>
+                                                </div>
+
+                                                        <input class="form-control2" type="text" id="edit-start-time" name="edit-start-time" style="width:30%" />
+                                            </div>
+                                        </div>
+
+                                        <div class="col-6">
+                                            <div class="input-group" data-ax5picker="basic" id="srchDt">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text fit_box_t4" data-labelCd="종료일">종료일</span>
+                                                </div>
+                                                <input class="form-control2 tac" type="text" id="edit-end" name="edit-end">
+                                                <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color" ></i></span>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-6">
+                                            <div class="input-group">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text fit_box_t4" data-labelCd="종료시간">종료시간</span>
+                                                </div>
+                                                        <input class="form-control2" type="text" id="edit-end-time" name="edit-end-time" style="width:30%" />                                        </div>
+                                        </div>
+
+                                            &lt;!&ndash;
+                                            <div class="row">
+                                                <div class="col-xs-12">
+                                                    <label class="col-xs-4" for="edit-type" data-labelCd="구분">구분</label>
+                                                    <select class="col-xs-8" type="text" name="edit-type" id="edit-type"></select>
+                                                </div>
+                                            </div>
+                                             &ndash;&gt;
+
+                                        <div class="col-12">
+                                            <div class="input-group">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text fit_box_t4_area" data-labelCd="설명">설명</span>
+                                                </div>
+                                                 <textarea class="form-control2" id="edit-desc" name="edit-desc"></textarea>
+                                            </div>
+                                        </div>
+
+
+                            </div>
+                    </form>
+                </div>
+            </section>
+        <section class="section">
+            <div class="popup_button_group bottom">
+                <div class="left_align modalBtnContainer-addEvent">
+                    <button type="button" class="btn-popup y_write_auth" id="insertEvent"><span data-labelCd="저장">저장</span></button>
+                    <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+                </div>
+                <div class="left_align modalBtnContainer-modifyEvent">
+                    <button type="button" class="btn-popup y_write_auth" id="updateEvent"><span data-labelCd="저장">저장</span></button>
+                    <button type="button" class="btn-popup y_write_auth" id="deleteEvent"><span data-labelCd="삭제">삭제</span></button>
+                    <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+                </div>
+            </div>
+        </section>-->
+
+        </div>
+    </script>
+</th:block>
+
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript" th:src="@{/resource/fullCalendar/c-main.min.js}"></script>
+    <script type="text/javascript" th:src="@{/resource/fullCalendar/ko.js}"></script>
+    <script type="text/javascript">
+        class CalendarPage {
+            constructor() {
+                let _this = this;
+            }
+
+
+            getDisplayEventDate(event) {
+                let displayEventDate;
+                let startTimeEventInfo = moment(event.start).format('YYYY-MM-DD HH:mm');
+                displayEventDate = startTimeEventInfo;
+                return displayEventDate;
+            }
+
+            initPicker() {
+
+                $('#edit-allDay').change(function () {
+                    page.allDayChange();
+                });
+
+            }
+
+            //하루종일 체크
+            allDayChange() {
+                $('#edit-start').attr('disabled', true);
+                $('#edit-end').attr('disabled', true);
+                if ($('#edit-allDay').is(':checked')) {
+                    $('#edit-start-time').val('09:00');
+                    $('#edit-end-time').val('09:00');
+                    $('#edit-start-time').attr('disabled', true);
+                    $('#edit-end-time').attr('disabled', true);
+                } else {
+                    $('#edit-start-time').attr('disabled', false);
+                    $('#edit-end-time').attr('disabled', false);
+                }
+            }
+
+            //색상변경
+            rgb2hex(rgb) {
+                if (  rgb.search("rgb") == -1 ) {
+                    return rgb;
+                } else {
+                    rgb = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+))?\)$/);
+                    function hex(x) {
+                        return ("0" + parseInt(x).toString(16)).slice(-2);
+                    }
+                    return "#" + hex(rgb[1]) + hex(rgb[2]) + hex(rgb[3]);
+                }
+            }
+
+
+
+            //이벤트 그리기
+            eventRender(event, element, view) {
+                //일정에 hover시 요약
+                element.popover({
+                    title: $('<div />', {
+                        class: 'popoverTitleCalendar',
+                        text: event.title
+                    }).css({
+                        'background': event.backgroundColor,
+                        'color': event.textColor
+                    }),
+                    content: $('<div />', {
+                        class: 'popoverInfoCalendar'
+                    })
+                        //.append('<p><strong>구분:</strong> ' + event.eType + '</p>')
+                        .append('<p><strong>시간:</strong> ' + this.getDisplayEventDate(event) + '</p>')
+                        .append('<div class="popoverDescCalendar"><strong>설명:</strong> ' + event.description + '</div>'),
+                    delay: {
+                        show: "500",
+                        hide: "50"
+                    },
+                    trigger: 'hover',
+                    placement: 'top',
+                    html: true,
+                    container: 'body'
+                });
+
+                //return event;
+            }
+
+            //이벤트 클릭시
+            eventClick(event, jsEvent, view) {
+
+                let _this = this;
+                let data = {'id':''}
+                let content = tmpl('eventTmpl',data);
+                let $content = $(content);
+                let modalContainer;
+                modalContainer = new PopupDraggable('일정 수정');
+
+                /*modalContainer.open({ width: 600, height: 420, $content });*/
+                modalContainer.open({ width: 1130, height: 420, $content });
+
+                $('#edit-start-time').timepicker({
+                    show2400: true,
+                    timeFormat: 'H:i'
+                }).val();
+                $('#edit-end-time').timepicker({
+                    show2400: true,
+                    timeFormat: 'H:i'
+                }).val();
+
+                $('.modalBtnContainer-addEvent').hide();
+                $('.modalBtnContainer-modifyEvent').show();
+                //if (event.data_div == 'mat_order') {
+                //    $('#deleteEvent').prop('disabled', true);
+                //}
+                //else {
+                //    $('#deleteEvent').prop('disabled', false);
+                //}
+                $('.popover.fade.top').remove();
+                $('#edit-allDay').prop('checked', false);
+                $content.find('#edit-allDay').on('click', function () {
+                    _this.allDayChange();
+                });
+                if (event.end === null) {
+                    event.end = event.start;
+                }
+                let targetId = event.id == undefined ? event._id : event.id;
+                $('#edit-id').val(targetId);
+                $('#edit-title').val(event.title);
+                $('#edit-start').val(moment(event.start._d).format('YYYY-MM-DD'));
+                $('#edit-start-time').val(moment(event.start._d).format('HH:mm'));
+                $('#edit-end').val(moment(event.end._d).format('YYYY-MM-DD'));
+                $('#edit-end-time').val(moment(event.end._d).format('HH:mm'));
+                //$('#edit-type').val(event.eType);
+                $('#edit-desc').val(event.description);
+                $('#edit-color').val(event.color);
+
+                this.allDayChange();
+                $('#updateEvent').unbind();
+                //저장(수정)
+                $('#updateEvent').on('click', function () {
+                    let allCheck = $('#edit-allDay').is(':checked');
+                    let std = $('#edit-start').val() + 'T' + $('#edit-start-time').val();
+                    let edd = $('#edit-end').val() + 'T' + $('#edit-end-time').val();
+                    if (std > edd && $('#edit-id').val().indexOf('mo') == -1) {
+                        Alert.alert('', '끝나는 시간이 앞설 수 없습니다.');
+                        return false;
+                    }
+                    let eventData = {
+                        _id: targetId,
+                        datadate: $('#edit-start').val(),
+                        title: $('#edit-title').val(),
+                        startTime: $('#edit-start-time').val() + ':00',
+                        endTime: $('#edit-end-time').val() + ':00',
+                        start: $('#edit-start').val() + ' ' + $('#edit-start-time').val(),
+                        end: $('#edit-end').val() + ' ' + $('#edit-end-time').val(),
+                        description: $('#edit-desc').val(),
+                        //eType: $('#edit-type').val(),
+                        data_div: $('#edit-id').val().indexOf('mo') != -1 ? 'mat_order' : 'calendar',
+                        color: $('#edit-color').val(),
+                        allDay: false
+                    };
+
+                    event.color = $('#edit-color').val();
+                    event.allDay = allCheck;
+                    event.title = $('#edit-title').val();
+                    event.start = std;
+                    event.end = edd;
+                    //event.eType = $('#edit-type').val();
+
+                    //일정 업데이트
+                    Alert.confirm('', "저장하시겠습니까?", function (x) {
+                        let url = '/api/support/calendar/save';
+                        let fnSuccess = function (res) {
+                            modalContainer.close();
+                            Alert.alert('','저장되었습니다.');
+                        }
+                        AjaxUtil.postAsyncData(url, eventData, fnSuccess);
+
+                        event.description = $('#edit-desc').val();
+                        $("#calendar").fullCalendar('updateEvent', event);
+                        $('#eventModal').modal('hide');
+                        $('#edit-id').val('');
+                    });
+
+                    /*
+                    $("#calendar").fullCalendar('renderEvent', eventData, true);
+                    $('#eventModal').find('input, textarea').val('');
+                    $('#edit-allDay').prop('checked', false);
+                    $('#eventModal').modal('hide');
+                    */
+                });
+
+                // 삭제버튼
+                $('#deleteEvent').on('click', function (event) {
+                    Alert.confirm('', "삭제하시겠습니까?", function (e) {
+                        //삭제시
+                        $('#eventModal').modal('hide');
+                        let url = '/api/support/calendar/delete';
+                        let param = { _id: $('#edit-id').val() };
+                        let fnSuccess = function () {
+                            $("#calendar").fullCalendar('removeEvents', $('#edit-id').val());
+                            modalContainer.close();
+                            Alert.alert('','삭제되었습니다.');
+                            $('#edit-id').val('');
+                            //_this.refreshEvents();
+                        }
+                        AjaxUtil.postAsyncData(url, param, fnSuccess);
+                    });
+                });
+
+                //색상버튼 선택
+                $('#color_code').find('input').on('click', function () {
+
+                    let color_code = $(this).css('background-color');
+                    color_code = page.rgb2hex(color_code);
+                    $content.find('#edit-color').val(color_code);
+                });
+
+
+
+            }
+
+
+            eventDrop(event, delta, revertFunc, jsEvent, ui, view, dd) {
+                $('.popover.fade.top').remove();
+
+                //주,일 view일때 종일 <-> 시간 변경불가
+                if (view.type === 'agendaWeek' || view.type === 'agendaDay') {
+                    if (dd !== event.allDay) {
+                        Alert.alert('','드래그앤드롭으로 종일<->시간 변경은 불가합니다.');
+                        location.reload();
+                        return false;
+                    }
+                }
+
+                //드롭한 일정 업데이트
+                $.ajax({
+                    type: "get",
+                    url: "",
+                    data: {
+                        //...
+                    },
+                    success: function (response) {
+                        Alert.alert('','수정: ' + moment(event.start._d).format('YYYY-MM-DD HH:mm') + ' ~ ' + moment(event.end._d).format('YYYY-MM-DD HH:mm'));
+                    }
+                });
+            }
+
+
+            newEvent(start, end, eventType) {
+
+                let _this = this;
+                let data = {'id':''}
+                let content = tmpl('eventTmpl',data);
+                let $content = $(content);
+                let modalContainer;
+                modalContainer = new PopupDraggable('일정 등록');
+
+                modalContainer.open({ width: 1130, height: 420, $content });
+
+                $('#edit-start-time').timepicker({
+                    show2400: true,
+                    timeFormat: 'H:i'
+                }).val('09:00');
+                $('#edit-end-time').timepicker({
+                    show2400: true,
+                    timeFormat: 'H:i'
+                }).val('18:00');
+
+
+                $content.find('#edit-allDay').on('click', function () {
+                    _this.allDayChange();
+                });
+
+
+                //$('#modalForm')[0].reset();
+                //$('#modalForm input').val('');
+                //$('#AttachFiles div').remove();
+                $('.modalBtnContainer-addEvent').show();
+                $('.modalBtnContainer-modifyEvent').hide();
+
+                $('#edit-start').val(start.split(' ')[0]);
+                $('#edit-start-time').val(start.split(' ')[1]);
+                $('#edit-end').val(end.split(' ')[0]);
+                $('#edit-end-time').val(end.split(' ')[1]);
+
+                this.allDayChange();
+
+                //새로운 일정 저장버튼 클릭
+                $('#insertEvent').unbind();
+                $('#insertEvent').on('click', function () {
+                    let eventData = {
+                        _id: $('#edit-id').val(),
+                        datadate: $('#edit-start').val(),
+                        startTime: $('#edit-start-time').val() + ':00',
+                        endTime: $('#edit-end-time').val() + ':00',
+                        start: $('#edit-start').val() + ' ' + $('#edit-start-time').val(),
+                        end: $('#edit-end').val() + ' ' + $('#edit-end-time').val(),
+                        description: $('#edit-desc').val(),
+                        //eType: $('#edit-type').val(),
+                        data_div: $('#edit-id').val().indexOf('mo') != -1 ? 'mat_order' : 'calendar',
+                        title: $('#edit-title').val(),
+                        color: $('#edit-color').val(),
+                        allDay: false
+                    };
+
+                    if (eventData.start > eventData.end) {
+                        Alert.alert('', '끝나는 시간이 앞설 수 없습니다.');
+                        return false;
+                    }
+
+                    if (eventData.title === '') {
+                        Alert.alert('','일정명은 필수입니다.');
+                        return false;
+                    }
+                    Alert.confirm('', "저장하시겠습니까?", function (x) {
+                        //새로운 일정 저장
+                        let url = '/api/support/calendar/save';
+                        let fnSuccess = function (res) {
+                            modalContainer.close();
+                            Alert.alert('','저장되었습니다.');
+                            //_this.refreshEvents();
+                            $('#calendar').fullCalendar('removeEvents');
+                            $("#calendar").fullCalendar('refetchEvents')
+                            $('#edit-id').val(res);
+                        }
+                        AjaxUtil.postAsyncData(url, eventData, fnSuccess);
+                        eventData._id = $('#edit-id').val();
+                        $("#calendar").fullCalendar('renderEvent', eventData, true);
+                        $('#eventModal').find('input, textarea').val('');
+                        $('#edit-allDay').prop('checked', false);
+                        $('#eventModal').modal('hide');
+                        $('#edit-id').val('');
+                    });
+                });
+
+                //색상선택 버튼
+                $('#color_code').find('input').on('click', function (e) {
+                    let $target = $(e.target);
+                    let color_code = $target.css('background-color');
+
+                    color_code = page.rgb2hex(color_code);
+
+                    $content.find('#edit-color').val(color_code);
+                });
+
+            }
+
+            //select(startDate, endDate, jsEvent, view) {
+            //날짜 클릭
+            dayClick(startDate, jsEvent, view) {
+
+                let today = moment();
+                let endDate;
+                if (view.name == "month") {
+                    startDate.set({
+                        hours: today.hours(),
+                        minute: today.minutes()
+                    });
+                    startDate = moment(startDate).format('YYYY-MM-DD HH:mm');
+                    endDate = moment(startDate); //.subtract(1, 'days');
+
+                    endDate.set({
+                        hours: today.hours() + 1,
+                        minute: today.minutes()
+                    });
+                    endDate = moment(endDate).format('YYYY-MM-DD HH:mm');
+                } else {
+                    startDate = moment(startDate).format('YYYY-MM-DD HH:mm');
+                    endDate = moment(endDate).format('YYYY-MM-DD HH:mm');
+                }
+
+
+                this.newEvent(startDate, endDate, $(this).html());
+
+            }
+
+
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new CalendarPage();
+            //page.initPicker();
+            //var calendar = new FullCalendar.Calendar($('#calendar'), {
+            $('#calendar').fullCalendar({
+                header: {
+                    left: 'today, prevYear, nextYear, viewWeekends',
+                    center: 'prev, title, next',
+                    right: 'month, listWeek, listDay'
+                },
+                views: {
+                    month: { eventLimit: 3 }, // 한 날짜에 최대 이벤트 3개, 나머지는 + 처리됨
+                    listWeek: { buttonText: '주' },
+                    listDay: { buttonText: '일' },
+                },
+                locale: 'ko',
+                timezone: "local",
+                timeFormat: 'HH:mm',
+                allDaySlot: false,
+                displayEventTime: true,
+                displayEventEnd: true,
+                dayMaxEvents: true,
+                defaultTimedEventDuration: '00:30:00',
+                defaultDate: moment(new Date()).format('YYYY-MM-DD'),
+                editable: false,
+                selectable: false,
+                fixedWeekCount : false,
+                minTime: '00:00:00',
+                maxTime: '24:00:00',
+                timeFormat: 'HH:mm',
+                slotLabelFormat: 'HH:mm',
+                eventLimitClick: 'week', //popover
+                contentHeight: 700,
+                eventRender: function (event, element, view) {
+                    return page.eventRender(event, element, view);
+                },
+                //이벤트 클릭시 수정이벤트
+                eventClick: function (event, jsEvent, view) {
+                    page.eventClick(event, jsEvent, view);
+
+
+                },
+                eventAfterAllRender: function (view, a, b, c, d) {
+                    if (view.name == "month") {
+                        $(".fc-content").css('height', 'auto');
+                    }
+                    else if (view.name == "listWeek") {
+                        var filterTr = $('.fc-list-table tr');
+                        var grpIdx = 0;
+                        filterTr.toArray().forEach(function (e, idx) {
+                            if ($(e).hasClass('fc-list-heading')) { grpIdx++; }
+                            $(e).attr('idx', grpIdx);
+                        })
+                        filterTr.filter('.fc-list-heading').on('click', function (e, idx) {
+                            var targetValue = $(e.currentTarget).attr('idx');
+                            $('.fc-list-item[idx='+targetValue+']').toggle();
+                        })
+                    }
+
+                },
+                //일정 리사이즈
+                eventResize: function (event, delta, revertFunc, jsEvent, ui, view) {
+                    $('.popover.fade.top').remove();
+                },
+                eventDragStart: function (event, jsEvent, ui, view) {
+                    draggedEventIsAllDay = event.allDay;
+                },
+                //일정 드래그앤드롭
+                eventDrop: function (event, delta, revertFunc, jsEvent, ui, view) {
+                    page.eventDrop(event, delta, revertFunc, jsEvent, ui, view, draggedEventIsAllDay);
+                },
+                /*select: function (startDate, endDate, jsEvent, view) {
+                    return page.dayClick(startDate, endDate, jsEvent, view);
+                },*/
+                dayClick: function (startDate, jsEvent, view) {
+                    return page.dayClick(startDate, jsEvent, view);
+                },
+                events: function (start, end, timezone, callback) {
+
+                    let url = '/api/support/calendar';
+                    let param = {
+                        action :'read',
+                        keyword: this.getDate().format('YYYY-MM')
+                        //$('#calendar').fullCalendar('getDate').format('YYYY-MM')
+                    }
+                    let res = AjaxUtil.getSyncData(url+"/read", param);
+                    if (res.data != null) {
+                        callback(res.data);
+                    }
+
+                    //let url2 = '/api/support/calendar?keyword=' + $('#calendar').fullCalendar('getDate').format('YYYY-MM');
+                    //$.getJSON(url2, function (res) {
+                    //    callback(res);
+                    //}).fail(function (e) {
+                    //    Notify.error(JSON.parse(e.responseText).message);
+                    //});
+                },
+            });
+            //calendar.render();
+        });
+    </script>
+</th:block>
+</html>

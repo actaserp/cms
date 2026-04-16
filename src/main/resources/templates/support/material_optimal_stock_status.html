@@ -1,0 +1,218 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+  <style>
+      .grid-cell-red {
+          background: rgb(248, 210, 203) !important;
+      }
+
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>자재 적정재고 현황</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>보고서</li>
+        <li>자재 적정재고 현황</li>
+      </ul>
+    </div>
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>
+              <label for="txtMatName">
+                자재명<span class="eq"></span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input id="txtMatName" name="txtMatName" />
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              <label for="cboStoreHouse">
+                창고
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboStoreHouse" name="cboStoreHouse">
+                </select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              기준일자<span class="eq"></span>
+            </dt>
+            <dd>
+              <ul class="date-box">
+                <li>
+                  <input class="tac w150 date_from " type="date" id="srchStartDt" name="srchStartDt"/>
+                  <label for="srchStartDt" class="hide">시작일</label>
+                </li>
+                <li>
+                  <input class="tac w150 date_to" type="date" id="srchEndDt" name="srchEndDt"/>
+                  <label for="srchEndDt" class="hide">종료일</label>
+                </li>
+              </ul>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              <label for="cboState">
+                재고상태
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboState" name="cboState">
+
+                </select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" title="검색" id="btnSearch">
+                  <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                  <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+      </div>
+      <div class="container-fluid">
+        <div id="material-stock-grid" style="height: 730px;"></div>
+      </div>
+    </section>
+  </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+
+  <script type="text/javascript">
+    class MaterialOptimalStockStatusPage {
+      constructor() {
+        this.gird = null;
+        this.init();
+        this.spjangcd = sessionStorage.getItem('spjangcd');
+        this.url = '/api/support/material_optimal_stock_status';
+      }
+
+      init() {
+        let _this = this;
+        this.grid = new wijmo.grid.FlexGrid('#material-stock-grid', {
+          autoGenerateColumns: false,
+          frozenColumns: 0, // 열 고정
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          selectionMode: wijmo.grid.SelectionMode.None, // 다중 선택 불가
+          allowSorting: true, // 정렬 가능l
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'material_code', header: '자재코드', width: 100, align: 'left', isReadOnly: true},
+            {binding: 'material_name', header: '자재명', width: '*', align: 'left', isReadOnly: true},
+            {binding: 'unit_name', header: '단위', width: 100, align: 'center', isReadOnly: true},
+            {binding: 'current_stock', header: '현재고', width: 120, align: 'left', isReadOnly: true},
+            {binding: 'optimal_stock', header: '적정재고', width: 120, align: 'left', isReadOnly: true},
+            {binding: 'diff_stock', header: '차이재고', width: 120, align: 'left', isReadOnly: true},
+            {binding: 'house_name', header: '창고명', width: 120, align: 'center', isReadOnly: true},
+            {binding: 'state', header: '상태', width: 120, align: 'center', isReadOnly: true},
+            {binding: 'last_in_date', header: '최근입고일', width: 150, align: 'center', isReadOnly: true},
+
+          ],
+          itemsSource: new wijmo.collections.CollectionView([]), // 빈 데이터로 초기화
+          itemFormatter: (panel, row, col, cell) => {
+            if (panel.cellType === wijmo.grid.CellType.Cell) {
+              const item = panel.rows[row].dataItem; // 현재 행 데이터
+              const column = panel.columns[col]; // 현재 열
+
+              // 'cur_stock' 열에 대해 조건에 따른 클래스 추가
+              if (column.binding === 'cur_stock' && item.cur_stock < item.safety_stock) {
+                cell.classList.add('grid-cell-red');
+              }
+
+              // 'house_stock' 열에 대해 조건에 따른 클래스 추가
+              if (column.binding === 'house_stock' && item.house_stock < 0) {
+                cell.classList.add('redText');
+              }
+            }
+          }
+        });
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '자재 적정 재고 현황 내역';
+      }
+
+      searchDataBind() {
+        let _this = this;
+
+        let param = {
+          'mat_name': $('#txtMatName').val(),
+          'store_house_id': $('#cboStoreHouse').val(),
+          'Inventory_status': $('#cboState').val(),
+          'srchStartDt' : $('#srchStartDt').val(),
+          'srchEndDt' :$('#srchEndDt').val() ,
+          'spjangcd' : sessionStorage.getItem('spjangcd')
+        };
+
+
+        let result = AjaxUtil.getSyncData(this.url + '/read', param);
+        if (result != null) {
+          _this.grid.itemsSource.sourceCollection = result.data;
+        }
+      }
+
+    }
+
+    let page = null;
+
+    $(document).ready(function (e) {
+      page = new MaterialOptimalStockStatusPage();
+
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0'); // 월은 0부터 시작
+      const dd = String(today.getDate()).padStart(2, '0');
+
+      const firstDay = `${yyyy}-${mm}-01`;
+      const currentDay = `${yyyy}-${mm}-${dd}`;
+
+      $('#srchStartDt').val(firstDay);
+      $('#srchEndDt').val(currentDay);
+
+
+      AjaxUtil.fillSelectOptions($('#cboState'), 'system_code', 'all', false, 'Inventory_status') ;
+      AjaxUtil.fillSelectOptions($('#cboStoreHouse'), 'store_house', 'all', false);
+
+      // 검색버튼
+      $('#btnSearch').click(function (e) {
+        page.searchDataBind();
+      });
+
+      page.searchDataBind();
+
+    });
+
+
+  </script>
+</th:block>
+</html>

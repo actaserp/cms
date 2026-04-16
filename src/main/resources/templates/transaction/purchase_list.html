@@ -1,0 +1,469 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .radio-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .radio-wrap input[type="radio"] {
+            appearance: none;
+            -webkit-appearance: none; /* 사파리용 */
+            width: 16px;
+            height: 16px;
+
+            border-radius: 50%;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .radio-wrap input[type="radio"]::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 8px;
+            height: 8px;
+            background-color: #666;
+            border-radius: 50%;
+            opacity: 0;
+            transition: 0.2s;
+        }
+
+        .radio-wrap input[type="radio"]:checked::after {
+            opacity: 1;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>매입 현황</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>출금 관리</li>
+                <li>매입 현황</li>
+            </ul>
+        </div>
+        <div class="tab-wrap">
+            <ul class="tab-links">
+                <li>
+                    <a href="#tab1" title="상세현황" id="listTabLink">상세현황</a>
+                </li>
+                <li>
+                    <a href="#tab2" title="집계현황" id="inputTabLink">집계현황</a>
+                </li>
+            </ul>
+            <div class="tab-contents">
+                <section class="tab-item" id="tab1">
+                        <section class="section">
+                            <div class="section-top">
+                                <div class="search-wrap">
+                                    <dl>
+                                        <dt>
+                                            <label>
+                                                기간<span class="eq"></span>
+                                            </label>
+                                        </dt>
+                                        <dd>
+                                            <div class="srch-box">
+                                                <input type="date" id="searchfrdate" name="searchfrdate"  />
+                                                <span class="slow_sign">~</span>
+                                                <input type="date" id="searchtodate" name="searchtodate" />
+                                            </div>
+                                        </dd>
+                                    </dl>
+                                    <dl>
+                                        <dt>
+                                            <label>
+                                                거래처<span class="eq"></span>
+                                            </label>
+                                        </dt>
+                                        <dd>
+                                            <div class="srch-box">
+                                                <input type="text" placeholder="해당 칸을 클릭해주세요"  id="cboCompany" name="cboCompany"/>
+                                                <input type="hidden"  id="cboCompanyHidden" name="cboCompanyHidden"  />
+                                            </div>
+                                        </dd>
+                                    </dl>
+
+                                    <dl>
+                                        <dt>
+                                            <label>
+                                                매입구분
+                                            </label>
+                                        </dt>
+                                        <dd>
+                                            <select class="form-control2" id="purchase_type" name="purchase_type" >
+
+                                            </select>
+                                        </dd>
+                                    </dl>
+
+                                    <!--<dl>
+                                        <dt>
+                                            <label>
+                                                과세형태<span class="eq"></span>
+                                            </label>
+                                        </dt>
+                                        <dd>
+                                            <div class="srch-box">
+                                                <div class="radio-wrap">
+                                                    <input type="radio" name="taxtype"  value="과세">
+                                                    <label>과세(10%)</label>
+                                                </div>
+                                                <div class="radio-wrap">
+                                                    <input type="radio" name="taxtype" value="영세">
+                                                    <label>영세(0%)</label>
+                                                </div>
+                                                <div class="radio-wrap">
+                                                    <input type="radio" name="taxtype" value="면세" >
+                                                    <label>면세 (세액없음)</label>
+                                                </div>
+                                                <div class="radio-wrap">
+                                                    <input type="radio" name="taxtype" value="" checked>
+                                                    <label>전체</label>
+                                                </div>
+                                            </div>
+                                        </dd>
+                                    </dl>-->
+
+                                    <dl>
+                                        <dt>&nbsp;</dt>
+                                        <dd>
+                                            <li>
+                                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                                    검색
+                                                </a>
+                                            </li>
+                                        </dd>
+                                    </dl>
+
+                                </div>
+                            </div>
+
+
+                        <div class="grid_box" id="divList">
+
+                            <div id="theGrid_purchaseList" style="height: 730px;"></div>
+                        </div>
+                    </section>
+                </section>
+
+                <section class="tab-item" id="tab2">
+
+                    <section class="section">
+                        <div class="section-top">
+                            <div class="search-wrap">
+                                <dl>
+                                    <dt>
+                                        <label>
+                                            기간<span class="eq"></span>
+                                        </label>
+                                    </dt>
+                                    <dd>
+                                        <div class="srch-box">
+                                            <input type="date" id="searchfrdate2" name="searchfrdate2"  />
+                                            <span class="slow_sign">~</span>
+                                            <input type="date" id="searchtodate2" name="searchtodate2" />
+                                        </div>
+                                    </dd>
+                                </dl>
+                                <dl>
+                                    <dt>
+                                        <label>
+                                            거래처<span class="eq"></span>
+                                        </label>
+                                    </dt>
+                                    <dd>
+                                        <div class="srch-box">
+                                            <input type="text" placeholder="해당 칸을 클릭해주세요"  id="cboCompany2" name="cboCompany2"/>
+                                            <input type="hidden"  id="cboCompanyHidden2" name="cboCompanyHidden2"  />
+                                        </div>
+                                    </dd>
+                                </dl>
+
+                                <dl>
+                                    <dt>
+                                        <label>
+                                            매입구분
+                                        </label>
+                                    </dt>
+                                    <dd>
+                                        <select class="form-control2" id="purchase_type2" name="purchase_type2" >
+
+                                        </select>
+                                    </dd>
+                                </dl>
+
+                                <!--<dl>
+                                    <dt>
+                                        <label>
+                                            과세형태<span class="eq"></span>
+                                        </label>
+                                    </dt>
+                                    <dd>
+                                        <div class="srch-box">
+                                            <div class="radio-wrap">
+                                                <input type="radio" name="taxtype2" id="tax1" value="과세">
+                                                <label for="tax1">과세(10%)</label>
+                                            </div>
+                                            <div class="radio-wrap">
+                                                <input type="radio" name="taxtype2" id="tax2" value="영세">
+                                                <label for="tax2">영세(0%)</label>
+                                            </div>
+                                            <div class="radio-wrap">
+                                                <input type="radio" name="taxtype2" id="tax3" value="면세">
+                                                <label for="tax3">면세 (세액없음)</label>
+                                            </div>
+                                            <div class="radio-wrap">
+                                                <input type="radio" name="taxtype2" id="tax4" value="" checked>
+                                                <label for="tax4">전체</label>
+                                            </div>
+                                        </div>
+                                    </dd>
+                                </dl>-->
+
+                                <dl>
+                                    <dt>&nbsp;</dt>
+                                    <dd>
+                                        <li>
+                                            <a class="btn btn-delete" title="검색" id="btnSearch2">
+                                                <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                                검색
+                                            </a>
+                                        </li>
+                                    </dd>
+                                </dl>
+
+                            </div>
+                        </div>
+                        <!--<table border="1" cellspacing="0" cellpadding="6" style="border-collapse: collapse; text-align: center; font-family: sans-serif;">
+                            <thead>
+                            <tr>
+                                <th>구분</th>
+                                <th>매출처수</th>
+                                <th>매수</th>
+                                <th>공급가액</th>
+                                <th>세액</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td><strong style="color: red;">합&nbsp;&nbsp;&nbsp;&nbsp;계</strong></td>
+                                <td id="cltCnt"></td>
+                                <td id="cnt"></td>
+                                <td id="supplySum"></td>
+                                <td id="taxSum"></td>
+                            </tr>
+                            <tr>
+                                <td>사업자등록번호 발행분</td>
+                                <td id="corpCltCnt"></td>
+                                <td id="corpCnt"></td>
+                                <td id="corpSupplySum"></td>
+                                <td id="corpTaxSum"></td>
+                            </tr>
+                            <tr>
+                                <td>주민등록번호 발행분</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                            </tbody>
+                        </table>-->
+                        <div id="theGrid_purchaseList2" style="height: 730px;"></div>
+                    </section>
+
+                    <!--<section class="section">
+
+                        <div class="grid_box" id="divList2">
+
+
+                        </div>
+                    </section>-->
+                </section>
+            </div>
+        </div>
+
+
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <th:block th:replace="/common/popup_account :: popup_account" />
+    <th:block th:replace="/common/popup_company :: popup_company"></th:block>
+    <th:block th:replace="/shipment/trade_stmt/trade_stmt_tmpl :: printTemplate"></th:block>
+    <script type="text/javascript">
+
+        let purchase_type = [];
+        let LoadingFlag = false;
+        class purchaseList {
+            constructor() {
+                this.grid1 = null;
+                this.grid2 = null;
+                this.url = '/api/purchase/list';
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+
+                $('#searchfrdate, #searchfrdate2').val(getNowDateMinus7());
+                $('#searchtodate, #searchtodate2').val(getNowDate());
+                purchase_type = AjaxUtil.fillSelectOptions($('#purchase_type'), 'system_code', 'choose', false, 'purchase_type');
+                selectBoxBinding('purchase_type2', purchase_type);
+
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                const cv = _this.viewData;
+
+                cv.groupDescriptions.push(new wijmo.collections.PropertyGroupDescription('misdate', function (item, prop) {
+                    return item[prop].substring(0, 7); // '2025-04'
+                }));
+
+                // 3. FlexGrid 생성
+                    this.grid1 = new wijmo.grid.FlexGrid('#theGrid_purchaseList', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowSorting: 'MultiColumn',
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: true,
+                    itemsSource: cv,
+                    groupHeaderFormat: '{value}월 매출 - 총 {count}건',
+                    columns: [
+                        { binding: 'misdate', header: '매입일자', align: 'center', width: '*' },
+                        { binding: 'misgubun', header: '매입구분', align: 'center', width: '*' },
+                        { binding: 'companycode', header: '거래처코드', align: 'right', width: '*'},
+                        { binding: 'companyname', header: '거래처명', align: 'right', width: '*' },
+                        { binding: 'itemnm', header: '품명', align: 'left', width: 150 },
+                        { binding: 'spec', header: '규격', align: 'center', width: 100 },
+                        { binding: 'supplycost', header: '공급가', align: 'right', width: 120, aggregate: 'Sum' },
+                        { binding: 'taxtotal', header: '부가세', align: 'right', width: 120, aggregate: 'Sum' },
+                        { binding: 'totalamt', header: '합계', align: 'right', width: 120, aggregate: 'Sum' },
+                    ]
+                });
+                this.grid1.rowHeaders.columns.splice(0, 1);
+                new FlexGridContextMenu(this.grid1);
+                this.grid1.downloadFileName = '매입현황_상세현황';
+
+                this.grid1.allowMerging = wijmo.grid.AllowMerging.All;
+                this.grid1.columns[0].allowMerging = true;
+                this.grid1.columns[1].allowMerging = true;
+
+
+                this.grid2 = new wijmo.grid.FlexGrid('#theGrid_purchaseList2', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowSorting: 'MultiColumn',
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: true,
+                    itemsSource: _this.viewData2,
+                    columns: [
+                        { binding: 'saupnum', header: '사업자등록번호', align: 'center', width: '*' },
+                        { binding: 'clientName', header: '상호', align: 'left', width: '*'},
+                        { binding: 'cnt', header: '매수', align: 'right', width: '*' },
+                        { binding: 'supplycost', header: '공급가액', align: 'right', width: '*', aggregate: 'Sum' },
+                        { binding: 'taxtotal', header: '세액', align: 'right', width: 150, aggregate: 'Sum' },
+                    ]
+                });
+                this.grid2.rowHeaders.columns.splice(0, 1);
+                new FlexGridContextMenu(this.grid2);
+                this.grid2.downloadFileName = '매입현황_집계현황';
+
+                this.grid2.columnFooters.rows.push(new wijmo.grid.GroupRow());
+
+                const tradeDateColIndex = this.grid2.columns.findIndex(c => c.binding === 'saupnum');
+
+                this.grid2.columnFooters.setCellData(0, tradeDateColIndex, '합계');
+
+            }
+
+            searchMain(){
+                let _this = this;
+
+                let data = {
+                    searchfrdate: $('#searchfrdate').val(),
+                    searchtodate: $('#searchtodate').val(),
+                    cltcd: $('#cboCompany').val().trim() === '' ? '' : $('#cboCompanyHidden').val(),
+                    purchase_type: $('#purchase_type').val(),
+                    //taxtype: $('input[name=taxtype]:checked').val(),
+                    spjangcd: getSpjangcdFromSession(),
+                }
+
+                let result = AjaxUtil.getSyncData(_this.url + '/search', data);
+
+                if(result != null){
+                    _this.viewData.sourceCollection = result.data;
+                }
+            }
+
+            searchMain2(type){
+                let _this = this;
+
+                if(type==='load' && LoadingFlag) return;
+
+                let data = {
+                    searchfrdate2: $('#searchfrdate2').val(),
+                    searchtodate2: $('#searchtodate2').val(),
+                    cltcd2: $('#cboCompany2').val().trim() === '' ? '' : $('#cboCompanyHidden2').val(),
+                    purchase2: $('#purchase_type2').val(),
+                    //taxtype2: $('input[name=taxtype2]:checked').val(),
+                    spjangcd: getSpjangcdFromSession(),
+                }
+
+                let result = AjaxUtil.getSyncData(_this.url + '/search2', data);
+
+                if(result != null) {
+                    _this.viewData2.sourceCollection = result.data
+                    //_this.bindingStatisticsField(result.data['Statistics']);
+                    LoadingFlag = true; //서브탭 클릭할때마다 서치 방지
+                }
+
+            }
+        }
+
+        let page = null;
+
+
+        $(document).ready(function (e) {
+            page = new purchaseList();
+
+            $('#cboCompany').click(function(){
+                companyPopupOpen('cboCompany', 'cboCompanyHidden');
+            });
+            $('#cboCompany2').click(function(){
+                companyPopupOpen('cboCompany2', 'cboCompanyHidden2');
+            });
+
+            $('#btnSearch').click(function(){
+                page.searchMain();
+            });
+
+            $('#btnSearch2').click(function(){
+                page.searchMain2();
+            });
+
+            $('#inputTabLink').click(function (){
+                page.searchMain2('load');
+            })
+
+            page.searchMain();
+
+        })
+    </script>
+
+</th:block>
+</html>

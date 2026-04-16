@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  my-redis:
+    image: redis:7.0
+    container_name: local-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/data:/data
+    command: redis-server --save 60 1 --loglevel warning
+
+  my-app:
+      build: .
+      container_name: local-app
+      volumes:
+        - .:/app
+        - D:/maven-repo:/root/.m2/repository
+      ports:
+        - "8030:8030"
+        - "5005:5005" # 디버깅 전용포트
+      command: >
+        mvn spring-boot:run 
+        -Dspring-boot.run.profiles=mes 
+        -Dmaven.main.skip=true 
+        -Dspring-boot.run.jvmArguments="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+      environment:
+        - TZ=Asia/Seoul
+        - SPRING_DATA_REDIS_HOST=my-redis # 컨테이너 서비스 이름으로 연결
+        - SPRING_DATA_REDIS_PORT=6379
+        - BASE_PATH=/app
+        - MES_DB_URL=${MES_DB_URL}
+        - MES_DB_USERNAME=${MES_DB_USERNAME}
+        - MES_DB_PASSWORD=${MES_DB_PASSWORD}
+        - SPRING_PROFILES_ACTIVE=mes
+        - OPENAI_API_KEY=${OPENAI_API_KEY}
+        - ncp_api_accessKey=${ncp_api_accessKey}
+        - ncp_api_secretKey=${ncp_api_secretKey}
+        - ncp_api_cwKey=${ncp_api_cwKey}
+        - ncp_api_instanceNo=${ncp_api_instanceNo}
+      depends_on:
+        - my-redis

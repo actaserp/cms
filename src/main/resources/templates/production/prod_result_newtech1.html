@@ -1,0 +1,2269 @@
+<html layout:decorate="~{layout_page}">
+<head>
+<style>
+.background-white {background: #ffffff}
+.background-blue {background: #dcf0f8;font-weight: bold;text-align: right}
+.background-order {background: #00ff21;font-weight: bold;text-align: right}
+.background-defect {background: #f8d2cb;font-weight: bold;text-align: right}
+.background-loss {background: #ffd800;font-weight: bold;text-align: right}
+.background-scrap {background: #c28fbb;font-weight: bold;text-align: right}
+.working-status {background: #00ff21;font-weight: bold}
+.finished-status {background: #0026ff;color: #ffffff}
+</style>
+
+<style id="print_css">
+    @media print { .pagebreak { page-break-before: always;}}
+    .bg_gray {background: #dedede;}
+    .table_1 td.tar { text-align: right;}
+    .table_1 td.tal { text-align: left;}
+    .table_1 td.tac { text-align: center; }
+    .table_1 { width: 100%; border-collapse: collapse;}
+    .table_1 td.b2lr { border-left: 2px solid #166614; border-right: 2px solid #166614; }
+    .table_1 td.b2lbr { border-left: 2px solid #166614; border-right: 2px solid #166614; border-bottom: 2px solid #166614; }
+    .table_1 td.b2tr { border-top: 2px solid #166614; border-right: 2px solid #166614;}
+    .table_1 td.b2t { border-top: 2px solid #166614;}
+    .table_1 td.b2tb {border-top: 2px solid #166614; border-bottom: 2px solid #166614; }
+    .table_1 td.b2lt { border-left: 2px solid #166614; border-top: 2px solid #166614; }
+    .table_1 td.b2ltb { border-left: 2px solid #166614; border-top: 2px solid #166614; border-bottom: 2px solid #166614; }
+    .table_1 td.b2rtb { border-right: 2px solid #166614; border-top: 2px solid #166614; border-bottom: 2px solid #166614;}
+    .table_1 td.b2l { border-left: 2px solid #166614; }
+    .table_1 td.b2r {border-right: 2px solid #166614;}
+    .table_1 td.b2lb { border-bottom: 2px solid #166614; border-left: 2px solid #166614;}
+    .table_1 td.b2b { border-bottom: 2px solid #166614; }
+    .table_1 td.b2rb { border-bottom: 2px solid #166614; border-right: 2px solid #166614;}
+    .table_1 th, td { border: 1px solid black; text-align: center; padding-left: 3px; padding-right: 3px; }
+    .table_1 .line { border: 1px solid #166614; color: #166614; font-size: 14px; }
+    .table_1 .line.clb { color: black; font-weight: 600; font-size: 12px; font-family: 휴먼고딕; }
+    .table_1 .line.clb.money { font-size: 20px; }
+    .table_1 td > .ts { font-size: 10px; }
+    .table_1 td > .ts2 { font-size: 18px; position: relative; top: 10px; }
+    .table_1 .title { font-size: 24px; font-weight: 600; padding: 5px;}
+</style>
+</head>
+<th:block layout:fragment="content">
+<div class="content_wrap">
+    <section>
+        <div class="title_box">
+            <div class="left_align">
+                <h3 data-labelCd="생산 실적 입력 A3">생산 실적 입력</h3>
+            </div>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>
+        </div>
+
+        <div class="table_box search">
+            <div class="row">
+
+                <div class="col-12 col-md-5 col-lg-4 col-xl-4">
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_t4" data-labelCd="생산일">생산일</span>
+                        </div>
+                        <div class="input-group-append" data-ax5picker="multi" id="srchdate">
+                            <input class="tac " type="text" id="date_from" name="date_from" />
+                            <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color"></i></span>
+                            <span class="slow_sign">~</span>
+                            <input class="tac " type="text" id="date_to" name="date_to" />
+                            <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color"></i></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-6 col-md-3 col-lg-2 col-xl-2">
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_t4" data-labelCd="근무조">근무조</span>
+                        </div>
+                        <select class="form-control2" id="cboShift" name="cboShift"></select>
+                    </div>
+                </div>
+
+                <div class="col-6 col-md-3 col-lg-2 col-xl-2">
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_t4" data-labelCd="워크센터">워크센터</span>
+                        </div>
+                        <select class="form-control2" id="cboWorkCenter" name="cboWorkCenter"></select>
+                    </div>
+                </div>
+
+                <div class="col-5 col-md-3 col-lg-2 col-xl-2 mt-6 tac">
+                    <input type="checkbox" id="chxCompYn" name="chxCompYn" checked />
+                    완료포함
+                </div>
+
+                <div class="col-1">
+                    <button type="button" class="btn-default" id="btnMainSearch" title="조회"><i class="fas fa-search"></i></button>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div>
+            <label class="switch">
+                <input type="checkbox" checked id="btnWorkListToggle"><span class="slider round"></span>
+            </label>
+            생산 내역 보기/감추기
+            &nbsp;
+            작지번호
+            <input class="w-120 tac" type="text" id="selected_order_num" name="selected_order_num" placeholder="" readonly />
+        </div>
+
+        <div class="grid_box" id="prodResultList">
+            <div class="title_box">
+                <span class="right_align rpt" data-labelCd="생산 내역">생산 내역</span>
+                <button type="button" class="btn-default" id="btnExcel" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                <button type="button" class="btn-default" id="btnGridSetting" style="visibility:hidden"><i class="fas fa-cog"></i> Setting</button>
+            </div>
+            <div class="h-300" id="prod-result-grid" data-ax5grid="prod-result-grid"></div>
+        </div>
+    </section>
+
+    <section>
+        <div class="tabs" data-tab="tabWrap">
+            <div class="title_box">
+                <div class="left_align">
+                    <ul class="tab_links">
+                        <li><a href="#" data-tablink="#tabBasic" name="tabBasic" class="tab" data-labelCd="기본 정보">기본 정보</a></li>
+                        <li><a href="#" data-tablink="#tabChasu" id="tab2" name="tabChasu" class="tab" data-labelCd="차수별 생산">차수별 생산</a></li>
+                        <li><a href="#" data-tablink="#tabDefect" name="tabDefect" class="tab" data-labelCd="부적합 정보">부적합 정보</a></li>
+                        <li><a href="#" data-tablink="#tabConsumed" name="tabConsumed" class="tab" data-labelCd="투입 내역">투입 내역</a></li>
+                        <li hidden><a href="#" data-tablink="#tabBarcode" name="tabBarcode" class="tab" data-labelCd="바코드">바코드</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="tab-content">
+                <div class="tab" id="tabBasic">
+                    <div class="tab_con_box">
+                        <div class="title_box">
+                            <span class="right_align rpt" data-labelCd="기본 정보">기본 정보</span>
+                            <button type="button" class="btn-default" id="btnWorkStart" disabled data-labelCd="시작">시작</button>
+                            <button type="button" class="btn-default" id="btnSave" title="기본정보 저장" disabled><i class="fas fa-save"></i></button>
+                            <button type="button" class="btn-default" id="btnWorkFinish" disabled data-labelCd="완료">완료</button>
+                            <button type="button" class="btn-cancel" id="btnFinishCancel" disabled data-labelCd="완료 취소">완료 취소</button>
+                        </div>
+
+                        <div class="table_box sub">
+                            <form id="basicForm">
+                                <div class="row">
+                                    <input type="text" id="id" name="id" hidden>
+                                    <input type="text" id="mp_id" name="mp_id" hidden>
+
+                                    <div class="col-6 col-md-3 col-lg-2">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="작지번호">작지번호</span>
+                                            </div>
+                                            <input class="form-control2 tac" type="text" id="order_num" name="order_num" readonly>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-6 col-md-3 col-lg-2">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="제품코드">제품코드</span>
+                                            </div>
+                                            <input class="form-control2 tac" type="text" id="mat_code" name="mat_code" readonly>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-6 col-md-4 col-lg-4">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="제품">제품</span>
+                                            </div>
+                                            <input type="text" id="mat_pk" name="mat_pk" hidden>
+                                            <input class="form-control2 tac" type="text" id="mat_name" name="mat_name" readonly>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-6 col-md-3 col-lg-2">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="상태">상태</span>
+                                            </div>
+                                            <input type="text" id="state" name="state" hidden>
+                                            <input class="form-control2 tac" type="text" id="job_state" name="job_state" readonly>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-6 col-md-3 col-lg-2">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="단위">단위</span>
+                                            </div>
+                                            <input class="form-control2 tac" type="text" id="unit" name="unit" readonly>
+                                        </div>
+                                    </div>
+
+                                    <!--<div class="col-6 col-md-3 col-lg-2">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="LOT">LOT</span>
+                                            </div>-->
+                                            <input class="form-control2 tac" type="text" id="lot_num" name="lot_num" disabled hidden>
+                                        <!--</div>
+                                    </div>-->
+
+                                    <div class="col-6 col-md-3 col-lg-2">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="워크센터">워크센터</span>
+                                            </div>
+                                            <!--<input type="hidden" class="form-control2" id="workcenter_id" name="workcenter_id">
+            <input type="text" class="form-control2" id="workcenter_name" name="workcenter_name" readonly-->
+                                            <select class="form-control2" id="workcenter_id" name="workcenter_id" disabled></select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-6 col-md-3 col-lg-2">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="설비">설비</span>
+                                            </div>
+                                            <select class="form-control2" id="equipment_id" name="equipment_id" disabled></select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-6 col-md-3 col-lg-2">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="근무조">근무조</span>
+                                            </div>
+                                            <select class="form-control2" id="shift_code" name="shift_code" disabled></select>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-6 col-lg-6">
+                                        <div class="input-group" id="prod_datepicker">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="생산시간">생산시간</span>
+                                            </div>
+                                            <input class="form-control2 tac" data-ax5picker="basic" type="text" id="prod_date" name="prod_date">
+                                            <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color"></i></span>
+                                            <input class="form-control2 tac" type="text" id="start_time" name="start_time" disabled />
+                                            <span class="slow_sign">~</span>
+                                            <input class="form-control2 tac" data-ax5picker="basic" type="text" id="end_date" name="end_date">
+                                            <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color"></i></span>
+                                            <input class="form-control2 tac" type="text" id="end_time" name="end_time" disabled />
+                                        </div>
+                                    </div>
+
+
+                                    <div class="col-6 col-md-3 col-lg-2">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="지시량">지시량</span>
+                                            </div>
+                                            <input class="form-control2 background-order" type="number" id="order_qty" name="order_qty" readonly>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-6 col-md-3 col-lg-2">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="양품량">양품량</span>
+                                            </div>
+                                            <input class="form-control2 background-blue" type="number" id="good_qty" name="good_qty" disabled>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-6 col-md-3 col-lg-2">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="부적합량">부적합량</span>
+                                            </div>
+                                            <input class="form-control2 background-defect" type="number" id="defect_qty" name="defect_qty" value="0" readonly>
+                                        </div>
+                                    </div>
+
+                                    <!--<div class="col-6 col-md-3 col-lg-2">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="Loss">Loss</span>
+                                            </div>
+                                            <input class="form-control2 background-loss" type="number" id="loss_qty" name="loss_qty" value="0" disabled>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-6 col-md-3 col-lg-2">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4" data-labelCd="Scrap">Scrap</span>
+                                            </div>
+                                            <input class="form-control2 background-scrap" type="number" id="scrap_qty" name="scrap_qty" value="0" disabled>
+                                        </div>
+                                    </div>-->
+
+                                    <div class="col-6 col-md-3 col-lg-2"></div>
+
+                                    <div class="col-12">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t4_area" data-labelCd="비고">비고</span>
+                                            </div>
+                                            <textarea class="form-control2" id="description" name="description" disabled></textarea>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab" id="tabChasu">
+                    <div class="tab_con_box ">
+                        <div class="grid_box">
+                            <div class="title_box">
+                                <span class="right_align rpt" data-labelCd="차수생산내역">차수생산내역</span>
+                                지시량 : <label id="ordqty">0</label>, LOT size : <input type="number" class="w-80" id="chasuLotSize" name="chasuLotSize" value="0">
+                                <button type="button" class="btn-default" id="btnAddChasu" title="차수 추가" disabled><i class="fas fa-plus"></i></button>
+                                <button type="button" class="btn-default" id="btnSaveChasu" title="생산수량수정" disabled><i class="fas fa-save"></i></button>
+                                <button type="button" class="btn-danger" id="btnDeleteChasu" title="마지막 차수 삭제" disabled><i class="fas fa-trash"></i></button>
+                                <button type="button" class="btn-default" id="btnExcel2" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                                <!--<button type="button" class="btn-default" id="btnChasuLabelPrint" title="라벨출력"><i class="fas fa-print"></i></button>-->
+                                <button type="button" class="btn-default" id="btnLOTbarcode" data-labelCd="LOT바코드" disabled>LOT바코드</button>
+
+                            </div>
+                            <div class="h-230" data-ax5grid="chasu-grid"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab" id="tabDefect">
+                    <div class="tab_con_box">
+
+                        <div class="grid_box">
+                            <div class="title_box">
+                                <span class="right_align rpt" data-labelCd="부적합 정보">차수별 부적합 정보</span>
+                                <button type="button" class="btn-default" id="btnDefectSave" title="부적합내역 저장" disabled><i class="fas fa-save"></i></button>
+                                <button type="button" class="btn-default" id="btnExcel2" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                                <button type="button" class="btn-default" id="btnGridSetting2" style="visibility:hidden"><i class="fas fa-cog"></i> Setting</button>
+                            </div>
+                            <div class="h-250" data-ax5grid="defect-grid"></div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="tab" id="tabConsumed">
+                    <div class="tab_con_box">
+                        <div>
+                            <label class="switch">
+                                <input type="checkbox" id="btnLotListToggle"><span class="slider round"></span>
+                            </label>투입로트 보기/감추기
+                        </div>
+                        <div>&nbsp;</div>
+                        <div class="grid_box" id="input_lot_div">
+                            <div class="title_box">
+                                <span class="right_align rpt" data-labelCd="로트투입">로트투입</span>
+                                <button type="button" class="btn-default" id="btnInputLotList" title="조회"><i class="fas fa-search"></i></button>
+                                <button type="button" class="btn-default" id="btnInputLotSelect" title="로트검색"><i class="fas fa-plus"></i></button>
+                                로트번호 <input type="text" id="txtInputLot" class="w-200 tac" placeholder="로트번호를 스캔하세요" autocomplete="off" />
+                                <button type="button" class="btn-default" id="btnInputLotSave" title="로트투입 저장"><i class="fas fa-edit"></i></button>
+                                <button type="button" class="btn-default" id="btnInputLotGridSetting" style="visibility:hidden"><i class="fas fa-cog"></i> Setting</button>
+
+                            </div>
+                            <div class="h-250" data-ax5grid="input_lot_grid"></div>
+                        </div>
+
+                        <div class="grid_box">
+                            <div class="title_box">
+                                <span class="right_align rpt" data-labelCd="투입 내역">투입 내역</span>
+                                BOM기준생산량 <input type="text" id="bom_output_amount" class="w-200 tac" placeholder="BOM 기준생산량을 입력하세요." />
+                                <button type="button" class="btn-default" id="btnConsumedView" title="투입내역 조회"><i class="fas fa-search"></i></button>
+                                <button type="button" class="btn-default" id="btnConsumedSave" title="투입내역 저장" disabled><i class="fas fa-save"></i></button>
+                                <button type="button" class="btn-default" id="btnAddMat" title="품목추가" disabled><i class="fas fa-plus"></i></button>
+                                <button type="button" class="btn-default" id="btnExcel3" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                                <button type="button" class="btn-default" id="btnGridSetting3" style="visibility:hidden"><i class="fas fa-cog"></i> Setting</button>
+                                <span>총생산량 : <label id="lblTotalOutput"></label></span>
+                            </div>
+                            <div class="h-250" data-ax5grid="consumed-grid"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="tabBarcode" class="tab" hidden>
+                    <div class="tab_con_box">
+                        <div class="table_box sub">
+                            <div class="row">
+
+                                <div class="col-6">
+                                    <div class="title_box">
+                                        <div class="left_align">
+                                            작업지시번호
+                                            <button type="button" class="btn-cancel" id="btnPrintWorkOrderBarcode" data-labelCd="프린트">프린트</button>
+                                        </div>
+                                    </div>
+                                    <div class="col-12" id="workOrderContainerDiv"></div>
+                                </div>
+
+                                <div class="col-6">
+                                    <div class="title_box">
+                                        <div class="left_align">
+                                            Lot number
+                                            <button type="button" class="btn-cancel" id="btnPrintLotNumberBarcode" data-labelCd="프린트">프린트</button>
+                                        </div>
+                                    </div>
+                                    <div class="col-12" id="LotNumberContainerDiv">
+                                    </div>
+                                </div>
+
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+</div>
+
+<th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+<th:block th:replace="/common/popup_consu_material :: materialSearchTemplate" ></th:block>
+<th:block th:replace="/common/popup_consu_mat_lot :: matLotSearchTemplate" ></th:block>
+<th:block th:replace="/common/popup_lot_input :: LotInputTemplate" ></th:block>
+
+<script type="text/x-tmpl" id="workorder_table_tmpl">
+    <table class="table_1" style="width: 400px;border-collapse: collapse;">
+        <tr>
+            <td class="tac">품목코드</td>
+            <td>{%=o.mat_code%}</td>
+            <td class="tac">워크센터</td>
+            <td>{%=o.workcenter_name%}</td>
+        </tr>
+        <tr>
+            <td class="tac">생산품명</td>
+            <td colspan="3">{%=o.mat_name%}</td>
+        </tr>
+        <tr>
+            <td class="tac">양품수량</td>
+            <td>{%=o.good_qty%}</td>
+            <td class="tac">생산단위</td>
+            <td>{%=o.unit%}</td>
+        </tr>
+
+        <tr>
+            <td class="tac">생산일자</td>
+            <td colspan="3">{%=o.prod_date%} {%=o.end_time%}</td>
+        </tr>
+        <tr>
+            <td class="tac">유효기한</td>
+            <td colspan="3">{%=o.ValidDays%}</td>
+        </tr>
+        <tr>
+            <td colspan="4" class="barcode_td">
+                <svg id='svgBarcodeWorkOrderNumber'></svg>
+            </td>
+        </tr>
+    </table>
+
+</script>
+<script type="text/x-tmpl" id="lotnumber_table_tmpl">
+    <table class="table_1" style="width: 400px;border-collapse: collapse;">
+        <tr>
+            <td class="tac">품목코드</td>
+            <td>{%=o.mat_code%}</td>
+            <td class="tac">워크센터</td>
+            <td>{%=o.workcenter_name%}</td>
+        </tr>
+        <tr>
+            <td class="tac">생산품명</td>
+            <td colspan="3">{%=o.mat_name%}</td>
+        </tr>
+        <tr>
+            <td class="tac">양품수량</td>
+            <td>{%=o.good_qty%}</td>
+            <td class="tac">생산단위</td>
+            <td>{%=o.unit%}</td>
+        </tr>
+
+        <tr>
+            <td class="tac">생산일자</td>
+            <td colspan="3">{%=o.prod_date%} {%=o.end_time%}</td>
+        </tr>
+        <tr>
+            <td class="tac">유효기한</td>
+            <td colspan="3">{%=o.ValidDays%}</td>
+        </tr>
+        <tr>
+            <td colspan="4" class="barcode_td">
+                <svg id='svgBarcodeLotNumber'></svg>
+            </td>
+        </tr>
+    </table>
+
+</script>
+<script type="text/x-tmpl" id="barcode_tmpl">
+<div class="content_wrap popup">
+
+    <section class="pt-2">        
+            <div class="table_box sub">
+                <form id="productionOrderForm">
+                    <input type="hidden" id="id" name="id" value="{%=o.id%}">
+
+                    <div class="table_box sub" >
+                        <div class="row">
+
+                            <div class="col-12">
+                                <div class="title_box">
+                                    <div class="left_align">
+                                        작업지시번호
+                                        <button type="button" class="btn-cancel" id="btnPrintWorkOrderBarcode" data-labelCd="프린트">프린트</button>
+                                    </div>
+                                </div>
+                                <div class="col-12" id="workOrderContainerDiv">
+                                
+                                    <table class="table_1" style="width: 400px;border-collapse: collapse;">
+                                        <tr>
+                                            <td class="tac">품목코드</td>
+                                            <td>{%=o.mat_code%}</td>
+                                            <td class="tac">워크센터</td>
+                                            <td>{%=o.workcenter%}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="tac">생산품명</td>
+                                            <td colspan="3">{%=o.mat_name%}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="tac">양품수량</td>
+                                            <td>{%=o.good_qty%}</td>
+                                            <td class="tac">생산단위</td>
+                                            <td>{%=o.unit%}</td>
+                                        </tr>
+
+                                        <tr>
+                                            <td class="tac">생산일자</td>
+                                            <td colspan="3">{%=o.prod_date%} {%=o.end_time%}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="tac">유효기한</td>
+                                            <td colspan="3">{%=o.ValidDays%}</td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="4" class="barcode_td">
+                                                <svg id='svgBarcodeWorkOrderNumber'></svg>
+                                            </td>
+                                        </tr>
+                                    </table>
+    
+    
+    
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="title_box">
+                                    <div class="left_align">
+                                        Lot number
+                                        <button type="button" class="btn-cancel" id="btnPrintLotNumberBarcode" data-labelCd="프린트">프린트</button>
+                                    </div>
+                                </div>
+                                <div class="col-12" id="LotNumberContainerDiv">
+
+
+                                    <table class="table_1" style="width: 400px;border-collapse: collapse;">
+                                        <tr>
+                                            <td class="tac">품목코드</td>
+                                            <td>{%=o.mat_code%}</td>
+                                            <td class="tac">워크센터</td>
+                                            <td>{%=o.workcenter%}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="tac">생산품명</td>
+                                            <td colspan="3">{%=o.mat_name%}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="tac">양품수량</td>
+                                            <td>{%=o.chasu_good_qty%}</td>
+                                            <td class="tac">생산단위</td>
+                                            <td>{%=o.unit%}</td>
+                                        </tr>
+
+                                        <tr>
+                                            <td class="tac">생산일자</td>
+                                            <td colspan="3">{%=o.prod_date%} {%=o.end_time%}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="tac">유효기한</td>
+                                            <td colspan="3">{%=o.ValidDays%}</td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="4" class="barcode_td">
+                                                <svg id='svgBarcodeLotNumber'></svg>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+
+                                </div>
+                            </div>
+
+                        </div> 
+                    </div> 
+                </form>
+            </div>
+        
+    </section>
+
+    <section class="popupcontent" >
+        <div class="align_left">
+            <!--<button type="button" class="btn-popup" id="btn_save" ><span data-labelCd="저장">저장</span></button>-->
+            <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    </section>
+
+</div>
+</script>
+</th:block>
+
+
+<th:block layout:fragment="scripts">
+<script type="text/javascript" th:src="@{/resource/jsBarcode/JsBarcode.all.min.js}"></script>
+<script type="text/javascript">
+
+    class ProdResultPage {
+        constructor() {
+            this.jobres = null;
+            this.grid = null;
+            this.defectGrid = null;
+            this.InputLotGrid = null;
+            this.consumedGrid = null;
+            this.selectedJobId = null;
+            this.selectedIndex = null;
+            this.$tabBasic = $('#tabBasic');
+            this.baseUrl = '/site/api/production/prod_result';
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+
+            let config = {
+                target: $('[data-ax5grid="prod-result-grid"]'),
+                frozenColumnIndex: 1, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 30  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.grid.select(this.dindex);
+                        let jr_pk = e.item.id;
+                        let mat_pk = e.item.mat_pk;
+                        let prodDate = e.item.prod_date;
+                        let workcenterId = e.item.workcenter_id
+
+                        _this.showBasicInfo(jr_pk);
+                        _this.showDefectList('total');
+                        _this.showChasuList(jr_pk);
+
+                        _this.selectedJobId = jr_pk;
+                        _this.selectedIndex = this.dindex;
+                        if (_this.currentTab == 'tabChasu') {
+                            let $tabChasu = $('#tabChasu');
+                            $tabChasu.find('#ordqty').text(_this.$tabBasic.find('#order_qty').val());
+                            $tabChasu.find('#chasuLotSize').val(_this.$tabBasic.find('#lot_size').val());
+
+                        }else if (_this.currentTab == 'tabConsumed') {
+                            _this.showInputLotList();
+                            _this.showConsumedList(jr_pk, mat_pk, prodDate);
+                        }
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'order_num', label: '작지번호', width: 120, align: 'center' },
+                    { key: 'prod_date', label: '생산일', width: 100, align: 'center' },
+                    { key: 'workcenter', label: '워크센터', width: 100, align: 'left' },
+                    { key: 'work_idx', label: '작업순서', width: 80, align: 'center' },
+                    //{ key: 'equipment', label: '설비', width: 120, align: 'left' },
+                    {
+                        key: 'job_state', label: '상태', width: 100, align: 'center',
+                        styleClass: function () {
+                            if (this.item.state == 'working')
+                                return 'working-status';
+                            if (this.item.state == 'finished')
+                                return 'finished-status';
+                            //return 'background-white';
+                        }
+                    },
+                    { key: 'mat_code', label: '제품코드', width: 100, align: 'left' },
+                    { key: 'mat_name', label: '제품', width: 200, align: 'left' },
+                    { key: 'unit', label: '단위', width: 80, align: 'center' },
+                    {
+                        key: 'order_qty', label: '지시량', width: 100, align: 'right', formatter: 'money',
+                        styleClass: function () {
+                            return 'background-order';
+                        }
+                    },
+                    {
+                        key: 'good_qty', label: '양품량', width: 100, align: 'right', formatter: 'money',
+                        styleClass: function () {
+                            return 'background-blue';
+                        }
+                    },
+                    {
+                        key: 'defect_qty', label: '부적합량', width: 100, align: 'right', formatter: 'money',
+                        styleClass: function () {
+                            return 'background-defect';
+                        }
+                    },
+                    //{
+                    //    key: 'loss_qty', label: 'Loss', width: 100, align: 'right', formatter: 'money',
+                    //    styleClass: function () {
+                    //        return 'background-loss';
+                    //    }
+                    //},
+                    //{
+                    //    key: 'scrap_qty', label: 'Scrap', width: 100, align: 'right', formatter: 'money',
+                    //    styleClass: function () {
+                    //        return 'background-scrap';
+                    //    }
+                    //},
+                    { key: 'description', label: '비고', width: 190, align: 'left' },
+                ],
+            };
+
+            this.grid = new ax5.ui.grid(config);
+            this.grid_config1 = config;  // 컬럼설정 팝업에 넘기기 위한 용도로 저장해 놓음.
+
+            let chasuConfig = {
+                target: $('[data-ax5grid="chasu-grid"]'),
+                frozenColumnIndex: 1, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 30  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.chasuGrid.select(this.dindex);
+                        _this.showDefectList('chasu');
+                        _this.setButtonState();
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'chasu', label: '차수', width: 100, align: 'center', sortable: true },
+                    { key: 'lot_no', label: 'LOT', width: 200, align: 'center', sortable: false },
+                    {
+                        key: 'good_qty', label: '<span class="editable_clr">양품량</span>', width: 100, align: 'right', editor: { type: 'number' }, formatter: 'money',
+                        styleClass: function () {
+                            return 'background-blue';
+                        }
+                    },
+                    {
+                        key: 'defect_qty', label: '<span class="editable_clr">부적합량</span>', width: 100, align: 'right', editor: { type: 'number' }, formatter: 'money',
+                        styleClass: function () {
+                            return 'background-defect';
+                        }
+                    },
+                    { key: 'input_time', label: '입력시간', width: 100, align: 'center', sortable: true },
+                    /*
+                    {
+                        key: 'loss_qty', label: '<span class="editable_clr">Loss</span>', width: 100, align: 'right', editor: { type: 'number' }, formatter: 'money',
+                        styleClass: function () {
+                            return 'background-loss';
+                        }
+                    },
+                    {
+                        key: 'scrap_qty', label: '<span class="editable_clr">Scrap</span>', width: 100, align: 'right', editor: { type: 'number' }, formatter: 'money',
+                        styleClass: function () {
+                            return 'background-scrap';
+                        }
+                    },
+                    */
+                ],
+                footSum: [
+                    [
+                        { label: '', align: 'center' },
+                        { label: '양품량 합계', align: 'center' },
+                        { key: 'good_qty', collector: 'sum', formatter: 'money', align: 'right' },
+                        { key: 'defect_qty', collector: 'sum', formatter: 'money', align: 'right' },
+                    ]
+                ]
+            }
+            this.chasuGrid = new ax5.ui.grid(chasuConfig);
+
+            let defectConfig = {
+                target: $('[data-ax5grid="defect-grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 30  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'defect_type', label: '부적합유형', width: 200, align: 'center', sortable: true },
+                    { key: 'defect_qty', label: '<span class="editable_clr">부적합량</span>', width: 130, align: 'right', sortable: true, editor: { type: 'number' }, formatter: 'money' },
+                    { key: 'defect_remark', label: '<span class="editable_clr">비고</span>', width: 450, align: 'left', editor: { type: 'text' } },
+                ],
+                footSum: [
+                    [
+                        { label: '부적합량 합계', align: 'center' },
+                        { key: 'defect_qty', collector: 'sum', formatter: 'money', align: 'right' },
+                    ]
+                ]
+            }
+
+            this.defectGrid = new ax5.ui.grid(defectConfig);
+            this.grid_config2 = defectConfig;  // 컬럼설정 팝업에 넘기기 위한 용도로 저장해 놓음.
+
+
+
+            let InputLotConfig = {
+                target: $('[data-ax5grid="input_lot_grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 30  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onDataChanged: function () {
+                        if (this.key == 'consumed_start' || this.key == 'consumed_end') {
+                            _this.validateTime(this);
+                        }
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    //{ key: 'id', label: '번호', width: 50, align: 'left', },
+                    { key: 'mat_name', label: '품목', width: 250, align: 'left', },
+                    { key: 'unit_name', label: '단위', width: 120, align: 'center' },
+                    { key: 'lot_number', label: '로트번호', width: 120, align: 'center' },
+                    {  key: 'cur_stock', label: '현재재고', width: 120, align: 'right', formatter: 'money' },
+                    {  key: 'req_qty', label: '투입요청량', width: 120, align: 'right', formatter: 'money' },
+                    {  key: 'consumed_qty', label: '생산소모량', width: 120, align: 'right', formatter: 'money' },
+                    {
+                        key: 'start_date', label: '투입일시', width: 200, align: 'center',
+                        editor: { type: 'text' }
+                    },
+                ]
+            }
+
+            this.InputLotGrid = new ax5.ui.grid(InputLotConfig);
+            this.InputLotGridConfig = InputLotConfig;  // 컬럼설정 팝업에 넘기기 위한 용도로 저장해 놓음.
+
+            let consumedConfig = {
+                target: $('[data-ax5grid="consumed-grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 30  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onDataChanged: function () {
+                        if (this.key == 'consumed_start' || this.key == 'consumed_end') {
+                            _this.validateTime(this);
+                        }
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'mat_name', label: '품목', width: 250, align: 'left', sortable: true },
+                    { key: 'unit', label: '단위', width: 80, align: 'center' },
+                    {
+                        key: 'consumed_qty', label: '로트투입량', width: 120, align: 'right',
+                        formatter: 'money'
+                    },
+                    {
+                        key: 'bom_consumed', label: '소요량(BOM)', width: 120, align: 'right',
+                        formatter: 'money'
+                    },
+                    {
+                        key: 'mc_qty', label: '<span class="editable_clr">실생산투입량</span>', width: 120, align: 'right',
+                        editor: {
+                            type: 'number',
+                            disabled: function () {
+                                
+                                let disabled_flag = this.item.lot_consumed > 0;
+                                return disabled_flag;
+                            }
+                        }, formatter: 'money'
+                    },
+                    //{
+                    //    key: 'add_consumed', label: '<span class="editable_clr">추가투입량</span>', width: 120, align: 'right',
+                    //    editor: { type: 'number' }, formatter: 'money'
+                    //},
+                    //{
+                    //    key: 'scrap_consumed', label: '<span class="editable_clr">Scrap투입량</span>', width: 120, align: 'right',
+                    //    editor: { type: 'number' }, formatter: 'money'
+                    //},
+
+                ]
+            }
+
+            this.consumedGrid = new ax5.ui.grid(consumedConfig);
+            this.grid_config3 = consumedConfig;  // 컬럼설정 팝업에 넘기기 위한 용도로 저장해 놓음.
+
+            // 필터
+            AjaxUtil.fillSelectOptions($('#cboShift'), 'shift', 'choose', false); // 근무조
+            AjaxUtil.fillSelectOptions($('#cboWorkCenter'), 'workcenter', 'choose', false); // 워크센터
+
+            // form내부
+            AjaxUtil.fillSelectOptions($('#shift_code'), 'shift', 'choose', false); // 근무조
+            AjaxUtil.fillSelectOptions($('#workcenter_id'), 'workcenter', 'choose', false); // 워크센터
+
+            $('#workcenter_id').change(function () {
+                if ($('#state').val() == 'ordered') {
+                    AjaxUtil.fillSelectOptions($('#equipment_id'), 'equipment', 'choose', false, '', '', $('#workcenter_id').val()); // 설비
+                    _this.showDefectList('total');
+                }
+            });
+        }
+
+        // 시간입력 validate
+        validateTime(timeColumn) {
+            let _this = this;
+            DataValidation.validateTime(timeColumn);
+            this.consumedGrid.setValue(timeColumn.dindex, timeColumn.key, timeColumn.value);
+        }
+
+        // 버튼 활성화 설정
+        setButtonState() {
+            let pk = $('#tabBasic').find('#id').val();
+            let $buttons = $('.tab-content').find('button');
+
+            //$buttons.each(function () {
+            //    if (!$(this).is(':disabled')) {
+            //        $(this).attr('disabled', 'disabled');
+            //    }
+            //});
+
+
+            $('#btnGridSetting2').removeAttr('disabled');
+            $('#btnGridSetting3').removeAttr('disabled');
+
+            $('#btnExcel2').removeAttr('disabled');
+            $('#btnExcel3').removeAttr('disabled');
+            let chasu = this.chasuGrid.getList('selected');
+            if (chasu.length > 0) {
+                chasu = chasu[0].chasu;
+            } else {
+                chasu = 0;
+            }
+            if (pk) {
+                let state = $('#tabBasic').find('#state').val(); // ordered, working, finished
+                
+                $('#btnConsumedView').removeAttr('disabled');
+                if (state == 'ordered' || state == 'stopped') {
+                    $('#btnWorkStart').removeAttr('disabled');
+                    $('#btnSave').removeAttr('disabled');
+                    $('#btnLOTbarcode').attr('disabled', 'disabled');
+                } else if (state == 'working') {
+                    $('#btnWorkStart').attr('disabled', 'disabled');
+
+                    $('#btnWorkStop').removeAttr('disabled');
+                    $('#btnSave').removeAttr('disabled');
+                    $('#btnWorkFinish').removeAttr('disabled');
+                    $('#btnAddChasu').removeAttr('disabled');
+                    $('#btnSaveChasu').removeAttr('disabled');
+                    $('#btnDeleteChasu').removeAttr('disabled');
+                    $('#btnDefectSave').removeAttr('disabled');
+                    $('#btnConsumedSave').removeAttr('disabled');
+                    $('#btnAddMat').removeAttr('disabled');
+                    $('#btnLOTbarcode').attr('disabled', false);
+                    //if (chasu>0) {
+                    //    $('#btnLOTbarcode').removeAttr('disabled');
+                    //}
+                } else if (state == 'finished') {
+                    $('#btnLOTbarcode').attr('disabled', 'disabled');
+                    $('#btnFinishCancel').removeAttr('disabled');
+                }
+            }
+        }
+
+        // 작업목록 조회
+        searchMainData() {
+            let _this = this;
+
+            let param = {
+                'action': 'read',
+                'date_from': $('#date_from').val(),
+                'date_to': $('#date_to').val(),
+                'shift_code': $('#cboShift').val(),
+                'workcenter_pk': $('#cboWorkCenter').val(),
+                'is_include_comp': $('#chxCompYn').is(':checked')
+            };
+
+            let result = AjaxUtil.getSyncData(this.baseUrl, param);
+            if (result) {
+                let recordsTotal = result.length;
+                this.grid.setData({
+                    list: result,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal
+                    }
+                });
+            }
+
+            $('#selected_order_num').val('');
+            $('#basicForm')[0].reset();
+            this.defectGrid.setData([]);
+            this.chasuGrid.setData([]);
+            this.consumedGrid.setData([]);
+
+            $('#basicForm').find('input, select, textarea').each(function () {
+                if (!$(this).is(':disabled')) {
+                    $(this).attr('disabled', 'disabled');
+                }
+            });
+
+            this.setButtonState();
+
+            $('#svgBarcode').empty();
+        }
+
+        // 생산정보 조회
+        showBasicInfo(jr_pk) {
+            let _this = this;
+
+            let param = {
+                'action': 'detail',
+                'jr_pk': jr_pk
+            };
+
+            let result = AjaxUtil.getSyncData(this.baseUrl, param);
+            if (result) {
+
+                this.jobres = result;
+                $('#selected_order_num').val(result.order_num);
+
+                AjaxUtil.fillSelectOptions($('#equipment_id'), 'equipment', 'choose', false, '', '', result.workcenter_id); // 설비
+
+                FormUtil.BindDataForm(result, $('#basicForm'));
+                $('#bom_output_amount').val(result.bom_output_amount);
+                if (!result.end_date)
+                    $('#end_date').val(page.today);
+
+                $('#job_state').removeClass('working-status');
+                $('#job_state').removeClass('finished-status');
+
+                if (result.state == 'working') {
+                    $('#job_state').addClass('working-status');
+                } else if (result.state == 'finished') {
+                    $('#job_state').addClass('finished-status');
+                }
+
+                if (result.state != 'ordered') {
+                    $('#workcenter_id').on('focus', function () {
+                        this.initialSelect = this.selectedIndex;
+                    });
+
+                    $('#workcenter_id').on('change', function () {
+                        this.selectedIndex = this.initialSelect;
+                    });
+                }
+                let total_prod_qty = result.good_qty + result.defect_qty + result.loss_qty + result.scrap_qty;
+                $('#lblTotalOutput').text(total_prod_qty);
+
+                $('#ordqty').text(result.order_qty);
+                $('#chasuLotSize').val(result.lot_size);
+
+                this.setButtonState();
+
+                // 바코드 출력
+                // 작업지시번호 바코드 설정
+                //
+                let wcontent = tmpl('workorder_table_tmpl', result);
+                let $workOrderContainerDiv = $('#workOrderContainerDiv');                
+                let $wcontent = $(wcontent);
+                $workOrderContainerDiv.html($wcontent);                
+                
+                //order_num
+                //let barcodeLabelText = result.lot_num + "(" + result.mat_name + ")";
+                let barcodeLabelText = result.order_num + "(" + result.mat_name + ")";
+                if (result.order_num) {
+                    JsBarcode("#svgBarcodeWorkOrderNumber", result.order_num, {
+                        format: 'code128', // 바코드 포맷 / default: code128 / options: EAN, UPC, CODE39, ITF-14, MSI, Pharmacode, Codabar (각 옵션들에 대한 설명은 사이트 참조)
+                        width: 2, // 너비 / default: 2
+                        height: 100, // 높이 / default: 100
+                        displayValue: true, // 텍스트 표시 여부 / default: true
+                        text: barcodeLabelText, // 데이터 대신 특정 텍스트 표시 / default: undefined
+                        fontOptions: '', // 폰트 설정 / default: '' / options: bold, italic, bold italic
+                        font: 'monospace', // 폰트 / default: monospace / options: fantasy, etc... 사이트 참조
+                        textAlign: 'center', // 텍스트 위치 / default: center / options: left, center, right
+                        textPosition: 'bottom', // 텍스트 위치 / default: bottom / options: top, bottom
+                        textMargin: 2, // 바코드와 텍스트 사이 여백 / default: 2
+                        fontSize: 12, // 폰트 크기 / default: 20
+                        background: '#ffffff', // 바코드 배경 색 / default: #ffffff
+                        lineColor: '#000000', // 바코드 라인 색 / default: #000000
+                        margin: 10, // 바코드 영역 주변 여백 / default: 10
+                    });
+
+                    $('#btnPrintWorkOrderBarcode').click(function (e) {
+                        let popupWindow = window.open("barcode_print", "_blank", "width=800px");
+                        let css = $('#print_css')[0].outerHTML;
+
+                        let html = $workOrderContainerDiv.html();
+                        popupWindow.document.write(css);
+                        popupWindow.document.write(html);
+                        popupWindow.print();
+                        return false;
+                    });
+
+                }
+
+                let lcontent = tmpl('lotnumber_table_tmpl', result);
+                let $lcontent = $(lcontent);
+                let $LotNumberContainerDiv = $('#LotNumberContainerDiv');
+                $LotNumberContainerDiv.html($lcontent);
+                if (result.lot_num) {                    
+                    barcodeLabelText = result.lot_num + "(" + result.mat_name + ")";
+                    JsBarcode("#svgBarcodeLotNumber", result.lot_num, {
+                        format: 'code128', // 바코드 포맷 / default: code128 / options: EAN, UPC, CODE39, ITF-14, MSI, Pharmacode, Codabar (각 옵션들에 대한 설명은 사이트 참조)
+                        width: 2, // 너비 / default: 2
+                        height: 100, // 높이 / default: 100
+                        displayValue: true, // 텍스트 표시 여부 / default: true
+                        text: barcodeLabelText, // 데이터 대신 특정 텍스트 표시 / default: undefined
+                        fontOptions: '', // 폰트 설정 / default: '' / options: bold, italic, bold italic
+                        font: 'monospace', // 폰트 / default: monospace / options: fantasy, etc... 사이트 참조
+                        textAlign: 'center', // 텍스트 위치 / default: center / options: left, center, right
+                        textPosition: 'bottom', // 텍스트 위치 / default: bottom / options: top, bottom
+                        textMargin: 2, // 바코드와 텍스트 사이 여백 / default: 2
+                        fontSize: 12, // 폰트 크기 / default: 20
+                        background: '#ffffff', // 바코드 배경 색 / default: #ffffff
+                        lineColor: '#000000', // 바코드 라인 색 / default: #000000
+                        margin: 10, // 바코드 영역 주변 여백 / default: 10
+                    });
+
+                    $('#btnPrintLotNumberBarcode').click(function (e) {
+                        let popupWindow = window.open("barcode_print", "_blank", "width=800px");
+                        let css = $('#print_css')[0].outerHTML;
+
+                        let html = $LotNumberContainerDiv.html();
+                        popupWindow.document.write(css);
+                        popupWindow.document.write(html);
+                        popupWindow.print();
+                        return false;
+                    });
+                }
+
+
+            }
+            else {
+                this.jobres = null;
+            }
+        }
+
+        // 생산정보 저장
+        saveBasicInfo() {
+            let _this = this;
+            let url = this.baseUrl + '?action=save';
+
+            let data = FormUtil.extractForm($('#basicForm'));
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Notify.success('저장되었습니다.');
+                    _this.searchMainData();
+                    _this.grid.select(parseInt(_this.selectedIndex));
+                    _this.showBasicInfo(res.jr_pk);
+                }
+            }
+
+            // 필수입력 check routine
+            if (!data.prod_date) {
+                Alert.alert('', '생산일을 선택해주세요.');
+                return;
+            } else if (!data.shift_code) {
+                Alert.alert('', '근무조를 선택해주세요.');
+                return;
+            } else if (!data.workcenter_id) {
+                Alert.alert('', '워크센터를 선택해주세요.');
+                return;
+            }
+
+            if (!data.good_qty) data.good_qty = 0;
+            if (!data.defect_qty) data.defect_qty = 0;
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        // 작업시작
+        workStart() {
+            let _this = this;
+
+            let url = this.baseUrl + '?action=work_start';
+            let data = FormUtil.extractForm($('#basicForm'));
+            let defectGridList = this.defectGrid.getList();
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Notify.success('작업이 시작되었습니다.');
+                    _this.searchMainData();
+                    _this.grid.select(parseInt(_this.selectedIndex));
+                    _this.showBasicInfo(res.jr_pk);
+                    _this.saveDefectList(defectGridList, 'workStart'); // 작업시작 시 해당 워크센터에 등록된 공정별 부적합 내역 저장
+                }
+            }
+
+            // 필수입력
+            if (!data.prod_date) {
+                Alert.alert('', '생산일을 선택해주세요.');
+                return;
+            } else if (!data.shift_code) {
+                Alert.alert('', '근무조를 선택해주세요.');
+                return;
+            } else if (!data.workcenter_id) {
+                Alert.alert('', '워크센터를 선택해주세요.');
+                return;
+            }
+
+            // 시작시간 없을 시 자동 세팅
+            if (!data.start_time) {
+                let now = new Date();
+                let now_time = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+                data.start_time = now_time;
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        // 작업완료
+        workFinish() {
+            let _this = this;
+
+            let url = this.baseUrl + '?action=work_finish';
+            let data = FormUtil.extractForm($('#basicForm'));
+            let fnSuccess = function (res) {
+                if (!res.success) {
+                    Alert.alert('', res.message);
+                } else {
+                    Notify.success('작업이 완료되었습니다.');
+                    _this.searchMainData();
+                    _this.grid.select(parseInt(_this.selectedIndex));
+                    _this.showBasicInfo(res.jr_pk);
+                }
+            }
+
+            let orderQty = parseFloat($('#order_qty').val());
+            let defect_qty = $('#defect_qty').val();
+            defect_qty = isNaN(defect_qty) ? 0 : defect_qty;
+
+
+            let inputQty = parseFloat($('#good_qty').val()) + parseFloat(defect_qty);
+            let bom_output_amount = parseFloat($('#bom_output_amount').val());
+
+            // 필수입력
+            if (!data.prod_date) {
+                Alert.alert('', '생산일을 선택해주세요.');
+                return;
+            } else if (!data.end_date) {
+                Alert.alert('', '종료일을 선택해주세요.');
+                return;
+            } else if (!data.start_time) {
+                Alert.alert('', '생산시작시간을 입력해주세요.');
+                return;
+            } else if (!data.shift_code) {
+                Alert.alert('', '근무조를 선택해주세요.');
+                return;
+            } else if (!data.workcenter_id) {
+                Alert.alert('', '워크센터를 선택해주세요.');
+                return;
+            }
+
+            // 종료시간 없을 시 자동 세팅
+            if (!data.end_time) {
+                let now = new Date();
+                let nowTime = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+                data.end_time = nowTime;
+
+                $('#end_time').val(nowTime);
+            }
+
+            // 작업시간 check
+            if (data.prod_date + data.start_time > data.end_date + data.end_time) {
+                Alert.alert('', '작업시간을 확인해주세요.');
+                return;
+            }
+
+            //if (inputQty != bom_output_amount) {
+            //    Alert.alert('작업완료 오류', '총생산량(' + inputQty + ')과 BOM기준생산량(' + bom_output_amount+')이 일치하지 않습니다. 투입내역을 다시 입력하십시오.');
+            //    return;
+            //}
+
+            //작업지시에 불량량과 차수의 불량량 합 맞추기 
+            let chassu_grid = _this.chasuGrid.getList();
+            let chasu_def_qty = 0;
+
+            for (let i = 0; i < chassu_grid.length; i++) {
+                chasu_def_qty += chassu_grid[i].defect_qty;
+            }
+            if (chasu_def_qty != defect_qty) {
+                Alert.alert('작업완료 오류', '총부적합량과 차수별 부적합량을 확인해주세요.');
+                return;
+            }
+
+
+            // 지시량 대비 입력량 check
+            if (orderQty != inputQty) {
+                Alert.confirm('', '지시량과 총생산량 합이 일치하지 않습니다. \n 완료 처리하시겠습니까?',
+                    function () {
+                        AjaxUtil.postAsyncData(url, data, fnSuccess);
+                    },
+                    function () { }
+                )
+            } else {
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+        }
+
+        // 작업완료취소
+        workFinishCancel() {
+            let _this = this;
+
+            let url = this.baseUrl + '?action=finish_cancel';
+            let jr_pk = $('#tabBasic').find('#id').val();
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Notify.success('취소되었습니다.');
+                    _this.searchMainData();
+                    _this.grid.select(parseInt(_this.selectedIndex));
+                    _this.showBasicInfo(res.jr_pk);
+                }
+            }
+
+            let data = {
+                'jr_pk': jr_pk,
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        // 생산차수 목록 조회
+        showChasuList(jr_pk) {
+            let _this = this;
+
+            let param = {
+                'action': 'chasu_list',
+                'jr_pk': jr_pk,
+            }
+
+            let result = AjaxUtil.getSyncData(this.baseUrl, param);
+            if (result) {
+                let recordsTotal = result.length;
+                this.chasuGrid.setData({
+                    list: result,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal
+                    }
+                });
+            }
+        }
+
+        // 차수추가
+        addChasu() {
+            let _this = this;
+
+            let jr_pk = this.$tabBasic.find('#id').val();
+            let rows = this.chasuGrid.getList();
+
+            //let newChasu = 1;
+            let workcenter_id = this.$tabBasic.find('#workcenter_id').val()
+            let lotSize = $('#chasuLotSize').val();
+
+            if (!workcenter_id) {
+                Alert.alert('차수저장오류', '기본정보 탭의 워크센터를 선택해주세요.');
+                return;
+            }
+            if (lotSize == "" || lotSize == "0") {
+                Alert.alert('차수추가오류', '차수의 LOT size 를 확인하세요');
+                return;
+            }
+            //if (rows.length != 0) {
+            //    newChasu = rows[rows.length - 1].chasu + 1;
+            //}
+
+            //this.chasuGrid.addRow({ chasu: newChasu, lot_no: '', good_qty: lotSize, defect_qty: 0, loss_qty: 0, scrap_qty: 0}, 'last', { focus: 'END' } );
+
+            //let data = { jr_pk: jr_pk, chasu: newChasu, good_qty: lotSize, defect_qty: 0, loss_qty: 0, scrap_qty: 0 };
+            let data = { jr_pk: jr_pk, good_qty: lotSize, defect_qty: 0, loss_qty: 0, scrap_qty: 0 };
+            let addChasuCallbackSuccess = function (result) {
+                if (result.success) {
+                    Notify.success('저장되었습니다.');
+                    _this.showChasuList(result.jr_pk);
+                    //_this.printChasuLabel({ chasu: result.chasu, good_qty: result.good_qty_sum, lot_no: result.lot_number });
+                    _this.showBasicInfo(result.jr_pk);
+                    let grid_index = _this.grid.getList('selected')[0].__index
+                    _this.grid.setValue(grid_index, 'good_qty', result.good_qty_sum);
+                    _this.grid.repaint();
+                }
+                else {
+                    Alert.alert('차수 추가 오류', result.message);
+                }
+            }
+            let url = this.baseUrl + '?action=chasu_add';
+            AjaxUtil.postAsyncData(url, data, addChasuCallbackSuccess);
+        }
+
+        // 마지막 차수삭제
+        deleteChasu() {
+            let _this = this;
+            let url = this.baseUrl + '?action=chasu_del';
+            let jr_pk = this.$tabBasic.find('#id').val();
+            if (this.chasuGrid.getList().length != 0) {
+                let fnsuccess = function () {
+                    //_this.chasuGrid.removeRow('last');
+                    let data = {
+                        'jr_pk': jr_pk,
+                    }
+                    let fnSuccess = function (res) {
+                        if (res.success) {
+                            Alert.alert('마지막 차수삭제', '삭제되었습니다.');
+                            _this.showChasuList(res.jr_pk);
+                            _this.showBasicInfo(res.jr_pk);
+                            let grid_index = _this.grid.getList('selected')[0].__index
+                            _this.grid.setValue(grid_index, 'good_qty', res.good_qty_sum);
+                            _this.grid.setValue(grid_index, 'defect_qty', res.defect_qty_sum);
+                            _this.grid.repaint();
+                            _this.showChasuList(res.jr_pk);
+                        } else {
+                            Alert.alert('차수삭제오류', res.message);
+                        }
+                    }
+                    AjaxUtil.postAsyncData(url, data, fnSuccess);
+                };
+
+                let chasu_grid = this.chasuGrid.getList();
+                let chasu = chasu_grid.length;
+                let lot_no = chasu_grid[chasu-1].lot_no;
+                Alert.confirm('차수 삭제', '마지막 차수('+chasu+'차수) '+lot_no+'를 삭제하시겠습니까?', fnsuccess);
+            } else {
+                Alert.alert('마지막 차수 삭제오류', '차수 데이터가 없습니다.');
+            }
+        }
+
+        // 차수 수량 변경 저장, 선택된 차수만 업데이트
+        saveChasu() {
+            let _this = this;
+            let items = this.chasuGrid.getList('selected');
+            if (items.length == 0) {
+                return;
+            }
+
+            let jr_pk = _this.$tabBasic.find('#id').val();
+            let item = items[0];
+            let mp_id = item.id;
+            let good_qty = item.good_qty;
+            let defect_qty = item.defect_qty;
+
+            if (good_qty == "0" || good_qty == "") {
+                Alert.alert('차수 양품량 수정', '잘못된 수량을 입력하셨습니다.');
+                return;
+            }
+
+            let data = {
+                jr_pk: jr_pk,
+                mp_id: mp_id,
+                good_qty: good_qty,
+                defect_qty: defect_qty
+            };
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    // result.good_qty_sum, result.defect_qty_sum, result.lot_number
+                    Notify.success('수정 되었습니다');
+                    _this.showChasuList(res.jr_pk);
+                    // result.good_qty_sum
+                    _this.grid.setValue(parseInt(_this.selectedIndex), 'good_qty', res.good_qty_sum);
+                    _this.grid.repaint();
+                    // _this.getWorkList();
+                    // _this.grid.select(parseInt(_this.selectedIndex));
+                    _this.showBasicInfo(res.jr_pk);
+                } else {
+                    Alert.alert('', res.message);
+                }
+            };
+            let url = this.baseUrl + '?action=chasu_save';
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        showBarcode() {
+            let _this = this;
+                // 바코드 출력
+                // 작업지시번호 바코드 설정
+            //
+            let select_jr = _this.grid.getList('selected')[0];
+            let select_chasu = _this.chasuGrid.getList('selected')[0];
+            if (select_chasu) {
+                select_jr['chasu_good_qty'] = select_chasu.good_qty;
+            }
+            //let data = {
+            //    'order_num': select_jr.order_num,
+            //    'mat_name': select_jr.mat_name,
+            //    'lot_num': select_jr.lot_num,
+            //    'mat_code': select_jr.mat_code,
+            //    'workcenter_name': select_jr.workcenter_name,
+            //    'good_qty': select_jr.good_qty,
+            //    'unit': select_jr.unit,
+            //    'prod_date': select_jr.prod_date,
+            //    'end_time': select_jr.end_time,
+            //    'unit': select_jr.unit,
+            //    'unit': select_jr.unit,
+            //};
+            let content = tmpl('barcode_tmpl', select_jr);
+            let $content = $(content);
+            
+            let modalContainer = null;
+            modalContainer = new PopupDraggable('바코드 출력');
+            modalContainer.open({ width: 600, height: 600, $content });
+
+                let $workOrderContainerDiv = $content.find('#workOrderContainerDiv');                
+
+                //order_num
+                let barcodeLabelText = select_jr.order_num + "(" + select_jr.mat_name + ")";
+                //if (result.order_num) {
+                    $content.find('#svgBarcodeWorkOrderNumber').JsBarcode(select_jr.order_num, {
+                        format: 'code128', // 바코드 포맷 / default: code128 / options: EAN, UPC, CODE39, ITF-14, MSI, Pharmacode, Codabar (각 옵션들에 대한 설명은 사이트 참조)
+                        width: 2, // 너비 / default: 2
+                        height: 100, // 높이 / default: 100
+                        displayValue: true, // 텍스트 표시 여부 / default: true
+                        text: barcodeLabelText, // 데이터 대신 특정 텍스트 표시 / default: undefined
+                        fontOptions: '', // 폰트 설정 / default: '' / options: bold, italic, bold italic
+                        font: 'monospace', // 폰트 / default: monospace / options: fantasy, etc... 사이트 참조
+                        textAlign: 'center', // 텍스트 위치 / default: center / options: left, center, right
+                        textPosition: 'bottom', // 텍스트 위치 / default: bottom / options: top, bottom
+                        textMargin: 2, // 바코드와 텍스트 사이 여백 / default: 2
+                        fontSize: 12, // 폰트 크기 / default: 20
+                        background: '#ffffff', // 바코드 배경 색 / default: #ffffff
+                        lineColor: '#000000', // 바코드 라인 색 / default: #000000
+                        margin: 10, // 바코드 영역 주변 여백 / default: 10
+                    });
+
+                    $content.find('#btnPrintWorkOrderBarcode').click(function (e) {
+                        let popupWindow = window.open("barcode_print", "_blank", "width=800px");
+                        let css = $('#print_css')[0].outerHTML;
+
+                        let html = $workOrderContainerDiv.html();
+                        popupWindow.document.write(css);
+                        popupWindow.document.write(html);
+                        popupWindow.print();
+                        return false;
+                    });
+
+                //}
+
+                //let lcontent = tmpl('lotnumber_table_tmpl', result);
+                //let $lcontent = $(lcontent);
+                let $LotNumberContainerDiv = $content.find('#LotNumberContainerDiv');
+                //$LotNumberContainerDiv.html($lcontent);
+                    barcodeLabelText = select_chasu.lot_no + "(" + select_jr.mat_name + ")";
+                    $content.find("#svgBarcodeLotNumber").JsBarcode( select_chasu.lot_no, {
+                        format: 'code128', // 바코드 포맷 / default: code128 / options: EAN, UPC, CODE39, ITF-14, MSI, Pharmacode, Codabar (각 옵션들에 대한 설명은 사이트 참조)
+                        width: 2, // 너비 / default: 2
+                        height: 100, // 높이 / default: 100
+                        displayValue: true, // 텍스트 표시 여부 / default: true
+                        text: barcodeLabelText, // 데이터 대신 특정 텍스트 표시 / default: undefined
+                        fontOptions: '', // 폰트 설정 / default: '' / options: bold, italic, bold italic
+                        font: 'monospace', // 폰트 / default: monospace / options: fantasy, etc... 사이트 참조
+                        textAlign: 'center', // 텍스트 위치 / default: center / options: left, center, right
+                        textPosition: 'bottom', // 텍스트 위치 / default: bottom / options: top, bottom
+                        textMargin: 2, // 바코드와 텍스트 사이 여백 / default: 2
+                        fontSize: 12, // 폰트 크기 / default: 20
+                        background: '#ffffff', // 바코드 배경 색 / default: #ffffff
+                        lineColor: '#000000', // 바코드 라인 색 / default: #000000
+                        margin: 10, // 바코드 영역 주변 여백 / default: 10
+                    });
+
+                    $content.find('#btnPrintLotNumberBarcode').click(function (e) {
+                        let popupWindow = window.open("barcode_print", "_blank", "width=800px");
+                        let css = $('#print_css')[0].outerHTML;
+
+                        let html = $LotNumberContainerDiv.html();
+                        popupWindow.document.write(css);
+                        popupWindow.document.write(html);
+                        popupWindow.print();
+                        return false;
+                    });
+
+        }
+
+        // 부적합목록 조회
+        showDefectList(type) {
+            let _this = this;
+
+            let jr_pk = _this.grid.getList('selected')[0].id
+            let workcenter_id = _this.grid.getList('selected')[0].workcenter_id
+
+            let param = {
+                'action': 'defect_list',
+                'jr_pk': jr_pk,
+                'workcenter_id': workcenter_id,
+                'type': type
+            }
+
+            if (type == 'chasu') {
+                param['chasu'] = _this.chasuGrid.getList('selected')[0].chasu
+            }
+
+            let result = AjaxUtil.getSyncData(this.baseUrl, param);
+            if (result) {
+                let count = result.length;
+
+                    _this.defectGrid.setData({
+                        list: result,
+                        page: {
+                            display: true,
+                            totalElements: count
+                        }
+                    });
+                    let chasu_def_qty = 0;
+                    for (let i = 0; i < count; i++) {
+                        chasu_def_qty +=parseInt(this.defectGrid.getList()[i].defect_qty)
+                    }
+
+
+
+            }
+        }
+
+        // 부적합목록 저장
+        saveDefectList(defectGridList, action) {
+            let _this = this;
+
+            let url = this.baseUrl + '?action=defect_save';
+            let jr_pk = $('#tabBasic').find('#id').val();
+            //let chasu = this.chasuGrid.getList('selected')[0].chasu;
+            let workcenterId = $('#tabBasic').find('#workcenter_id').val();
+
+            let defectList = [];
+            let dataDefault = {
+                'defect_id': '',
+                'defect_type': '',
+                'defect_qty': '',
+                'defect_remark': '',
+            }
+
+            defectGridList.forEach(function (item) {
+                let defectItem = {};
+                $.each(dataDefault, function (key) {
+                    defectItem[key] = item[key]
+                });
+
+                if (!defectItem.defect_qty) {
+                    defectItem.defect_qty = 0;
+                }
+
+                defectList.push(defectItem);
+            });
+
+            let data = {
+                'jr_pk': jr_pk,
+                'defect_list': JSON.stringify(defectList),
+                //'chasu' : chasu
+            }
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    if (action != 'workStart') {
+                        Notify.success('저장되었습니다');
+                    }
+                    $('#tabBasic').find('#defect_qty').val(res.total_defect);
+                    let grid_index = _this.grid.getList('selected')[0].__index
+                    //let chasu_grid_index = _this.chasuGrid.getList('selected')[0].__index
+                    _this.grid.setValue(grid_index, 'defect_qty', res.total_defect);
+                    _this.grid.repaint();
+                    //_this.chasuGrid.setValue(chasu_grid_index, 'defect_qty', res.chasu_defect);
+                    //_this.chasuGrid.repaint();
+                    //_this.showDefectList('chasu');
+                    _this.showDefectList('total');
+
+                }
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        // 투입목록 조회
+        showConsumedList(jr_pk, prod_pk, prodDate) {
+
+            let _this = this;
+
+            let bom_output_amount = $('#bom_output_amount').val();
+
+            let param = {
+                'action': 'consumed_list',
+                'jr_pk': jr_pk,
+                'prod_pk': prod_pk,
+                'prod_date': prodDate,
+                'bom_output_amount': bom_output_amount,
+            };
+
+            let result = AjaxUtil.getSyncData(this.baseUrl, param);
+            if (result) {
+                let count = result.length;
+                _this.consumedGrid.setData({
+                    list: result,
+                    page: {
+                        display: true,
+                        totalElements: count
+                    }
+                });
+
+                let goodQty = parseFloat($('#tabBasic').find('#good_qty').val());
+                let defectQty = parseFloat($('#tabBasic').find('#defect_qty').val());
+                let lossQty = parseFloat($('#tabBasic').find('#loss_qty').val());
+                let scrapQty = parseFloat($('#tabBasic').find('#scrap_qty').val());
+
+                if (isNaN(goodQty)) goodQty = 0;
+                if (isNaN(defectQty)) defectQty = 0;
+                if (isNaN(lossQty)) lossQty = 0;
+                if (isNaN(scrapQty)) scrapQty = 0;
+
+                let totalProdQty = goodQty + defectQty + lossQty + scrapQty;
+                $('#lblTotalOutput').text(totalProdQty);
+            }
+        }
+
+        // 투입목록 저장
+        saveConsumedList() {
+            let _this = this;
+
+            let url = this.baseUrl + '?action=consumed_save';
+            let jr_pk = $('#tabBasic').find('#id').val();
+            let mp_pk = $('#tabBasic').find('#mp_id').val();
+            let prodDate = $('#tabBasic').find('#prod_date').val();
+            let bom_output_amount = $('#bom_output_amount').val();
+            let gridDataList = this.consumedGrid.getList();
+            let consumedList = [];
+            let dataDefault = {
+                'mat_pk': '',
+                'bom_consumed': '',
+                'consumed': '',
+                'scrap_consumed': '',
+                //'add_consumed': '',
+                'consumed_start': '',
+                'consumed_end': '',
+            }
+
+            if (gridDataList.length == 0) {
+                Alert.alert('', '품목을 추가해주세요.');
+                return;
+            }
+
+            for (var i = 0; i < gridDataList.length; i++) {
+                let item = gridDataList[i];
+                let consumedItem = {};
+
+                $.each(dataDefault, function (key) {
+                    if (item[key]) {
+                        consumedItem[key] = item[key];
+                    } else {
+                        consumedItem[key] = '';
+                    }
+                });
+
+                consumedList.push(consumedItem);
+            }
+
+            let data = {
+                'jr_pk': jr_pk,
+                'mp_pk': mp_pk,
+                'prod_date': prodDate,
+                'bom_output_amount': bom_output_amount,
+                //'consumed_list': JSON.stringify(consumedList)
+                'Q': JSON.stringify(consumedList)
+            };
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Notify.success('저장되었습니다');
+                    _this.showConsumedList(jr_pk);
+                }
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        // 투입목록 품목추가
+        addMaterial() {
+            let _this = this;
+
+            if (this.jobres.state == "ordered") {
+                Alert.alert('LOT 투입오류', '작업이 시작되지 않았습니다.');
+                return;
+            }
+
+
+            let valid = true;
+            let matList = this.consumedGrid.getList();
+            let poppage = new PopupMaterialPage();
+            let addColumn = {};
+
+            let searchcallback = function (mat) {
+                matList.forEach(function (item) {
+                    if (mat.id == item.mat_pk) {
+                        valid = false;
+                    }
+                });
+
+                if (valid) {
+                    addColumn['mat_pk'] = mat.id;
+                    addColumn['mat_name'] = mat.Name;
+                    addColumn['unit'] = mat.unit_name;
+                    addColumn['bom_consumed'] = '';
+                    //addColumn['add_consumed'] = '';
+                    addColumn['consumed'] = '';
+                    addColumn['consumed_start'] = '';
+                    addColumn['consumed_end'] = '';
+
+                    _this.consumedGrid.addRow(
+                        addColumn,
+                        'last',
+                        { focus: 'END' }
+                    );
+                } else {
+                    Alert.alert('', '해당 품목은 이미 추가되어있습니다.');
+                }
+            };
+
+            poppage.show(searchcallback);
+        }
+
+        // 투입로트목록
+        addMaterialLot() {
+            let _this = this;
+            let jr_pk = $('#tabBasic').find('#id').val();
+
+            let valid = true;
+            //let matList = this.consumedGrid.getList();
+            let poppage = new PopupConsumMatLotPage();
+            let lot_info = {};
+
+            let searchcallback = function (lot) {
+
+                if (valid) {
+                    lot_info['lot_id'] = lot.id;
+                    lot_info['lot_number'] = lot.lot_number;
+                    lot_info['input_qty'] = lot.input_qty;
+
+                    $('#txtInputLot').val(lot.lot_number);
+                    _this.showLotInput(lot.lot_number);
+
+                } else {
+                    Alert.alert('', '해당 로트는 이미 추가되어있습니다.');
+                }
+            };
+
+            poppage.show(jr_pk, searchcallback);
+        }
+
+        // 투입로트정보
+        showLotInput(lot_number) {
+            let _this = this;
+
+            if (this.jobres.state == "ordered") {
+                Alert.alert('LOT 투입오류', '작업이 시작되지 않았습니다.');
+                return;
+            }
+
+            let valid = true;
+            //let matList = this.consumedGrid.getList();
+            let poppage = new PopupLotInputPage();
+            let lot_info = {};
+
+            let callback = function (lot) {
+                //matList.forEach(function (item) {
+                //    if (mat.id == item.mat_pk) {
+                //        valid = false;
+                //    }
+                //});
+
+                if (valid) {
+                    lot_info['lot_id'] = lot.lot_id;
+                    lot_info['lot_number'] = lot.lot_number;
+                    lot_info['input_qty'] = lot.input_qty;
+
+                    _this.saveLotInput(lot.lot_id, lot.input_qty);
+
+                    //let mp_pk = $('#tabBasic').find('#mp_id').val();
+                    //_this.showInputLotList(); //중복호출 saveLotInput  에서 이미 호출
+
+                } else {
+                    Alert.alert('', '해당 로트는 이미 추가되어있습니다.');
+                }
+            };
+
+            poppage.show(lot_number, callback);
+        }
+
+
+        // 투입로트 저장
+        saveLotInput(lot_id, input_qty) {
+            let _this = this;
+
+            let url = this.baseUrl + '?action=add_lot_input';
+            let jr_pk = $('#tabBasic').find('#id').val();
+            let mp_pk = $('#tabBasic').find('#mp_id').val();
+
+            let data = {
+                'jr_pk': jr_pk,
+                'mp_pk': mp_pk,
+                'lot_id': lot_id,
+                //'lot_number': lot_number,
+                'input_qty': input_qty,
+            };
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Notify.success('저장되었습니다');
+                    _this.showInputLotList();
+
+                    _this.showConsumedList(jr_pk);
+                    
+                    $('#txtInputLot').val('');
+                }
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        // 투입로트 조회
+        // 투입목록 조회
+        showInputLotList() {
+            let _this = this;
+            //let mp_pk = $('#tabBasic').find('#mp_id').val();
+            let jr_pk = $('#tabBasic').find('#id').val();
+            let param = {
+                'action': 'input_lot_list',
+                //'mp_pk': mp_pk,
+                'jr_pk': jr_pk,
+            };
+
+            let result = AjaxUtil.getSyncData(this.baseUrl, param);
+            if (result) {
+                let count = result.length;
+                _this.InputLotGrid.setData({
+                    list: result,
+                    page: {
+                        display: true,
+                        totalElements: count
+                    }
+                });
+            }
+        }
+        exportExcel1() {
+            var targetview = this.grid;
+            targetview.exportExcel('생산목록.xls');
+        }
+
+
+        exportExcel(target) {
+            if (target == 'tabDefect') {
+                var targetview = this.defectGrid;
+                targetview.exportExcel('부적합내역.xls');
+            } else if (target == 'tabConsumed') {
+                var targetview = this.consumedGrid;
+                targetview.exportExcel('투입내역.xls');
+            }
+        }
+
+    }
+
+    let page = null;
+
+    $(document).ready(function (e) {
+        page = new ProdResultPage();
+
+        let date_from = CommonUtil.getYYYYMMDD();
+        let today = CommonUtil.getYYYYMMDD();
+        page.today = today;
+
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),
+            direction: "top",
+            locale: {
+                format: 'YYYY-MM-DD'
+            },
+            content: {
+                width: 214,  // 130, //270,
+                margin: 10,
+                type: 'date',
+
+                config: {
+                    control: {
+                        left: '<i class="fa fa-arrow-left"></i>',   //fa-chevron-left
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-arrow-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            },
+            btns: {},
+        });
+
+        $('#srchdate').ax5DatePicker({ direction: 'top' });
+        $('#date_from').val(date_from);
+        $('#date_to').val(today);
+        $('#prod_date').ax5DatePicker({ direction: 'bottom' });
+        $('#end_date').ax5DatePicker({ direction: 'bottom' });
+
+        // timepicker
+        $('#start_time').timepicker({
+            show2400: true,
+            timeFormat: 'H:i'
+        }).val('00:00');
+
+        $('#end_time').timepicker({
+            show2400: true,
+            timeFormat: 'H:i'
+        }).val('00:00');
+
+        // 보기/감추기 버튼
+        $('#btnWorkListToggle').click(function (e) {
+            //$("#prod-result-grid").toggle(300);
+            $("#prodResultList").toggle(300);
+        });
+        $('#btnLotListToggle').click(function (e) {
+            //$("#prod-result-grid").toggle(300);
+            $("#input_lot_div").toggle(300);
+        });
+        $("#input_lot_div").toggle(300);
+
+        // 검색 버튼
+        $('#btnMainSearch').click(function (e) {
+            page.searchMainData();
+        });
+
+        // tab클릭
+        let target;
+        $('.tab_links .tab').click(function (e) {
+            let jr_pk = $('#tabBasic').find('#id').val();
+            let workcenter_pk = $('#tabBasic').find('#workcenter_id').val();
+
+            target = e.currentTarget.name;
+            page.currentTab = target;
+
+            if (target == 'tabDefect') {
+                if (jr_pk && workcenter_pk) page.showDefectList('total');
+            } else if (target == 'tabConsumed') {
+                if (jr_pk) {
+                    page.showInputLotList();
+                    page.showConsumedList(jr_pk);
+                }
+            }
+        });
+
+        // 생산정보 저장
+        $('#btnSave').click(function (e) {
+            page.saveBasicInfo();
+        });
+
+        // 작업시작
+        $('#btnWorkStart').click(function (e) {
+            page.workStart();
+        });
+
+        // 작업완료
+        $('#btnWorkFinish').click(function (e) {
+            page.workFinish();
+        });
+
+        // 작업완료취소
+        $('#btnFinishCancel').click(function (e) {
+            page.workFinishCancel();
+        });
+
+        // 차수추가
+        $('#btnAddChasu').click(function (e) {
+            page.addChasu();
+        });
+
+        // 차수저장
+        $('#btnSaveChasu').click(function (e) {
+            if (page.chasuGrid.getList().length == 0) {
+                Alert.alert('', '차수를 추가해주세요.');
+            } else {
+                page.saveChasu();
+            }
+        });
+
+        // 차수삭제
+        $('#btnDeleteChasu').click(function (e) {
+            page.deleteChasu();
+        });
+
+        // 차수 lot바코드 팝업
+        $('#btnLOTbarcode').click(function (e) {
+            page.showBarcode();
+        });
+        // 차수 lot바코드 팝업
+        $('#btnJRbarcode').click(function (e) {
+            page.showBarcode();
+        });
+
+        // 부적합내역 저장
+        $('#btnDefectSave').click(function (e) {
+            page.saveDefectList(page.defectGrid.getList('modified'));
+        });
+
+        // 투입내역 저장
+        $('#btnConsumedSave').click(function (e) {
+            page.saveConsumedList();
+        });
+
+        // 품목추가
+        $('#btnAddMat').click(function (e) {
+            page.addMaterial();
+        });
+
+        // 투입내역 조회
+        $('#btnConsumedView').click(function (e) {
+            let jr_pk = $('#tabBasic').find('#id').val();
+            if (jr_pk)
+                page.showConsumedList(jr_pk);
+        });
+
+        $('#defect_qty').click(function (e) {
+            $(".tabs .tab_links [name='tabDefect'").trigger('click');
+        });
+
+        $('#btnInputLotList').click(function (e) {
+            //alert('btnInputLotList');
+            let jr_pk = $('#tabBasic').find('#id').val();
+            //let mp_pk = $('#tabBasic').find('#mp_id').val();
+            page.showInputLotList();
+        });
+
+        $('#btnInputLotSelect').click(function (e) {
+            //alert('btnInputLotSelect');
+            page.addMaterialLot();
+        });
+
+        $('#btnInputLotSave').click(function (e) {
+                  
+            //alert('btnInputLotSave');
+            //let jr_pk = $('#tabBasic').find('#id').val();
+            //page.showConsumedList(jr_pk);
+            let lot_number = $('#txtInputLot').val();
+            page.showLotInput(lot_number);
+        });
+
+        // 일반 바코드 스캐너 이벤트
+        $('#txtInputLot').keydown(function (e) {
+            if (e.keyCode == 9) {
+                let lot_number = $('#txtInputLot').val();
+                page.showLotInput(lot_number);
+
+            }
+        });
+
+
+        $('#txtInputLot').keydown(function (event) {
+            let jr_pk = $('#tabBasic').find('#id').val();
+            let lot_number = $('#txtInputLot').val();
+            let keyCode = event.keyCode || event.which;
+            if (event.key === 'Enter' || keyCode === 13) {
+                //alert('txtInputLot');
+                page.showLotInput(lot_number);
+            }
+        });
+
+
+        //엑셀다운로드
+        $('#btnExcel').on('click', function () {
+            page.exportExcel1();
+        });
+
+        $('#btnExcel2').on('click', function () {
+            page.exportExcel(target);
+        });
+
+        $('#btnExcel3').on('click', function () {
+            page.exportExcel(target);
+        });
+
+
+        //그리드 컬럼설정
+        page.popColSetting = new popColSetting();
+        let columns1 = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'grid1', page.grid);
+        let columns2 = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'grid2', page.defectGrid);
+        let columns3 = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'grid3', page.consumedGrid);
+
+        if (userinfo.group_code == 'admin') {
+            $('#btnGridSetting').css('visibility', 'visible');
+            $('#btnGridSetting2').css('visibility', 'visible');
+            $('#btnGridSetting3').css('visibility', 'visible');
+        }
+
+        $('#btnGridSetting').click(function (e) {
+            let _this = this;
+            let fix_cols = page.grid_config1.frozenColumnIndex;
+            page.popColSetting.show(gui.gui_code, gui.template_key, 'grid1', page.grid_config1.columns, page.grid, { 'order_fix': false, 'fix_cols': fix_cols });
+        });
+        $('#btnGridSetting2').click(function (e) {
+            let _this = this;
+            let fix_cols = page.grid_config2.frozenColumnIndex;
+            page.popColSetting.show(gui.gui_code, gui.template_key, 'grid2', page.grid_config2.columns, page.defectGrid, { 'order_fix': false, 'fix_cols': fix_cols });
+        });
+        $('#btnGridSetting3').click(function (e) {
+            let _this = this;
+            let fix_cols = page.grid_config3.frozenColumnIndex;
+            page.popColSetting.show(gui.gui_code, gui.template_key, 'grid3', page.grid_config3.columns, page.consumedGrid, { 'order_fix': false, 'fix_cols': fix_cols });
+        });
+
+        page.searchMainData();
+
+    });
+</script>
+</th:block>
+</html>
+

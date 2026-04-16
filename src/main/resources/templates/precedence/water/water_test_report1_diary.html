@@ -1,0 +1,994 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+<style>
+.input-group > .input-group-prepend > .fit_box_t5_area{width : 200px;}
+
+table.type01 {
+        border-collapse: collapse;
+        text-align: left;
+        line-height: 1.5;
+        margin: 20px 10px;
+    }
+
+        table.type01 th {
+            width: 150px;
+            padding: 10px;
+            font-weight: bold;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        table.type01 td {
+            width: 650px;
+            padding: 10px;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+        }
+</style>
+</head>
+
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+    <input type="hidden" id="bhId" th:value="${bh_id}" />
+    <input type="hidden" id="data_date" th:value="${data_date}" />
+    <input type="hidden" id="search_cond" th:value="${searchcond}" />
+    <input type="hidden" id="viewMode" th:value="${view_mode}" />
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>용수검사성적서</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>일지 및 데이터</li>
+                <li>선행요건일지</li>
+                <li>용수검사성적서</li>
+            </ul>
+        </div>
+
+    <section class="section">
+        <!--<div class="title_box ">
+            <div class="left_align">
+                <h3 data-labelCd="용수검사성적서">용수검사성적서</h3>
+            </div>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>
+        </div>-->
+
+        <div class="section-top">
+            <div class="search-wrap">
+                <dl>
+                    <dt>
+                        <label>일지명</label>
+                    </dt>
+                    <dd>
+                        <input class="form-control2 tac" type="text" id="title" name="title" />
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                        일자<span class="eq"></span>
+                    </dt>
+                    <dd>
+                        <input class="form-control2 tac" type="text" id="dataDate" name="dataDate" readonly />
+                        <!-- <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color" onclick="javascript: $('#dataDate').click()"></i></span>-->
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                        <label>작성자</label>
+                    </dt>
+                    <dd>
+                        <div class="srch-box">
+                            <input class="form-control2 tac" type="text" id="firstName" name="firstName" disabled />
+                        </div>
+                    </dd>
+                </dl>
+
+                <dl>
+                    <dt>
+                        <label>종합판정</label>
+                    </dt>
+                    <dd>
+                        <select class="form-control2 "  id="judgment" name="judgment" disabled>
+                            <option value = "적합">적합</option>
+                            <option value = "부적합">부적합</option>
+                        </select>
+                    </dd>
+                </dl>
+
+                <div>
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="title_box">
+            <span class="right_align rpt" data-labelCd="관리기준">관리기준</span>
+            <div class="left_align">
+                <label class="switch">
+                    <input type="checkbox" checked id="btnToggle"><span class="slider round"></span>
+                </label>
+                관리기준 보기/감추기
+            </div>
+        </div>
+        <div id="standardDIv">
+            <div class="row">
+                <div class="col-12">
+                    <table class="type01" colspan="2">
+                        <tr>
+                            <th scope="row" >검사 방법</th>
+                            <td colspan = 5>▣ 측정범위 : 해당개소에서 스페시맨컵에 용수를 채취하여 측정한다.<br>
+▣ 측정방법 : 먹는물수질관리법에 의거하여 확인한다.일반세균-건조필름배지, 총대장균군-Coliert kit법에 따라 각 배양조건에 배양한 후 결과를 확인한다.
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row" >항목</th>
+                            	<td>일반세균</td>
+                            	<td>총대장균군</td>
+                            	<td>대장균․분원성대장균군</td>
+                            	<td>검사주기</td>
+                            	<td>기록관리</td>
+								
+						</tr>
+						<tr>
+                            <th scope="row" >기준규격</th>
+                            	<td>10² cfu/㎖이하</td>
+                            	<td>음성/100ml</td>
+                            	<td>음성/100ml</td>
+                            	<td>1회/1개월</td>
+                            	<td>용수 검사성적서</td>
+								
+						</tr>
+                        <tr>		
+								<td colspan = 6 align='center'>※ 사내 검사관리기준서 용수관리기준에 의거하여 총대장균군이 음성일 경우, 
+   									분원성대장균군 음성으로 판독한다.
+   								</td>
+                            	
+                        </tr>
+                        <tr>		
+								<th scope="row" >배양조건</th>
+                            	<td colspan = 2>▣ 일반세균 : 35±1℃, 48±2시간<br>
+									▣ 대장균군 : 35±1℃, 24±2시간<br>
+									▣ 분원성대장균군 : 35±1℃, 24±2시간
+									</td>
+                            	<td colspan = 3>▣ 일반세균 : ℃,  0월 0일 0시 ~ 0월 0일 0시<br>
+									▣ 대장균군 : 1℃,  0월 0일 0시 ~ 0월 0일 0시<br>
+									▣ 분원성대장균군 : ℃,  0월 0일 0시 ~ 0월 0일 0시
+									</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </section>
+
+    <section class="section">
+        <div class="section-top">
+            <div class="search-wrap">
+                <dl>
+                    <dt>
+                        구역명
+                    </dt>
+                    <dd>
+                        <input class="form-control2 tac" type="text" id="location" name="location" placeholder="직접입력해주세요"/>
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                        채취일자
+                    </dt>
+                    <dd>
+                        <input class="form-control2 tac" type="date" id="pickupDate1" name="pickupDate1"/>
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                        검사마스터
+                    </dt>
+                    <dd>
+                        <input class="form-control2 tac" type="text" id="mast" name="mast" value="용수검사성적서"/>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+        <div class="grid_box" id="prodListGrid">
+            <div class="title_box">
+                <span class="right_align rpt" data-labelCd="점검 목록">점검 목록</span>
+                
+                <button type="button" class="btn-default" id="btnExcel"><i class="fas fa-file-excel"></i></button>
+                <button type="button" class="btn-default" id="btnDiaryPrint">일지출력</button>
+                <button type="button" class="btn-default" id="btnAllItem">전체적합</button>
+                <button type="button" class="btn-default" id="btnReqAppr">결재상신</button>
+                <button type="button" class="btn-default" id="btnAppr" style="display:none;">승인</button>
+                <button type="button" class="btn-cancel" id="btnReject" style="display:none;">반려</button>
+                <button type="button" class="btn-default" id="btnSave">저장</button>
+               <!--<button type="button" class="btn-cancel" id="btnDelete">삭제</button>-->
+                <button type="button" class="btn-default" id="btnList">목록</button>
+                <button type="button" class="btn-default" id="btnNew" name="btnNew"><i class="fas fa-plus"></i></button>
+            </div>
+
+
+
+            <div class="grid_box" id="complainList">
+                <div class="h-380" data-ax5grid="check_item_result_grid" ></div>
+            </div>
+        </div>
+
+        <div class="grid_box" id="sub_grid">
+            <div class="title_box" id="button_box2">
+                <div class="left_align">
+                    <button type="button" class="btn-default" id="btnDeviActionSave" style="display:none">저장</button>
+                </div>
+            </div>
+            <div class="h-200" data-ax5grid="devi_action_grid"></div>
+        </div>
+    </section>
+
+</div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="/common/approve_box :: approve_box"></th:block>
+<th:block th:replace="/common/ax5_uploader :: ax5_uploader" ></th:block>
+<th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+<script type="text/javascript">
+    class CheckResultDiaryPage {
+        constructor() {
+            this.grid = null;
+            this.uploader = null;
+            this.approveBoxUtil = null;
+            this.type = 1;
+            this.List = [];
+            this.resultGrid = null;
+            this.checkMasterName = '용수검사성적서'
+            this.baseUrl = '/api/precedence/water_test';
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+            
+			this.gparam = {
+				bh_id : $('#bhId').val(),
+				data_date : $('#data_date').val(),
+				search_cond: $('#search_cond').val(),
+				view_mode: $('#viewMode').val(),
+			};
+			
+			 $('#firstName').val(userinfo.username);
+             $('#title').val('용수검사성적서');
+             $("#dataDate").val($('#data_date').val());
+			 $("#pickupDate").val(data_date);
+			
+			
+			
+            let resultConfig = {
+                target: $('[data-ax5grid="check_item_result_grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 25  // 헤더 높이
+                },
+                body: {
+                   columnHeight: 25, // body의 기본 높이
+                   onClick: function (e) {
+							//if (e.column.key == 'Char1') {
+                       //}
+                    },
+                    onDataChanged: function () {
+                        // 규격유형 변경 시 상하한, 규격문자 초기화
+                        if (this.key == 'spec_type') {
+                            _this.resultGrid.setValue(this.dindex, 'low_spec', '');
+                            _this.resultGrid.setValue(this.dindex, 'upper_spec', '');
+                            _this.resultGrid.setValue(this.dindex, 'spec_text', '');
+                            _this.resultGrid.setValue(this.dindex, 'eng_spec_text', '');
+                        }
+
+                        if (this.key == 'Char1') {
+                            _this.makeSpecText(this);
+                        }
+                        
+                         if (this.key == 'Char2') {
+							for(var i = 0; i < this.list.length; i++) {
+								if(this.list[i].Char2 == "O")  {
+									$("#judgment").val("적합");
+								} else {
+									$("#judgment").val("부적합");
+									break;
+								}
+							}
+						}
+                    }
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                	{ key: 'CharResult', label: '위치', width: 130, align: 'left' },
+                    { key: 'Name', label: '검사항목', width: 160, align: 'right' },
+                    { key: 'SpecText', label: '검사기준', width: 300, align: 'center'},
+                    { key: 'Char1', label: '검사결과', width: 300, align: 'left',editor: {
+                            type: 'text', config: {},formatter:function(){}
+                        }},
+                    { key: 'Char2', label: '<span class="editable_clr">점검결과(입력)</span>', width: 150, align: 'center', },
+                ]
+            }
+            this.resultGrid = new ax5.ui.grid(resultConfig);
+            
+            
+            // 조치내역 그리드
+            let devi_action_config = {
+                target: $('[data-ax5grid="devi_action_grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 38  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.deviGrid.select(this.dindex);
+
+                        if (e.column.key == 'action_detail' && !$('#viewMode').val()) {
+                            _this.showDeviActionCodeSavePopup(e.item);
+                        }
+                    },
+                    onDataChanged: function (e) {
+                    }
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: false,
+                },
+                columns: [
+                    { key: 'check_result_id', label: '번호', width: 80, align: 'right', hidden: true },
+                    { key: 'src_data_pk', label: '점검항목결과번호', width: 80, align: 'right', hidden: true },
+                    //{ key: 'happen_date', label: '발생일', width: 80, align: 'left' },
+                    { key: 'confirm_detail', label: '발생구역', width: 150, align: 'center' },
+                    { key: 'check_name', label: '검사항목', width: 100, align: 'left' },
+                    { key: 'abnormal_detail', label: '이상발생내역', width: 200, align: 'left' },
+                    { key: 'action_detail', label: '<span class="editable_clr">조치내역및결과</span>', width: 300, align: 'left', editor: {} },
+                    //{ key: 'actor_date', label: '조치완료일', width: 100, align: 'left' },
+                    { key: 'actor_name', label: '조치자', width: 80, align: 'left' },
+                    { key: 'creater_name', label: '작성자', width: 80, align: 'left' },
+                    { key: 'confirm_state', label: '확인', width: 80, align: 'left', hidden: true },
+                ]
+            };
+            this.deviGrid = new ax5.ui.grid(devi_action_config);
+            _this.deviTabType = this.deviGrid;
+
+        }
+        
+        
+        makeSpecText(row) {
+            let _this = this;
+            let specText = '';
+            let specType = row.item.SpecType;
+            let result = '';
+
+            if (specType == 'low') {
+                if (row.item.Char1) {
+                   specText = row.item.LowSpec;
+                    if(specText <= row.item.Char1){
+						result = "O";
+					}else{
+						result = "X";
+					}
+                }else{
+						result = "";
+				}
+            } else if (specType == 'upper') {
+                if (row.item.Char1) {
+                    specText = row.item.UpperSpec;
+                    if(specText >= row.item.Char1){
+						result = "O";
+					}else{
+						result = "X";
+					}
+                }else{
+						result = "";
+				}
+            } else if (specType == 'range') {
+                if(row.item.Char1){
+					specText = row.item.Char1;
+					if(row.item.LowSpec <= specText && specText <= row.item.UpperSpec){
+						result = "O";
+					}else{
+						result = "X";
+					}
+				}else{
+					result = "";
+				}
+            }
+
+            this.resultGrid.setValue(row.dindex, 'Char2', result);
+        }
+        
+        
+
+        setResultTypeConfig(editorType) {
+            let config = {};
+            if (editorType == 'select') {
+                config = {
+                    columnKeys: {
+                        optionValue: "val",
+                        optionText: "text"
+                    },
+                    options: [
+                        { val: "", text: "" },
+                        { val: "O", text: "O:적합" },
+                        { val: "X", text: "X:부적합" }
+                    ]
+                };
+            }
+            return config;
+        }
+
+        checkAllItem() {
+            let _this = this;
+            let items = [];
+            _this.resultGrid.list.forEach(function (item, idx) {
+                if (item.result_type == 'OX')
+                    item.result1 = 'O';
+            });
+            _this.resultGrid.repaint();
+        }
+
+        // 일지 조회
+        searchMainData() {
+	
+			if($("#bhId").val() == 0){
+				return;
+			}
+			
+            let _this = this;
+            $('#btnDiaryPrint').hide();
+            $('#btnDelete').hide();
+
+            $('#firstName').val(userinfo.username);
+            $('#title').val('용수검사성적서');
+
+                let param = {
+                    //'action': 'read',
+                    'bhId': $('#bhId').val(),
+                    'data_date' : $("#data_date").val()
+                };
+                
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/ListRead', param);
+                
+                
+                if (result != null) {
+                    _this.headInfo = result.data.head_info;
+                    _this.diaryInfo = result.data.diary_info;
+                    _this.action_info = result.data.action_info;
+                    
+                    $("#pickupDate1").val(_this.diaryInfo[0].testdatetime);
+                    $("#dataDate").val(_this.diaryInfo[0].date1);
+                    $("#location").val(_this.diaryInfo[0].CharResult);
+                    
+                    
+                    _this.resultGrid.setData({
+                        list:  _this.diaryInfo,
+                        page: {
+                            display: true,
+                            totalElements: _this.diaryInfo.length,
+                        }
+                    });
+                    
+                     _this.deviGrid.setData({
+	                    list: _this.action_info,
+	                    page: {
+	                        display: true,
+	                        totalElements: _this.action_info.length,
+	                    }
+	                });
+
+                    _this.viewModeSetting(_this.headInfo)
+                } 
+
+            // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+            _this.approveBoxUtil = new ApproveBoxUtil(0, _this.checkMasterName, $('#bhId').val(), 'bundle_head', false, false);
+            _this.approveBoxUtil.print($('#viewMode').val());
+            if (_this.approveBoxUtil.isApprUser()) {
+                // 결재자의 경우 버튼 처리
+                $('#btnAppr').show();
+                $('#btnReject').show();
+            }
+        }
+
+        searchItemList() {
+            let _this = this;
+
+            let param = {
+                //'action': 'read',
+                'bhId' : $("#bhId").val(),
+            }
+            
+            let result = AjaxUtil.getSyncData(_this.baseUrl +'/read', param);
+            
+            
+            _this.resultGrid.setData({
+                list: result.data,
+                page: {
+                    display: true,
+                    totalElements: result.data.length,
+                }
+            });
+        }
+
+        viewModeSetting(headInfo) {
+             // 데이터에 따른 버튼 설정
+            if ($('#viewMode').val().toLowerCase() == 'true') {
+                //보기 모드일 경우 CRUD 버튼 숨김
+                $('#btnDiaryPrint').hide();
+                $('#btnReqAppr').hide();
+                $('#btnSave').hide();
+                $('#btnDelete').hide();
+                $('#btnAllItem').hide();
+                $("#btnNew").hide();
+                if (headInfo.State == 'approval') {
+                    $('#btnDiaryPrint').show();
+                }
+
+                $('#title').attr('disabled', 'disabled');
+                $('#dataDate').attr('disabled', 'disabled');
+                $('#location').attr('disabled', 'disabled');
+                $('#mast').attr('disabled', 'disabled');
+                $('#pickupDate1').attr('disabled', 'disabled');
+                
+                
+
+            }
+            else {
+                // State : 작성, 미결재, 승인, 반려, 재상신
+                $('#btnDelete').show();
+                $('#btnDiaryPrint').hide();
+                if (headInfo.State == 'process' || headInfo.State == 'reprocess') {
+                    $('#btnReqAppr').hide();
+                    $('#btnSave').hide();
+                    $('#btnDelete').hide();
+                    $('#btnAllItem').hide();
+                } else if (headInfo.State == 'approval') {
+                    $('#btnDiaryPrint').show();
+                    $('#btnReqAppr').hide();
+                    $('#btnSave').hide();
+                    $('#btnDelete').hide();
+                    $('#btnAllItem').hide();
+                }
+
+                if (parseInt($('#bhId').val(), 10) > 0) {
+                    $('#dataDate').attr('disabled', 'disabled');
+                } else {
+                    $('#btnDelete').hide();
+                }
+            }
+        }
+
+        // 일지 출력
+        printDiary() {
+            let param = {
+                'title': $('#title').val(),
+                'bh_id': $('#bhId').val(),
+            };
+
+            let result = AjaxUtil.postSyncData(this.baseUrl + '/print', param, function () { });
+            if (result.success) {
+                CommonUtil.openWindow('/api/files/pdf_viewer?file_id=' + result.file_id)
+            }
+            else {
+                Alert.alert('', '일지 생성 중 오류가 발생했습니다. 관리자에게 문의하세요.');
+            }
+        }
+
+        //결재
+        appr(isAppr) {
+            let _this = this;
+            _this.approveBoxUtil.approval(isAppr, function () {
+                $('#btnList').click();
+            });
+        }
+
+        //결재상신
+        reqAppr() {
+            let _this = this;
+            let title = $('#title').val();
+            let url = '/gui/' + gui.gui_code + '/edit';
+            let urlParam = {
+                'bh_id': $('#bhId').val(),
+                'data_date': $('#dataDate').val(),
+            };
+
+            let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+            if (ret.success) {
+                Notify.success('결재상신하였습니다.');
+                $('#btnList').click();
+            }
+        }
+        
+        
+        plusList(){
+			 let _this = this;
+            $('#btnDiaryPrint').hide();
+            $('#btnDelete').hide();
+
+            $('#firstName').val(userinfo.username);
+            $('#title').val('용수검사성적서');
+
+                let param = {
+                    'bhId': $('#bhId').val(),
+                    'data_date' : $("#data_date").val()
+                };
+                
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/plusList', param);
+                
+                
+
+                if (result != null) {
+                    _this.headInfo = result.data.head_info;
+                   this.List = result.data.diary_info;
+                     let diLength = result.data.diary_info.length;
+                    for(let i=0; i<diLength;i++){
+							this.List[i].CharResult=$("#location").val();
+							let result = this.List[i];
+	 						_this.resultGrid.addRow($.extend({}, result),"last");
+					}
+                    _this.viewModeSetting(_this.headInfo)
+                } 
+            _this.approveBoxUtil = new ApproveBoxUtil(0, '용수검사성적서', $('#bhId').val(), 'bundle_head', false, false);
+            _this.approveBoxUtil.print($('#viewMode').val());
+            if (_this.approveBoxUtil.isApprUser()) {
+                // 결재자의 경우 버튼 처리
+                $('#btnAppr').show();
+                $('#btnReject').show();
+            }
+		}
+        
+        
+        showDeviActionCodeSavePopup(item) {
+
+            // 점검내역 조치내역 팝업
+            let _this = this;
+            let popupPage = new PopupSelectUserCodePage({
+
+                'title': '점검내역 선택',
+                'gridValueLabel': '점검항목',
+                'infoData': [
+                    { label: '이상발생내역', value: item.check_name },
+                ],
+                'parentCode': '용수검사성적서', 'closeManual': true,
+            });
+            popupPage.show(function (data) {
+                if (data && data.selected.Code == '직접입력') {
+                    item.action_detail = data.input;
+                } else {
+                    item.action_detail = data.selected.Value;
+                }
+                popupPage.close();
+                _this.deviTabType.repaint();
+                if (item.action_detail) {
+					_this.saveDeviAction();
+                }
+                
+            });
+        }
+        
+        
+        saveDeviAction() {
+            let _this = this;
+            //let url = '/api/common/devi_action?action=save_multi_devi_action';
+            let url = '/api/common/devi_action/save_dev_action';
+            let list = _this.deviGrid.getList('selected')[0]
+            if (!list) return;
+            let data = {
+                id : list.id,
+                source_pk : list.src_data_pk,
+                source_table_name : 'water_test',
+                happen_date : list.happen_date,
+                abnormal_detail : list.abnormal_detail,
+                action_detail : list.action_detail,
+                confirm_detail : list.confirm_detail,
+                Q: JSON.stringify(_this.deviTabType.getList()),
+            }
+            
+                        
+			let fnSuccess = function () {
+				Notify.success('저장되었습니다');
+			}
+			AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+        
+        
+
+        //저장
+        save(isAppr) {
+            let _this = this;
+            
+            
+            if($("#pickupDate1").val() == ''){
+				Alert.alert('', '채취일자를 입력해주세요.');
+                return;
+			}
+            
+			let result = this.resultGrid.getList();
+			
+            let callback = function () {
+          
+                let data = {
+                    bhId: $('#bhId').val(),
+                    title: $('#title').val(),
+                    data_date: $('#dataDate').val(),
+                    fileId : $("#srchFileId").val(),
+                    'headInfo': JSON.stringify(_this.headInfo),
+                    'diaryInfo': JSON.stringify(result),
+                    pickupDate : $("#pickupDate1").val(),
+                };
+                
+                
+                
+                let fnSuccess = function (resp) {
+                    if (resp.success) {
+                        if (isAppr) {
+                            // 결재요청
+                            _this.reqAppr();
+                        } else {
+                            // 임시저장
+                            $('#bhId').val(resp.data.id);
+                            Notify.success('저장하였습니다.');
+                            $('#btnDelete').show();
+                            $('#dataDate').attr('disabled', 'disabled');
+                            _this.searchMainData();
+                        }
+                    } else {
+                        Alert.alert('', resp.message);
+                    }
+                }
+                
+                
+                if (isAppr) {
+	                let checkGrid1 = _this.grid.getList()
+	                let checkGrid2 = _this.deviGrid.getList()
+	                
+	                let result = checkGrid1.filter(function(e){
+					    return e.result1 == "X";
+					});
+					
+	               	
+	               	if (result.length > 0) {
+						if(checkGrid2.length == 0) {
+							Alert.alert('결재상신','조치내역을 입력해주세요.');
+							return
+						}
+					}
+					
+					let result2 = checkGrid2.filter(function(e){
+					    return e.action_detail == "" || e.action_detail == null;
+					})
+					
+					if (result2.length > 0) {
+						Alert.alert('결재상신','조치내역을 입력해주세요.');
+						return
+					}
+                }
+                
+                AjaxUtil.postAsyncData(_this.baseUrl + '/save', data, fnSuccess);
+            }
+
+            if (isAppr) {
+                Alert.confirm('', '결재상신하시겠습니까?', function () {
+                    callback();
+                });
+            }
+            else {
+                Alert.confirm('', '저장하시겠습니까?', function () {
+                    callback();
+                });
+            }
+        }
+
+        //삭제
+        delete() {
+            let _this = this;
+            Alert.confirm('', '삭제하시겠습니까?', function () {
+                // 삭제 서비스 호출
+                let param = {
+                    bh_id: $('#bhId').val(),
+                }
+                let fnSuccess = function (resp) {
+                    if (resp.success) {
+                        Notify.success('삭제하였습니다.');
+                        $('#btnList').click();
+                    } else {
+                        Alert.alert('', resp.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(_this.baseUrl + '/delete', param, fnSuccess);
+            });
+        }
+
+        // 엑셀 다운로드
+        exportExcel() {
+            var targetview = this.resultGrid;
+            targetview.exportExcel('작업장 주변 환경 점검목록.xls');
+        }
+        
+        
+        
+    setUploader(id) {
+            let _this = this;
+
+            let uploader = new ax5FileUploadClass('image_upload1', $("#bhId").val(),
+                {
+                    table_name: 'vehicle_management',
+                    attach_name: 'basic',
+                    accept_files: 'hwp,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,gif,mbp,png,txt,zip,pdf',
+                    multiple: true,
+                    max_count: 5,
+                    file_size: 100,
+                    upload_callback: function (param) {
+                        uploader.showLastImage('imgPhoto');
+                    },
+                    delete_callback: function (param) {
+                        $('#imgPhoto').attr('src', '');
+                    },
+                    file_click_callback: function (file_id) {
+                        uploader.showImage('imgPhoto', file_id);
+                    },
+                    can_write:true,
+                });
+
+        };
+        
+
+    }
+    
+    
+
+    let page = null;
+
+    $(document).ready(function (e) {
+        page = new CheckResultDiaryPage();
+
+        $('#pickerDate').ax5DatePicker({ direction: 'top' });
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),
+            direction: "top",
+            content: {
+                width: 206,  //130 270
+                margin: 10,
+                type: 'date',
+                config: {
+                    control: {
+                        left: '<i class="fa fa-chevron-left"></i>',
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-chevron-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            }
+
+        });
+        
+        $('#pickupDate').ax5DatePicker({ direction: 'top' });
+        picker.bind({
+            target: $('[data-ax5picker1="multi"]'),
+            direction: "top",
+            content: {
+                width: 206,  //130 270
+                margin: 10,
+                type: 'date',
+                config: {
+                    control: {
+                        left: '<i class="fa fa-chevron-left"></i>',
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-chevron-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            }
+
+        });
+        
+        
+        
+			
+
+        $('#btnAllItem').click(function (e) {
+            page.checkAllItem();
+        });
+
+        // 일지 출력
+        $('#btnDiaryPrint').on('click', function () {
+            page.printDiary();
+        });
+
+        // 결재상신
+        $('#btnReqAppr').on('click', function () {
+            page.save(true);
+        });
+
+		//$('#dataDate').val(CommonUtil.getYYYYMMDD());
+		
+        // 승인
+        $('#btnAppr').on('click', function () {
+            page.appr(true);
+        });
+
+        // 반려
+        $('#btnReject').on('click', function () {
+            page.appr(false);
+        });
+
+        // 임시저장
+        $('#btnSave').on('click', function () {
+            page.save(false);
+        });
+
+        // 삭제
+        $('#btnDelete').on('click', function () {
+            page.delete();
+        });
+
+        // 목록
+        $('#btnList').on('click', function () {
+            if (page.gparam.appr_view) {
+                location.href = encodeURI('/gui/' + page.gparam.appr_view + '?searchcond=' + page.gparam.search_cond);
+            }
+            else {
+                location.href = encodeURI('/gui/' + gui.gui_code + '?searchcond=' + page.gparam.search_cond);
+            }
+        });
+
+        // 엑셀 다운로드
+        $('#btnExcel').on('click', function () {
+            page.exportExcel();
+        });
+        
+        $("#btnNew").on('click',function(){
+			if($("#location").val() == ""){
+				Alert.alert('', '구역명을 입력해주세요.');
+				return
+			}
+			page.plusList();
+		});
+		
+		page.searchMainData();
+
+        
+       
+
+    });
+</script>
+</th:block>
+</html>

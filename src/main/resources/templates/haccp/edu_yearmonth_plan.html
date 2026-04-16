@@ -1,0 +1,326 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .select2-container--open {
+            z-index: 9001;
+        }
+
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>연간 교육훈련 계획서</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP관리</li>
+                <li>연간교육훈련계획서</li>
+            </ul>
+        </div>
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label>
+                                일자
+                            </label>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input type="date" id="srchStartDt" name="srchStartDt">
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input type="date" id="srchEndDt" name="srchEndDt">
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+
+
+                    <dl>
+                        <dt>
+                            <label>
+                                결재상태<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select class="form-control2" id="apprState" name="apprState"></select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <a class="btn" title="등록" id="btnAdd">
+                                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                등록
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="document_grid" style="height: 700px;"></div>
+            </div>
+        </section>
+
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript" src="/js/grid.js?ver=22080801"></script>
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <th:block th:replace="/common/approve_box :: approve_box" ></th:block>
+
+    <script type="text/javascript">
+        class CheckResultPage {
+            constructor() {
+                this.grid = null;
+                this.baseUrl = '/api/haccp/edu_year_plan';
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+
+
+            }
+
+            init() {
+                let _this = this;
+
+                this.gparam = {
+                    searchcond : $('#searchCond').val(),
+                };
+
+                this.grid = new wijmo.grid.FlexGrid('#document_grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'DataYear', header: '계획년도', width: 100, align: 'center'},
+                        { binding: 'Title', header: '일지명', width: '*', align: 'center', visible: false },
+                        { binding: 'StateName', header: '결재상태', width: '*', align: 'center' },
+                        { binding: 'LineName', header: '결재현황', width: '*', align: 'left' },
+                        { binding: 'DataDate', header: '등록일', width: 120, align: 'center'},
+                        { binding: 'SearchYN', header: '조회', width: 80, align: 'center' },
+                        { binding: 'EditYN', header: '수정', width: 80, align: 'center' },
+                        { binding: 'DeleteYN', header: '삭제', width: 80, align: 'center' }
+
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            const col = s.columns[e.col];
+                            const item = e.panel.rows[e.row].dataItem;
+
+                            // 결재현황 (LineName) 처리
+                            if (col.binding === 'LineName') {
+                                e.cell.innerHTML = CommonUtil.convertApprLineNameHtml(item.LineName, item.LineNameState);
+                            }
+
+                            // SearchYN 버튼 처리
+                            if (col.binding === 'SearchYN') {
+                                if (item.SearchYN === 'Y') {
+                                    e.cell.innerHTML = ''; // 기존 셀 콘텐츠 제거
+                                    const button = document.createElement('button');
+                                    button.className = 'btn-default';
+                                    button.style.cssText = 'width: 100%; height: 25px;';
+                                    button.textContent = '조회';
+                                    button.addEventListener('click', () => {
+
+                                        _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                        _this.detail({item}, 'SearchYN');
+
+                                    });
+                                    e.cell.appendChild(button);
+                                } else {
+                                    // 해당 셀을 빈 셀로 유지
+                                    e.cell.innerHTML = ''; // 셀 비우기
+                                }
+                            }
+
+                            // EditYN 버튼 처리
+                            if (col.binding === 'EditYN') {
+                                if (item.EditYN === 'Y') {
+                                    e.cell.innerHTML = '';
+                                    const button = document.createElement('button');
+                                    button.className = 'btn-default';
+                                    button.style.cssText = 'width: 100%; height: 25px;';
+                                    button.textContent = '수정';
+                                    button.addEventListener('click', () => {
+                                        _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                        _this.detail({item}, 'EditYN');
+
+                                    });
+                                    e.cell.appendChild(button);
+                                } else {
+                                    // 해당 셀을 빈 셀로 유지
+                                    e.cell.innerHTML = ''; // 셀 비우기
+                                }
+                            }
+
+                            // DeleteYN 버튼 처리
+                            if (col.binding === 'DeleteYN') {
+                                if (item.DeleteYN === 'Y') {
+                                    e.cell.innerHTML = '';
+                                    const button = document.createElement('button');
+                                    button.className = 'btn-danger';
+                                    button.style.cssText = 'width: 100%; height: 25px;';
+                                    button.textContent = '삭제';
+                                    button.addEventListener('click', () => {
+                                        _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                        _this.detail({item}, 'DeleteYN');
+
+                                    });
+                                    e.cell.appendChild(button);
+                                } else {
+                                    // 해당 셀을 빈 셀로 유지
+                                    e.cell.innerHTML = ''; // 셀 비우기
+                                }
+                            }
+                        }
+                    },
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '계획현황';
+
+            }
+            detail(data, flag) {
+
+
+                let _this = this;
+
+                let dataDate = data.item.DataDate;
+                let id = data.item.id;
+                let detail_item = _this.grid.selectedItems[0];
+
+                console.log('data2', data.item);
+                console.log('detail_item', JSON.stringify(detail_item));
+
+                if (flag === 'SearchYN') {
+
+                    console.log('url', location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + id + '&data_date=' + dataDate + '&view_mode=true&data_year=' + data.item.DataYear)
+                    location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + id + '&data_date=' + dataDate + '&view_mode=true&data_year=' + data.item.DataYear;
+                    //location.href = '/gui/wm_veri_improvement_result_report/edit?bh_id=1073&data_date=2025-02-20&view_mode=true&check_master_id=29&creater_name=관리자';
+                    //location.href = '/gui/' + 'wm_haccp_standard_doc' + '/edit?bh_id=' + id + '&data_date=' + dataDate + '&view_mode=true&creater_name=' + creater_name;
+                } else if (flag === 'EditYN') {
+                    console.log('2', location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + id + '&data_date=' + dataDate +  '&data_year=' + data.item.DataYear)
+                    location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + id + '&data_date=' + dataDate +  '&data_year=' + data.item.DataYear;
+                    //location.href = '/gui/' + 'wm_haccp_standard_doc' + '/edit?bh_id=' + id + '&data_date=' + dataDate +  '&creater_name=' + creater_name;
+                } else if (flag === 'DeleteYN') {
+                    Alert.confirm('', '삭제하시겠습니까?', function () {
+                        let param = {
+                            bh_id: data.item.id,
+                        }
+                        let fnSuccess = function (resp) {
+                            if (resp.success) {
+                                Notify.success('삭제하였습니다.');
+                                _this.searchMainData();
+                            } else {
+                                Alert.alert('', resp.message);
+                            }
+                        };
+                        AjaxUtil.postAsyncData(_this.baseUrl + '/delete', param, fnSuccess);
+                    });
+                }
+            }
+
+            add() {
+                location.href = encodeURI('/gui/' + gui.gui_code + '/edit?bh_id=0' + '&data_date=' + CommonUtil.getYYYYMMDD() + this.createSearchCond('&'));
+            }
+            // 검색조건만들기
+            createSearchCond(t) {
+                return t + 'searchcond=' + $('#srchStartDt').val() + '|' + $('#srchEndDt').val();
+            }
+
+            // 검색조건설정
+            setSearchCond() {
+                let _this = this;
+                if (_this.gparam && _this.gparam.searchcond && _this.gparam.searchcond != 'undefined') {
+                    let arr = _this.gparam.searchcond.split('|');
+                    $('#srchStartDt').val(arr[0]);
+                    $('#srchEndDt').val(arr[1]);
+                }
+            }
+
+            //일지 조회
+            searchMainData() {
+                let _this = this;
+                let param = {
+                    //'action': 'read',
+                    'start_date': $('#srchStartDt').val(),
+                    'end_date': $('#srchEndDt').val(),
+                    'appr_state': $('#apprState').val(),
+                }
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/appr_stat', param);
+                if (result.data != null) {
+                    _this.viewData.sourceCollection = result.data;
+                }
+            }
+
+
+        }
+
+
+        let page = null;
+        let popup = null;
+        let modalContainer = null;
+
+        $(document.body).ready(function (e) {
+            page = new CheckResultPage();
+
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-15));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            AjaxUtil.fillSelectOptions($("#apprState"), "system_code", "all", '', "appr_status");
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-15));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+            $('#btnAdd').click(function (e) {
+                page.add();
+            });
+
+            page.setSearchCond();
+            page.searchMainData();
+        });
+
+    </script>
+</th:block>
+</html>

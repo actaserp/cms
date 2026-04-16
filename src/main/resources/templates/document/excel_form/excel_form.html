@@ -1,0 +1,238 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>엑셀양식</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>엑셀양식</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label>양식명</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" class="form-control2" id="keyword" name="keyword">
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt><span class="eq"></span></dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <!-- <a class="btn btn-excell" title="신규" id="btnAddNew">
+                                 <img th:src="@{/images/icon/ico-plus.svg}" alt="신규 아이콘">
+                                 신규
+                             </a>-->
+                            <button type="button" class="btn-excellt btn-default" id="btnNew" title="신규" style="width: 115px; height: 36px;"><i class="fas fa-plus">신규등록</i>
+                            </button>
+                        </li>
+                        <li>
+                            <!--<a class="btn btn-delete" title="삭제" id="btnDel">
+                                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                삭제
+                            </a>-->
+                            <button type="button" class="btn-delete btn-danger" id="btnDel" title="삭제" style="width: 115px; height: 36px;"><i class="fas fa-trash">삭제</i></button>
+                        </li>
+                        <li>
+                            <!--<a class="btn btn-edit" title="저장" id="btnSave">
+                                <img th:src="@{/images/icon/ico-edit.svg}" alt="저장 아이콘">
+                                저장
+                            </a>-->
+                            <button type="button" class="btn-edit btn-default" id="btnEdit" title="수정" style="width: 115px; height: 36px;"><i class="fas fa-edit"></i>수정</button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <!--   <div class="container-fluid">
+                   <p id="selectedItem"></p>
+                   <div id="theGrid" style="height: 520px; max-height: 520px;"></div>
+               </div>-->
+            <div class="container-fluid">
+                <div id="theGrid" style=""></div>
+            </div>
+           <!-- <div class="grid_box">
+                <div class="h-600" data-ax5grid="excelform-grid"></div>
+            </div>-->
+        </section>
+
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        class ExcelFormPage {
+            constructor() {
+                this.grid = null;
+                this.selectedPk = null;
+                this.viewData = new wijmo.collections.CollectionView();
+                this.baseUrl = '/api/support/excel_form';
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'form_name', header: '양식명', width: 200, align: 'left'},
+                        {binding: 'apply_date', header: '적용기간', width: 250, align: 'center'},
+                        {binding: 'created_date', header: '등록일', width: 200, align: 'center'},
+                        {binding: 'description', header: '비고', width: 400, align: 'left'},
+                        {binding: '', header: '', width: "*", align: 'left'},
+                    ],
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                });
+
+                this.grid.hostElement.addEventListener('dblclick', (e) => {
+                    let hitTest = this.grid.hitTest(e);
+                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                        let row = hitTest.row;
+                        let item = this.grid.rows[row].dataItem;
+                        _this.showEditPage(item.id,'edit');
+                        //$("#stop_cause_name").val(item.stop_cause_name);
+                        //$("#description").val(item.description);
+                    }
+                });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '엑셀 양식';
+
+            }
+
+            // 버튼 활성화 설정
+            /*setButtonState() {
+                let _this = this;
+
+                if (this.selectedPk) {
+                    $('#btnEdit').removeAttr('disabled');
+                    $('#btnDel').removeAttr('disabled');
+                } else {
+                    $('#btnEdit').attr('disabled', 'disabled');
+                    $('#btnDel').attr('disabled', 'disabled');
+                }
+            }*/
+
+            // 문서 목록 조회
+            searchMainData() {
+                let _this = this;
+                let param = {
+                    //'action': 'read',
+                    'keyword': $('#keyword').val(),
+                }
+
+                let result = AjaxUtil.getSyncData(this.baseUrl + '/read', param);
+                if (result.data != null) {
+                    _this.viewData.sourceCollection = result.data;
+                    this.selectedPk = null;
+                    /*this.setButtonState();*/
+                }
+            }
+
+            // edit page로 전환
+            showEditPage(idx,action) {
+                let pk = '';
+                let url = '';
+
+                this.selectedPk = idx;
+
+                if (action != 'new') {
+                    pk = this.selectedPk;
+
+                    if (!pk) {
+                        Alert.alert('', '양식을 선택해주세요.');
+                        return;
+                    }
+                }
+
+                url = '/gui/' + gui.gui_code + '/edit?action=' + action + '&pk=' + pk;
+                location.href = encodeURI(url);
+            }
+        }
+
+        let page = null;
+
+        $(document.body).ready(function (e) {
+            page = new ExcelFormPage();
+
+            page.searchMainData();
+
+            //검색
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            $('#keyword').on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    page.searchMainData();
+                }
+            });
+
+            // 신규
+            $('#btnNew').click(function (e) {
+                let id = null; // ID 값 가져오기
+                page.showEditPage(id,'new')
+            });
+
+            // 수정
+            $('#btnEdit').click(function (e) {
+                let grid = wijmo.Control.getControl('#theGrid'); // 그리드 객체 가져오기
+                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+
+                if (selection.length == 0) {
+                    Alert.alert('제품이 선택되지 않았습니다.');
+                    return;
+                }
+
+                if (selection.row > -1) { // 선택된 행이 있을 경우
+                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+
+                    if (item) {
+                        let id = item.id; // ID 값 가져오기
+                        page.showEditPage(id,'edit')
+                    }
+                }
+            });
+
+            // 삭제
+            $('#btnDel').click(function (e) {
+                page.showEditPage('del');
+            });
+        });
+    </script>
+</th:block>
+</html>

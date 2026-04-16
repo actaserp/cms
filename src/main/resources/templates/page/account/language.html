@@ -1,0 +1,77 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+
+<div class="content_wrap popup" >
+    <header>
+        <h4 data-commonCd="언어설정">언어설정</h4>
+        <div class="popup_close_box"><button class="btn_popup_close" id="modal-close"><i class="fas fa-times"></i></button></div>
+    </header>
+
+    <section>
+        <div class="table_box">
+            <div class="table_box sub">
+                <div class="row">
+
+                   <div class="col-12" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-commonCd="언어설정">Language</span>
+                            </div>
+                            <select class="form-control2" id="LangCode" name="LangCode"></select>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="popupcontent">
+        <div class="left_align">
+            <button type="button" class="btn-default" id="saveLanguage"><span data-commonCd="저장">Save</span></button>
+            <button type="button" class="btn-default" id="modal-close-button"><span data-commonCd="닫기">Close</span></button>
+        </div>
+    </section>
+</div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+
+<script type="text/javascript">
+    var param = ax5.util.param(ax5.info.urlUtil().param);
+    $(document).ready(function (e) {
+        //i18n.initialize();
+        //i18n.applyLabel();
+        $("body").css("overflow", "hidden"); 
+
+        $('.joinout').hide();
+        $(".profile_mbox").hide();
+
+        
+        let $LangCode = $('#LangCode');
+        
+        AjaxUtil.fillSelectOptions($LangCode, 'system_code', false, i18n.getLanguageCode(), 'lang_code');
+
+        let $saveLanguage = $('#saveLanguage');
+        $saveLanguage.click(function (e) {
+            let lang_code = $LangCode.val();
+            sessionStorage.setItem('lang_code', lang_code);
+            i18n.resetData();
+            Alert.confirm('', '적용되었습니다. \r\n화면을 새로 고치겠습니까?', function () {
+                if (parent) {
+                    parent.location.reload();
+                } else {
+                    location.reload();
+                }
+            });
+        });
+
+
+        $('#modal-close, #modal-close-button').on('click', function () {
+            parent.modal.close();
+        });
+    });
+
+</script>
+</th:block>
+</html>

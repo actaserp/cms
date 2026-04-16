@@ -1,0 +1,211 @@
+<th:block th:fragment="popup_material">
+<script type="text/x-tmpl" id="materialSearchTemplate">
+
+    <div class="content_wrap popup" id="mpopup">
+
+        <section class="section" style="padding-top: 10px;">
+
+            <div class="section-top">
+            <div class="search-wrap" style="text-align: left;">
+                <dl>
+                    <dt>
+                        <label for="cboMaterialType">
+                            품목구분<span class="eq"></span>
+                        </label>
+                    </dt>
+                    <dd>
+                        <div class="srch-box">
+                            <select id="cboMaterialType" name="cboMaterialType">
+
+                            </select>
+                        </div>
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                        <label for="keyword">
+                            품목명<span class="eq"></span>
+                        </label>
+                    </dt>
+                    <dd>
+                        <div class="srch-box">
+                            <input class="form-control2" type="text" id="keyword" name="keyword" />
+                        </div>
+                    </dd>
+                </dl>
+
+                <dl>
+                    <dt>&nbsp;</dt>
+                    <dd>
+                        <li>
+                            <a class="btn btn-delete" title="검색" id="btnMaterialSearch">
+                                <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                검색
+                            </a>
+                        </li>
+                    </dd>
+                </dl>
+            </div>
+            <div class="container-fluid">
+                <div id="material-search-grid" style="height: 300px;"></div>
+            </div>
+        </div>
+    </section>
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="modal-close-button"><span data-commonCd="닫기">닫기</span></button>
+            <button type="button" class="btn-popup" id="btnTest"><span data-commonCd="새로고침">새로고침</span></button>
+        </div>
+
+    </div>
+    
+</script>
+
+
+<script type="text/javascript">
+
+    class PopupMaterialPage {
+        constructor(val) {
+			this.checkVal = true
+			
+			if (val === 'single') {
+				this.checkVal = false
+			}
+            this.grid = null;
+            this.viewData = new wijmo.collections.CollectionView();
+            this.selectedItem = null;
+            this.callback = null;
+            this.modalContainer = new PopupDraggable('품목 선택');
+            this.$btnMaterialSearch = null;
+            this.$cboMaterialGroup = null;
+            this.$btnMaterialSelect = null;
+            this.$keyword = null;
+            this.material_type = null;
+        }
+
+        searchDataBind() {
+            let _this = this;
+            let url = '/api/popup/search_material';
+            let data = {
+                'material_type': _this.$cboMaterialType.val(),
+                'keyword': _this.$keyword.val(),
+                spjangcd: sessionStorage.getItem('spjangcd')
+            };
+
+            let result = AjaxUtil.getSyncData(url, data);
+            if (result.data != null) {
+                _this.viewData.sourceCollection = result.data;
+            }
+
+            //검색버튼을 누르고 초기화한다
+            this.selectedItem = null;
+        }
+
+        selectData(item) {
+            if (typeof this.callback !== 'undefined' && this.callback!=null) {
+                this.callback(item);
+            }
+            this.close();
+        }
+
+        show(callback) {
+            let _this = this;
+
+            this.callback = callback;
+
+            let content = tmpl('materialSearchTemplate', {});
+            let $content = $(content);
+            this.modalContainer.open({ width: 800, height: 510, $content });
+
+            this.grid = new wijmo.grid.FlexGrid('#material-search-grid', {
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                autoGenerateColumns: false,
+                showMarquee: true,
+                isReadOnly: true,
+                formatItem: (sender, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                    }
+                },
+                columns: [
+                    {binding: 'group_name', header: '품목그룹', width: 120, align: 'left'},
+                    {binding: 'Code', header: '품목코드', width: 150, align: 'center'},
+                    {binding: 'Name', header: '품목명', width: 250, align: 'left'},
+                    {binding: 'unit_name', header: '단위', width: 60, align: 'center'},
+                    {binding: 'Spec', header: '규격', width: '*', align: 'left'}
+                ],
+                itemsSource: this.viewData,
+            });
+            this.grid.rowHeaders.columns.splice(0, 1);
+            new FlexGridContextMenu(this.grid);
+            this.grid.downloadFileName = '품목 내역';
+
+            this.$btnMaterialSearch = $content.find('#btnMaterialSearch');
+            this.$cboMaterialType = $content.find('#cboMaterialType');
+            this.$keyword = $content.find('#keyword');
+            this.$btnMaterialSelect = $content.find('#btnMaterialSelect');
+
+            AjaxUtil.fillSelectOptions(this.$cboMaterialType, 'system_code', 'all', false, 'mat_type');
+            if (this.material_type != null) {
+                //console.log('popup mat type1', this.material_type);
+                this.$cboMaterialType.val(this.material_type);
+            }
+            //console.log('popup mat type2', this.material_type);
+            //this.$cboMaterialType.val('product');
+
+            this.$btnMaterialSearch.click(function (e) {
+                _this.searchDataBind();
+            });
+
+            this.$btnMaterialSelect.click(function (e) {
+                // 그리드에서 현재 선택된 item을 찾아서 호출한다.
+                let items = _this.grid.selectedItems;
+                if (items.length === 0) {
+                    return false;
+                }
+                //_this.selectData(items[0]);
+                _this.selectData(items);
+            });
+
+            this.grid.hostElement.addEventListener('dblclick', function (e) {
+                let items = _this.grid.selectedItems;
+                if (items.length === 0) {
+                    return false;
+                }
+                _this.selectData(items[0]); // btnMaterialSelect 클릭과 동일한 동작
+            });
+
+            this.$keyword.on('keypress', function (e) {
+                if (event.keyCode === 13) {
+                    _this.searchDataBind();
+                }
+            });
+
+
+            //닫기버튼을 아래 ID로 사용한다면 호출하는 화면에서 이벤트 처리 필요없음
+            //$content.find('#material-search-close, #btn-material-search-close').on('click', function () {
+            //    _this.close();
+            //});
+
+            $content.find('#material-search-close').on('click', function () {
+                _this.close();
+            });
+
+
+            $('#btnMaterialSearch').click();
+
+			//새로고침
+            let $btnTest = $('#btnTest');
+
+            $btnTest.click(function (e) {
+                _this.grid.collectionView.refresh();
+            });
+        }
+
+        close() {
+            this.modalContainer.close();
+        }
+
+    }
+</script>

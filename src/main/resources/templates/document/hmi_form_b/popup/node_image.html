@@ -1,0 +1,72 @@
+<th:block th:fragment="node_image">
+<script type="text/x-tmpl" id="imageTemplate">
+    <div class="content_wrap popup">
+        <section class="pt-2">
+            <div class="table_box">
+                <form id="imageForm">
+                    <div class="table_box sub">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text fit_box_sm">이미지</span>
+                                    </div>
+                                    <select class="form-control2" id="image" name="image"></select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section class="popupcontent">
+            <div class="align_left">
+                <button type="button" class="btn-popup" id="btnSave"><span>저장</span></button>
+                <button type="button" class="btn-popup" id="modal-close-button"><span>닫기</span></button>
+            </div>
+        </section>
+    </div>
+</script>
+
+<script type="text/javascript">
+    class PopupImage {
+        constructor() {
+            this.callback = null;
+            this.modalContainer = new PopupDraggable('이미지 설정');
+        }
+
+        show(callback, data) {
+            let _this = this;
+            let content = tmpl('imageTemplate', data);
+            let $content = $(content);
+            let param = { 'action': 'image_list' };
+            let $image = $content.find('#image');
+            let imageList = AjaxUtil.getSyncData('/api/support/hmi_b/image_list', param);
+
+            $.each(imageList, function (index, image) {
+                let option = $('<option>',
+                    {
+                        value: image['value'],
+                        text: image['text'],
+                    });
+                $image.append(option);
+            });
+
+            this.modalContainer.open({ width: 300, height: 120, $content });
+            this.callback = callback;
+
+            FormUtil.BindDataForm(data, $('#imageForm'));
+
+            $content.find('#btnSave').click(function () {
+                let formData = FormUtil.extractForm($('#imageForm'));
+
+                if (typeof _this.callback !== 'undefined' && _this.callback!=null) {
+                    _this.callback(formData);
+                } 
+
+                _this.modalContainer.close();
+            });
+        }
+    }
+</script>

@@ -1,0 +1,487 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>생산 실적 부적합 현황</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산 관리</li>
+                <li>생산 실적 부적합 현황</li>
+            </ul>
+        </div>
+
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            조회 일자<span class="eq">*</span>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input type="month" id="month_picker" name="month_picker">
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="cboWorkCenter">
+                                워크센터<span class="eq">*</span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboWorkCenter" name="cboWorkCenter">
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnMainSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <span>
+                                    ※ 검사일보에 등록된 데이터를 보여줍니다.
+                                </span>
+                            </li>
+                        </dd>
+                    </dl>
+
+                </div>
+            </div>
+            <div class="grid_box" style="flex: 3">
+                <canvas id="defect-chart" class="chart-canvas" style="width: 100%; height: 100%;"></canvas>
+            </div>
+
+            <div class="grid_box" style="flex: 4">
+                <ul id="day_list" class="day-list"></ul>
+            </div>
+        </section>
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="text/javascript">
+        class ProdResultPage {
+            constructor() {
+                this.grid = null;
+                this.baseUrl = '/api/summary/production_defect_portion';
+                this._holidayCache = {};
+                this.init();
+
+            }
+
+            async init() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#day_list', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    frozenColumns: 0,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    allowSorting: true,
+                    allowMerging: wijmo.grid.AllowMerging.Cells,
+                    isReadOnly: true,
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                    formatItem: (s, e) => {
+                        e.cell.style.backgroundColor = '';
+                        e.cell.style.color = '';
+                        e.cell.style.borderBottom = '';
+                        e.cell.style.display = '';
+                        e.cell.style.alignItems = '';
+
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel === s.cells || e.panel === s.columnHeaders) {
+                            const col = s.columns[e.col];
+                            const tag = col && col.tag;
+
+                            if (tag && (tag.isWeekend || tag.isHoliday)) {
+                                e.cell.style.backgroundColor = '#ffeaea'; // 연한 붉은 배경
+                                e.cell.style.color = '#c00000';           // 글자색 붉게
+                            }
+                        }
+                        if (e.panel === s.columnFooters && e.col === 0) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    }
+                });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '생산 실적 부적합 현황';
+                this.grid.collectionView.collectionChanged.addHandler(() => {
+                    _this.updateFooter();
+                });
+
+                // 초기 월에 맞춰 컬럼 구성
+                const monthPicker = document.getElementById('month_picker');
+                if (!monthPicker.value) {
+                    monthPicker.value = new Date().toISOString().slice(0, 7); // YYYY-MM
+                }
+                const [yStr, mStr] = monthPicker.value.split('-');
+                await this.applyMonth(Number(yStr), Number(mStr));
+                // 필터
+                AjaxUtil.fillSelectOptions($('#cboWorkCenter'), 'workcenter', 'all', false); // 워크센터
+            }
+
+            async ensureHolidaySet(year) {
+                const yKey = String(year);
+                if (!this._holidayCache[yKey]) {
+                    const holidays = await fetchHolidaysForYear(year);
+                    this._holidayCache[yKey] = new Set(holidays.map(h => h.date)); // yyyymmdd
+                }
+                return this._holidayCache[yKey];
+            }
+
+            async applyMonth(year, month) {
+                await this.ensureHolidaySet(year);
+                this.setColumns(year, month);
+                this.searchMainData(); // 필요 시 파라미터에 month 반영
+            }
+
+            setColumns(year, month) {
+                const y = Number(year), m = Number(month);
+                if (Number.isNaN(y) || Number.isNaN(m) || m < 1 || m > 12) {
+                    console.warn('Invalid year/month:', {year, month});
+                    return;
+                }
+
+                const daysInMonth = new Date(y, m, 0).getDate();
+
+                this.grid.columns.clear();
+
+                // 첫 컬럼: 부적합유형
+                this.grid.columns.push(new wijmo.grid.Column({
+                    binding: 'defect_type',
+                    header: '부적합유형',
+                    width: 130
+                }));
+
+                const holidaySet = this._holidayCache[String(y)] || new Set();
+
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const dateObj = new Date(y, m - 1, d);
+                    const dow = dateObj.getDay(); // 0:일, 6:토
+                    const isWeekend = (dow === 0 || dow === 6);
+                    const dateKey = toDateKey(y, m, d);
+                    const isHoliday = holidaySet.has(dateKey);
+
+                    const col = new wijmo.grid.Column({
+                        binding: `count_${d}`,
+                        header: `${d}`,
+                        width: '*',
+                        format: 'n0',
+                        align: 'right',
+                        allowSorting: false
+                    });
+
+                    // 메타데이터 태깅(열 전체 스타일링에 사용)
+                    col.tag = {dateKey, isWeekend, isHoliday};
+
+                    this.grid.columns.push(col);
+                }
+            }
+
+            updateFooter(isTotalMode = false) {
+                if (!this.grid || !this.grid.collectionView || !this.grid.columnFooters) return;
+
+                // footer row 3개 확보 (없으면 생성)
+                while (this.grid.columnFooters.rows.length < 3) {
+                    this.grid.columnFooters.rows.push(new wijmo.grid.Row());
+                }
+
+                const footerRows = this.grid.columnFooters.rows;
+                const rows = this.grid.collectionView.items || [];
+                const cols = this.grid.columns;
+
+                // 첫 컬럼 라벨
+                this.grid.columnFooters.setCellData(footerRows[0].index, 'defect_type', '검사수');
+                this.grid.columnFooters.setCellData(footerRows[1].index, 'defect_type', '불량수');
+                this.grid.columnFooters.setCellData(footerRows[2].index, 'defect_type', '불량율(%)');
+
+                // 일자 컬럼별 집계
+                cols.forEach(col => {
+                    const binding = col.binding;
+                    if (!binding || !binding.startsWith('count_')) return;
+
+                    let defectSum = 0;
+                    let prodSum = 0;
+                    const seen = new Set();
+
+                    rows.forEach(r => {
+                        defectSum += Number(r[binding] || 0);
+
+                        const dateInfo = r._dateKeyMap?.[binding];
+                        const qty = dateInfo?.[isTotalMode ? 'total_prod_qty' : 'line_prod_qty'];
+                        const dateKey = binding + (isTotalMode ? '_t' : '_l'); // 중복 방지
+
+                        if (qty != null && !seen.has(dateKey)) {
+                            prodSum += Number(qty);
+                            seen.add(dateKey);
+                        }
+                    });
+
+                    const rate = prodSum > 0 ? (defectSum / prodSum * 100) : null;
+
+                    this.grid.columnFooters.setCellData(footerRows[0].index, binding, prodSum || '-');
+                    this.grid.columnFooters.setCellData(footerRows[1].index, binding, defectSum || '-');
+                    this.grid.columnFooters.setCellData(footerRows[2].index, binding, rate != null ? rate.toFixed(1) : '-');
+                });
+            }
+
+            // 월 일수 라벨(1..days)
+            getDayLabels(year, month) {
+                const days = new Date(year, month, 0).getDate(); // month: 1~12
+                return Array.from({length: days}, (_, i) => String(i + 1));
+            }
+
+            // 인덱스별 고정색 (선택사항: 없으면 Chart.js 기본색 사용)
+            colorForIndex(i) {
+                const h = (i * 47) % 360;
+                return `hsl(${h}deg, 70%, 50%)`;
+            }
+
+            // 그리드 피벗 rows -> Chart.js datasets
+            buildDefectDatasets(rows, daysInMonth) {
+                return rows.map((r, idx) => {
+                    const data = [];
+                    for (let d = 1; d <= daysInMonth; d++) {
+                        // 없으면 0으로 채워서 선이 이어지도록
+                        const v = Number(r[`count_${d}`] ?? 0);
+                        data.push(Number.isFinite(v) ? v : 0);
+                    }
+                    return {
+                        label: r.defect_type || `유형${idx + 1}`,
+                        data,
+                        fill: false,
+                        tension: 0.2,
+                        borderWidth: 2,
+                        borderColor: `hsl(${(idx * 47) % 360} 70% 50%)`,
+                        pointBackgroundColor: `hsl(${(idx * 47) % 360} 70% 50%)`,
+                        pointRadius: 2
+                    };
+                });
+            }
+
+
+            // 실제 차트 그리기
+            renderDefectChart(labels, datasets) {
+                const ctx = document.getElementById('defect-chart').getContext('2d');
+
+                if (this.defectChart) {
+                    this.defectChart.destroy();
+                }
+
+                this.defectChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'nearest',
+                            intersect: false
+                        },
+                        plugins: {
+                            legend: {position: 'top'},
+                            tooltip: {
+                                callbacks: {
+                                    title: (items) => `${items[0].label}일`,
+                                    label: (item) => `${item.dataset.label}: ${item.parsed.y ?? 0}`
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {display: true, text: '일자'}
+                            },
+                            y: {
+                                title: {display: true, text: '불량수'},
+                                beginAtZero: true,
+                                ticks: {precision: 0}
+                            }
+                        }
+                    }
+                });
+            }
+
+
+            searchMainData() {
+                const monthPicker = document.getElementById('month_picker');
+                const [y, m] = monthPicker.value.split('-');
+                const firstDay = `${y}-${m}-01`;
+                const lastDay = `${y}-${m}-${String(new Date(Number(y), Number(m), 0).getDate()).padStart(2, '0')}`;
+                const cboWorkCenterValue = $('#cboWorkCenter').val();
+                const isTotalMode = !cboWorkCenterValue;
+
+                const param = {
+                    date_from: firstDay,
+                    date_to: lastDay,
+                    cboWorkCenter: cboWorkCenterValue,
+                };
+
+                let result = AjaxUtil.getSyncData(this.baseUrl + "/read", param);
+                if (result?.data) {
+                    // 서버 원시 리스트(ProductionDate 단위)를 피벗
+                    const rows = this.pivotDefectsByDay(result.data, y, m, isTotalMode);
+
+                    // 그리드에 바인딩
+                    //   (이미 itemsSource가 CollectionView라면 sourceCollection만 교체)
+                    if (this.grid.itemsSource && this.grid.itemsSource.sourceCollection) {
+                        this.grid.itemsSource.sourceCollection = rows;
+                    } else {
+                        this.grid.itemsSource = new wijmo.collections.CollectionView(rows);
+                    }
+
+                    // 차트 그리기
+                    const labels = this.getDayLabels(y, m);
+                    const datasets = this.buildDefectDatasets(rows, labels.length);
+                    this.renderDefectChart(labels, datasets);
+
+                    // 푸터
+                    this.updateFooter(isTotalMode);
+
+                } else {
+                    // 데이터 없으면 빈 배열 바인딩
+                    if (this.grid.itemsSource && this.grid.itemsSource.sourceCollection) {
+                        this.grid.itemsSource.sourceCollection = [];
+                    } else {
+                        this.grid.itemsSource = new wijmo.collections.CollectionView([]);
+                    }
+                    // 빈 차트로 초기화
+                    this.renderDefectChart(this.getDayLabels(y, m), []);
+                    // 푸터
+                    this.updateFooter();
+                }
+            }
+
+            // 1) 피벗 함수: 리스트 -> 그리드 행(불량유형별 일자 카운트)
+            pivotDefectsByDay(data, year, month, isTotalMode = false) {
+                const daysInMonth = new Date(year, month, 0).getDate();
+                const map = new Map();
+
+                data.forEach(r => {
+                    const key = r.defect_pk ?? r.defect_type;
+                    if (!map.has(key)) {
+                        const row = {defect_pk: key, defect_type: r.defect_type || String(key), _dateKeyMap: {}};
+                        map.set(key, row);
+                    }
+                    const row = map.get(key);
+
+                    const day = Number(r.ProductionDate?.slice(8, 10));
+                    if (!Number.isFinite(day) || day < 1 || day > daysInMonth) return;
+
+                    const dayKey = `count_${day}`;
+                    const qty = Number(r.defect_qty) || 0;
+                    if (qty > 0) row[dayKey] = (row[dayKey] || 0) + qty; // 0은 추가 안 함
+
+                    // 날짜별 검사수는 첫 유효값만 기록
+                    if (row._dateKeyMap[dayKey] == null) {
+                        const qtyField = isTotalMode ? r.total_prod_qty : r.line_prod_qty;
+                        if (qtyField != null) {
+                            row._dateKeyMap[dayKey] = {
+                                [isTotalMode ? 'total_prod_qty' : 'line_prod_qty']: Number(qtyField) || 0
+                            };
+                        }
+                    }
+                });
+
+                return Array.from(map.values());
+            }
+
+        }
+
+        async function fetchHolidaysForYear(year) {
+            return new Promise((resolve, reject) => {
+                var xhr = new XMLHttpRequest();
+                var url = 'http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo';
+                var queryParams = '?' + encodeURIComponent('serviceKey') + '=' + 'R3P3syhq6qRP0cz8mbV2J5t%2B32WwaSN9sH8ZW4k59oKAU3Ze0WvcljMrN36OJqxs38%2F780hMD4QfhCiDZQNUyA%3D%3D';
+                queryParams += '&' + encodeURIComponent('solYear') + '=' + encodeURIComponent(year);
+                queryParams += '&' + encodeURIComponent('numOfRows') + '=' + encodeURIComponent('30');
+
+                xhr.open('GET', url + queryParams);
+                xhr.onreadystatechange = function () {
+                    if (this.readyState == 4) {
+                        if (this.status == 200) {
+                            var parser = new DOMParser();
+                            var xmlDoc = parser.parseFromString(this.responseText, "text/xml");
+
+                            // XML에서 원하는 데이터 추출
+                            var items = xmlDoc.getElementsByTagName("item");
+                            let holidays = [];
+                            for (var i = 0; i < items.length; i++) {
+                                var locdate = items[i].getElementsByTagName("locdate")[0].textContent;
+                                var dateName = items[i].getElementsByTagName("dateName")[0].textContent;
+
+                                holidays.push({date: locdate, name: dateName});
+                            }
+                            resolve(holidays);
+                        } else {
+                            console.error('오류 발생. HTTP 상태 코드:', this.status);
+                            reject(this.status);
+                        }
+                    }
+                };
+
+                xhr.send();
+            });
+        }
+
+        function toDateKey(y, m, d) {
+            // y: 2025, m: 1~12, d: 1~31
+            const mm = String(m).padStart(2, '0');
+            const dd = String(d).padStart(2, '0');
+            return `${y}${mm}${dd}`; // yyyymmdd
+        }
+
+        let page = null;
+
+        $(document).ready(function () {
+            page = new ProdResultPage();
+
+            const monthPicker = document.getElementById('month_picker');
+            if (!monthPicker.value) {
+                monthPicker.value = new Date().toISOString().slice(0, 7); // YYYY-MM
+            }
+            $('#btnMainSearch').on('click', function () {
+                page.searchMainData();
+            });
+
+            monthPicker.addEventListener('change', async function () {
+                const [yStr, mStr] = this.value.split('-');
+                await page.applyMonth(Number(yStr), Number(mStr));
+            });
+        });
+
+    </script>
+</th:block>
+</html>

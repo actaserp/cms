@@ -1,0 +1,313 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wx210{
+            width: 210px !important;
+        }
+        .wx190{
+            width: 150px !important;
+        }
+
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>CCP 관리항목</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP 기준정보</li>
+                <li>CCP 관리항목</li>
+            </ul>
+        </div>
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label>
+                                항목명<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" class="form-control2" id="txtKeyword" name="keyword" />
+                            </div>
+                        </dd>
+                    </dl>
+
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+
+                </div>
+            </div>
+            <div id="theGrid" style="height: 350px;"></div>
+
+        </section>
+
+
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <h3>상세 정보</h3>
+                </div>
+                <div class="title_box mb-2">
+                    <button type="button" class="btn-default" id="btnNew" name="btnNew"><i class="fas fa-plus"></i></button>
+                    <button type="button" class="btn-danger"  id="btnDel" style="float:none; width: 124px; height: 48px;"><i class="fas fa-trash"></i></button>
+                    <button type="button" class="btn-default" id="btnSave" style="float:none"><i class="fas fa-save"></i></button>
+                </div>
+            </div>
+
+            <form id="itemForm" autocomplete="off">
+                <input type="hidden" id="id" name="id" />
+                <div class="table-wrap" id="detail_box">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th>
+                                <label>
+                                    *항목코드
+                                </label>
+                            </th>
+                            <td>
+                                <input class="wx210" type="text" id="item_code" name="item_code" disabled required />
+                            </td>
+
+                            <th>
+                                <label>
+                                    항목명
+                                </label>
+                            </th>
+                            <td>
+                                <input class="wx210" type="text" id="item_name" name="item_name" disabled required />
+                            </td>
+
+                            <th>
+                                <label>
+                                    결과값 유형
+                                </label>
+                            </th>
+                            <td>
+                                <select class="wx210" type="text" id="ResultType" name="ResultType" disabled></select>
+                            </td>
+
+                            <th>
+                                <label>
+                                    단위
+                                </label>
+                            </th>
+                            <td>
+                                <select class="wx210" type="Unit_id" id="Unit_id" name="Unit_id" disabled></select>
+                            </td>
+                        </tr>
+
+
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        </section>
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <script type="text/javascript">
+
+        class HACCPItemPage {
+            constructor() {
+                this.url = '/api/haccp/haccp_item';
+                this.grid = null;
+
+                this.viewData = new wijmo.collections.CollectionView();
+
+
+                this.init();
+
+            }
+
+            init(){
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'item_code', header: '항목코드', width: '*',  },
+                        { binding: 'item_name', header: '항목명', width: '*', },
+                        { binding: 'ResultTypeName', header: '결과값 유형', width: '*', align: 'center', },
+                        { binding: 'unit_name', header: '단위', width: '*', align: 'center', },
+                        { binding: '_created', header: '생성일', width: '*', align: 'center', },
+
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                        }
+                    },
+                });
+
+                this.grid.selectionChanged.addHandler((s, e) => {
+
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+
+                        _this.showDetail(selectedRowData.id);
+
+                        console.log(`선택된 행 인덱스: ${selectedRowIndex}`);
+                        console.log('선택된 행 데이터:', selectedRowData);
+
+                    }
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = 'CCP 관리항목';
+
+
+                this.$btnNew = $('#btnNew');
+                this.$btnDel = $('#btnDel');
+                this.$btnSave = $('#btnSave');
+                this.$itemForm = $('#itemForm');
+
+                let $ResultType = $('#ResultType');
+                let $Unit_id = $('#Unit_id');
+                AjaxUtil.fillSelectOptions($ResultType, 'system_code', 'choose', false, 'haccp_result_type');
+                AjaxUtil.fillSelectOptions($Unit_id, 'unit', 'choose', false);
+
+                $('#btnSearch').click(function (ex) {
+                    _this.searchDataBind();
+                });
+
+                this.$btnNew.click(function (e) {
+                    _this.resetForm();
+                    _this.$btnDel.attr('disabled', 'disabled');
+                    _this.$btnSave.removeAttr('disabled');
+                });
+
+                this.$btnSave.click(function (e) {
+                    Alert.confirm('항목저장', '저장 하시겠습니까?', function () {
+                        _this.saveItem();
+                    });
+                });
+
+                this.$btnDel.click(function (e) {
+
+                    let items = _this.grid.selectedItems;
+                    if (items.length == 0) {
+                        Alert.alert('삭제 오류', '선택된 데이터가 없습니다.');
+                        return;
+                    }
+
+                    Alert.confirm('항목삭제', '삭제 하시겠습니까?', function () {
+                        let item = items[0];
+                        _this.deleteItem(item);
+                    });
+                });
+
+            }
+
+            deleteItem(item) {
+                let _this = this;
+
+                let item_id = item.id;
+                let url = this.url + '/delete_item';
+                let data = {id : item_id};
+                let fnsuccess = function (result) {
+                    if (result.success) {
+                        Notify.success('삭제했습니다.');
+                        _this.searchDataBind();
+                    }
+                };
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+            showDetail(idx) {
+                let _this = this;
+                let param = { 'item_id': idx };
+                let fnsuccess = function (result) {
+                    if (result.data != null) {
+                        FormUtil.BindDataForm(result.data, _this.$itemForm);
+                    }
+                }
+                AjaxUtil.getAsyncData(this.url + '/detail', param, fnsuccess);
+
+                this.$btnSave.removeAttr('disabled');
+                this.$btnDel.removeAttr('disabled');
+            }
+
+            resetForm() {
+                this.$itemForm.find('#id').val('');
+                this.$itemForm[0].reset();
+                this.$itemForm.find('input, select').each(function () {
+                    $(this).removeAttr('disabled');
+                });
+            }
+
+            saveItem() {
+                let _this = this;
+                let url = this.url + "/save_item";
+                let data = FormUtil.extractForm(this.$itemForm);
+                let fnsuccess = function (res) {
+                    if (res.success) {
+                        Notify.success('저장되었습니다.');
+                        _this.searchDataBind();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+            searchDataBind() {
+                let _this = this;
+                let keyword = $('#txtKeyword').val();
+                let param = { keyword: keyword };
+
+                let result = AjaxUtil.getSyncData(this.url + '/read', param);
+                _this.grid.itemsSource = new wijmo.collections.CollectionView([]);
+                if (result.data != null) {
+                    _this.grid.itemsSource = result.data;
+                }
+
+                this.resetForm();
+
+                this.$btnNew.removeAttr('disabled');
+                this.$btnDel.attr('disabled', 'disabled');
+                this.$btnSave.attr('disabled', 'disabled');
+
+            }//searchDataBind
+
+        }
+
+
+        $(document).ready(function (e) {
+            let page = new HACCPItemPage();
+
+            page.searchDataBind();
+        })
+    </script>
+
+</th:block>
+</html>

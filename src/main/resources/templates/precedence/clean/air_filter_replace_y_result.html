@@ -1,0 +1,495 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        #image_upload, #upload_form {
+            width: 200px;
+        }
+
+        #image_upload {
+            height: 170px;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+<div class="content_wrap">
+    <section>
+        <div class="title_box">
+            <div class="left_align">
+                <h3 data-labelCd="공조필터교체 내역">공조필터교체 내역</h3>
+            </div>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>
+        </div>
+
+        <div class="table_box search">
+            <form id="searchForm" onsubmit="false" autocomplete="off">
+                <div class="row">
+                    <div class="col-4">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t4" data-labelCd="조회년도">조회년도</span>
+                            </div>
+                            <select class="form-control2 tac" type="text" id="cboDataYear" name="cboDataYear"></select>
+                        </div>
+                    </div>
+                    <div class="col-1">
+                        <button type="button" class="btn-default" id="btnSearch"><i class="fas fa-search"></i></button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </section>
+    <section>
+        <div class="tabs" data-tab="tabWrap">
+            <div class="title_box">
+                <div class="left_align">
+                    <ul class="tab_links">
+                        <li >
+                            <a class="tab" data-tablink="#listInfo" name="listInfo_link" id="listInfo_link" href="#" data-labelCd="공조필터교체 내역">공조필터교체 내역</a>
+                        </li>
+                        <li >
+                            <a class="tab" data-tablink="#resultInfo" name="resultInfo_link" id="resultInfo_link" href="#" data-labelCd="공조필터교체 결과">공조필터교체 결과</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="tab-content">
+            <div class="tab" id="listInfo">
+                <div class="grid_box">
+                    <div class="title_box">
+                        <span data-labelCd="공조필터교체 내역">공조필터교체 내역</span>
+                    </div>
+                    <div class="h-630" data-ax5grid="filter-plan-grid"></div>
+                </div>
+            </div>
+            <div class="tab" id="resultInfo">
+                <div class="grid_box">
+                    <div class="title_box">
+                        <span data-labelCd="공조필터교체 결과">공조필터교체 결과</span>
+                    </div>
+                    <div class="h-630" data-ax5grid="filter-result-grid"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script type="text/x-tmpl" id="filterChangeResultPopup">
+<div class="content_wrap popup">
+    <section class="section popupcontent">        
+        <div class="table_box sub">
+            <form id="filterChangeForm">
+                <div class ="row">
+                    <div class="col-6">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="필터번호">필터번호</span>
+                            </div>
+                            <input class="form-control2" type="text" id="master_id" name="master_id" value="{%=o.master_id%}" />
+                        </div>
+                    </div>
+
+                    <div class="col-6">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="종류">종류</span>
+                            </div>
+                            <input class="form-control2" type= "text" id="Type2" name="Type2" value="{%=o.Type2%}"></input>
+                        </div>
+                    </div>
+
+                    <div class="col-6">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="설치장소">설치장소</span>
+                            </div>
+                            <input class="form-control2" type= "text" id="Description" name="Description" value="{%=o.Description%}"></input>
+                        </div>
+                    </div>
+
+                    <div class="col-6">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="필터종류">필터종류</span>
+                            </div>
+                            <input class="form-control2" type= "text" id="Type" name="Type" value="{%=o.Type%}"></input>
+                        </div>
+                    </div>
+
+                    <div class="col-6">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="연도">연도</span>
+                            </div>
+                            <select class="form-control2" type= "text" id="DataYear" name="DataYear"></select>
+                        </div>
+                    </div>
+
+                    <div class="col-6">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="월">월</span>
+                            </div>
+                            <select class="form-control2" type= "text" id="DataMonth" name="DataMonth"></select>
+                        </div>
+                    </div>
+                 </div>   
+            </form>
+            <div class="col-12 mx-auto" id="image_upload">
+            </div>
+            <div id="upload_form" class="mx-auto"></div>
+        </div>
+        
+    </section>
+    <section>
+        <div class="text-center">
+            <button type="button" class="btn-popup y_write_auth" id="btnSave" ><span data-labelCd="저장">저장</span></button>
+            <button style="display: none" type="button" class="btn-popup" id="btnDelete"><span data-labelCd="삭제">삭제</span></button>
+        </div>
+    </section>
+</div>
+</script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+<th:block th:replace="/common/upload_one_image_box :: upload_one_image_box" ></th:block>
+<script>
+    class FilterSheetPage {
+        constructor(){
+            this.grid = null;
+            this.upload = null;
+            this.table_name = 'master_year_month_plan';
+            this.baseUrl = '/api/precedence/air_filter_replace';
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="filter-plan-grid"]'),
+                frozenColumnIndex: 0,
+                frozenRowIndex: 0,
+                showLineNumber: true,
+                showRowSelector: false,
+                multipleSelector: false,
+                sortable: false,
+                multiSort: false,
+                header: {
+                    align: 'center',
+                    columnHeight: 38
+                },
+                body: {
+                    columnHeight: 25,
+                    onClick: function (e) {
+                        let item = e.item;
+
+                        _this.SheetChangePopup(e.column, item);
+                    }
+                },
+                page: {
+                    display: true,
+                    statusDisplay: true
+                },
+                columns: [
+                    { key: 'master_id', label: '필터번호', width: 100, align: 'left'},
+                    { key: 'master_name', label: '용도', width: 100, align: 'left'},
+                    { key: 'master_descr', label: '설치장소', width: 100, align: 'left' },
+                    { key: 'master_type2', label: '종류', width: 100, align: 'left' },
+                    { key: 'master_type', label: '필터종류', width: 100, align: 'left' },
+                    { key: 'pr1', label: '1월', width: 60, align: 'center', mpId: 'd1' },
+                    { key: 'pr2', label: '2월', width: 60, align: 'center', mpId: 'd2' },
+                    { key: 'pr3', label: '3월', width: 60, align: 'center', mpId: 'd3' },
+                    { key: 'pr4', label: '4월', width: 60, align: 'center', mpId: 'd4' },
+                    { key: 'pr5', label: '5월', width: 60, align: 'center', mpId: 'd5' },
+                    { key: 'pr6', label: '6월', width: 60, align: 'center', mpId: 'd6' },
+                    { key: 'pr7', label: '7월', width: 60, align: 'center', mpId: 'd7' },
+                    { key: 'pr8', label: '8월', width: 60, align: 'center', mpId: 'd8' },
+                    { key: 'pr9', label: '9월', width: 60, align: 'center', mpId: 'd9' },
+                    { key: 'pr10', label: '10월', width: 60, align: 'center', mpId: 'd10' },
+                    { key: 'pr11', label: '11월', width: 60, align: 'center', mpId: 'd11' },
+                    { key: 'pr12', label: '12월', width: 60, align: 'center', mpId: 'd12' },
+                ]
+            }
+            
+            _this.grid = new ax5.ui.grid(config);
+            _this.filter_config = config;
+        }
+
+        //조회
+        searchMainData(){
+            let _this = this;
+            let url = _this.baseUrl;
+            let data_year = $('#cboDataYear').val();
+            let data = {
+                'action': 'year_month_plan_result_sheet',
+                'data_year': data_year
+            };
+
+            let result = AjaxUtil.getSyncData(url + "/year_month_plan_result_sheet", data);
+
+
+            if (result != null) {
+                let recordsTotal = result.data.length;
+                _this.grid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            }
+        }
+
+        //저장
+        saveResult($content, YN) {
+            let _this = this;
+            let url = _this.baseUrl + '/save_month_result';
+            let form = FormUtil.extractForm($content.find('#filterChangeForm'));
+            let file_id = $('#attachFileId1').val();
+          
+            if (!form.master_id) {
+                Alert.alert('', '필터번호를 입력해주세요.');
+                return;
+            }
+
+            let data = {
+                data_year: form.DataYear,
+                data_month: form.DataMonth,
+                master_id: form.master_id,
+                result: YN,
+                file_id: file_id
+            }
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                     Notify.success('저장되었습니다'); // Notification
+                    _this.searchMainData();
+                    _this.modalContainer.close();
+                }
+            };
+            
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        //디테일
+        getDetail(idx) {
+            let _this = this;
+            let url = _this.baseUrl + '/detail';
+            let items = { 'id': idx }
+            let result = AjaxUtil.getSyncData(url, items);
+
+            if (result != null) {
+                return result.data;
+            }
+        }
+		
+        //필터 정보 가져오기
+        getFilterInfo(master_id) {
+            let _this = this;
+            let url = _this.baseUrl + '/air_filter_info';
+            let data = {
+                master_id: master_id
+            }
+
+            let result = AjaxUtil.getSyncData(url, data);
+
+            if (result != null) {
+                return result.data;
+            }
+        }
+
+        //모달창 띄우기
+        SheetChangePopup(column, item) {
+            let key = column.key;
+            let mpId = column.mpId;
+            let checkYN = item[key];
+            let _this = this;
+            let result = null;
+            let selected_year = null;
+            let selected_month = null;
+
+            if (checkYN === '○' || checkYN === '●') {
+                let id = item[mpId];
+                if (id) {
+                    result = _this.getDetail(id);
+                    selected_year = result.DataYear;
+                    selected_month = result.DataMonth;
+                }
+            }else {
+                let master_id = item.master_id;
+                selected_month = 1;
+                selected_year = $('#cboDataYear').val();
+                //클릭한 컬럼이 월이라면
+                if (key.substring(0, 1) == 'p') {
+                    selected_month = key.substring(2, 3);
+                }
+
+                result = _this.getFilterInfo(master_id);
+                result['selected_month'] = selected_month;
+                result['selected_year'] = selected_year;
+            }
+            
+            let content = tmpl('filterChangeResultPopup', result);
+            let $content = $(content);
+            
+            _this.modalContainer = new PopupDraggable('필터교체결과');
+            _this.modalContainer.open({ width: 600, height: 400, $content });
+            _this.showDelete(result, $content);
+            
+            $content.find('#filterChangeForm').find('#DataYear').val(selected_year);
+            $content.find('#filterChangeForm').find('#DataMonth').val(selected_month);
+
+            //가져온 detail에 사진이 포함되어 있다면
+            let file_id = '';
+            if (result.file_id) {
+                file_id = result.file_id;
+            }
+            //● 표시된 컬럼 구분하여 data_pk 값 판별
+            let data_pk = null;
+            if (checkYN === '●') {
+                data_pk = item[mpId];
+            }
+            //이미지 첨부
+            _this.upload = new UploadOneImage(1, {
+                table_name: _this.table_name,
+                data_pk: item[mpId],
+                attach_name: 'replace_filter',
+                file_id: file_id,
+                //upload_form_id: 'upload_form',
+                upload_div_id: 'image_upload',
+                image_width: '100%',
+                image_height: 'auto',
+                can_write: userinfo.can_write()
+            });
+            _this.upload.printFormDiv();
+            $('#DataPk').val(item[mpId]);
+
+            AjaxUtil.fillSelectOptions($('#DataYear'), 'data_year', '', selected_year);
+            AjaxUtil.fillSelectOptions($('#DataMonth'), 'data_month', '', selected_month);
+
+            //저장 버튼
+            $content.find('#btnSave').click(function () {
+                _this.saveResult($content, 'Y');
+            });
+
+            //취소 버튼
+            $content.find('#btnDelete').click(function () {
+                _this.saveResult($content, 'N');
+            });
+        }
+
+        //삭제 버튼 여부
+        showDelete(result, $content) {
+            let btnDel = $content.find('#btnDelete');
+
+            if (result.ResultYN === 'Y') {
+                btnDel.show();
+            } else {
+                btnDel.hide();
+            }
+        }
+    }
+
+    class FileterListPage {
+        constructor() {
+            this.baseUrl = '/api/precedence/air_filter_replace';
+            this.grid = null;
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="filter-result-grid"]'),
+                frozenColumnIndex: 0,
+                frozenRowIndex: 0,
+                showLineNumber: true,
+                showRowSelector: false,
+                multipleSelector: false,
+                sortable: false,
+                multiSort: false,
+                header: {
+                    align: 'center',
+                    columnHeight: 38
+                },
+                body: {
+                    columnHeight: 25,
+                    onClick: function (e) {
+                        _this.grid.select(this.dindex, { __selected__: true });
+                    }
+                },
+                page: {
+                    display: true,
+                    statusDisplay: true
+                },
+                columns: [
+                    { key: 'master_id', label: '필터번호', width: 100, align: 'left'},
+                    { key: 'master_name', label: '용도', width: 100, align: 'left' },
+                    { key: 'master_descr', label: '설치장소', width: 100, align: 'left' },
+                    { key: 'master_type2', label: '종류', width: 100, align: 'left' },
+                    { key: 'master_type', label: '필터종류', width: 100, align: 'left' },
+                    { key: 'data_year', label: '년도', width: 100, align: 'left', align: 'center' },
+                    { key: 'data_month', label: '월', width: 100, align: 'left', align: 'center' },
+                    { key: 'plan_signal', label: '계획', width: 60, align: 'center' },
+                    { key: 'plan_result', label: '결과', width: 60, align: 'center' },
+                ]
+            }
+
+            _this.grid = new ax5.ui.grid(config);
+            _this.filter_config = config;
+        }
+
+        //결과 조회
+        searchListData() {
+            let _this = this;
+            let url = _this.baseUrl + '/year_month_plan_result_list';
+            let data = {
+                data_year: $('#cboDataYear').val(),
+            }
+
+            let result = AjaxUtil.getSyncData(url, data);
+
+            if (result != null) {
+                let recordsTotal = result.data.length;
+                _this.grid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            }
+        }
+    }
+
+    let pageSheet = null;
+    let listPage = null;
+
+    $(document.body).ready(function (e) {
+        pageSheet = new FilterSheetPage();
+        pageList = new FileterListPage();
+
+        let today_string = CommonUtil.getYYYYMMDD();
+        let this_year = today_string.substring(0, 4);
+   
+        //콤보박스
+        AjaxUtil.fillSelectOptions($('#cboDataYear'), 'data_year', '', this_year);
+
+        pageSheet.searchMainData();
+        pageList.searchListData();
+
+        //조회 버튼
+        $('#btnSearch').click(function () {
+            pageSheet.searchMainData();
+        });
+
+        //저장 버튼
+        $('#btnSave').click(function (e) {
+            pageSheet.saveResult();
+        });
+    });
+</script>
+</th:block>
+</html>

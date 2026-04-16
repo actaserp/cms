@@ -1,0 +1,363 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+  <style>
+      .wj-header {
+          text-align: center !important;
+      }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+
+  <style>
+      .input-with-button {
+          display: flex;
+          width: 100%;
+          gap: 4px;
+      }
+
+      .input-clear {
+          display: flex;
+          flex: 1;
+          position: relative;
+          align-items: center;
+      }
+
+      .input-clear input {
+          flex: 1;
+          min-width: 0;
+          padding-right: 24px; /* clear 버튼 공간 확보 */
+      }
+
+      .btn-clear {
+          position: absolute;
+          right: 6px;
+          cursor: pointer;
+      }
+
+      .in_btn.cap {
+          width: 35px;
+          padding: 4px;
+          min-width: 0;
+          align-items: center;
+          justify-content: left;
+      }
+  </style>
+  <div class="layout-contents">
+    <!-- Page Title -->
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>CAP 분석</h2>
+        <a title="북마크" class="bookmark toggle">
+          내메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>보고서</li>
+        <li>CAP 분석</li>
+      </ul>
+    </div>
+
+    <div style="display: flex; gap: 5px">
+      <section class="section" style="width: 60%;">
+        <div class="section-top">
+          <div class="search-wrap">
+            <dl>
+              <dt>
+                <label>CAP 번호</label>
+              </dt>
+              <dd>
+                <div class="srch-box">
+                  <input type="text" id="txtMatgrp" name="txtMatgrp" class="form-control2" placeholder="CAP 번호"/>
+                </div>
+              </dd>
+            </dl>
+
+            <dl>
+              <dt><span class="eq"></span></dt>
+              <dd>
+                <li>
+                  <a class="btn btn-delete" title="검색" id="btnSearch">
+                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                    검색
+                  </a>
+                </li>
+              </dd>
+            </dl>
+          </div>
+        </div> <!--//section-top end -->
+        <div class="container-fluid">
+          <p id="selectedItem"></p>
+          <div id="theGrid" style=""></div>
+        </div>
+        <div class="btn-wrap">
+        </div>
+      </section>
+      <section style="width: 40%;">
+        <div class="section-top">
+          <div class="search-wrap">
+            <ul>
+              <li>
+                <button type="button" class="btn-excellt btn-default" id="btnNew" name="btnNew"
+                        style="height: 36px; width:115px;"><i
+                    class="fas fa-plus"></i>신규등록
+                </button>
+              </li>
+
+              <li>
+                <button type="button" class="btn-excellt btn-default y_write_auth" id="btnSave"
+                        style="float:none; height: 36px; width:115px;">
+                  <i class="fas fa-save"></i>저장
+                </button>
+              </li>
+              <li>
+                <button type="button" class="btn-delete btn-danger y_write_auth" id="btnDel"
+                        style="float:none; height: 36px; width:115px;"><i
+                    class="fas fa-trash"></i>삭제
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="table-wrap" style=" overflow-x: auto;">
+          <form id="CapAnalysisForm">
+            <table class="write-table" id="detail_box">
+              <caption style="text-align: left; margin-bottom: 8px;">CAP 등록테이블</caption>
+              <colgroup>
+                <col class="wp20">
+                <col class="wp80">
+              </colgroup>
+              <input type="hidden" id="id" name="id"/>
+              <tbody>
+              <tr>
+                <th >
+                  <label for="cap_number"><span class="eq">*</span>CAP 번호</label>
+                </th>
+                <td >
+                  <input type="text" id="cap_number" name="cap_number" style="width: 100%;" placeholder="CAP 번호" readonly/>
+                </td>
+              </tr>
+              <tr>
+                <th >
+                  <label for="date_occurrence"><span class="eq">*</span>발생일</label>
+                </th>
+                <td >
+                  <input type="date" id="date_occurrence" name="date_occurrence" style="width: 100%;" placeholder="발생일"/>
+                </td>
+              </tr>
+              <tr>
+                <th >
+                  <label for="cap_depart"><span class="eq">*</span>발생 부서</label>
+                </th>
+                <td >
+                  <input type="text" id="cap_depart" name="cap_depart" style="width: 100%;" placeholder="발생부서"/>
+                </td>
+              </tr>
+              <tr>
+                <th >
+                  <label for="product"><span class="eq">*</span>품목</label>
+                </th>
+                <td style="width: 100%;">
+                  <div class="input-with-button">
+                    <div class="input-clear">
+                      <input type="text" id="product" name="product" placeholder="품목을 선택하세요" />
+                    </div>
+                    <a class="btn in_btn cap" title="품목 검색" id="btnProductSearch">
+                      <img th:src="@{/images/icon/btn-srch-black.svg}" alt="검색 아이콘" />
+                    </a>
+                  </div>
+
+                  <!-- hidden input -->
+                  <input type="hidden" id="product_code" name="product_code" />
+                  <input type="hidden" id="material_id" name="material_id" />
+                </td>
+              </tr>
+              <tr>
+                <th >
+                  <label for="cap_unit"><span class="eq">*</span>측정단위</label>
+                </th>
+                <td >
+                  <input type="text" id="cap_unit" name="cap_unit" style="width: 100%;" placeholder="층정단위"/>
+                </td>
+              </tr>
+              <tr>
+                <th >
+                  <label for="cap_progress"><span class="eq">*</span>진행상태</label>
+                </th>
+                <td >
+                  <input type="text" id="cap_progress" name="cap_progress" style="width: 100%;" placeholder="진행상태"/>
+                </td>
+              </tr>
+              <tr>
+                <th >
+                  <label for="cap_process"><span class="eq">*</span>발생공정</label>
+                </th>
+                <td >
+                  <input type="text" id="cap_process" name="cap_process" style="width: 100%;" placeholder="발생공정"/>
+                </td>
+              </tr>
+              <tr>
+                <th >
+                  <label for="cap_claims"><span class="eq">*</span>클레임 유형</label>
+                </th>
+                <td >
+                  <input type="text" id="cap_claims" name="cap_claims" style="width: 100%;" placeholder="클레임 유형"/>
+                </td>
+              </tr>
+              <tr>
+                <th >
+                  <label for="cap_creater_id"><span class="eq">*</span>작성자</label>
+                </th>
+                <td >
+                  <input type="text" id="cap_creater_id" name="cap_creater_id" style="width: 100%;" placeholder="작성자"/>
+                </td>
+              </tr>
+              <tr>
+                <th >
+                  <label for="cap_problem_content"><span class="eq">*</span>문제 요약</label>
+                </th>
+                <td >
+                  <textarea type="text" id="cap_problem_content" name="cap_problem_content" style="width: 100%;" placeholder="문제요약"></textarea>
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </form>
+        </div>
+        <!--//tab-wrap end-->
+      </section>
+    </div>
+  </div> <!--//layout-contents end -->
+
+  <footer style="margin-top: 24px;">
+    <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+  </footer>
+
+</th:block>
+<th:block layout:fragment="scripts">
+  <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+  <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+  <th:block th:replace="/common/multiform_material :: multiform_material"></th:block>
+
+  <script type="text/javascript">
+    class CAPAnalysisPage {
+      constructor() {
+         this.theGrid = null;
+        this.viewData = new wijmo.collections.CollectionView([]);
+        this.init();
+      }
+
+      init() {
+        let _this = this;
+        this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: '', header: 'cap_id', width: 150, visible: false},
+            {binding: '', header: 'CAP 번호', width: 150},
+            {binding: '', header: '발생일', width: 70, align: 'center'},
+            {binding: '', header: '고객', width: 70, align: 'center'},
+            {binding: '', header: '발생부서', width: 120, align: 'center'},
+            {binding: '', header: '품목', width: 120, align: 'center'},
+            {binding: '', header: '조치항목', width: 120, align: 'center'},
+            {binding: '', header: '조치 일자', width: 120, align: 'center'},
+            {binding: '', header: '주요원인', width: 120, align: 'center'},
+            {binding: '', header: '문제 요약', width: 120, align: 'center'},
+            {binding: '', header: '진행상태', width: 120, align: 'center'},
+            {binding: '', header: '담당자', width: 120, align: 'center'},
+            {binding: '', header: '보기', width: 120, align: 'center'},
+
+          ],
+          itemsSource: this.viewData, // 데이터를 설정할 배열
+        });
+
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = 'CAP 분석';
+
+        this.grid.hostElement.addEventListener('dblclick', function (e) {
+          let items = _this.grid.selectedItems;
+          if (items.length === 0) {
+            return false;
+          }
+          _this.$btnEdit.trigger('click');
+        });
+
+        $('#btnProductSearch').click(function () {
+          const $productName = $('#product');
+          const $productId = $('#material_id');
+          const $productCode = $('#product_code');
+
+          const pop = new PopMatComponent();
+          pop.material_type = 'product,sangpum';
+
+          pop.show(function (item) {
+            $productName.val(item.Name);
+            $productId.val(item.id);
+            $productCode.val(item.Code);
+          });
+        });
+
+        $('#product').on('input', function () {
+          if (!$(this).val().trim()) {
+            $('#product_code').val('');
+            $('#material_id').val('');
+          }
+        });
+
+      }//init
+
+    }//CAPAnalysisPage
+
+    let page = null;
+    var picker = new ax5.ui.picker();
+
+    $(document.body).ready(function (e) {
+
+      page = new CAPAnalysisPage();
+
+      let today = new Date();
+      $('#date_occurrence').val(CommonUtil.formatYYYYMMDD(today));
+
+      //page.searchMainData();
+
+      // 검색버튼
+      $('#btnSearch').click(function (e) {
+        searchMainData();
+      });
+
+      // 엔터키 검색
+      $('#txtMatgrp').on('keypress', function (e) {
+        if (event.keyCode == 13) {
+          searchMainData();
+        }
+      });
+
+      // 신규버튼
+      $('#btnNew').click(function (e) {
+
+        $('#CapAnalysisForm')[0].reset();
+        $('#CapAnalysisForm').find('#id').val('');
+
+        $('#CapAnalysisForm').find('input, select, textarea').each(function () {
+          if ($(this).is(':disabled')) {
+            $(this).prop('disabled', false);
+          }
+        });
+      });
+
+    });
+
+  </script>
+</th:block>
+
+</html>

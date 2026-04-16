@@ -1,0 +1,742 @@
+<html layout:decorate="~{layout_page}">
+<head>
+<style>
+    .greenText span {
+        color: #66DA26;
+    }
+
+    .redText span {
+        color: #FF0000;
+    }
+
+    .blueText span {
+        color: #4374D9;
+    }
+
+    .select2-container--open {
+        z-index: 9001;
+    }
+
+    .grid-cell-red {
+        background: #f8d2cb;
+    }
+
+    .grid-cell-blue {
+        background: #dcf0f8;
+    }
+
+    .grid-cell-white {
+        background: #ffffff;
+    }
+</style>
+<style id="print_css">
+    @media print {
+        .pagebreak {
+            page-break-before: always;
+        }
+        /* page-break-after works, as well */
+    }
+
+    .bg_gray {
+        background: #dedede;
+    }
+
+    /*align*/
+    .table_1 td.tar {
+        text-align: right;
+    }
+
+    .table_1 td.tal {
+        text-align: left;
+    }
+
+    .table_1 td.tac {
+        text-align: center;
+    }
+
+    .table_1 {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        /*.table_1 th.b2 {border: 2px solid #166614;}
+        .table_1 th.b2lt {border-left: 2px solid #166614;border-top: 2px solid #166614;}
+        .table_1 th.b2rt {border-right: 2px solid #166614;border-top: 2px solid #166614;}
+        .table_1 th.b2l {border-left: 2px solid #166614;}
+        .table_1 th.b2r {border-right: 2px solid #166614;}
+        .table_1 th.b2lrt {border-left: 2px solid #166614;border-right: 2px solid #166614;border-top: 2px solid #166614;}
+        .table_1 th.b2t {border-top: 2px solid #166614;}*/
+
+        .table_1 td.b2lr {
+            border-left: 2px solid #166614;
+            border-right: 2px solid #166614;
+        }
+
+        .table_1 td.b2lbr {
+            border-left: 2px solid #166614;
+            border-right: 2px solid #166614;
+            border-bottom: 2px solid #166614;
+        }
+
+        .table_1 td.b2tr {
+            border-top: 2px solid #166614;
+            border-right: 2px solid #166614;
+        }
+
+        .table_1 td.b2t {
+            border-top: 2px solid #166614;
+        }
+
+        .table_1 td.b2tb {
+            border-top: 2px solid #166614;
+            border-bottom: 2px solid #166614;
+        }
+
+        .table_1 td.b2lt {
+            border-left: 2px solid #166614;
+            border-top: 2px solid #166614;
+        }
+
+        .table_1 td.b2ltb {
+            border-left: 2px solid #166614;
+            border-top: 2px solid #166614;
+            border-bottom: 2px solid #166614;
+        }
+
+        .table_1 td.b2rtb {
+            border-right: 2px solid #166614;
+            border-top: 2px solid #166614;
+            border-bottom: 2px solid #166614;
+        }
+
+        .table_1 td.b2l {
+            border-left: 2px solid #166614;
+        }
+
+        .table_1 td.b2r {
+            border-right: 2px solid #166614;
+        }
+
+        .table_1 td.b2lb {
+            border-bottom: 2px solid #166614;
+            border-left: 2px solid #166614;
+        }
+
+        .table_1 td.b2b {
+            border-bottom: 2px solid #166614;
+        }
+
+        .table_1 td.b2rb {
+            border-bottom: 2px solid #166614;
+            border-right: 2px solid #166614;
+        }
+
+        .table_1 th, td {
+            border: 1px solid black;
+            text-align: center;
+            padding-left: 3px;
+            padding-right: 3px;
+        }
+
+        .table_1 .line {
+            border: 1px solid #166614;
+            color: #166614;
+            font-size: 14px;
+        }
+
+        .table_1 .line.clb {
+            color: black;
+            font-weight: 600;
+            font-size: 12px;
+            font-family: 휴먼고딕;
+        }
+
+        .table_1 .line.clb.money {
+            font-size: 20px;
+        }
+
+        .table_1 td > .ts {
+            font-size: 10px;
+        }
+
+        .table_1 td > .ts2 {
+            font-size: 18px;
+            position: relative;
+            top: 10px;
+        }
+
+        .table_1 .title {
+            font-size: 24px;
+            font-weight: 600;
+            padding: 5px;
+        }
+</style>
+</head>
+
+<th:block layout:fragment="content">
+<div class="content_wrap">
+    <section class="section">
+        <div class="title_box ">
+            <div class="left_align">
+                <h3 data-labelCd="세제, 소독제 수불">세제, 소독제 수불</h3>
+            </div>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>
+        </div>
+        <div class="table_box search">
+            <form id="searchForm" autocomplete="off">
+                <div class="row">
+
+                    <div class="col-12 col-lg-5 col-xl-3">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_sm" data-labelCd="입출일">입출일</span>
+                            </div>
+                            <div data-ax5picker="multi" id="srchDt">
+                                <div class="input-group-append">
+                                    <input class="tac " type="text" id="srchStartDt" name="srchStartDt" />
+                                    <span class="input-group-text fs-xl">
+                                        <i class="fas fa-calendar-alt calendar_color"></i>
+                                    </span>
+                                    <span class="slow_sign">~</span>
+                                    <input class="tac " type="text" id="srchEndDt" name="srchEndDt" />
+                                    <span class="input-group-text fs-xl">
+                                        <i class="fas fa-calendar-alt calendar_color"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!--
+                        <div class="col-6 col-mg-3 col-lg-3">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_sm" data-labelCd="창고">창고</span>
+                                </div>
+                                <select class="form-control2" id="cboHouse" name="cboHouse"></select>
+
+                            </div>
+                        </div>
+
+
+                        <div class="col-6  col-mg-3 col-lg-3">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_sm" data-labelCd="품목유형">품목유형</span>
+                                </div>
+                                <select class="form-control2" id="cboMatType" name="cboMatType"></select>
+
+                            </div>
+                        </div>
+
+                        <div class="col-6  col-mg-3 col-lg-3">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_sm" data-labelCd="품목그룹">품목그룹</span>
+                                </div>
+                                <select class="form-control2" id="cboMatGroup" name="cboMatGroup"></select>
+
+                            </div>
+                        </div>
+                    -->
+                    <div class="col-5 col-mg-3 col-lg-3">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_sm" data-labelCd="품명">품명</span>
+                            </div>
+                            <input id="txtMatName" name="txtMatName" class="form-control2" title="품명" />
+
+                        </div>
+                    </div>
+
+                    <div class="col-1">
+                        <button type="button" class="btn-default" id="btnSearch" title="조회"><i class="fas fa-search"></i></button>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+    </section>
+    <section>
+        <div class="grid_box">
+            <div class="title_box">
+                <span class="right_align rpt" data-labelCd="입출고 내역">입출고 내역</span>
+                <button type="button" class="btn-default" id="btnNew"><i class="fas fa-plus"></i></button>
+                <button type="button" class="btn-danger" id="btnDelete"><i class="fas fa-trash"></i></button>
+                <button type="button" class="btn-default" id="btnEdit"><i class="fas fa-edit"></i></button>
+                <button type="button" class="btn-default" id="btnExcel" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                <button type="button" class="btn-default" id="btnGridSetting" style="visibility:hidden"><i class="fas fa-cog"></i> Setting</button>
+            </div>
+            <div class="h-620" data-ax5grid="material-storehouse-grid"></div>
+        </div>
+    </section>
+</div>
+<script type="text/x-tmpl" id="addDataPopup">
+    <div class="content_wrap popup">
+
+        <section class="pt-2">
+                <div class="table_box sub">
+
+                    <form id="materialInoutForm">
+                        <input id = "mio_pk" name ="mio_pk" value ="{%=o.mio_pk%}" hidden="hidden" />
+                <div class="row">
+
+    <!--
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t4" data-labelCd="품목그룹">품목그룹</span>
+                            </div>
+                             <select class="form-control2" id="cboMaterialGroup" name="cboMaterialGroup"  ></select>
+                        </div>
+                    </div>
+    -->
+
+                    <div class="col-12">
+                        <div class="input-group" data-ax5picker="basic" id="srchDt">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t4" data-labelCd="수불일">수불일</span>
+                            </div>
+                            <input class="form-control2 tac" type="text" id="InoutDate" name="InoutDate"  value ="{%=o.inout_date%}">
+                            <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color" ></i></span>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t4" data-labelCd="품목">품목</span>
+                            </div>
+                             <select class="form-control2" id="Material_id" name="Material_id" value ="{%=o.mat_pk%}"></select>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t4" data-labelCd="수량">수량</span>
+                            </div>
+                             <input type="number" class="form-control2" id="InoutQty" name="InoutQty" value ="{%=o.inout_qty%}"/>
+                        </div>
+                    </div>
+    <!--
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t4" data-labelCd="창고지정">창고지정</span>
+                            </div>
+                             <select class="form-control2" id="StoreHouse_id" name="StoreHouse_id"  value ="{%=o.production_date%}"/>
+                        </div>
+                    </div>
+    -->
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t4" data-labelCd="구분">구분</span>
+                            </div>
+
+                            <input type="radio" class = "ml-1" id="chxIn" name="chxInOut" />
+                            <span class = "mt-1">입고</span>
+
+                            <input type="radio" class = "ml-1" id="chxOut" name="chxInOut" />
+                            <span class = "mt-1">출고</span>
+
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t4_area" data-labelCd="비고">비고</span>
+                            </div>
+                             <textarea class="form-control2" id="Description" name="Description">{%=o.description%}</textarea>
+                        </div>
+                    </div>
+
+                    </div>
+
+                    </form>
+                </div>
+
+        </section>
+        <section class="popupcontent" >
+            <div class="align_left">
+                <button type="button" class="btn-popup y_write_auth" id="btnSave" ><span data-labelCd="저장">저장</span></button>
+                <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+            </div>
+        </section>
+
+    </div>
+</script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<script type="text/javascript" th:src="@{/resource/jsBarcode/JsBarcode.all.min.js}"></script>
+<th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+
+<script type="text/javascript">
+    class materialStorehouse {
+        constructor() {
+            this.url = '/api/precedence/mat_inout_sanitizer';
+            this.grid = null;
+            this.init();
+        }
+        setClassName(e) {
+            let classNmae = '';
+            if (e.key === 'CurrentStock') {
+                if (e.item.CurrentStock < e.item.SafetyStock)
+                    classNmae = 'redText';
+            }
+            return classNmae;
+        }
+
+        init() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="material-storehouse-grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: true, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 38  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.grid.select(this.dindex);
+                    }
+                },
+                page: {
+                    display: true,
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'mio_pk', label: '입고번호', width: 100, align: 'center', },
+                    { key: 'InoutDate', label: '입출일', width: 100, align: 'center', },
+                    //{ key: 'store_house_name', label: '창고', width: 100, align: 'center', },
+                    //{ key: 'inout_type', label: '구분', width: 100, align: 'center', },
+                    { key: 'material_code', label: '품목코드', width: 100, align: 'center' },
+                    { key: 'material_name', label: '품목명', width: 250, align: 'left' },
+                    { key: 'inout', label: '구분', width: 100, align: 'center', },
+                    { key: 'unit_name', label: '단위', width: 50, align: 'center' },
+                    //{ key: 'InoutTime', label: '시간', width: 50, align: 'center', },
+                    {
+                        key: 'qty', label: '수량', width: 90, align: 'right',
+                        formatter: 'money',
+                    },
+                    //{
+                    //    key: 'InputQty', label: '입고량', width: 90, align: 'right',
+                    //    formatter: 'money',
+                    //},
+                    //{
+                    //    key: 'OutputQty', label: '출고량', width: 90, align: 'right',
+                    //    formatter: 'money',
+                    //},
+                    { key: 'Description', label: '비고', width: 150, align: 'left' },
+                    {
+                        key: 'CurrentStock', label: '전체재고', width: 100, align: 'right',
+                        formatter: 'money',
+                        styleClass: function (e) {
+                            return _this.setClassName(this);
+                        },
+                    },
+                ]
+            };
+            this.grid = new ax5.ui.grid(config);
+            this.grid_config = config;
+
+        }
+
+        exportExcel() {
+            var targetview = this.grid;
+            // 현재 html코드로 데이터 만들어 확장자만 xls로 변경해주고 있음
+            targetview.exportExcel('세제소독제수불내역.xls');
+        }
+
+        searchDataBind() {
+            let _this = this;
+
+            let srchStartDt = $('#searchForm').find("#srchStartDt").val();
+            let srchEndDt = $('#searchForm').find("#srchEndDt").val();
+            let txtMatName = $('#searchForm').find('#txtMatName').val();
+            let data = {
+                'action': 'read',
+                'srchStartDt': srchStartDt,
+                'srchEndDt': srchEndDt,
+                'keyword': txtMatName
+            };
+
+            let result = AjaxUtil.getSyncData(this.url + "/read", data);
+            if (result != null) {
+                let recordsTotal = result.data.length;
+                _this.grid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            }
+        }
+
+        addDataPopup(type) {
+            let _this = this;
+            let content = tmpl('addDataPopup', {});
+            let $content = $(content);
+            let form = $('#materialInoutForm');
+            let today = CommonUtil.getYYYYMMDD();
+
+            let modalContainer = null;
+            if (type == 'new') {
+                modalContainer = new PopupDraggable('수불내역 등록');
+                $content.find('#InoutDate').val(today);
+                $content.find('#srchDt').ax5DatePicker({ direction: 'top' });
+
+                modalContainer.open({ width: 600, height: 400, $content });
+                popup = new materialInoutPopup();
+
+                AjaxUtil.fillSelectOptions($content.find('#Material_id'), 'material', 'choose', '', '18');
+            } else {
+                let select_grid = this.grid.getList('selected')[0]; 
+                
+                if (select_grid == undefined) {
+                    Alert.alert('', '선택된 내역이 없습니다.');
+                    return false;
+				}
+                
+                let data = {
+                    'mio_pk': select_grid.mio_pk,
+                    'action': 'detail'
+                }
+                let result = AjaxUtil.getSyncData(_this.url + "/detail", data);
+                data = {
+                    'mio_pk': result.data.mio_pk,
+                    'mat_pk': result.data.Material_id,
+                    'inout_date': result.data.inout_date,
+                    'inout_qty': result.data.inout_qty,
+                    'inout_type': result.data.inout_type,
+                    'description': result.data.description,
+                }
+                content = tmpl('addDataPopup', data);
+                $content = $(content);
+
+                modalContainer = new PopupDraggable('수불내역 수정');
+                modalContainer.open({ width: 600, height: 400, $content });
+                popup = new materialInoutPopup();
+
+                $content.find('#srchDt').ax5DatePicker({ direction: 'top' });
+                AjaxUtil.fillSelectOptions($content.find('#Material_id'), 'material', 'choose', '', '18');
+                $content.find('#Material_id').val(result.data.mat_pk);
+                $content.find('#Material_id').prop('disabled', true);
+				
+                if (result.data.mio_type == 'in') {
+                    $("#chxIn").attr('checked', true);
+                    $content.find('#chxIn').prop('disabled', true);
+                    $content.find('#chxOut').prop('disabled', true);
+                } else {
+                    $("#chxOut").attr('checked', true);
+                    $content.find('#chxIn').prop('disabled', true);
+                    $content.find('#chxOut').prop('disabled', true);
+                }
+
+            }
+
+            $content.find('#btnSave').on('click', function () {
+
+                if (!$('#Material_id').val()) {
+                    Alert.alert('', '품목을 선택하세요.');
+                    return false;
+                }
+
+                if ($('input[name="chxInOut"]:checked').length == 0) {
+                    Alert.alert('', '입출고 구분을 선택하세요.');
+                    return false;
+                }
+
+                if ($('#InoutQty').val() == "" || $('#InoutQty').val() <= 0) {
+                    Alert.alert('', '수량을 확인해 주세요.');
+                    return false;
+                }
+
+                popup.saveData();
+
+                modalContainer.modal.close();
+            });
+        }
+
+        delInoutData() {
+            let _this = this;
+            let select_grid = this.grid.getList('selected')[0];
+            let data = {
+                mio_pk : select_grid.mio_pk
+            }
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Notify.success('삭제되었습니다.');
+                    _this.searchDataBind();
+                } else {
+                    Alert.alert('', '입출고 내역이 삭제되지 않았습니다.');
+                }
+            }
+
+            AjaxUtil.postAsyncData(_this.url +'/delete', data, fnSuccess);
+
+        }
+    }
+
+    class materialInoutPopup {
+        constructor() {
+            this.grid = null;
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+        }
+
+        saveData() {
+
+            let url = '/api/precedence/mat_inout_sanitizer/save';
+            let data = FormUtil.extractForm($('#materialInoutForm'));
+            let chx_val = $('input[name="chxInOut"]:checked').attr('id');
+            data['chxInOut'] = chx_val
+            let fnSuccess = function (res) {
+                if (!res.success) {
+                    Alert.alert('', res.message);
+                } else {
+                    Notify.success('저장되었습니다');
+                    page.searchDataBind();
+                    let grid_list = page.grid.getList();
+                    for (let i = 0; i < grid_list.length; i++) {
+                        if (grid_list[i].mio_pk == res.mio_pk) {
+                            page.grid.select(grid_list[i].__index)
+                        }
+                    }
+                }
+            };
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+    }
+
+    let page = null;
+    let popup = null;
+    let modalContainer = null;
+
+    $(document).ready(function (e) {
+        page = new materialStorehouse();
+
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),
+            direction: "top",
+            locale: {
+                format: 'YYYY-MM-DD'
+            },
+            content: {
+                width: 214,
+                margin: 10,
+                type: 'date',
+
+                config: {
+                    control: {
+                        left: '<i class="fa fa-arrow-left"></i>',
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-arrow-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            },
+            btns: {
+                /*ok: {
+                    label: "조회", theme: "default", onClick: function () {
+                        this.self.close();
+                        page.searchDataBind();
+
+
+                    }
+                }*/
+            },
+
+        });
+
+
+        $('#searchForm').find('#srchDt').ax5DatePicker({ direction: 'top' });
+        $('#searchForm').find('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+        $('#searchForm').find('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+        AjaxUtil.fillSelectOptions($('#searchForm').find('#cboHouse'), 'store_house', 'all');
+        AjaxUtil.fillSelectOptions($('#cboMatType'), 'system_code', 'all', false, 'mat_type');
+        AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false);
+
+        $('#cboMatType').on('change', function (e) {
+            let mat_type = $('#cboMatType').val();
+            AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false, mat_type);
+        });
+
+        // 검색
+        $('#btnSearch').click(function (e) {
+            page.searchDataBind();
+        });
+        //$('#searchForm').find('#cboHouse').change(function (e) {
+        //    page.searchDataBind();
+        //});
+
+        // 수불추가
+        $('#btnNew').on('click', function () {
+            page.addDataPopup('new');
+        });
+        // 수불수정
+        $('#btnEdit').on('click', function () {
+
+            page.addDataPopup('ediit');
+        });
+
+        // 수불삭제
+        $('#btnDelete').on('click', function () {
+            let select_item = page.grid.getList('selected')[0]
+
+            if (select_item == undefined) {
+                Alert.alert('수불내역 삭제', '선택된 내역이 없습니다.');
+                return;
+            } 
+
+            Alert.confirm('수불내역 삭제', '선택한 내역을 삭제하시겠습니까?', function () {
+                page.delInoutData();
+            });
+
+        });
+
+        // 엑셀 다운로드
+        $('#btnExcel').on('click', function () {
+            page.exportExcel();
+        });
+
+        page.popColSetting = new popColSetting();
+        let columns = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'grid', page.grid);
+
+        if (userinfo.group_code == 'admin') {
+            $('#btnGridSetting').css('visibility', 'visible');
+        }
+
+        $('#btnGridSetting').click(function (e) {
+            let _this = this;
+            let fix_cols = page.grid_config.frozenColumnIndex;
+            page.popColSetting.show(gui.gui_code, gui.template_key, 'grid', page.grid_config.columns, page.grid, { 'order_fix': false, 'fix_cols': fix_cols });
+        });
+
+        page.searchDataBind();
+
+    })
+</script>
+</th:block>
+</html>

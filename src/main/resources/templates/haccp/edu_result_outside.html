@@ -1,0 +1,581 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+<div class="content_wrap">
+
+    <section class="section mb-1">
+
+        <div class="title_box ">
+            <div class="left_align">
+                <h3>교육결과</h3>
+            </div>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>        
+        </div>
+
+        <div class="table_box search" >
+
+            <div class="row" >
+                <div class="col-11 col-md-6 col-lg-5" >
+                    <div class="input-group" >
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_sm" data-labelCd="교육일">교육일</span>
+                        </div> 
+                        <div data-ax5picker="multi" id="srchDt">
+                            <div class="input-group-append">
+                                <input class="tac " type="text" id="date_from" name="date_from" />
+                                <span class="input-group-text fs-xl">
+                                    <i class="fas fa-calendar-alt calendar_color" ></i>
+                                </span>
+                                <span class="slow_sign">~</span>
+                                <input class="tac " type="text" id="date_to" name="date_to" />
+                                <span class="input-group-text fs-xl">
+                                    <i class="fas fa-calendar-alt calendar_color"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-1" >
+                    <button type="button" class="btn-default" id="btnSearch" title="조회"><i class="fas fa-search"></i></button>
+                </div> 
+                        
+            </div>
+        </div>
+    </section>
+
+    <div class="row">
+        <div class="col-lg-12">
+            <section class="section">
+                <div class="grid_box">
+                    <div class="title_box">
+                         <span class="right_align rpt">건강진단서</span>
+                        <button type="button" class="btn-default y_write_auth" id="btnNew"><i class="fas fa-plus"></i></button>
+                        <button type="button" class="btn-default" id="btnEdit"><i class="fas fa-edit"></i></button>
+                        <button type="button" class="btn-danger y_write_auth" id="btnDel"><i class="fas fa-trash"></i></button>
+                        <button type="button" class="btn-default " id="btnExcel"><i class="fas fa-file-excel"></i></button>
+                        <button type="button" class="btn-default" id="btnGridSetting" style="visibility:hidden"><i class="fas fa-cog"></i> Setting</button>
+                    </div>
+                    <div class="h-630" data-ax5grid="report_grid" ></div>  
+                </div>
+
+            </section>
+        </div>
+    </div>
+</div>
+
+<script type="text/x-tmpl" id="reportCreateTemplate">
+<div class="row">
+    <div class="content_wrap popup col-12">
+        <section class="pt-2">
+            <form id="detailForm">
+                <input type="hidden" id="id" name="id" value="{%=o.id%}">
+                <div class="table_box sub" id="detail_box">
+                    <div class="row">
+
+                        <div class="col-6">
+                            <div class="input-group" id="date_TestDate">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4">교육일</span>
+                                </div>
+                                <input class="form-control2 tac" type="date" id="EduDate" name="EduDate" value="{%=o.EduDate%}"/>
+                            </div>
+                        </div>	
+
+                         <div class="col-6">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4">교육명</span>
+                                </div>
+                                <input class="form-control2 tac" type="text" id="EduTitle" name="EduTitle" value="{%=o.EduTitle%}"/>
+                            </div>
+                        </div> 
+
+                         <div class="col-6">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4">교육장소</span>
+                                </div>
+                                <input class="form-control2 tac" type="text" id="EduPlace" name="EduPlace" value="{%=o.EduPlace%}"/>
+                            </div>
+                        </div> 
+                         <div class="col-6">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4">교육주관</span>
+                                </div>
+                                <input class="form-control2 tac" type="text" id="Teacher" name="Teacher" value="{%=o.Teacher%}"/>
+                            </div>
+                        </div> 
+                         <div class="col-12">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4">교육시간</span>
+                                </div>
+                                <input class="form-control2 tac" type="text" id="StartTime" name="StartTime" value="{%=o.StartTime%}"/>
+                                <span class="slow_sign">~</span>
+                                <input class="form-control2 tac" type="text" id="EndTime" name="EndTime" value="{%=o.EndTime%}"/>
+                                <input class="form-control2 tac" type="number" id="EduHour" name="EduHour" value="{%=o.EduHour%}"/><span class="slow_sign">시간</span>
+                            </div>
+                        </div> 
+                         <div class="col-6">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4">교육대상</span>
+                                </div>
+                                <input class="form-control2 tac" type="text" id="EduTarget" name="EduTarget" value="{%=o.EduTarget%}"/>
+                            </div>
+                        </div> 
+                         <div class="col-3">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4">대상자수</span>
+                                </div>
+                                <input class="form-control2 tac" type="number" id="TargetCount" name="TargetCount" value="{%=o.TargetCount%}"/>
+                            </div>
+                        </div> 
+                         <div class="col-3">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4">참여자수</span>
+                                </div>
+                                <input class="form-control2 tac" type="number" id="StudentCount" name="StudentCount" value="{%=o.StudentCount%}"/>
+                            </div>
+                        </div> 
+
+                        <div class="col-12">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4_area">교육내용</span>
+                                </div>
+                                <textarea class="form-control2" id="EduContent" name="EduContent">{%=o.EduContent%}</textarea>
+                            </div>
+                        </div>
+                         <div class="col-6">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4">사용교재</span>
+                                </div>
+                                <input class="form-control2 tac" type="text" id="EduMaterial" name="EduMaterial" value="{%=o.EduMaterial%}"/>
+                            </div>
+                        </div> 
+                         <div class="col-6">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4">불참자처리</span>
+                                </div>
+                                <input class="form-control2 tac" type="text" id="AbsenteeProcess" name="AbsenteeProcess" value="{%=o.AbsenteeProcess%}"/>
+                            </div>
+                        </div> 
+                        <div class="col-12">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4_area">교육평가</span>
+                                </div>
+                                <textarea class="form-control2" id="EduEvaluation" name="EduEvaluation">{%=o.EduEvaluation%}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+        <section class="section">
+            <div class="popup_button_group bottom">
+                <div class="left_align">
+                <button type="button" class="btn-popup" id="btnSave" ><span>저장</span></button>
+                <button type="button" class="btn-popup" id="modal-close-button"><span>닫기</span></button>
+
+                </div>
+            </div>
+        </section>
+
+         <div class="grid_box" id="file_upload_idv">file upload div
+        </div>
+
+        </section>
+
+    </div>
+    <div class="col-4">
+        <img id="imgPhoto" src="" />
+    </div>
+</div>
+</script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="/common/ax5_uploader :: ax5_uploader" ></th:block>
+<th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+
+<script type="text/javascript">
+    class reportPage {
+        constructor() {
+            this.grid = null;
+            this.uploader = null;
+            this.init(); 
+
+            this.baseUrl = '/api/haccp/edu_result';
+            this.table_name = 'edu_result';
+        }
+
+        init() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="report_grid"]'),
+                sortable: true,
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: true, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 38  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.grid.select(this.dindex);
+                    }
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+               columns: [
+                   { key: 'id', label: '번호', width: 100, align: 'left'},
+                   { key: 'edu_date', label: '교육일', width: 100, align: 'center'},
+                   { key: 'edu_title', label: '교육명', width: 100, align: 'left' },
+                   { key: 'teacher', label: '교육주관', width: 100, align: 'left' },
+                   { key: 'edu_target', label: '교육대상', width: 100, align: 'left' },
+                   { key: 'edu_place', label: '교육장소', width: 100, align: 'left' },
+                   { key: 'target_count', label: '대상자수', width: 100, align: 'right' },
+                   { key: 'student_count', label: '참석자수', width: 100, align: 'right' },
+                   { key: 'absentee_process', label: '불참자처리', width: 300, align: 'left' },
+                   { key: 'edu_material', label: '사용교재', width: 300, align: 'left' },
+                   { key: 'edu_content', label: '교육내용', width: 300, align: 'left' },
+                   { key: 'edu_evaluation', label: '교육평가', width: 300, align: 'left' },
+                ]
+            };
+
+            this.grid = new ax5.ui.grid(config);
+            this.grid_config = config; 
+        }
+
+        //버튼 활성화 
+        setButtonState() {
+            let pk = this.grid.getList("selected");
+            $('#btnNew').prop('disabled', false);
+            $('#btnSave').prop('disabled', false);
+            if (pk) {
+                $('#btnDel').prop('disabled', false);
+                $('#btnEdit').prop('disabled', false);
+            }
+            else {
+                $('#btnDel').prop('disabled', true);
+                $('#btnEdit').prop('disabled', true);
+            }
+        }
+
+        //모달
+        showDataEdit(data) {
+            let _this = this;
+            let content = tmpl('reportCreateTemplate', data);
+            let $content = $(content);
+            let modalContainer;
+            if (!data.doc_form_id) {
+                modalContainer = new PopupDraggable('교육결과 등록');
+            } else {
+                modalContainer = new PopupDraggable('교육결과 수정');
+            }
+            modalContainer.open({ width: 600, height: 800, $content });
+     
+            $('#TestDate').change(function (e) {
+                let val = $('#TestDate').val();
+                let test_date = new Date(val);
+                let data_year = test_date.getFullYear();
+                data_year++;
+                let expire_date = new Date(test_date);
+                expire_date.setFullYear(data_year);
+                expire_date.setDate(expire_date.getDate()-1);
+
+                let next_date = new Date(expire_date);
+                next_date.setDate(next_date.getDate() - 7);
+
+                expire_date = CommonUtil.formatYYYYMMDD(expire_date);
+                next_date = CommonUtil.formatYYYYMMDD(next_date);
+
+
+                $('#ExpireDate').val(expire_date);
+                $('#NextTestDate').val(next_date);
+            });
+         
+            $content.find('#btnSave').on('click', function () {
+                let $form = $content.find('#detailForm');
+                Alert.confirm('', 
+                    '저장하시겠습니까?',
+                    function () { _this.saveData($form, modalContainer); },
+                    function () { }
+                );
+            }); 
+            let files = data.files;
+            if (files != null && files != undefined && files[0] != null) {
+                let imgSrc = '';
+                files.forEach(function (file) {
+                    imgSrc = imageUri(file.attach_name, file.file_id);                    
+                });
+                $('#imgPhoto').attr('src', imgSrc);
+            }
+        }
+
+        // 문서 목록 조회
+        searchMainData() {
+            let _this = this;
+                        
+            let param = {
+                'date_from': $('#date_from').val(),
+                'date_to': $('#date_to').val(),
+            };
+
+            let result = AjaxUtil.getSyncData(_this.baseUrl + "/read", param);
+            if (result != null) {
+
+                let count = result.data.length;
+                _this.grid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: count,
+                    }
+                });
+            }
+            _this.setButtonState();
+        }
+
+        showDetailData(id) {
+            let _this = this;
+            let param = {
+                'id': id, 
+            };
+            
+            let result = AjaxUtil.getSyncData(_this.baseUrl + '/detail', param);
+
+            if (result) {
+                page.setButtonState();
+            }
+            page.uploader.mode = 'active';
+
+        }
+        
+        // 문서 정보 저장
+        saveData($form, modalContainer) {
+            let _this = this;
+            let url = _this.baseUrl + '/save';
+            let data = FormUtil.extractForm($form);
+            
+            data['fileId'] = $("#srchFileId").val();
+
+            // 필수입력 check routine
+            if (!data.EduDate) {
+                Alert.alert('', '교육일을 입력해주세요.');
+                return false;
+            }
+            if (!data.EduTitle) {
+                Alert.alert('', '교육명을 입력해주세요.');
+                return false;
+            }
+            
+            let fnSuccess = function () {
+                modalContainer.close();
+                Notify.success('저장되었습니다');
+                _this.searchMainData();
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        // 문서 정보 삭제
+        deleteData(id) {
+            let _this = this;
+            let url = _this.baseUrl + '/delete';
+            let data = { 'id': id }; 
+            let fnSuccess = function (res) {
+                _this.deleteDocFile(id);
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+		deleteDocFile(id) {
+            let _this = this;
+            let url = '/api/common/attach_file/deleteFile';
+            let data = { 'DataPk': id }; 
+            let fnSuccess = function (res) {
+                Notify.success('삭제되었습니다');
+                _this.searchMainData();
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);	
+		}
+		
+        //엑셀다운로드
+        exportExcel() {
+            var targetview = this.grid;
+            // 현재 html코드로 데이터 만들어 확장자만 xls로 변경해주고 있음
+            targetview.exportExcel('건강진단서.xls');
+        }
+
+        //파일 업로더    
+        setUploader(id) {
+            let _this = this;
+            let uploader = new ax5FileUploadClass('file_upload_idv', id,
+                {
+                    table_name: _this.table_name,
+                    attach_name: 'basic',
+                    multiple: true,
+                    max_count: 5,
+                    file_size: 100,
+                    upload_callback: function (param) {
+                        let file_id = $('#srchFileId').val();
+                        let imgSrc = imageUri('basic', file_id);
+                        $('#imgPhoto').attr('src', imgSrc); 
+                    },
+                    delete_callback: function (param) {
+                        $('#imgPhoto').attr('src', '');
+                    },
+                    file_click_callback: function (file_id) {
+                        uploader.showImage('imgPhoto', file_id);
+                    },
+                    can_write: userinfo.can_write(),
+                });
+         
+        }
+    }
+  
+    let page = null;
+
+    $(document.body).ready(function (e) {
+        page = new reportPage();
+
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),
+            direction: "top",
+            content: {
+                width: 206,  //130 270
+                margin: 10,
+                type: 'date',
+                config: {
+                    control: {
+                        left: '<i class="fa fa-chevron-left"></i>',
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-chevron-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            }
+
+        });
+
+
+        let today = CommonUtil.getYYYYMMDD();
+        let this_year = today.substring(0, 4);
+
+        $('#date_from').val(this_year + '-01-01');
+        $('#date_to').val(today);
+
+        // 검색버튼 클릭
+        $('#btnSearch').click(function (e) {
+            page.searchMainData();
+        });
+
+        
+        // 신규버튼
+        $('#btnNew').click(function (e) {
+
+            let data = {
+                'id': '',
+            };
+
+            page.showDataEdit(data);
+            //page.setUploader(-1);
+            page.setUploader();
+        });
+
+         // 수정버튼
+        $('#btnEdit').click(function (e) {
+            let items = page.grid.getList("selected");
+
+            if (items.length > 0) {
+                let id = items[0].id;
+                let url = page.baseUrl + '/detail';
+                let result = AjaxUtil.getSyncData(url, { 'id': id });
+                page.showDataEdit(result.data);
+                page.setUploader(id);
+            } else {
+                Alert.alert('', '수정할 문서를 선택해 주세요.')
+            }
+        });
+
+        // 삭제버튼
+        $('#btnDel').click(function (e) {
+
+            let items = page.grid.getList("selected");
+            if (items.length > 0) {
+                Alert.confirm('', "삭제하시겠습니까?",
+                    function () {
+                        let id = items[0].id;
+                        page.deleteData(id);
+                    },
+                    function () { }
+                );
+            } else {
+                Alert.alert('', '삭제할 건강진단서를 선택해 주세요.')
+
+            }
+
+        });
+
+        //그리드 컬럼 설정
+        page.popColSetting = new popColSetting();
+        let columns = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'grid', page.grid);
+
+        if (userinfo.group_code == 'admin') {
+            $('#btnGridSetting').css('visibility', 'visible');
+        }
+
+        $('#btnGridSetting').click(function (e) {
+            let _this = this;
+            let fix_cols = page.grid_config.frozenColumnIndex;
+            page.popColSetting.show(gui.gui_code, gui.template_key, 'grid', page.grid_config.columns, page.grid, { 'order_fix': false, 'fix_cols': fix_cols });
+        });
+
+        //엑셀
+        $('#btnExcel').click(function (e) {
+            page.exportExcel();
+        });
+	
+    });
+
+    // 그리드 파일 다운로드
+    function imageUri(attachName, fileId) {
+        let tableName = page.table_name;
+        let url = '/api/files/download?TableName=' + tableName + '&AttachName=' + attachName + '&file_id=' + fileId;
+        return url;
+    }
+
+    function gridFileDownload(attachName, fileId, fileNm) {
+        let tableName = page.table_name;
+        let url = imageUri(attachName, fileId);
+        AjaxUtil.downloadFile(url, fileNm);
+    }
+</script>
+</th:block>
+</html>

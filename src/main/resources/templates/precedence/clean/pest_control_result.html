@@ -1,0 +1,969 @@
+<html layout:decorate="~{layout_page}">
+<head>
+<style>
+    .background-yellow {
+        background: #ffd800
+    }
+
+    .background-skyblue {
+        background: #00e0ff
+    }
+
+    .background-white {
+        background: #ffffff
+    }
+</style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+    <input type="hidden" id="bhId" th:value="${bh_id}" />
+    <input type="hidden" id="viewMode" th:value="${view_mode}" />
+    <input type="hidden" id="apprView" th:value="${appr_view}" />
+    <input type="hidden" id="checkMasterId" th:value="${check_master_id}" />
+    <input type="hidden" id="createrName" th:value="${creater_name}" />
+    <input type="hidden" id="searchcond" th:value="${searchcond}" />
+    <input type="hidden" id="trapType" th:value="${trapType}" />
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>방역개선조치결과보고서</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>일지 및 데이터</li>
+                <li>선행요건일지</li>
+                <li>방역개선조치결과보고서</li>
+            </ul>
+        </div>
+
+
+    <section class="section">
+        <div class="section-top">
+            <div class="search-wrap">
+                <dl>
+                    <dt>
+                        <label>일지명</label>
+                    </dt>
+                    <dd>
+                        <input class="form-control2 tac" type="text" id="title" name="title" />
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                      일자<span class="eq"></span>
+                    </dt>
+                    <dd>
+                        <input class="form-control2 tac" type="text" id="dataDate" name="dataDate" readonly />
+                       <!-- <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color" onclick="javascript: $('#dataDate').click()"></i></span>-->
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                        <label>트랩구분</label>
+                    </dt>
+                    <dd>
+                        <select class="form-control2" id="cboTrapClass" name="cboTrapClass"></select>
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                        <label>작성자</label>
+                    </dt>
+                    <dd>
+                        <div class="srch-box">
+                            <input class="form-control2 tac" type="text" id="firstName" name="firstName" disabled />
+                        </div>
+                    </dd>
+                </dl>
+                <div>
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="title_box">
+            <span class="right_align rpt" data-labelCd="점검기준">점검기준</span>
+            <div class="left_align">
+                <label class="switch">
+                    <input type="checkbox" checked id="btnToggle"><span class="slider round"></span>
+                </label>
+                점검기준 보기/감추기
+            </div>
+        </div>
+        <div id="standardDIv" style="padding-top: 5px;">
+            <div class="h-200" data-ax5grid="standard_grid"></div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="title_box">
+            <span class="right_align rpt" data-labelCd="* 해충명 클릭시 해충 이미지를 볼 수 있습니다.">* 해충명 클릭시 해충 이미지를 볼 수 있습니다.</span>
+            <div class="section-top">
+                <dl>
+                    <dt>
+                        <label>층</label>
+                    </dt>
+                    <dd>
+                        <select class="form-control2" id="cboFloor" name="cboFloor"></select>
+                    </dd>
+                </dl>
+            </div>
+                <button type="button" class="btn-default" id="btnExcel"><i class="fas fa-file-excel"></i></button>
+                <button type="button" class="btn-default" id="btnDiaryPrint">일지출력</button>
+                <button type="button" class="btn-default" id="btnReqAppr">결재상신</button>
+                <button type="button" class="btn-default" id="btnAppr" style="display:none;">승인</button>
+                <button type="button" class="btn-cancel" id="btnReject" style="display:none;">반려</button>
+                <button type="button" class="btn-default" id="btnSave">저장</button>
+                <button type="button" class="btn-cancel" id="btnDelete">삭제</button>
+                <button type="button" class="btn-default" id="btnList">목록</button>
+                <button type="button" class="btn-default" id="btnFloor1Image">
+                    1층도면
+                </button>
+             <button type="button" class="btn-default" id="btnAllItem">전체적합</button>
+        </div>
+        <div class="h-250" data-ax5grid="pest_grid"></div>
+    </section>
+
+</div>
+
+<script type="text/x-tmpl" id="imagePopup">
+    <div class="content_wrap popup">
+        <section class="pt-2 ">
+            <div class="row" style="height:300px">
+                <div class="col-4" id="image_div" style="text-align:center;">
+                    <img src="{%=o.src%}"/>
+                </div>
+            </div>
+        </section>
+    </div>
+</script>
+<script type="text/x-tmpl" id="stdPopup">
+    <div class="content_wrap popup">
+        <section class="pt-2 ">
+            <div class="row">
+                <div class="col-12">
+                    <textarea class="form-control2" rows="15" readonly>{%=o.StdTxt%}</textarea>
+                </div>
+            </div>
+        </section>
+    </div>
+</script>
+<script type="text/x-tmpl" id="floorimagePopup">
+    <div class="content_wrap popup" style="overflow-y:auto;">
+        <section class="pt-2 ">
+            <div id="image_div" style="text-align:center;">
+  	            <img src="{%=o.src%}"/>
+            </div>
+        </section>
+    </div>
+</script>
+<script type="text/x-tmpl" id="resultPopup">
+    <div class="content_wrap popup">
+        <section class="pt-2 ">
+            <div class="row">
+                <div class="col-12">
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_sm" data-labelCd="포획결과">포획결과</span>
+                        </div>
+                        <input class="form-control2 tac" type="text" name="popResult" readonly />
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_sm" data-labelCd="적용" name="btnApply" style="cursor: pointer;">적용</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-4"><div class="card" style="background-color: #f5f6fa; cursor: pointer;" name="btnNumber" data-inputnumber="1"><div class="card-body">1</div></div></div>
+                <div class="col-4"><div class="card" style="background-color: #f5f6fa; cursor: pointer;" name="btnNumber" data-inputnumber="2"><div class="card-body">2</div></div></div>
+                <div class="col-4"><div class="card" style="background-color: #f5f6fa; cursor: pointer;" name="btnNumber" data-inputnumber="3"><div class="card-body">3</div></div></div>
+                <div class="col-4"><div class="card" style="background-color: #f5f6fa; cursor: pointer;" name="btnNumber" data-inputnumber="4"><div class="card-body">4</div></div></div>
+                <div class="col-4"><div class="card" style="background-color: #f5f6fa; cursor: pointer;" name="btnNumber" data-inputnumber="5"><div class="card-body">5</div></div></div>
+                <div class="col-4"><div class="card" style="background-color: #f5f6fa; cursor: pointer;" name="btnNumber" data-inputnumber="6"><div class="card-body">6</div></div></div>
+                <div class="col-4"><div class="card" style="background-color: #f5f6fa; cursor: pointer;" name="btnNumber" data-inputnumber="7"><div class="card-body">7</div></div></div>
+                <div class="col-4"><div class="card" style="background-color: #f5f6fa; cursor: pointer;" name="btnNumber" data-inputnumber="8"><div class="card-body">8</div></div></div>
+                <div class="col-4"><div class="card" style="background-color: #f5f6fa; cursor: pointer;" name="btnNumber" data-inputnumber="9"><div class="card-body">9</div></div></div>
+                <div class="col-8"><div class="card" style="background-color: #f5f6fa; cursor: pointer;" name="btnNumber" data-inputnumber="0"><div class="card-body">0</div></div></div>
+                <div class="col-4"><div class="card" style="background-color: #f5f6fa; cursor: pointer;" name="btnNumber" data-inputnumber="delete"><div class="card-body">◀</div></div></div>
+            </div>
+        </section>
+    </div>
+</script>
+</th:block>
+
+
+<th:block layout:fragment="scripts">
+<script src="/js/grid.js?v=1000"></script>
+<th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+<th:block th:replace="/common/approve_box :: approve_box" ></th:block>
+<th:block th:replace="/common/popup_select_user_code :: popup_select_user_code" ></th:block>
+<script type="text/javascript">
+    class PestControlResult {
+        constructor() {
+            this.baseUrl = '/api/precedence/pest_control_result';
+            this.grid = null;
+            this.grid_data = null;
+            this.appro_code = '해충포획결과'
+
+            this.pest_grid = null;
+            this.pest_grid_config = null;
+            this.pest_grid_data = null;
+
+            this.trap_list = [];
+
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="standard_grid"]'),
+                sortable: true,
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 25  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        //_this.grid.select(this.dindex);
+                    }
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'id', label: '번호', width: 100, align: 'left', sortable: true, hidden: true },
+                    { key: 'haccp_area_class', label: '구역', width: 100, align: 'left' },
+                    { key: 'pest_class', label: '해충구분', width: 100, align: 'left' },
+                    { key: 'season', label: '계절', width: 100, align: 'left' },
+                    {
+                        key: 'count', label: '해충수', width: 100, align: 'center',
+                        formatter: function () {
+                            let html = '';
+                            if (this.item.SearchYN == 'Y') {
+                                html = '<button class="btn-default" style="width:100%; height:0.9em; font-size:1em; padding:0; margin:0">조회</button>'
+                            }
+                            return (this.item.from_count == null ? '' : this.item.from_count) + ' ~ ' + (this.item.to_count == null ? '' : this.item.to_count);
+
+                        }
+                    },
+                    { key: 'action_content', label: '조치사항', width: 650, align: 'left' },
+                ]
+            };
+
+            this.grid = new ax5.ui.grid(config);
+            this.grid_config = config;
+
+            let pest_grid_config = {
+                target: $('[data-ax5grid="pest_grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 30,  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 30, // body의 기본 높이
+                    onClick: function (e) {
+                        //_this.pest_grid.select(this.dindex);
+                        //_this.showDetail(e);
+                        if (e.column && e.item) {
+                            // 조도가 있거나 기준보다 작은 경우만 가능
+                            if (e.column.key_group == 'pest' && !$('#viewMode').val()) {
+                                _this.inputResultPopup(e);
+                            }
+                            else if (e.column.key == 'StdTxt' && !$('#viewMode').val()) {
+                                _this.inputStdTxtPopup(e);
+                            }
+                            else if (e.column.key == 'DeviTxt' && !$('#viewMode').val()) {
+                                _this.inputDeviTxtPopup(e);
+                            }
+                        }
+                    },
+                    onDBLClick: function (e) {
+                        let list = this.item;
+
+                        // 트랩명 더블클릭 시 모두 0으로 처리
+                        if (this.column.key == 'TrapName' && $('#viewMode').val().toLowerCase() != 'true') {
+                            for (var key in list) {
+                                if (key.startsWith('pest')) {
+                                    list[key] = 0;
+                                }
+                            }
+                            list.PestTotal = 0;
+                            list.StdTxt = null;
+                            _this.pest_grid.repaint();
+                        }
+
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                ]
+            };
+
+            this.pest_grid = new ax5.ui.grid(pest_grid_config);
+            this.pest_grid_config = pest_grid_config;
+        }
+
+        // 일지 조회
+        searchMainData() {
+            this.setCboFloor();
+            this.getPestInfo();
+
+            let pest_id_list = []
+            $.each(this.pest_grid_config.columns, function (index, item) {
+                if (item.key_group == 'pest') {
+                    pest_id_list.push(item.key.replace('pest_', ''));
+                }
+            });
+
+            let _this = this;
+            let param = {
+                'action': 'read',
+                'bh_id': $('#bhId').val(),
+                'data_date': $('#dataDate').val(),
+                'pest_trap_class': $('#cboTrapClass').val(),
+                'pest_id_list': pest_id_list.join(','),
+            }
+
+            let result = AjaxUtil.getSyncData(_this.baseUrl + '/read', param);
+
+            if (result.data != null) {
+                let headInfo = result.data.head_info;
+                let standardInfo = result.data.standard_info;
+                let pestInfo = result.data.pest_info;
+
+                $('#title').val(headInfo.Title);
+                $('#dataDate').val(headInfo.DataDate);
+                $('#firstName').val(headInfo.FirstName);
+                $('#cboTrapClass').val(headInfo.PestTrapClass);
+
+                // 기준 적용을 위한 임시 데이터 보관
+                _this.grid_data = standardInfo;
+                _this.grid.setData({
+                    list: standardInfo,
+                    page: {
+                        display: true,
+                        totalElements: standardInfo.length,
+                    }
+                });
+
+                // filter 를 위해 임시 저장
+                _this.pest_grid_data = pestInfo;
+                _this.filterPestGrid();
+
+                // 데이터에 따른 버튼 설정
+                if ($('#viewMode').val().toLowerCase() == 'true') {
+                    //보기 모드일 경우 CRUD 버튼 숨김
+                    $('#btnDiaryPrint').hide();
+                    $('#btnReqAppr').hide();
+                    $('#btnSave').hide();
+                    $('#btnDelete').hide();
+                    $('#divDetail').hide();
+                    $('#btnAllItem').hide();
+                    if (headInfo.State == 'approval') {
+                        $('#btnDiaryPrint').show();
+                    }
+
+                    $('#title').attr('disabled', 'disabled');
+                    $('#dataDate').attr('disabled', 'disabled');
+                    $('#cboTrapClass').attr('disabled', 'disabled');
+                }
+                else {
+                    // State : 작성, 미결재, 승인, 반려, 재상신
+                    $('#btnDiaryPrint').hide();
+                    if (headInfo.State == 'process' || headInfo.State == 'reprocess') {
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        $('#divDetail').hide();
+                    } else if (headInfo.State == 'approval') {
+                        $('#btnDiaryPrint').show();
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        $('#divDetail').hide();
+                    }
+
+                    if (parseInt($('#bhId').val(), 10) > 0) {
+                        $('#dataDate').attr('disabled', 'disabled');
+                        $('#cboTrapClass').attr('disabled', 'disabled');
+                    } else {
+                        $('#btnDelete').hide();
+                    }
+                }
+
+                // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+                _this.approveBoxUtil = new ApproveBoxUtil(0, _this.appro_code, $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+            }
+        }
+
+        inputDeviTxtPopup(data) {
+            if (data.item.StdTxt == null || data.item.StdTxt == '') {
+                return;
+            }
+
+            let _this = this;
+            let popupPage = new PopupSelectUserCodePage({
+                'title': '개선조치 선택', 'gridValueLabel': '개선조치', 'infoData': [
+                    { label: '트랩명', value: data.item.TrapName },
+                ],
+                'parentCode': '방충방서개선조치항목',
+                'popupHeight': 400
+            });
+
+            popupPage.show(function (_data) {
+                if (_data.selected != null) {
+                    _this.pest_grid.setValue(data.dindex, 'DeviTxt', _data.selected.Value);
+                }
+                else {
+                    _this.pest_grid.setValue(data.dindex, 'DeviTxt', _data.input);
+                }
+            });
+        }
+
+        inputStdTxtPopup(data) {
+            if (data.item.StdTxt == null || data.item.StdTxt == '') {
+                return;
+            }
+            let $content = $(tmpl('stdPopup', data.item));
+            let modalContainer = new PopupDraggable(data.item['TrapName'] + ' 점검기준');
+            modalContainer.open({ width: 600, height: 250, $content });
+        }
+
+        inputResultPopup(data) {
+            //모바일 체크로 할 필요성이 있는가?
+            //let isMobile = /Mobi/i.test(window.navigator.userAgent);
+            let _this = this;
+            let content = tmpl("resultPopup", {});
+            let $content = $(content);
+            let modalContainer = new PopupDraggable(data.item['TrapName'] + '/' + data.column['label'] + ' 포획결과 입력');
+            modalContainer.open({ width: 500, height: 300, $content });
+
+            let $result = $($content.find('[name=popResult]:eq(0)'));
+            let $btnApply = $($content.find('[name=btnApply]'));
+            let btnList = $content.find('[name=btnNumber]');
+            $.each(btnList, function (index, item) {
+                $(item).on('click', function (e) {
+                    let n = $(this).attr('data-inputnumber');
+
+                    if (n == 'delete') {
+                        $result.val('');
+                    }
+                    else if (n == '0') {
+
+                        if ($result.val() == '0')
+                            return;
+                        else
+                            $result.val($result.val() + n);
+                    }
+                    else {
+                        if ($result.val() == '0')
+                            return;
+                        else
+                            $result.val($result.val() + n);
+                    }
+                })
+            });
+            $btnApply.on('click', function (e) {
+                _this.pest_grid.setValue(data.dindex, data.column.key, $result.val());
+                _this.calcSum(data);
+                modalContainer.close();
+            });
+
+            $result.val(data.item[data.column.key]);
+        }
+
+        filterPestGrid() {
+            let _this = this;
+            let dataList = [];
+            $.each(_this.pest_grid_data, function (index, item) {
+                let floorName = $('#cboFloor').val();
+                if (floorName == '전체' || floorName == item['FloorName']) {
+                    dataList.push(item);
+                }
+            });
+
+            _this.pest_grid.setData({
+                list: dataList,
+                page: {
+                    display: true,
+                    totalElements: dataList.length,
+                }
+            });
+
+            _this.pest_grid.setHeight(dataList.length * 30 + 100);
+        }
+
+        setCboFloor() {
+            // 정렬순서로 인해 별도로 구현
+            let _this = this;
+            let param = {
+                'action': 'floor_list',
+                'pest_trap_class': $('#cboTrapClass').val(),
+            }
+
+            let result = AjaxUtil.getSyncData(_this.baseUrl + '/floor_list', param);
+            if (result.data != null) {
+                $('#cboFloor').html('');
+                $.each(result.data, function (index, item) {
+                    let $option = $('<option value="' + item['Char1'] + '">' + item['Char1'] + '</option>');
+                    $('#cboFloor').append($option);
+                });
+            }
+        }
+
+        getPestInfo() {
+            let _this = this;
+            let param = {
+                action: 'pest_list',
+                pest_trap_class: $('#cboTrapClass').val(),
+            };
+            let result = AjaxUtil.getSyncData(_this.baseUrl + '/pest_list', param);
+            if (result.data != null) {
+                _this.setPestGridHeader(result.data);
+            }
+        };
+
+        setPestGridHeader(headers) {
+            let _this = this;
+            // 그리드 설정
+            _this.pest_grid.removeColumn()
+            let grid_columns = [
+                { key: 'Trap_id', label: 'id', hidden: true },
+                { key: 'TrapCode', label: '번호', width: '5%', align: 'center' },
+                { key: 'TrapName', label: '트랩명', width: '10%', align: 'left' },
+            ];
+            $.each(headers, function (index, item) {
+                let headerHtml = '<span onclick="page.showImagePopup(' + item.Pest_id + ')">' + item.PestName + '</span>';
+                grid_columns.push({
+                    key: 'pest_' + String(item.Pest_id),
+                    label: headerHtml,
+                    width: '6%',
+                    align: 'right',
+                    key_group: 'pest',
+                    pest_class: item.PestClass,
+                    pest_class_name: item.PestClassName
+                });
+            });
+
+            grid_columns.push({
+                key: 'PestTotal', label: '합계', width: '5%', align: 'right', key_group:'total',
+                styleClass: function () {
+                    if (this.item.StdTxt == null) return "background-white";
+                    if (this.item.StdTxt != null && this.item.StdTxt != '') return "background-yellow";
+                    else return "background-white";
+                },
+            });
+            grid_columns.push({ key: 'StdTxt', label: '점검기준', width: '16%', align: 'left', key_group: 'text1' });
+            grid_columns.push({ key: 'DeviTxt', label: '개선조치', width: '16%', align: 'left', key_group: 'text2' });
+			
+			_this.pest_grid.removeColumn()
+            _this.pest_grid_config.columns = grid_columns;
+            _this.pest_grid.setConfig(_this.pest_grid_config);
+            _this.pest_grid.repaint();
+        }
+
+        calcSum(data) {
+            let _this = this;
+            let sum = 0;
+            let pestClassSum = {};
+            $.each(_this.pest_grid_config.columns, function (idx, itm) {
+                if (itm.key_group == 'pest') {
+                    let pestId = itm.key.replace('pest_', '');
+                    let pestClass = itm.pest_class;
+                    let val = data.item[itm.key];
+                    sum += (val !== null && val !== '' ? parseInt(val, 10) : 0);
+
+                    if (pestClassSum[pestClass]) {
+                        pestClassSum[pestClass] += (val !== null && val !== '' ? parseInt(val, 10) : 0);
+                    } else {
+                        pestClassSum[pestClass] = (val !== null && val !== '' ? parseInt(val, 10) : 0);
+                    }
+                }
+            });
+
+            // 점검기준 선택
+            let stdTxt = '';
+            let dateArr = $('#dataDate').val().split('-');
+            let areaClass = data.item['AreaClass'];
+            let seasonCode = (parseInt(dateArr[1], 10) >= 4 && parseInt(dateArr[1], 10) <= 9) ? 'summer' : 'winter'; // 4월 ~ 9월: 하절기, 그외 동절기
+            $.each(_this.grid_data, function (index, item) {
+                if (item.haccp_area_class_code == areaClass && item.SeasonCode == seasonCode) {
+                    let from = item.from_count == null ? 0 : parseInt(item.from_count, 10);
+                    let to = item.to_count == null ? 999999 : parseInt(item.to_count, 10);
+                    if (pestClassSum[item.PestClassCode] >= from && pestClassSum[item.PestClassCode] <= to) {
+                        stdTxt = item.action_content + '\n';
+                    }
+                }
+            });
+
+            _this.pest_grid.setValue(data.dindex, 'PestTotal', sum);
+            _this.pest_grid.setValue(data.dindex, 'StdTxt', stdTxt);
+
+            _this.pest_grid.repaint();
+        }
+
+        //결재
+        appr(isAppr) {
+            let _this = this;
+            _this.approveBoxUtil.approval(isAppr, function () {
+                $('#btnList').click();
+            });
+        }
+
+        //결재상신
+        reqAppr() {
+	
+			let pest_id_list = []
+	            $.each(this.pest_grid_config.columns, function (index, item) {
+	                if (item.key_group == 'pest') {
+	                    pest_id_list.push(item.key.replace('pest_', ''));
+	                	}
+		            });
+	
+            let _this = this;
+            let title = $('#title').val();
+            let url = '/gui/' + gui.gui_code + '/edit';
+            let urlParam = {
+                'bh_id': $('#bhId').val(),
+                'data_date': $('#dataDate').val(),
+                'pest_trap_class': $('#cboTrapClass').val(),
+                'pest_id_list': pest_id_list.join(','),
+            };
+			
+            let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+            if (ret.success) {
+                Notify.success('결재상신하였습니다.');
+                $('#btnList').click();
+            }
+        }
+
+        //저장
+        save(isAppr) {
+            let _this = this;
+            let checkResults = [];
+            $.each(_this.pest_grid_data, function (index, item) {
+                let pestResults = [];
+                $.each(_this.pest_grid_config.columns, function (idx, itm) {
+                    if (itm.key_group == 'pest') {
+                        let pestId = itm.key.replace('pest_', '');
+                        //item['pest_' + pestId] =
+                        pestResults.push({
+                            'trap_id': item.Trap_id,
+                            'pest_id': pestId,
+                            'result_val': item['pest_' + pestId],
+                            'order': idx,
+                        });
+                    }
+                });
+
+                checkResults.push({
+                    'trap_id': item.Trap_id,
+                    'pest_total': item.PestTotal,
+                    'std_txt': item.StdTxt,
+                    'devi_txt': item.DeviTxt,
+                    'pest_results': pestResults
+                });
+            });
+
+            let callback = function () {
+                let data = {
+                    bh_id: $('#bhId').val(),
+                    title: $('#title').val(),
+                    data_date: $('#dataDate').val(),
+                    pest_trap_class: $('#cboTrapClass').val(),
+                    check_results: JSON.stringify(checkResults),
+                }
+                let fnSuccess = function (resp) {
+                    if (resp.success) {
+                        $('#bhId').val(resp.data.id);
+                        if (isAppr) {
+                            // 결재요청
+                            _this.reqAppr();
+                        } else {
+                            // 임시저장
+                            Notify.success('저장하였습니다.');
+                            $('#btnDelete').show();
+                            $('#dataDate').attr('disabled', 'disabled');
+                            $('#cboTrapClass').attr('disabled', 'disabled');
+                        }
+                    } else {
+                        Alert.alert('', resp.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(_this.baseUrl + '/save', data, fnSuccess);
+            }
+
+            if (isAppr) {
+                Alert.confirm('', '결재상신하시겠습니까?', function () {
+                    callback();
+                });
+            }
+            else {
+                Alert.confirm('', '저장하시겠습니까?', function () {
+                    callback();
+                });
+            }
+        }
+
+        //삭제
+        delete() {
+            let _this = this;
+            Alert.confirm('', '삭제하시겠습니까?', function () {
+                // 삭제 서비스 호출
+                let param = {
+                    bh_id: $('#bhId').val(),
+                }
+                let fnSuccess = function (resp) {
+                    if (resp.success) {
+                        Notify.success('삭제하였습니다.');
+                        $('#btnList').click();
+                    } else {
+                        Alert.alert('', resp.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(_this.baseUrl + '?action=delete', param, fnSuccess);
+            });
+        }
+
+        // 일지 출력
+        printDiary() {
+            let param = {
+                'title': $('#title').val(),
+                'bh_id': $('#bhId').val(),
+                'pest_trap_class': $('#cboTrapClass').val(),
+            };
+
+            let result = AjaxUtil.postSyncData(this.baseUrl + '?action=print', param, function () { });
+            if (result.success) {
+                CommonUtil.openWindow('/api/files/pdf_viewer?file_id=' + result.file_id)
+            }
+            else {
+                Alert.alert('', '일지 생성 중 오류가 발생했습니다. 관리자에게 문의하세요.');
+            }
+        }
+
+        // 엑셀 다운로드
+        exportExcel() {
+            var targetview = this.pest_grid;
+            targetview.exportExcel('방충방서점검결과.xls');
+        }
+
+        // 해충 이미지 팝업
+        showImagePopup(pest_id) {
+            let _this = this;
+            let param = {
+                "action": 'detailFiles',
+                "TableName": "master_t",
+                'DataPk': pest_id,
+                "attachName": 'photo'
+            };
+
+            let result = AjaxUtil.getSyncData('/api/common/attach_file/detailFiles', param);
+            if (result.data.length == 0) {
+                Alert.alert('', '등록된 이미지가 없는 해충입니다.');
+            } else {
+                let src = { 'src': '/api/files/download?file_id=' + result.data[0].id };
+
+                let $content = $(tmpl('imagePopup', src));
+                let modalContainer = new PopupDraggable('해충 이미지');
+                modalContainer.open({ width: 600, height: 250, $content });
+            }
+        }
+
+        // 층별 도면
+        showFloorImage(floor, prop_master_id) {
+            let url = '/api/common/attach_file/detailFiles';
+            let data = {
+                'attachName': 'system_image',
+                'TableName': 'prop_master',
+                'DataPk': prop_master_id
+            }
+            let attach_file = AjaxUtil.getSyncData(url, data);
+            
+            if (attach_file.data.length == 0) {
+                Alert.alert('', '등록된 이미지가 없습니다.');
+            } else {
+	            let image = { src: "/api/files/image?id=" + attach_file.data[0].id };
+	
+	            let content = tmpl("floorimagePopup", image);
+	            let $content = $(content);
+	            let windowWidth = window.innerWidth;
+	            let windowHeight = window.innerHeight;
+	
+	            let modalContainer = new PopupDraggable(floor + " 도면");
+	            modalContainer.open({ width: windowWidth - 200, height: windowHeight - 200, $content });
+			}
+        }
+    }
+
+    let page = null;
+
+    $(document.body).ready(function (e) {
+        page = new PestControlResult();
+
+        let today_string = CommonUtil.getYYYYMMDD();
+        page.today_string = today_string;
+        let this_year = today_string.substring(0, 4);
+
+		let date = $('#searchcond').val().split(' ')
+		
+		this.startData = date[0]
+		
+		this.endData = date[1]
+		
+		this.trapClass = $('#trapType').val()
+		
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+        picker.bind({
+            target: $('[data-ax5picker="basic"]'),
+            direction: "top",
+            content: {
+                width: 206,  //130 270
+                margin: 10,
+                type: 'date',
+                config: {
+                    control: {
+                        left: '<i class="fa fa-chevron-left"></i>',
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-chevron-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            }
+
+        });
+
+        $('#dataDate').val(this.endData);
+        AjaxUtil.fillSelectOptions($('#cboTrapClass'), 'user_code', null, this.trapClass, 'pest_trap_class'); // 트랩구분
+
+        $('#dataDate').change(function () {
+            page.searchMainData();
+        });
+
+        $('#cboTrapClass').change(function () {
+            page.searchMainData();
+        });
+
+        $('#cboFloor').change(function () {
+            page.filterPestGrid();
+        });
+
+        // 관리기준 보이기/숨기기
+        $('#btnToggle').click(function (e) {
+            $('#standardDIv').toggle(300);
+        });
+
+        // 일지 출력
+        $('#btnDiaryPrint').on('click', function () {
+            page.printDiary();
+        });
+
+        // 결재상신
+        $('#btnReqAppr').on('click', function () {
+            page.save(true);
+        });
+
+        // 승인
+        $('#btnAppr').on('click', function () {
+            page.appr(true);
+        });
+
+        // 반려
+        $('#btnReject').on('click', function () {
+            page.appr(false);
+        });
+
+        // 임시저장
+        $('#btnSave').on('click', function () {
+            page.save(false);
+        });
+
+        // 삭제
+        $('#btnDelete').on('click', function () {
+            page.delete();
+        });
+
+        // 목록
+        $('#btnList').on('click', function () {
+          location.href = '/gui/' + gui.gui_code;
+        });
+
+        // 이미지 팝업
+        $("#btnFloor1Image").on("click", function () {
+            let prop_master_id = 1019;
+            page.showFloorImage("1층", prop_master_id);
+        });
+
+        // 전체적합
+        $('#btnAllItem').on('click', function () {
+            let check = 0;
+            $.each(page.pest_grid.list, function (idx, item) {
+                for (var key in item) {
+                    if (key.startsWith('pest')) {
+                        // 해충수가 입력되지 않은 컬럼만
+                        if (item[key] == null) {
+                            item[key] = 0;
+                            check += 0;
+                        }
+                        else {
+                            check += 1;
+                        }
+                    }
+                }
+                if (check == 0) {
+                    item['PestTotal'] = 0
+                }
+                check = 0;
+            });
+            page.pest_grid.repaint();
+        });
+
+        // 엑셀 다운로드
+        $('#btnExcel').on('click', function () {
+            page.exportExcel();
+        });
+
+        page.searchMainData();
+
+        setTimeout(function () { $('#btnToggle').click(); }, 500);
+    });
+
+
+
+</script>
+</th:block>
+</html>

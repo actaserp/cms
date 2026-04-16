@@ -1,0 +1,293 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>클레임관리일지</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP관리</li>
+                <li>클레임관리일지</li>
+            </ul>
+        </div>
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label>
+                                일자
+                            </label>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input type="date" id="srchStartDt" name="srchStartDt">
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input type="date" id="srchEndDt" name="srchEndDt">
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+
+
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <a class="btn" title="등록" id="btnAdd">
+                                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                등록
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="check_result_grid" style="height: 700px;"></div>
+
+            </div>
+
+            <!--        <div class="grid_box">-->
+
+            <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
+            <!--        </div>-->
+        </section>
+
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript" src="/js/grid.js?ver=22080801"></script>
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <th:block th:replace="/common/approve_box :: approve_box" ></th:block>
+
+    <script type="text/javascript">
+        class CheckResultStatusPage {
+            constructor() {
+                this.grid = null;
+                this.url = '/api/precedence/claim_management';
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+
+
+            }
+
+            init() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#check_result_grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'Title', header: '일지명', width: '*', align: 'center' },
+                        { binding: 'StateName', header: '결재상태', width: '*', align: 'center' },
+                        { binding: 'LineName', header: '결재현황', width: '*', align: 'left' },
+                        { binding: 'DataDate', header: '일자', width: '*', align: 'center'},
+                        { binding: 'SearchYN', header: '조회', width: 80, align: 'center' },
+                        { binding: 'EditYN', header: '수정', width: 80, align: 'center' },
+                        { binding: 'DeleteYN', header: '삭제', width: 80, align: 'center' }
+
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            const col = s.columns[e.col];
+                            const item = e.panel.rows[e.row].dataItem;
+
+                            // 결재현황 (LineName) 처리
+                            if (col.binding === 'LineName') {
+                                e.cell.innerHTML = CommonUtil.convertApprLineNameHtml(item.LineName, item.LineNameState);
+                            }
+
+                            // SearchYN 버튼 처리
+                            if (col.binding === 'SearchYN') {
+                                if (item.SearchYN === 'Y') {
+                                    e.cell.innerHTML = ''; // 기존 셀 콘텐츠 제거
+                                    const button = document.createElement('button');
+                                    button.className = 'btn-default';
+                                    button.style.cssText = 'width: 100%; height: 25px;';
+                                    button.textContent = '조회';
+                                    button.addEventListener('click', () => {
+
+                                        _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                        _this.detail({item}, 'SearchYN');
+
+                                    });
+                                    e.cell.appendChild(button);
+                                } else {
+                                    // 해당 셀을 빈 셀로 유지
+                                    e.cell.innerHTML = ''; // 셀 비우기
+                                }
+                            }
+
+                            // EditYN 버튼 처리
+                            if (col.binding === 'EditYN') {
+                                if (item.EditYN === 'Y') {
+                                    e.cell.innerHTML = '';
+                                    const button = document.createElement('button');
+                                    button.className = 'btn-default';
+                                    button.style.cssText = 'width: 100%; height: 25px;';
+                                    button.textContent = '수정';
+                                    button.addEventListener('click', () => {
+                                        _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                        _this.detail({item}, 'EditYN');
+
+                                    });
+                                    e.cell.appendChild(button);
+                                } else {
+                                    // 해당 셀을 빈 셀로 유지
+                                    e.cell.innerHTML = ''; // 셀 비우기
+                                }
+                            }
+
+                            // DeleteYN 버튼 처리
+                            if (col.binding === 'DeleteYN') {
+                                if (item.DeleteYN === 'Y') {
+                                    e.cell.innerHTML = '';
+                                    const button = document.createElement('button');
+                                    button.className = 'btn-danger';
+                                    button.style.cssText = 'width: 100%; height: 25px;';
+                                    button.textContent = '삭제';
+                                    button.addEventListener('click', () => {
+                                        _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                        _this.detail({item}, 'DeleteYN');
+
+                                    });
+                                    e.cell.appendChild(button);
+                                } else {
+                                    // 해당 셀을 빈 셀로 유지
+                                    e.cell.innerHTML = ''; // 셀 비우기
+                                }
+                            }
+                        }
+                    },
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '점검현황';
+
+            }
+
+
+            searchMainData() {
+                let _this = this;
+                let param = {
+                    'start_date': $('#srchStartDt').val(),
+                    'end_date': $('#srchEndDt').val(),
+                };
+
+                let result = AjaxUtil.getSyncData(_this.url+'/read', param);
+
+                _this.viewData.sourceCollection = result.data;
+
+            }
+
+            detail(data, flag) {
+
+
+                let _this = this;
+
+                let dataDate = data.item.DataDate;
+                let id = data.item.id;
+                let detail_item = _this.grid.selectedItems[0];
+
+                console.log('data2', data.item);
+                console.log('detail_item', JSON.stringify(detail_item));
+
+                if (flag === 'SearchYN') {
+
+                    location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + id + '&data_date=' + dataDate + '&view_mode=true';
+                } else if (flag === 'EditYN') {
+                    location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + id + '&data_date=' + dataDate;
+                    //location.href = '/gui/' + 'wm_haccp_standard_doc' + '/edit?bh_id=' + id + '&data_date=' + dataDate +  '&creater_name=' + creater_name;
+                } else if (flag === 'DeleteYN') {
+                    Alert.confirm('', '삭제하시겠습니까?', function () {
+                        let param = {
+                            bh_id: data.item.id,
+                        }
+                        let fnSuccess = function (resp) {
+                            if (resp.success) {
+                                Notify.success('삭제하였습니다.');
+                                _this.searchMainData();
+                            } else {
+                                Alert.alert('', resp.message);
+                            }
+                        };
+                        AjaxUtil.postAsyncData(_this.url + '/delete', param, fnSuccess);
+                    });
+                }
+            }
+
+            //  등록버튼 클릭 시
+            add() {
+
+                var today = new Date();
+
+                var year = today.getFullYear();
+                var month = ('0' + (today.getMonth() + 1)).slice(-2);
+                var day = ('0' + today.getDate()).slice(-2);
+
+                var dateString = year + '-' + month  + '-' + day;
+
+
+                location.href = '/gui/' + gui.gui_code + '/edit?bh_id=0' +'&data_date='+dateString;
+            }
+
+        }
+
+
+        let page = null;
+        let popup = null;
+        let modalContainer = null;
+
+        $(document.body).ready(function (e) {
+            page = new CheckResultStatusPage();
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-15));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            //검색 기능
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            $('#btnAdd').click(function (e) {
+                page.add();
+            });
+
+            page.searchMainData();
+        });
+
+    </script>
+</th:block>
+</html>

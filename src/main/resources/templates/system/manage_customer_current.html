@@ -1,0 +1,329 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+
+
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>고객사현황</h2>
+                <!--                <a title="북마크" class="bookmark toggle">-->
+                <!--                    내메뉴-->
+                <!--                </a>-->
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>시스템관리</li>
+                <li>고객사계약현황</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <form id="searchForm3" autocomplete="off">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                가입일자
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <input class="tac date_from" type="date" id="srchStartDt"
+                                               name="srchStartDt"/>
+                                        <label for="srchStartDt" class="hide">시작일</label>
+                                    </li>
+                                    <li>
+                                        <input class="tac date_to" type="date" id="srchEndDt"
+                                               name="srchEndDt"/>
+                                        <label for="srchEndDt" class="hide">종료일</label>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+
+                        <!--<dl>
+                            <dt>
+                                <label for="type">
+                                    구분
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="type" name="type" style="border-radius: 5px 5px 5px 5px; width: 150px;">
+                                        <option value="">전체</option>
+                                        <option value="login">login</option>
+                                        <option value="logout">logout</option>
+                                    </select>
+                                </div>
+                            </dd>
+                        </dl>-->
+
+                        <dl>
+                            <dt>
+                                <label for="keyword">
+                                    회원명
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input class="form-control2" id="keyword" name="keyword"/>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <button type="button" class="btn-delete" id="batchApprove"
+                                            style="width: 86px; height: 36px;">
+                                        승인
+                                    </button>
+                                </li>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <button type="button" class="btn-delete" id="btnStop"
+                                            style="width: 86px; height: 36px;">
+                                        중지
+                                    </button>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </form>
+
+            </div> <!--//section-top end -->
+            <div class="container-fluid">
+                <p id="selectedItem"></p>
+                <div id="theGrid" style="height: 680px; max-height: 680px;"></div>
+            </div>
+
+            <div class="btn-wrap">
+            </div>
+        </section>
+    </div> <!--//layout-contents end -->
+
+    <footer style="margin-top: 24px;">
+        <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+    </footer>
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+    <script type="text/javascript">
+
+        var theGrid;
+        var selectedIds = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            init();
+            searchDataBind();
+        });
+
+        function init() {
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                autoGenerateColumns: false,
+                showMarquee: true,
+                formatItem: (sender, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                    }
+                },
+                columns: [
+                    {
+                        binding: 'selected',
+                        header: '',
+                        width: 40,
+                        align: 'center',
+                        allowSorting: false,
+                        isReadOnly: false,
+                        dataType: 'Boolean'
+                    },
+                    {binding: 'seq', header: '순번', width: 50, align: 'left'},
+                    {binding: 'spjangnm', header: '회원명', width: '*', align: 'left'},
+                    {binding: 'saupnum', header: '등록번호', width: '*', align: 'left'},
+                    {binding: 'prenm', header: '대표자', width: '*', align: 'left'},
+                    {binding: 'name', header: '구독', width: '*', align: 'left'},
+                    {binding: 'subscribeunit', header: '구독단위', width: '*', align: 'left'},
+                    {binding: 'billingdate', header: '청구일', width: '*', align: 'left'},
+                    {binding: 'expirationdate', header: '계약만료일', width: '*', align: 'left'},
+                    {binding: 'state', header: '상태', width: '*', align: 'left'},
+                    {binding: 'subscriptiondate', header: '가입일자', width: '*', align: 'left'},
+                ],
+                itemsSource: new wijmo.collections.CollectionView([])
+            });
+
+            new FlexGridContextMenu(theGrid);
+            theGrid.downloadFileName = '품목 정보';
+
+            // 데이터 로드 후 초기 선택 상태 해제
+            theGrid.loadedRows.addHandler(() => {
+                setTimeout(() => {
+                    theGrid.select(-1, -1);
+                }, 0);
+            });
+
+            // 헤더 체크박스 (전체선택) + 셀 렌더링
+            theGrid.formatItem.addHandler((s, e) => {
+                let col = s.columns[e.col];
+
+                if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader && col.binding === 'selected') {
+                    e.cell.innerHTML = `<input type="checkbox" id="allCheck"/>`;
+                    let allCheck = e.cell.querySelector('#allCheck');
+                    if (allCheck) {
+                        allCheck.checked = theGrid.itemsSource.items.length > 0 &&
+                            theGrid.itemsSource.items.every(row => row.selected);
+
+                        allCheck.onclick = (ev) => {
+                            let checked = ev.target.checked;
+                            theGrid.itemsSource.items.forEach(row => row.selected = checked);
+                            theGrid.refresh();
+                            updateSelectedIds();
+                        };
+                    }
+                }
+            });
+
+            // 체크박스 컬럼만 편집 허용
+            theGrid.beginningEdit.addHandler((s, e) => {
+                const col = s.columns[e.col];
+                if (col.binding !== 'selected') {
+                    e.cancel = true;
+                }
+            });
+
+            // 개별 체크박스 클릭 시 selectedIds 갱신
+            theGrid.cellEditEnded.addHandler((s, e) => {
+                const col = s.columns[e.col];
+                if (col.binding === 'selected') {
+                    updateSelectedIds();
+                }
+            });
+
+            // 승인버튼 클릭 이벤트
+            $('#batchApprove').on('click', () => batchApprove());
+
+            // 중지버튼 클릭 이벤트
+            $('#btnStop').on('click', () => btnStop());
+
+            // 검색버튼 클릭 이벤트
+            $('#btnSearch').on('click', () => searchDataBind());
+        }
+
+        // 체크된 항목의 ID 수집
+        function updateSelectedIds() {
+            selectedIds = theGrid.itemsSource.items
+                .filter(row => row.selected === true)
+                .map(row => row.spjangcd);
+        }
+
+        // 검색
+        function searchDataBind() {
+            let srchStartDt = $('#srchStartDt').val();
+            let srchEndDt = $('#srchEndDt').val();
+            let keyword = $('#keyword').val();
+
+            $.ajax({
+                url: '/api/system/customer_current/read',
+                type: 'GET',
+                data: {
+                    'srchStartDt': srchStartDt,
+                    'srchEndDt': srchEndDt,
+                    'keyword': keyword,
+                },
+                success: function (result) {
+                    if (result.success) {
+                        theGrid.itemsSource.sourceCollection = result.data;
+                        theGrid.refresh();
+                        selectedIds = []; // 검색 시 선택 초기화
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching data:', textStatus, errorThrown);
+                }
+            });
+        }
+
+        // 승인버튼 클릭이벤트
+        function batchApprove() {
+            updateSelectedIds(); // 클릭 시점에 한 번 더 수집
+            if (!selectedIds.length) {
+                Alert.alert('', '승인할 사업체를 선택하여주세요');
+                return;
+            }
+            Alert.confirm('', '선택된 사업체를 승인처리 하시겠습니까?', () => {
+                AjaxUtil.postJsonData('/api/system/customer_current/batchApprove', {ids: selectedIds}, res => {
+                    if (res.success) {
+                        Alert.alert('', '승인되었습니다');
+                        selectedIds = [];
+                        searchDataBind();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                });
+            });
+        }
+
+        // 중지버튼 클릭이벤트
+        function btnStop() {
+            updateSelectedIds(); // 클릭 시점에 한 번 더 수집
+            if (!selectedIds.length) {
+                Alert.alert('', '중지할 사업체를 선택하여주세요');
+                return;
+            }
+            Alert.confirm('', '선택된 사업체를 중지처리 하시겠습니까?', () => {
+                AjaxUtil.postJsonData('/api/system/customer_current/btnStop', {ids: selectedIds}, res => {
+                    if (res.success) {
+                        Alert.alert('', '중지되었습니다');
+                        selectedIds = [];
+                        searchDataBind();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                });
+            });
+        }
+
+        $(document).ready(function () {
+            const today = new Date();
+            const formattedToday = today.toISOString().split('T')[0];
+            document.getElementById('srchStartDt').value = formattedToday;
+            document.getElementById('srchEndDt').value = formattedToday;
+        });
+
+    </script>
+</th:block>
+
+</html>

@@ -1,0 +1,190 @@
+<th:block th:fragment="popup_totalAmount">
+<script type="text/x-tmpl" id="popup_totalAmountTemplate">
+
+<div class="content_wrap popup">
+
+    <section class="section" style="padding: 10px;">
+
+        <div class="section-top">
+            <div class="search-wrap" style="text-align: left;">
+                <div id="preState">
+                    <div class="dialog_note_box mgt_0">
+                        <ul>
+                            <li>합계를 입력하시면 자동으로 공급가액과 세액이 계산됩니다.</li>
+                            <li>공급가액과 세액이 계산방식에 따라 1원 차이가 발생할 수 있으므로,<p> 계산된 금액을 한번 더 확인하여 주시기 바랍니다.</p></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div class="dialog_box">
+                    <table class="dialog_table" id="calculator">
+                        <colgroup>
+                            <col width="80px">
+                            <col>
+                            <col width="80px">
+                            <col>
+                        </colgroup>
+                        <tbody>
+                            <tr>
+                                <th class="al_l noborder_l">합계</th>
+                                <td class="al_r" colspan="3"><input class="in_txt numeric money al_r mgr_5" id="calTotal" maxlength="23" style="width:347px;height:25px;" type="text"></td>
+                            </tr>
+                            <tr>
+                                <th class="al_l noborder_l">공급가액</th>
+                                <td class="al_r"><input class="in_txt numeric money al_r mgr_5" id="calSupplyCost" maxlength="23" style="width:125px;height:25px;" type="text"></td>
+                                <th class="al_l ">세액</th>
+                                <td class="al_r"><input class="in_txt numeric money al_r mgr_5" id="calTax" maxlength="23" style="width:125px;height:25px;" type="text"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </section>
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="btnCompSelect" ><span data-commonCd="확인">확인</span></button>
+        </div>
+
+
+</div>
+</script>
+
+
+<script type="text/javascript">
+
+    class PopTotalAmountComponent {
+        constructor() {
+
+            this.callback = null;
+            this.modalContainer = new PopupDraggable('공급가액/세액 자동계산');
+        }
+
+
+        show(callback) {
+            let _this = this;
+
+            this.callback = callback;
+
+            let content = tmpl('popup_totalAmountTemplate', {});
+            let $content = $(content);
+            this.modalContainer.open({ width: 490, height: 350, $content });
+
+            this.$calSupplyCost = $content.find('#calSupplyCost');
+            this.$calTax = $content.find('#calTax');
+            this.$calTotal = $content.find('#calTotal');
+
+            const $btnConfirm = $content.find('#btnCompSelect');
+
+            $btnConfirm.on('click', function () {
+                let raw = _this.$calTotal.val().replace(/,/g, ''); // 합계
+                let total = parseFloat(raw) || 0;
+
+                let supplyCost = Math.floor(total / 1.1);
+                let tax = total - supplyCost;
+
+                if (_this.callback) {
+                    _this.callback({
+                        total: total,
+                        supplyCost: supplyCost,
+                        tax: tax
+                    });
+                }
+
+                _this.close(); // 팝업 닫기
+            });
+
+            this.$calTotal.on('input', function () {
+                let raw = $(this).val().replace(/,/g, '');
+                if (raw.length > 0) {
+                    $(this).val(Number(raw).toLocaleString());
+                }
+
+                let total = parseFloat(raw) || 0;
+                let supplyCost = Math.floor(total / 1.1);
+                let tax = total - supplyCost;
+
+                _this.$calSupplyCost.val(supplyCost.toLocaleString());
+                _this.$calTax.val(tax.toLocaleString());
+            });
+        }
+
+
+        close() {
+            this.modalContainer.close();
+        }
+    }
+
+</script>
+    <style>
+
+        /* 안내문 박스 */
+        .dialog_note_box {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px 15px;
+            border-radius: 4px;
+        }
+
+        .dialog_note_box ul {
+            list-style: disc inside;
+            margin: 0;
+            padding: 0;
+            display: inline;
+        }
+
+        .dialog_note_box li {
+            margin-bottom: 5px;
+            line-height: 1.5;
+            list-style: inside;
+        }
+
+        /* 테이블 */
+        .dialog_box {
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .dialog_table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .dialog_table th {
+            background: #f0f2f5;
+            text-align: left;
+            padding: 8px 10px;
+            font-weight: bold;
+            border: 1px solid #ccc;
+        }
+
+        .dialog_table td {
+            background: #fff;
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+        }
+
+        /* 확인 버튼 */
+        .popup-button {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .btn-popup {
+            background: #0066cc;
+            color: #fff;
+            padding: 8px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-popup:hover {
+            background: #005bb5;
+        }
+    </style>

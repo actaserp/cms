@@ -1,0 +1,287 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+    <style>
+        .greenText span {
+            color: #66DA26;
+        }
+
+        .redText span {
+            color: #FF0000;
+        }
+
+        .grayText span {
+            color: #8C8C8C;
+        }
+
+        .blueText span {
+            color: #4374D9;
+        }
+
+        .yellowText span {
+            color: #FFE400;
+        }
+
+        [data-ax5grid] [data-ax5grid-container="root"] [data-ax5grid-container="body"] [data-ax5grid-panel] table tr td [data-ax5grid-cellHolder] {
+            font-size: 14px;
+        }
+        .card-text{
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>C/S현황</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>대시보드</li>
+                <li>C/S현황</li>
+            </ul>
+        </div>
+        <div class="tab-wrap">
+            <div class="tab-contents">
+                <!-- Section -->
+                <div class="row" style="margin-bottom: 0;">
+                    <section class="wp49" style="margin-right: 10px; border-radius:15px">
+                        <div class="title-wrap">
+                            <h3>월간 C/S현황</h3>
+                        </div>
+                        <div class="content-wrap">
+                            <div class="section-card-wrap" style="height: 88px;">
+                                <section class="card-section-top" style="width: 50%">
+                                    <div class="title card-section-title">
+                                        <h3 class="card-text-top">총 발생</h3><h3 class="card-text-top" id="mLine1"></h3>
+                                    </div>
+
+                                </section>
+                                <section class="card-section-top" style="width: 50%">
+                                    <div class="title card-section-title">
+                                        <h3>조치중</h3><h3 class="card-text-top" id="mLine2"></h3>
+                                    </div>
+                                </section>
+                                <section class="card-section-top" style="width: 50%">
+                                    <div class="title card-section-title">
+                                        <h3>조치 완료</h3><h3 class="card-text-top" id="mLine3"></h3>
+                                    </div>
+                                </section>
+                            </div>
+
+                            <div class="col-md-12 d-flex justify-center">
+                                <div class="head_title pl-3"><span>고객 불만 유형</span></div>
+                                <div class="chart-canvas h-200" id="mon_chart"></div>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="wp49" style="margin-right: 0; border-radius:15px">
+                        <div class="title-wrap">
+                            <h3>연간 C/S현황</h3>
+                        </div>
+                        <div class="content-wrap">
+
+                            <div class="section-card-wrap" style="height: 88px;">
+                                <section class="card-section-top" style="width: 50%">
+                                    <div class="title card-section-title">
+                                        <h3 class="card-text-top">총 발생</h3><h3 class="card-text-top" id="yLine1"></h3>
+                                    </div>
+
+                                </section>
+                                <section class="card-section-top" style="width: 50%">
+                                    <div class="title card-section-title">
+                                        <h3>조치중</h3><h3 class="card-text-top" id="yLine2"></h3>
+                                    </div>
+                                </section>
+                                <section class="card-section-top" style="width: 50%">
+                                    <div class="title card-section-title">
+                                        <h3>조치 완료</h3><h3 class="card-text-top" id="yLine3"></h3>
+                                    </div>
+                                </section>
+                            </div>
+
+                            <div class="col-md-12 d-flex justify-center">
+                                <div class="head_title pl-3"><span>고객 불만 유형</span></div>
+                                <div class="chart-canvas h-200 " id="year_chart"></div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <section class="" style="margin-right: 10px; border-radius:15px">
+                    <div class="title-wrap">
+                        <h3>월별 연간 C/S 현황</h3>
+                    </div>
+                    <div class="content-wrap">
+                        <div class="chart-canvas h-250 " id="quater-chart"></div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</th:block>
+<th:block layout:fragment="scripts">
+    <script th:src="@{/resource/apexcharts/apexcharts.3.26.min.js}"></script>
+    <script type="text/javascript">
+        class CustomServiceStatPage {
+            constructor() {
+                this.init();
+            }
+            init() {
+                let _this = this;
+
+                this.monthData = AjaxUtil.getSyncData('/api/dashboard/custom_service_stat', {dateType: 'Mon'});
+                this.yearData = AjaxUtil.getSyncData('/api/dashboard/custom_service_stat', {dateType: 'Year'});
+
+
+                let monTotal = this.monthData.data.total
+                let monData = this.monthData.data.typeList
+
+                let monLabel = [];
+                let monCnt = [];
+
+                let yearTotal = this.yearData.data.total
+                let yearData = this.yearData.data.typeList
+
+                let yearLabel = [];
+                let yearCnt = [];
+
+                $("#mLine1").text(monTotal.totalCnt);
+                $("#mLine2").text(monTotal.working);
+                $("#mLine3").text(monTotal.finish);
+
+                $("#yLine1").text(yearTotal.totalCnt);
+                $("#yLine2").text(yearTotal.working);
+                $("#yLine3").text(yearTotal.finish);
+
+                for(var i in monData) {
+                    monLabel.push(monData[i].Type);
+                    monCnt.push(monData[i].totalCnt)
+                }
+
+                for(var i in yearData) {
+                    yearLabel.push(yearData[i].Type);
+                    yearCnt.push(yearData[i].totalCnt)
+                }
+
+
+                let customChartOptionM = {
+                    series: monCnt,
+                    chart: {
+                        width: 350,
+                        type: 'pie',
+                    },
+                    labels: monLabel,
+                    responsive: [{
+                        breakpoint: 450,
+                        options: {
+                            chart: {
+                                width: 150
+                            },
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }],
+                    tooltip: {
+                        y: {
+                            formatter: function (val) {
+                                return val.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",") + " 건"
+                            }
+                        }
+                    }
+                }
+
+                let customChartOptionY = {
+                    series: yearCnt,
+                    chart: {
+                        width: 350,
+                        type: 'pie',
+                    },
+                    labels: yearLabel,
+                    responsive: [{
+                        breakpoint: 450,
+                        options: {
+                            chart: {
+                                width: 150,
+                            },
+                            legend: {
+                                position: 'bottom',
+                            }
+                        }
+                    }],
+                    tooltip: {
+                        y: {
+                            formatter: function (val) {
+                                return val.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",") + " 건"
+                            }
+                        }
+                    }
+                }
+                this.monPieChart = new ApexCharts(document.querySelector("#mon_chart"), customChartOptionM);
+                this.monPieChart.render();
+
+                this.yearPieChart = new ApexCharts(document.querySelector("#year_chart"), customChartOptionY);
+                this.yearPieChart.render();
+
+                let quarterData =  AjaxUtil.getSyncData('/api/dashboard/custom_service_stat_result');
+
+                let chartVal = []
+                for (var i = 0; i < quarterData.data.length; i++) {
+                    let monthVal = []
+
+                    monthVal.push(quarterData.data[i].p1)
+                    monthVal.push(quarterData.data[i].p2)
+                    monthVal.push(quarterData.data[i].p3)
+                    monthVal.push(quarterData.data[i].p4)
+                    monthVal.push(quarterData.data[i].p5)
+                    monthVal.push(quarterData.data[i].p6)
+                    monthVal.push(quarterData.data[i].p7)
+                    monthVal.push(quarterData.data[i].p8)
+                    monthVal.push(quarterData.data[i].p9)
+                    monthVal.push(quarterData.data[i].p10)
+                    monthVal.push(quarterData.data[i].p11)
+                    monthVal.push(quarterData.data[i].p12)
+
+                    chartVal.push({name: quarterData.data[i].name, data: monthVal});
+                }
+
+
+                let quaterChartOption = {
+                    series: chartVal,
+                    chart: { type: 'bar', height: 230 },
+                    plotOptions: {
+                        bar: { horizontal: false, columnWidth: '55%', endingShape: 'rounded' },
+                    },
+                    dataLabels: { enabled: false },
+                    stroke: { show: true, width: 2, colors: ['transparent'] },
+                    xaxis: { categories: ['1','2','3','4','5','6','7','8','9','10','11','12'], },
+                    yaxis: { title: { text: '' } },
+                    fill: { opacity: 1 },
+                    tooltip: {
+                        y: {
+                            formatter: function (val) {
+                                return val.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",") + " 건"
+                            }
+                        }
+                    }
+                }
+
+                this.quaterChart = new ApexCharts(document.querySelector("#quater-chart"), quaterChartOption);
+                this.quaterChart.render();
+            }
+
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new CustomServiceStatPage();
+        });
+    </script>
+</th:block>
+</html>

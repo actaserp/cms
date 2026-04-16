@@ -1,0 +1,414 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>수주 등록(일괄)</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산 관리</li>
+                <li>수주 등록(일괄)</li>
+            </ul>
+        </div>
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label for="cboDateKind">
+                                검색 구분<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboDateKind" name="cboDateKind">
+                                    <option value="sales">수주일</option>
+                                    <option value="delivery">납기일</option>
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            조회기간<span class="eq">*</span>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input type="date" id="srchStartDt" name="srchStartDt">
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input type="date" id="srchEndDt" name="srchEndDt">
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+
+                    <dl><dt>&nbsp;</dt>
+
+<!--                        <dd><span style="color: tomato">품목정보에서 미리 품목(제품)을 등록해주세요.</span></dd>-->
+                    </dl>
+                </div>
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <a class="btn" title="엑셀 업로드" id="btnShowUpload">
+                                엑셀 업로드
+                            </a>
+                        </li>
+<!--                        <li>-->
+<!--                            <a class="btn" title="수주 전환" id="btnSuju">-->
+<!--                                수주 전환-->
+<!--                            </a>-->
+<!--                        </li>-->
+                        <li>
+                            <a class="btn" title="삭제" id="btnDelete">
+                                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                삭제
+                            </a>
+                        </li>
+                        <li>
+                            <a class="btn" title="양식 다운로드" id="btnDownloadTemplate">
+                                양식 다운로드
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="sujuGrid" style="height: 730px;"></div>
+            </div>
+
+        </section>
+    </div>
+
+<script type="text/x-tmpl" id="excelUploadTemplate">
+    <div class="content_wrap popup" id="div_excel_upload">
+
+        <div class="table-wrap">
+            <form id="excelUploadForm">
+            <table class="write-table">
+                <colgroup>
+                    <col style="width: 25%;">
+                    <col style="width: 75%;">
+                </colgroup>
+                <tbody>
+                    <tr>
+                        <th style="text-align: center">
+                            <label>일자</label>
+                        </th>
+                        <td>
+                            <input style="width:300px;" type="date" id="data_date" name="data_date" value=""  />
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="text-align: center">
+                            <label>첨부파일</label>
+                        </th>
+                        <td>
+                            <input style="width:300px; height: 44px;" type="file" id="upload_file" name="upload_file" enctype="multipart/form-data" accept=".xls, .xlsx"/>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            </form>
+        </div>
+        <div class="pt-2">
+<!--            <span style="padding-top:30px;">*업로드 시 상태는 Excel이며, 수주전환 이전데이터만 삭제가능합니다.</span>-->
+<!--            <textarea id="upload_message" style='display:none;width:100%;height:150px;'></textarea>-->
+        </div>
+
+        </section>
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup y_write_auth" id="btn_excel_save" >저장</button>
+            <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+        </div>
+    </div>
+</script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<script type="text/javascript">
+    class SujuUploadPage {
+        constructor() {
+            this.grid = null;
+            this.baseUrl = '/api/sales/suju_upload';
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+            this.grid = new wijmo.grid.FlexGrid('#sujuGrid', {
+                autoGenerateColumns: false,
+                selectionMode: wijmo.grid.SelectionMode.ListBox, // 다중 선택 가능
+                frozenColumns: 0, // 열 고정
+                headersVisibility: wijmo.grid.HeadersVisibility.All,
+                allowSorting: true, // 모든 컬럼 정렬 가능
+                columns: [
+                    { binding: 'state', header: '상태', width: 80, align: 'center', isReadOnly: true },
+                    { binding: 'jumun_number', header: '주문번호', width: 110, align: 'left', isReadOnly: true },
+                    { binding: 'company_code', header: '업체코드', width: 100, align: 'center', isReadOnly: true },
+                    { binding: 'company_name', header: '업체명', width: 400, align: 'left', isReadOnly: true },
+                    { binding: 'product_code', header: '제품코드', width: 100, align: 'center', isReadOnly: true },
+                    { binding: 'product_name', header: '제품명', width: 200, align: 'left', isReadOnly: true },
+                    { binding: 'unit', header: '단위', width: 80, align: 'center', isReadOnly: true },
+                    { binding: 'suju_qty', header: '수량', width: 80, align: 'right', format: 'n0', isReadOnly: true },
+                    { binding: 'jumun_date', header: '주문일', width: 120, align: 'center', isReadOnly: true },
+                    { binding: 'due_date', header: '납기일', width: 120, align: 'center', isReadOnly: true },
+                ],
+                itemsSource: new wijmo.collections.CollectionView([]), // 빈 데이터로 초기화
+                itemFormatter: (panel, row, col, cell) => {
+                    if (panel.cellType === wijmo.grid.CellType.Cell) {
+                        const column = panel.columns[col];
+                        if (column.binding === 'suju_qty') {
+                            cell.style.textAlign = 'right';
+                        }
+                    }
+                },
+
+            });
+
+            let selector = new wijmo.grid.selector.Selector(this.grid, {
+                itemChecked: function () {
+
+                }
+            })
+
+            new FlexGridContextMenu(this.grid);
+            this.grid.downloadFileName = '수주 내역';
+
+            let nowDate = CommonUtil.getYYYYMMDD();
+            let dueDate = CommonUtil.getYYYYMMDD(10);
+
+            // 엔터키 검색
+            $('#keyword').on('keypress', function (e) {
+                if (e.keyCode === 13) {
+                    _this.searchDataBind();
+                }
+            });
+        }
+
+        // 엑셀 업로드 버튼
+        showPopupExcelUpload(data) {
+            let _this = this;
+            let content = tmpl('excelUploadTemplate', data);
+            let $content = $(content);
+            $content.find('#data_date').val(data.data_date);
+            $content.find('#day_index').val(data.day_index);
+
+            //팝업공통모듈
+            let modalContainer = new PopupDraggable('엑셀 업로드');
+            modalContainer.open({ width: 440, height: 220, $content });
+
+
+
+            $content.find('#btn_excel_save').on('click', function () {
+                let $form = $content.find('#excelUploadForm');
+                Alert.confirm('', 
+                    '저장하시겠습니까?',
+                    function () {
+                        _this.saveSujuBulkData($form, modalContainer);
+                        //modalContainer.close();
+                    },
+                    function () { }
+                );
+            });
+        }
+
+        // 엑셀 업로드 저장
+        saveSujuBulkData($form, modalContainer) {
+            let _this = this;
+            var form = $('#excelUploadForm')[0];
+            var formData = new FormData(form);
+            
+            formData['data_date'] = $('#srchStartDt').val();
+            formData.append("uploadfile", $('#upload_file')[0].files[0].name);
+ 			
+            let result = AjaxUtil.postFileSyncData(_this.baseUrl + '/upload_save', formData);
+            
+            if (result) {
+                let message = '저장되었습니다.';
+                if (result.success) {
+                    Notify.success(message);
+                    _this.searchMainData();
+                    modalContainer.close();
+                } else {
+
+                    Alert.alert('', result.message);
+
+                    /*let $divMessage = modalContainer.$content.find('#upload_message');
+                    $divMessage.text(JSON.stringify(result.error_items));
+                    $divMessage.show();*/
+                }
+            }
+
+        }
+
+        //수주 변환
+        changeSujuBulkData(items) {
+            let _this = this;
+
+            let data = {
+                Q: JSON.stringify(items)
+            }
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Notify.success('저장되었습니다');
+                    _this.searchDataBind();
+                } else {
+                    Alert.alert('', res.message);
+                }
+            };
+
+            AjaxUtil.postAsyncData(_this.baseUrl + '/change', data, fnSuccess);
+        }
+
+        //수주 bulk 데이터 삭제
+        deleteSujuBulkData(items) {
+            let _this = this;
+
+			let data = {
+                Q: JSON.stringify(items)
+            }
+            
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Notify.success('삭제되었습니다');
+                    _this.searchDataBind();
+                } else {
+                    Alert.alert('', res.message);
+                }
+            };
+
+            AjaxUtil.postAsyncData(_this.baseUrl + '/delete', data, fnSuccess);
+        }
+
+        //수주업로드 양식 다운로드
+        downloadExcelForm() {
+            let _this = this;
+            //let url = '/api/files/mes_form?action=suju_upload';
+            let fileName = "수주업로드양식.xlsx";
+            let url = withCtx('/api/files/mes_form?file_name=') + fileName;
+            /*
+            let data = {
+                //'tableName' : tableName,
+                'file_name': "수주업로드양식.xlsx",
+            };
+            */
+            AjaxUtil.downloadFile(url, fileName);
+        }
+
+        searchDataBind() {
+            let _this = this;
+
+            let date_kind = $('#cboDateKind').val();
+            let start = $('#srchStartDt').val();
+            let end = $('#srchEndDt').val();
+            let data = {
+                'date_kind' : date_kind,
+                'start': start,
+                'end': end,
+            };
+
+            let fnsuccess = function (result) {
+                if (result.data != null) {
+                    _this.grid.itemsSource.sourceCollection = result.data;
+                }
+            };
+            AjaxUtil.getAsyncData(_this.baseUrl + '/read', data, fnsuccess);
+        }
+    }
+
+    let page = null;
+
+
+    $(document).ready(function (e) {
+        page = new SujuUploadPage();
+
+        //$('#divDate').ax5DatePicker({ direction: 'top' });
+        $('#srchStartDt').val(CommonUtil.getYYYYMMDD());
+        $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+        page.searchDataBind();
+
+        // 엑셀 다운로드
+        $('#btnExcel').on('click', function () {
+            page.exportExcel();
+        });
+
+        // 검색
+        $('#btnSearch').click(function (e) {
+            page.searchDataBind();
+        });
+
+        //수주 변환
+        $('#btnSuju').click(function (e) {
+            let items = page.grid.selectedItems;
+            if (items.length > 0) {
+                Alert.confirm('', '수주데이터로 전환하시겠습니까?',
+                    function () {
+                        page.changeSujuBulkData(items);
+                    },
+                    function () { }
+                );
+            } else {
+                Alert.alert('', '전환할 항목을 선택해주세요.', function () {
+                    $(this).focus();
+                });
+            }
+        });
+
+        // 양식 다운로드
+        $('#btnDownloadTemplate').click(function (e) {
+            page.downloadExcelForm();
+        });
+
+        // 엑셀 업로드 버튼
+        $('#btnShowUpload').click(function (e) {
+            let data = {
+                'id': '',
+                'data_date': CommonUtil.getYYYYMMDD(),
+            };
+            page.showPopupExcelUpload(data);
+        });
+
+        // 삭제 버튼
+        $('#btnDelete').click(function (e) {
+            let items = page.grid.selectedItems;
+            if (items.length > 0) {
+                Alert.confirm('', '삭제하시겠습니까?',
+                    function () {
+                        page.deleteSujuBulkData(items);
+                    },
+                    function () { }
+                );
+            } else {
+                Alert.alert('', '삭제할 항목을 선택해주세요.', function () {
+                    $(this).focus();
+                });
+            }
+        });
+
+    })
+</script>
+</th:block>
+</html>

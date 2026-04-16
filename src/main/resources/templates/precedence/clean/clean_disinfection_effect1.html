@@ -1,0 +1,541 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+<div class="content_wrap">
+
+    <section class="section mb-1">
+
+        <div class="title_box ">
+            <div class="left_align">
+                <h3>세척소독효과확인</h3>
+            </div>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>        
+        </div>
+
+        <div class="table_box search" >
+
+            <div class="row" >
+                <div class="col-6 col-md-6 col-lg-5" >
+                    <div class="input-group" >
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_sm" data-labelCd="일자">일자</span>
+                        </div> 
+                        <div data-ax5picker="multi" id="srchDt">
+                            <div class="input-group-append">
+                                <input class="tac " type="text" id="date_from" name="date_from" />
+                                <span class="input-group-text fs-xl">
+                                    <i class="fas fa-calendar-alt calendar_color" ></i>
+                                </span>
+                                <span class="slow_sign">~</span>
+                                <input class="tac " type="text" id="date_to" name="date_to" />
+                                <span class="input-group-text fs-xl">
+                                    <i class="fas fa-calendar-alt calendar_color"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-5 col-md-3 col-lg-3 col-xl-2" >
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_md">문서명</span>
+                        </div>
+                        <input class="form-control2" type="text" id="txtDocName" name="txtDocName">
+                    </div>
+                </div>
+
+                <div class="col-1" >
+                        <button type="button" class="btn-default" id="btnSearch" title="조회"><i class="fas fa-search"></i></button>
+                </div> 
+                        
+            </div>
+        </div>
+    </section>
+
+    <div class="row">
+        <div class="col-lg-12">
+            <section class="section">
+                <div class="grid_box">
+                    <div class="title_box">
+                         <span class="right_align rpt">문서목록</span>
+                        <button type="button" class="btn-default y_write_auth" id="btnNew"><i class="fas fa-plus"></i></button>
+                        <button type="button" class="btn-default" id="btnEdit"><i class="fas fa-edit"></i></button>
+                        <button type="button" class="btn-danger y_write_auth" id="btnDel"><i class="fas fa-trash"></i></button>
+                        <button type="button" class="btn-default " id="btnExcel"><i class="fas fa-file-excel"></i></button>
+                        <button type="button" class="btn-default" id="btnGridSetting" style="visibility:hidden"><i class="fas fa-cog"></i> Setting</button>
+                    </div>
+                    <div class="h-630" data-ax5grid="document-grid" ></div>  
+                </div>
+
+            </section>
+        </div>
+    </div>
+</div>
+
+<script type="text/x-tmpl" id="docCreateTemplate">
+<div class="content_wrap popup">
+    <section class="pt-2">
+        <form id="docForm">
+            <input type="hidden" id="id" name="id" value="{%=o.id%}">
+            <div class="table_box sub" id="detail_box">
+                <div class="row">
+                     <div class="col-6">
+                        <div class="input-group" data-ax5picker="basic" id="docDateDiv">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t4">일자</span>
+                            </div>
+                            <input class="form-control2 tac" type="text" id="doc_date" name="doc_date" value="{%=o.doc_date%}"/>
+                            <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color" ></i></span>
+                        </div>
+                    </div>	
+
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t4">문서명</span>
+                            </div>
+                             <input class="form-control2" type="text" id="doc_name" name="doc_name" value="{%=o.doc_name%}"  />
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t4_area">내용</span>
+                            </div>
+                            <textarea class="form-control2" id="content" name="content">{%=o.content%}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="grid_box" id='image_upload1'></div>
+        
+
+    </section>
+    <section class="section">
+        <div class="popup_button_group bottom">
+            <div class="left_align">
+            <button type="button" class="btn-popup" id="btn_doc_save" ><span>저장</span></button>
+            <button type="button" class="btn-popup" id="modal-close-button"><span>닫기</span></button>
+
+            </div>
+        </div>
+    </section>
+    <img id="imgPhoto" src="" height="600" width="400" />
+</div>
+</script>
+</th:block>
+
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+<th:block th:replace="/common/ax5_uploader :: ax5_uploader" ></th:block>
+<script type="text/javascript">
+    class DocumentPage {
+        constructor() {
+            this.grid = null;
+            this.uploader = null;
+
+            this.doc_form = '세척소독효과확인';
+            this.table_name = 'doc_result';
+            this.attach_name = 'basic';
+
+            this.base_url = '/api/support/file_document';
+
+            this.init(); 
+        }
+
+        init() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="document-grid"]'),
+                sortable: true,
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: true, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 38  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.grid.select(this.dindex);
+                    }
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+               columns: [
+                   { key: 'id', label: '문서번호', width: 100, align: 'right'},
+                   { key: 'doc_date', label: '일자', width: 150, align: 'center' },
+                   { key: 'doc_name', label: '제목', width: 300, align: 'left' },
+                   { key: 'content', label: '내용', width: 300, align: 'left' },
+                   {
+                       key: 'files', label: '파일', width: 150, align: 'left', 
+                       formatter: function () {
+                           let result = '';
+                           let files = this.item.files
+                           if (files != null) {
+                               files.forEach(function (file) {
+                                   result += '<a href="javascript:gridFileDownload(\'' + file.attach_name + '\',' + file.file_id + ',\'' + file.file_name + '\')" title="'+ file.file_name + '">&nbsp;<i class="far fa-file" aria-hidden="true" ></i >&nbsp;</a>&nbsp;'
+                               });
+                           }
+                           return result;
+                       }
+                   },
+                ]
+            };
+
+            this.grid = new ax5.ui.grid(config);
+            this.grid_config = config; 
+        }
+
+        // 버튼 활성화 설정
+        //setButtonDisable(_boolnew, _boolsave, _booldel) {
+        //    $('[id=btnNew]').prop('disabled', _boolnew);
+        //    $('[id=btnEdit]').prop('disabled', _boolsave);
+        //    $('[id=btnDel]').prop('disabled', _booldel);
+        //}
+
+        //버튼 활성화 
+        setButtonState() {
+            let pk = this.grid.getList("selected");
+            $('#btnNew').prop('disabled', false);
+            $('#btnSave').prop('disabled', false);
+            if (pk) {
+                $('#btnDel').prop('disabled', false);
+                $('#btnEdit').prop('disabled', false);
+            }
+            else {
+                $('#btnDel').prop('disabled', true);
+                $('#btnEdit').prop('disabled', true);
+            }
+        }
+
+        //모달
+        showDocEdit(data) {
+            let _this = this;
+            let content = tmpl('docCreateTemplate', data);
+            let $content = $(content);
+            let modalContainer;
+            if (!data.id) {
+                modalContainer = new PopupDraggable('문서 등록');
+            } else {
+                modalContainer = new PopupDraggable('문서 수정');
+            }
+            modalContainer.open({ width: 800, height: 400, $content });
+                        
+            $('#docDateDiv').ax5DatePicker({ direction: 'top' });
+            $content.find('#btn_doc_save').on('click', function () {
+                let $form = $content.find('#docForm');
+                Alert.confirm('', 
+                    '저장하시겠습니까?',
+                    function () { _this.saveDocument($form, modalContainer); },
+                    function () { }
+                );
+            }); 
+        }
+
+        // 문서 목록 조회
+        searchMainData() {
+            let _this = this;
+                        
+            let param = {
+                action: 'read',
+                doc_form: _this.doc_form,
+                date_from: $('#date_from').val(),
+                date_to: $('#date_to').val(),
+                keyword: $('#txtDocName').val(),
+            };
+
+            let result = AjaxUtil.getSyncData(_this.base_url + "/read", param);
+            if (result != null) {
+                let recordsTotal = result.data.length;
+                _this.grid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            }
+            //_this.setButtonDisable(false, true, true);
+            _this.setButtonState();
+        }
+
+        
+        // 문서 정보 저장
+        saveDocument($form, modalContainer) {
+            let _this = this;
+            let url = _this.base_url + '/save';
+            let data = FormUtil.extractForm($form);
+            data['doc_form'] = _this.doc_form;
+            data['fileId'] = $("#srchFileId").val();
+
+            // 필수입력 check routine
+            if (!data.doc_name) {
+                Alert.alert('', '제목을 입력해주세요.');
+                return false;
+            }
+            else if (!data.doc_date) {
+                Alert.alert('', '일자를 입력해주세요.');
+                return false;
+            }
+            
+            let fnSuccess = function () {
+                modalContainer.close();
+                Notify.success('저장되었습니다');
+                _this.searchMainData();
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        // 문서 정보 삭제
+        deleteDocument(id) {
+            let _this = this;
+            let url = _this.base_url + '/delete';
+            //let id = $('#docForm').find('#id').val();
+            let data = { 'id': id }; 
+            let fnSuccess = function (res) {
+				_this.deleteFile(id);
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+		deleteFile(id) {
+            let _this = this;
+            let url = '/api/common/attach_file/deleteFile';
+            //let id = $('#docForm').find('#id').val();
+            let data = { 'DataPk': id }; 
+            let fnSuccess = function (res) {
+                Notify.success('삭제되었습니다');
+                _this.searchMainData();
+            }
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);	
+		}
+		
+        //엑셀다운로드
+        exportExcel() {
+            var targetview = this.grid;
+            // 현재 html코드로 데이터 만들어 확장자만 xls로 변경해주고 있음
+            targetview.exportExcel('세척소독효과확인.xls');
+        }
+
+        //파일 업로더    
+        setUploader(id) {
+            let _this = this;
+
+            let uploader = new ax5FileUploadClass('image_upload1', id,
+                {
+                    table_name: 'doc_result',
+                    attach_name: 'basic',
+                    accept_files: 'hwp,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,gif,mbp,png,txt,zip,pdf',
+                    multiple: true,
+                    max_count: 5,
+                    file_size: 100,
+                    upload_callback: function (param) {
+                        uploader.showLastImage('imgPhoto');
+                    },
+                    delete_callback: function (param) {
+                        $('#imgPhoto').attr('src', '');
+                    },
+                    file_click_callback: function (file_id) {
+                        uploader.showImage('imgPhoto', file_id);
+                    },
+                    can_write: userinfo.can_write(),
+                });
+
+         //   $('#addFile').prop('disabled', false);
+
+         //   let accept_files = 'hwp,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,gif,mbp,png,txt,zip,pdf';
+         //   let accept = '.' + accept_files.split(',').join(',.');
+
+	        ////if (_this.uploader)
+         ////       return; 4456
+         //   //$('[data-ax5uploader="fileuploadAx"]').yuFileUploader(
+         //   _this.uploader = $('#fileUploadDiv').yuFileUploader(
+         //       {
+         //           fileIdsCtl: '#srchFileId',
+         //           dropZone: 'fileuploadAx',
+         //           boxZone: 'fileuploadAx',
+         //           others: '', // 파일저장 상위경로
+         //           filepath: 'doc_result', // 파일저장 하위경로
+         //           addfileext: 'Y', // 저장시 파일확장자 포함 파일이름저장
+         //           icons: {
+         //               'download': '<i class="fa fa-download" aria-hidden="true"></i>',
+         //               'delete': '<i class="fa fa-minus-circle" aria-hidden="true"></i>'
+         //           },
+         //           emptymsg: '파일을 Drag&amp;Drop하거나 클릭하여 업로드를 진행하세요' + '(업로드 후 저장버튼을 클릭하세요.)',
+                    
+         //           multiple: true,  // 멑티업로드 허용여부
+         //           maxcnt: 5, // 업로드 최대갯수
+         //           accept: '.hwp,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.gif,.mbp,.png,.txt,.zip,.pdf', // 허용 확장자 image/* .gif,.jpg,.png
+         //           accepts: 'hwp,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,gif,mbp,png,txt,zip,pdf',    // 드래그로 업로드할 때 체크할 용도
+         //           fileSize: 100,  // Mega
+         //           tableName: 'doc_result', 
+         //           attachName: 'basic', 
+         //       }
+         //   );
+         //   _this.uploader.mode = 'active';
+        }
+    }
+  
+    let page = null;
+
+    $(document.body).ready(function (e) {
+        page = new DocumentPage();
+
+        //그리드 컬럼 설정
+        page.popColSetting = new popColSetting();
+        let columns = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'grid', page.grid);
+	
+	
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),
+            direction: "top",
+            content: {
+                width: 206,  //130 270
+                margin: 10,
+                type: 'date',
+                config: {
+                    control: {
+                        left: '<i class="fa fa-chevron-left"></i>',
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-chevron-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            }
+
+        });
+
+
+        let today = CommonUtil.getYYYYMMDD();
+        let this_year = today.substring(0, 4);
+
+        $('#date_from').val(this_year + '-01-01');
+        //$('#date_to').val(this_year + '-12-31');
+        $('#date_to').val(today);
+
+        page.searchMainData();
+                
+        // 검색버튼 클릭
+        $('#btnSearch').click(function (e) {
+            page.searchMainData();
+        });
+
+        // 신규버튼
+        $('#btnNew').click(function (e) {
+            let today_string = CommonUtil.getYYYYMMDD();
+//            $('#detail_box').find('#doc_date').val(today_string);
+
+            let data = {
+                'doc_name': '',
+                'content': '',
+                'doc_date': today_string,
+            };
+
+            page.showDocEdit(data);
+            page.setUploader();
+            //$("#addFile").prop('disabled', false);
+            
+            ////$('[data-uploaded-box="fileuploadAx"]').show();
+            //$('#fileUploadBox').show();
+
+        });
+
+         // 수정버튼
+        $('#btnEdit').click(function (e) {
+
+            let items = page.grid.getList("selected");
+
+            if (items.length > 0) {
+                let id = items[0].id;
+                
+                let param = {
+                    action: 'detail',
+                    id: id,
+                };
+                result = AjaxUtil.getSyncData(page.base_url + "/detail", param);
+
+                page.showDocEdit(result.data);
+                page.setUploader(id);
+
+                //$('#addFile').prop('disabled', false);
+                //$('#DataPk').val(id);
+                ////$('[data-uploaded-box="fileuploadAx"]').show();
+                //$('#fileUploadBox').show();
+
+                ////파일조회
+                //let attparam = { "action": 'detailFiles', "TableName": "doc_result", 'DataPk': id, attachName: 'basic' };
+                //YuFileUploader.getAttachFiles(attparam);
+            } else {
+                Alert.alert('', '수정할 데이터를 선택해 주세요.')
+            }
+        });
+
+        // 삭제버튼
+        $('#btnDel').click(function (e) {
+
+            let items = page.grid.getList("selected");
+            if (items.length > 0) {
+                Alert.confirm('', "삭제하시겠습니까?",
+                    function () {
+                        let id = items[0].id;
+                        page.deleteDocument(id);
+                    },
+                    function () { }
+                );
+            } else {
+                Alert.alert('', '삭제할 데이터를 선택해 주세요.')
+
+            }
+
+        });
+
+        //엑셀
+        $('#btnExcel').click(function (e) {
+            page.exportExcel();
+        });
+
+        if (userinfo.group_code == 'admin') {
+            $('#btnGridSetting').css('visibility', 'visible');
+        }	
+
+
+        $('#btnGridSetting').click(function (e) {
+            let _this = this;
+            let fix_cols = page.grid_config.frozenColumnIndex;
+            page.popColSetting.show(gui.gui_code, gui.template_key, 'grid', page.grid_config.columns, page.grid, { 'order_fix': false, 'fix_cols': fix_cols });
+        });
+
+    });
+
+    // 그리드 파일 다운로드
+    function gridFileDownload(attachName, fileId, fileNm) {
+        //let tableName = 'doc_result';
+        let url = '/api/files/download?file_id=' + fileId;
+        AjaxUtil.downloadFile(url, fileNm);
+    }
+</script>
+</th:block>
+</html>

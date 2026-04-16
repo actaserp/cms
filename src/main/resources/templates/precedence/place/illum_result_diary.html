@@ -1,0 +1,971 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style scopped>
+    .popup-card-btn {
+      background-color: #f5f6fa;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<th:block layout:fragment="content">
+<style>
+	.background-yellow {
+		background: #ffd800;
+	}
+	.background-skyblue {
+		background: #00e0ff;
+	}
+	.background-white {
+		background: #ffffff;
+	}
+	
+	.standard-table { width: 100%; }
+	.standard-table th { border: 1px solid #d0d8dd; background: #f5f6fa; height: 30px; text-align: center; }
+	.standard-table td { border: 1px solid #d0d8dd; height: 30px; padding: 7px; line-height: 1.3; }
+	
+	table.type01 {
+		border-collapse: collapse;
+		text-align: left;
+		line-height: 1.5;
+		margin: 20px 10px;
+	}
+	table.type01 th {
+		width: 150px;
+		padding: 10px;
+		font-weight: bold;
+		vertical-align: middle;
+		border: 1px solid #ccc;
+		text-align: center;
+	}
+	table.type01 td {
+		width: 650px;
+		padding: 10px;
+		vertical-align: middle;
+		border: 1px solid #ccc;
+	}
+</style>
+    <div class="layout-contents">
+    <input type="hidden" id="bhId" th:value="${bh_id}" />
+    <input type="hidden" id="viewMode" th:value="${view_mode}" />
+    <input type="hidden" id="data_year" th:value="${cboYear}" />
+    <input type="hidden" id="data_month" th:value="${cboMonth}" />
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>영업장 조도점검 일지</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>일지 및 데이터</li>
+                <li>선행요건일지</li>
+                <li>영업장 조도점검 일지</li>
+            </ul>
+        </div>
+
+    <section class="section">
+        <div class="section-top">
+            <div class="search-wrap">
+                <dl>
+                    <dt>
+                        <label>일지명</label>
+                    </dt>
+                    <dd>
+                        <input class="form-control2 tac" type="text" id="title"name="title" >
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                        연도<span class="eq"></span>
+                    </dt>
+                    <dd>
+                        <select class="form-control2 tac" type="text" id="cboYear" name="cboYear" style="width: 130px;" ></select>
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                        <label>월</label>
+                    </dt>
+                    <dd>
+                        <select class="form-control2 tac" type="text" id="cboMonth" name="cboMonth" style="width: 130px;"></select>
+                    </dd>
+                </dl>
+
+                <dl>
+                    <dt>
+                        <label>층</label>
+                    </dt>
+                    <dd>
+                        <select class="form-control2" id="cboType2" name="cboType2" style="width: 130px;"></select>
+                    </dd>
+                </dl>
+
+                <dl>
+                    <dt>
+                        <label>작성자</label>
+                    </dt>
+                    <dd>
+                        <input class="form-control2 tac" type="text" id="firstName" name="firstName" style="width: 130px;" disabled/>
+                    </dd>
+                </dl>
+
+                <div>
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+        </div>
+        <div class="title_box">
+            <!--<span class="right_align rpt" data-labelCd="관리기준">관리기준</span>-->
+            <div class="left_align">
+                <label class="switch">
+                    <input type="checkbox" checked id="btnToggle"><span class="slider round"></span>
+                </label>
+                관리기준 보기/감추기
+            </div>
+        </div>
+
+        <div id="standardDIv">
+            <div class="row">
+            <div class="col-12">
+                <table class="standard-table">
+                    <colgroup>
+                        <col style="width: 15%;" />
+                        <col style="width: 85%;" />
+                    </colgroup>
+                    <tr>
+                        <th scope="row">방법</th>
+                        <td>
+                            * 위치 : 작업대 위 (선별공정작업실 선별대 위, CCP공정작업
+                            CCP모니터링장소) <br />
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                            &nbsp;&nbsp;&nbsp;작업대가 없을 시 80cm 작업자의 눈높이를 기준
+                            <br />* 시간 : 20초 동안 유지 측정값에 변화가 없는 시점 <br />*
+                            개소 : 조도 측정평면도 (SF6-SP-01-별첨3) 참고
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">주기</th>
+                        <td>* 1회 / 월</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">담당자</th>
+                        <td>* HACCP파트 담당자</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">조도기준</th>
+                        <td>
+                            * 전수검사 및 선별구역 : 540 LUX 이상 <br />* 작업장 : 220 LUX
+                            이상 <br />* 창고 및 부대시설 : 110 LUX 이상
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="grid_box">
+            <div class="title_box">
+                <span class="right_align rpt" data-labelCd="점검 목록">점검 목록</span>
+
+                <button type="button" class="btn-default" id="btnReqAppr">
+                    결재상신
+                </button>
+                <button type="button" class="btn-default" id="btnAppr"style="display: none">
+                    승인
+                </button>
+                <button type="button" class="btn-cancel" id="btnReject" style="display: none">
+                    반려
+                </button>
+                <button type="button" class="btn-default" id="btnSaveMulti">
+                    저장
+                </button>
+                <button type="button" class="btn-cancel" id="btnDelete">삭제</button>
+                <button type="button" class="btn-default" id="btnList">목록</button>
+                <!--
+                <button type="button" class="btn-default" id="btnFloor1Image">
+                    1층도면
+                </button>
+                <button type="button" class="btn-default" id="btnFloor2Image">
+                    2층도면
+                </button>
+                <button type="button" class="btn-default" id="btnFloor3Image">
+                    3층도면
+                </button>
+                <button type="button" class="btn-default" id="btnFloor4Image">
+                    4층도면
+                </button>
+                -->
+            </div>
+
+            <div class="grid_box" id="complainList">
+                <div class="h-500" data-ax5grid="master_grid"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="grid_box" id="sub_grid">
+            <div class="title_box" id="button_box2">
+                <span class="right_align rpt" data-labelCd="이탈 목록">이탈 목록</span>
+                <div class="left_align">
+                    <button type="button" class="btn-default" id="btnDeviActionSave" style="display:none">저장</button>
+                </div>
+            </div>
+            <div class="h-200" data-ax5grid="devi_action_grid"></div>
+        </div>
+    </section>
+</div>
+
+<script type="text/x-tmpl" id="imagePopup">
+    <div class="content_wrap modal-content popup">
+        <section class="pt-2 ">
+            <div id="image_div" style="text-align:center;">
+  	            <img src="{%=o.src%}"/>
+            </div>
+        </section>
+    </div>
+</script>
+
+<script type="text/x-tmpl" id="resultPopup">
+    <div class="content_wrap popup">
+        <section class="pt-2 ">
+            <div class="row">
+                <div class="col-12">
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_sm" data-labelCd="측정결과">측정결과</span>
+                        </div>
+                        <input class="form-control2 tac" type="text" name="popResult" readonly />
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_sm" data-labelCd="적용" name="btnApply" style="cursor: pointer;">적용</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-4"><div class="card popup-card-btn" name="btnNumber" data-inputnumber="1"><div class="card-body">1</div></div></div>
+                <div class="col-4"><div class="card popup-card-btn" name="btnNumber" data-inputnumber="2"><div class="card-body">2</div></div></div>
+                <div class="col-4"><div class="card popup-card-btn" name="btnNumber" data-inputnumber="3"><div class="card-body">3</div></div></div>
+                <div class="col-4"><div class="card popup-card-btn" name="btnNumber" data-inputnumber="4"><div class="card-body">4</div></div></div>
+                <div class="col-4"><div class="card popup-card-btn" name="btnNumber" data-inputnumber="5"><div class="card-body">5</div></div></div>
+                <div class="col-4"><div class="card popup-card-btn" name="btnNumber" data-inputnumber="6"><div class="card-body">6</div></div></div>
+                <div class="col-4"><div class="card popup-card-btn" name="btnNumber" data-inputnumber="7"><div class="card-body">7</div></div></div>
+                <div class="col-4"><div class="card popup-card-btn" name="btnNumber" data-inputnumber="8"><div class="card-body">8</div></div></div>
+                <div class="col-4"><div class="card popup-card-btn" name="btnNumber" data-inputnumber="9"><div class="card-body">9</div></div></div>
+                <div class="col-4"><div class="card popup-card-btn" name="btnNumber" data-inputnumber="."><div class="card-body">.</div></div></div>
+                <div class="col-4"><div class="card popup-card-btn" name="btnNumber" data-inputnumber="0"><div class="card-body">0</div></div></div>
+                <div class="col-4"><div class="card popup-card-btn" name="btnNumber" data-inputnumber="delete"><div class="card-body">C</div></div></div>
+            </div>
+        </section>
+    </div>
+</script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<script src="/js/grid.js?v=1000"></script>
+<th:block th:replace="/common/approve_box :: approve_box"></th:block>
+<th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+<script type="text/javascript">
+    class CodePage {
+        constructor() {
+            this.grid = null;
+            this.approveBoxUtil = null;
+            this.init();
+			this.checkMasterName = '영업장조도점검일지'
+            this.baseUrl = "/api/precedence/illum_zone_result";
+            this.master_class = "illum_zone";
+        }
+
+        init() {
+            let _this = this;
+            
+            this.gparam = {
+				bh_id : $('#bhId').val(),
+				cboYear : $('#data_year').val(),
+                cboMonth : $('#data_month').val(),
+                viewMode : $('#viewMode').val(),
+			};
+			
+            let config = {
+            target: $('[data-ax5grid="master_grid"]'),
+            sortable: true,
+            frozenColumnIndex: 0, // 열 고정
+            frozenRowIndex: 0, // 행 고정
+            showLineNumber: true, // 열의 번호 보이기 여부
+            showRowSelector: false, // checkbox(선택) 보이기 여부
+            multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+            sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+            multiSort: true, // 다중 정렬 여부
+            header: {
+                align: "center", // 헤더의 기본 정렬
+                columnHeight: 25, // 헤더 높이
+            },
+            body: {
+                columnHeight: 25, // body의 기본 높이
+                mergeCells: ["type2_name", "type_name"],
+                onClick: function (e) {
+                    _this.grid.select(this.dindex);
+                    //_this.showDetail(e.item);
+                    //_this.searchResult();
+                    if (e.column && e.item) {
+                        // 조도가 있거나 기준보다 작은 경우만 가능
+                        if (e.column.key == "abnormal_detail" && !$('#viewMode').val() && e.item.res_judgment == "X") {
+                            _this.showDeviAbnormalCodeSavePopup(e.item);
+                        }
+                        else if (e.column.key == "result" && !$('#viewMode').val()) {
+                            _this.inputResultPopup(e);
+                        }
+                    }
+                },
+                onDataChanged: function () {
+                    if (this.key === "result") {
+                        if (this.item.result == "")
+                            this.item.res_judgment = "";
+                        else if (this.item.result < this.item.standard)
+                            this.item.res_judgment = "X";
+                        else {
+                            this.item.res_judgment = "O";
+                            this.item.abnormal_detail = ""
+                        }
+
+                        _this.grid.repaint();
+ 
+                    }
+                },
+            },
+            page: {
+                display: true, // 페이징 보이기 여부
+                statusDisplay: true,
+            },
+            columns: [
+                { key: "id", label: "번호", width: 80, align: "left", hidden: true },
+                { key: "_order", label: "순번", width: 50, align: "center", hidden: true},
+                { key: "type2_name", label: "파트명", width: 60, align: "center"},
+                { key: "type_name", label: "구분", width: 120, align: "left" },
+                { key: "master_name", label: "구역", width: 190, align: "left" },
+                { key: "area_num", label: "번호", width: 60, align: "left" },
+
+                { key: "standard", label: "조도기준(Lux)", width: 110, align: "right" },
+                {
+                key: "result",
+                label: '<span class="editable_clr">측정결과(Lux)</span>',
+                width: 110,
+                align: "right",
+                editor: {
+                    type: "number",
+                    disabled: function () {
+                    if ($('#viewMode').val()) return true;
+                    else return false;
+                    },
+                },
+                styleClass: function () {
+                    if (this.item.result == null) return "background-white";
+                    if (!this.item.result) return "background-white";
+                    if (this.item.result < this.item.standard)
+                    return "background-yellow";
+                    else return "background-white";
+                },
+                },
+                { key: "res_judgment", label: "판정", width: 60, align: "center" },
+                {
+                key: "abnormal_detail",
+                label: '<span class="editable_clr">이상발생내역</span>',
+                width: 140,
+                align: "left",
+                sortable: false,
+                },
+                //{
+                //key: "action_detail",
+                //label: "조치내역",
+                //width: 250,
+                //align: "left",
+                //sortable: false,
+                //},
+            ],
+            };
+
+            this.grid = new ax5.ui.grid(config);
+            //this.grid_config = config;
+
+            // 조치내역 그리드
+            let devi_action_config = {
+                target: $('[data-ax5grid="devi_action_grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 25  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.deviGrid.select(this.dindex);
+
+                        if (e.column.key == 'action_detail' && !$('#viewMode').val()) {
+                            _this.showDeviActionCodeSavePopup(e.item);
+                        }
+                    },
+                    onDataChanged: function (e) {
+                    }
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: false,
+                },
+                columns: [
+                    { key: 'id', label: '번호', width: 80, align: 'right', hidden: true },
+                    { key: '_order', label: '순번', width: 60, align: 'center'},
+                    { key: 'src_data_pk', label: '점검항목결과번호', width: 80, align: 'right', hidden: true },
+                    //{ key: 'happen_date', label: '발생일', width: 80, align: 'left' },
+                    { key: '_order', label: '순번', width: 50, align: 'center', hidden: true },
+                    { key: 'happen_place', label: '구역', width: 190, align: 'left' },
+                    { key: 'abnormal_detail', label: '이상발생내역', width: 220, align: 'left' },
+                    { key: 'action_detail', label: '<span class="editable_clr">조치내역및결과</span>', width: 250, align: 'left', editor: {} },
+                    { key: 'actor_name', label: '조치자', width: 80, align: 'left' },
+                    { key: 'creater_name', label: '작성자', width: 80, align: 'left' },
+                    { key: 'confirm_state', label: '확인', width: 80, align: 'left', hidden: true },
+                ]
+            };
+            this.deviGrid = new ax5.ui.grid(devi_action_config);
+        
+        }
+
+        inputResultPopup(data) {
+            //모바일 체크로 할 필요성이 있는가?
+            //let isMobile = /Mobi/i.test(window.navigator.userAgent);
+            let _this = this;
+            let content = tmpl("resultPopup", {});
+            let $content = $(content);
+            let modalContainer = new PopupDraggable(data.item['master_name'] + ' 조도 측정결과 입력');
+            modalContainer.open({ width: 500, height: 300, $content });
+
+            let $result = $($content.find('[name=popResult]:eq(0)'));
+            let $btnApply = $($content.find('[name=btnApply]'));
+            let btnList = $content.find('[name=btnNumber]');
+            $.each(btnList, function (index, item) {
+                $(item).on('click', function (e) {
+                    let n = $(this).attr('data-inputnumber');
+                    if (n == 'delete') {
+                        $result.val('');
+                    }
+                    else if (n == '.') {
+                        if ($result.val() != null && $result.val() != '' && $result.val().indexOf('.') < 0) {
+                            $result.val($result.val() + n);
+                        }
+                    }
+                    else if (n == '0') {
+                        if ($result.val() != null && $result.val() != '') {
+                            $result.val($result.val() + n);
+                        }
+                    }
+                    else {
+                        $result.val($result.val() + n);
+                    }
+                })
+            });
+            $btnApply.on('click', function (e) {
+                _this.grid.setValue(data.dindex, 'result', $result.val());
+                modalContainer.close();
+            });
+
+            $result.val(data.item['result']);
+        }
+
+        // 구역목록 조회
+        searchMainData() {
+            let _this = this;
+
+            let param = {
+                bh_id: $("#bhId").val(),
+                type2: $("#cboType2").val(),
+                master_class: _this.master_class,
+                search_year: $("#cboYear").val(),
+                search_month: $("#cboMonth").val(),
+            };
+            
+
+            let resp = AjaxUtil.getSyncData(_this.baseUrl + '/read', param);
+			let result = resp.data;
+
+            if (result != null) {
+                let headInfo = result.head_info;
+                let diaryInfo = result.diary_info;
+                let actionInfo = result.action_info;
+
+
+                $("#title").val(headInfo.Title);
+                $("#cboYear").val(headInfo.Year);
+                $("#cboMonth").val(headInfo.Month);
+                $("#cboType2").val(headInfo.Floor);
+                $("#firstName").val(headInfo.FirstName);
+
+                //let recordsTotal = result.length;
+                //GridUtil.adjustHeight(_this.grid.config, recordsTotal);
+                _this.grid.setData({
+                    list: diaryInfo,
+                    page: {
+                        display: true,
+                        totalElements: diaryInfo.length,
+                    },
+                });
+
+                _this.deviGrid.setData({
+                    list: actionInfo,
+                    page: {
+                        display: true,
+                        totalElements: actionInfo.length,
+                    }
+                });
+
+                _this.grid.setHeight(diaryInfo.length * 25 + 100);
+                _this.deviGrid.setHeight(actionInfo.length * 25 + 100);
+
+                // 데이터에 따른 버튼 설정
+                if ($('#viewMode').val().toLowerCase() == 'true') {
+                    //보기 모드일 경우 CRUD 버튼 숨김
+                    $("#btnDiaryPrint").hide();
+                    $("#btnReqAppr").hide();
+                    $("#btnSaveMulti").hide();
+                    $("#btnDelete").hide();
+                    if (headInfo.State == "approval") {
+                        $("#btnDiaryPrint").show();
+                    }
+
+                    $("#title").attr("disabled", "disabled");
+                    $("#cboYear").attr("disabled", "disabled");
+                    $("#cboMonth").attr("disabled", "disabled");
+                    $("#cboType2").attr("disabled", "disabled");
+
+
+                } else {
+                    // State : 작성, 미결재, 승인, 반려, 재상신
+                    $("#btnDiaryPrint").hide();
+                    if (headInfo.State == "process" || headInfo.State == "reprocess") {
+                        $("#btnReqAppr").hide();
+                        $("#btnSaveMulti").hide();
+                        $("#btnDelete").hide();
+                    } else if (headInfo.State == "approval") {
+                        $("#btnDiaryPrint").show();
+                        $("#btnReqAppr").hide();
+                        $("#btnSaveMulti").hide();
+                        $("#btnDelete").hide();
+                    }
+
+                    if (parseInt($("#bhId").val(), 10) > 0) {
+                        $("#cboYear").attr("disabled", "disabled");
+                        $("#cboMonth").attr("disabled", "disabled");
+                        $("#cboType2").attr("disabled", "disabled");
+                    } else {
+                        $("#btnDelete").hide();
+                    }
+                }
+
+                // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+                _this.approveBoxUtil = new ApproveBoxUtil(0, '작업장조도', $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+
+        
+            }
+        }
+
+        // 이탈 선택 팝업
+        showDeviAbnormalCodeSavePopup(item) {
+            let _this = this;
+
+            let popupPage = new PopupSelectUserCodePage({
+                'title': '이탈 항목 선택', 'gridValueLabel': '이탈항목', 'infoData': [
+                    { label: '구분', value: item.type_name },
+                    { label: '구역명', value: item.master_name },
+                    { label: '기준', value: item.standard },
+                    { label: '조도', value: item.result }
+                    ],
+                'parentCode': '조도이탈사유', 'closeManual': true,
+                'popupHeight': 440
+            });
+            
+            popupPage.show(function (data) {
+
+                if (data.selected == null) {
+                    Alert.alert('', '이탈항목을 선택해주세요.');
+                    return;
+                }
+                else if (data.selected.Value == '직접입력' && data.input == '') {
+                    Alert.alert('', '직접입력값을 입력해주세요.');
+                    return;
+                }
+                else {
+                    if (data.selected.Value == '직접입력')
+                        item.abnormal_detail = data.input
+                    else {
+                        item.abnormal_detail = data.selected.Value
+                    }
+                popupPage.close();
+                // 그리드 다시 그리기
+                _this.grid.repaint();
+                }
+            });
+        }
+
+        //조치 선택 팝업
+        showDeviActionCodeSavePopup(item) {
+            let _this = this;
+
+            let popupPage = new PopupSelectUserCodePage({
+                'title': '조치 항목 선택', 'gridValueLabel': '조치항목', 'infoData': [
+                    { label: '구역명', value: item.happen_place },
+                    { label: '이상발생내역', value: item.abnormal_detail },
+                    ],
+                'parentCode':'조도이탈조치', 'closeManual': true,
+                'popupHeight': 440
+                });
+                popupPage.show(function (data) {
+                    if (data && data.selected.Code == '직접입력') {
+                        item.action_detail = data.input;
+                    } else {
+                        item.action_detail = data.selected.Value;
+                    }
+                    popupPage.close();
+                    _this.deviGrid.repaint();
+                    if (item.action_detail) {
+					    _this.saveDeviAction(item.check_result_id);
+                    }
+                
+                });
+        }
+
+        saveDeviAction(id) {
+            let _this = this;
+			let url = '/api/common/devi_action';
+            let list = _this.deviGrid.getList('selected')[0]
+            if (!list) return;
+
+            let data = {
+                id : list.id,
+                source_pk : list.src_data_pk,
+                source_table_name : 'illum_zone',
+                happen_date : list.happen_date,
+                abnormal_detail : list.abnormal_detail,
+                action_detail : list.action_detail,
+                confirm_detail : list.confirm_detail,
+            }
+
+			let fnSuccess = function () {
+				Notify.success('저장되었습니다');
+			}
+			AjaxUtil.postAsyncData(url + '/save_dev_action', data, fnSuccess);
+        }
+
+        // 일지 출력
+        printDiary() {
+            let param = {
+                'title': $('#title').val(),
+                'bh_id': $('#bhId').val(),
+            };
+
+            let result = AjaxUtil.postSyncData(this.baseUrl + '/print', param, function () { });
+            if (result.success) {
+                CommonUtil.openWindow('/api/files/pdf_viewer?file_id=' + result.file_id)
+            }
+            else {
+                Alert.alert('', '일지 생성 중 오류가 발생했습니다. 관리자에게 문의하세요.');
+            }
+        }
+
+
+        save(isAppr) {
+            let _this = this;
+            //let list = _this.grid.getList("modified");
+            let list = [];
+            let resultNullCheck = false;
+
+            for (let i = 0; i < _this.grid.list.length; i++) {
+                if (_this.grid.list[i].result == null || _this.grid.list[i].result == '') 
+                    resultNullCheck = true;    
+            }
+
+            // 조도가 있는 list만 저장시키기
+            _this.grid.list.map((item, index) => {
+                if (item.result != null)
+                    list.push(item)
+            })
+
+            let abnormalNullCheck = false;
+
+            for (let i = 0; i < list.length; i++) {
+                if (list[i].res_judgment == 'X') {
+                    if (list[i].abnormal_detail == null) {
+                        abnormalNullCheck = true;
+                    }
+                }
+            }
+
+            let callback = function () {
+            let data = {
+                Q: JSON.stringify(list),
+                bh_id: $("#bhId").val(),
+                title: $("#title").val(),
+                year: $("#cboYear").val(),
+                month: $("#cboMonth").val(),
+                type2: $("#cboType2").val(),
+            };
+
+            let fnSuccess = function (resp) {
+                if (resp.success) {
+                    $("#bhId").val(resp.data.id);
+                if (isAppr) {
+                    // 결재요청
+                    _this.reqAppr();
+                } else {
+                    // 임시저장
+                    Notify.success("저장하였습니다.");
+                    $("#btnDelete").show();
+                    $("#cboYear").attr("disabled", "disabled");
+                    $("#cboMonth").attr("disabled", "disabled");
+                    $("#cboType2").attr("disabled", "disabled");
+                    page.searchMainData()
+                }
+                } else {
+                Alert.alert("", resp.message);
+                }
+            };
+            AjaxUtil.postAsyncData(_this.baseUrl + "/save", data, fnSuccess);
+            };
+
+            if (abnormalNullCheck) {
+                Alert.alert("", "누락된 이탈 항목이 있습니다.");
+                return;
+            }
+            else if (isAppr) {
+                if (resultNullCheck) {
+                    Alert.alert("", "점검결과를 모두 입력해주세요.");
+                    return;
+                } else {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+            else {
+                Alert.confirm("", "저장하시겠습니까?", function () {
+                callback();
+                });
+            }
+        }
+
+        //결재
+        appr(isAppr) {
+            let _this = this;
+            _this.approveBoxUtil.approval(isAppr, function () {
+                $('#btnList').click();
+            });
+        }
+
+        //결재상신
+        reqAppr() {
+            let _this = this;
+            let title = $("#title").val();
+            let url = "/gui/" + gui.gui_code + "/edit";
+            let urlParam = { bh_id: $("#bhId").val(),  cboYear: $("#cboYear").val(),
+                cboMonth: $("#cboMonth").val(), type2: $("#cboType2").val(), };
+
+            let ret = _this.approveBoxUtil.request($("#bhId").val(), title, url, JSON.stringify(urlParam));
+            if (ret.success) {
+                Notify.success("결재상신하였습니다.");
+                $("#btnList").click();
+            }
+        }
+        
+        
+
+        //// 정보 삭제
+        deleteData() {
+            let _this = this;
+            let list = _this.grid.list;
+
+            Alert.confirm('', '삭제하시겠습니까?', function () {
+                // 삭제 서비스 호출
+                let param = {
+                    Q: JSON.stringify(list),
+                    bh_id: $('#bhId').val(),
+                }
+                let fnSuccess = function (resp) {
+                    if (resp.success) {
+                        Notify.success('삭제하였습니다.');
+                        $('#btnList').click();
+                    } else {
+                        Alert.alert('', resp.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(_this.baseUrl + '/delete', param, fnSuccess);
+            });
+        }
+
+        // 층별 도면
+        showFloorImage(floor, prop_master_id) {
+            let url = '/api/common/attach_file';
+            let data = {
+                'attachName': 'system_image',
+                'TableName': 'prop_master',
+                'DataPk': prop_master_id
+            }
+            let attach_file = AjaxUtil.getSyncData(url + '/detailFiles', data);
+
+            let image = { src: "/api/files/image?id=" + attach_file[0].id };
+
+            let content = tmpl("imagePopup", image);
+            let $content = $(content);
+            let windowWidth = window.innerWidth;
+            let windowHeight = window.innerHeight;
+
+            let modalContainer = new PopupDraggable(floor + " 도면");
+            modalContainer.open({ width: windowWidth - 100, height: windowHeight - 100, $content });
+        }
+
+        searchResultData() {
+            let _this = this;
+
+            let cboYear = page.gparam.cboYear != null ? page.gparam.cboYear : page.gparam.year;
+            let cboMonth = page.gparam.cboMonth != null ? page.gparam.cboMonth : page.gparam.month;
+
+            $("#cboYear").val(cboYear);
+            $("#cboMonth").val(cboMonth);
+            _this.searchMainData();
+
+            _this.grid.clickBody(0);
+        }
+
+        // 엑셀 다운로드
+        exportExcel() {
+            var targetview = this.grid;
+            targetview.exportExcel(_this.checkMasterName+".xls");
+        }
+    }
+
+    let page = null;
+
+    $(document.body).ready(function (e) {
+        page = new CodePage();
+
+        let today_string = CommonUtil.getYYYYMMDD();
+
+        page.today_string = today_string;
+        page.this_year = today_string.substring(0, 4);
+
+
+        AjaxUtil.fillSelectOptions($("#cboYear"), "data_year", "", page.this_year);
+        AjaxUtil.fillSelectOptions($("#cboMonth"), "data_month", "", false);
+
+        AjaxUtil.fillSelectOptions($("#cboType2"), "user_code", "choose", "", "층", "illum_zone");
+
+        // 그리드 토글
+        $("#btnToggle").click(function (e) {
+            $("#standardDIv").toggle(300);
+        });
+
+        // 저장
+        $("#btnSaveMulti").click(function (e) {
+            if ($('#cboType2').val() == '' || $('#cboType2').val() == null) {
+                Alert.alert("", "층을 선택해주세요.");
+                return;
+            }
+            page.save(false);
+        });
+
+        // 결재상신
+        $("#btnReqAppr").click(function (e) {
+            if ($('#cboType2').val() == '' || $('#cboType2').val() == null) {
+                Alert.alert("", "층을 선택해주세요.");
+                return
+            }
+            page.save(true);
+        });
+
+        // 승인
+        $('#btnAppr').on('click', function () {
+            page.appr(true);
+        });
+
+        // 반려
+        $('#btnReject').on('click', function () {
+            page.appr(false);
+        });
+
+        // 삭제
+        $("#btnDelete").click(function (e) {
+             page.deleteData();
+            
+        });
+
+        // 이미지 팝업
+        $("#btnFloor1Image").on("click", function () {
+            let prop_master_id = 1007;
+            page.showFloorImage("1층", prop_master_id);
+        });
+        $("#btnFloor2Image").on("click", function () {
+            let prop_master_id = 1008;
+            page.showFloorImage("2층", prop_master_id);
+        });
+        $("#btnFloor3Image").on("click", function () {
+            let prop_master_id = 1009;
+            page.showFloorImage("3층", prop_master_id);
+        });
+        $("#btnFloor4Image").on("click", function () {
+            let prop_master_id = 1010;
+            page.showFloorImage("4층", prop_master_id);
+        });
+
+        // 엑셀 다운로드
+        $("#btnExcel").on("click", function () {
+            page.exportExcel();
+        });
+
+        // 조건 변경
+        $("#cboYear").change(function () {
+            page.searchMainData();
+        });
+
+        // 조건 변경
+        $("#cboMonth").change(function () {
+            page.searchMainData();
+        });
+
+        // 조건 변경
+        $("#cboType2").change(function () {
+            page.searchMainData();
+        });
+
+        // 일지 출력
+        $('#btnDiaryPrint').on('click', function () {
+            page.printDiary();
+        });
+
+        // 목록
+        $("#btnList").on("click", function () {
+            if (page.gparam.appr_view) {
+                location.href = encodeURI('/gui/' + page.gparam.appr_view + '?searchcond=' + page.gparam.searchcond);
+            }
+            else {
+                location.href = encodeURI('/gui/' + gui.gui_code + '?searchcond=' + page.gparam.searchcond);
+            }
+        });
+
+        page.searchResultData();
+   
+    });
+</script>
+</th:block>
+</html>

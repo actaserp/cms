@@ -1,0 +1,214 @@
+<th:block th:fragment="pop_devi_detect">
+<script type="text/x-tmpl" id="deviDetecttemplate">
+    <div class="content_wrap popup">
+        <div class="table-wrap">
+            <form id="popDetectDeviForm">
+                <table class="write-table">
+                    <input type="hidden" name="hddd_id" value="" />
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="popAbnormalDetail">이탈사항</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="popAbnormalDetail" name="AbnormalDetail" value="" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="popActionDetail">조치내역</label>
+                            </th>
+                            <td>
+                                <input type="hidden" id="popActionCode" name="ActionCode" value="" />
+                                <textarea class="form-control2 h-30" id="popActionDetail" name="ActionDetail"></textarea>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="ActorName">조치자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="ActorName" name="ActorName" value="" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="description">비고</label>
+                            </th>
+                            <td>
+                                <textarea class="form-control2 h-30" id="description" name="description"></textarea>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </form>
+        </div>
+        <div class="container-fluid">
+            <div id="haccpDeviActionGrid" style="height: 200px;"></div>
+        </div>
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="btnPopSaveDeviAction" ><span data-labelCd="저장">저장</span></button>
+            <button type="button" class="btn-popup" id="btnPopCloseDeviAction"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    </div>
+</script>
+
+<script type="text/javascript">
+
+    class PopupHaccpDeviDetect {
+        constructor() {
+            this.url = '/api/haccp/diary';
+            this.hddd_id = null;
+            this.parent_code;
+            this.grid = null;
+            this.selectedItem = null;
+            this.callback = null;
+            this.modalContainer = new PopupDraggable("이탈/조치사항");
+        }
+
+        show(callback) {
+            let _this = this;
+
+            this.callback = callback;
+
+            let content = tmpl('deviDetecttemplate', {});
+            let $content = $(content);
+            this.modalContainer.open({ width: 800, height: 680, $content });
+
+            this.grid = new wijmo.grid.FlexGrid('#haccpDeviActionGrid', {
+                autoGenerateColumns: false, // 자동 열 생성 비활성화
+                allowSorting: true, // 모든 열에 정렬 허용
+                frozenColumns: 0, // 열 고정
+                frozenRows: 0, // 행 고정
+                selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
+                isReadOnly: true, // 읽기 전용 비활성화
+                headersVisibility: wijmo.grid.HeadersVisibility.Column, // 헤더만 표시
+                itemsSource: new wijmo.collections.CollectionView([]),
+                columns: [
+                    { binding: 'id', header: 'ID', width: 0, isReadOnly: true, visible: false }, // 숨김 열
+                    { binding: 'Code', header: '코드', width: 0, align: 'center', isReadOnly: true, visible: false }, // 코드 열
+                    { binding: 'Value', header: '코드명', width: '*', align: 'left', isReadOnly: true }, // 코드명 열
+                ],
+                formatItem: (s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center'; // 헤더 텍스트 정렬
+                    }
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell && s.columns[e.col].binding === 'Value') {
+                        e.cell.style.textAlign = 'left'; // 'Value' 열에 명시적으로 좌측 정렬 설정
+                    }
+                }
+            });
+
+            // 두 번 클릭 시 아이템 선택 및 동작
+            this.grid.addEventListener(this.grid.hostElement, 'dblclick', (e) => {
+                const ht = this.grid.hitTest(e); // 클릭한 셀의 위치 정보 가져오기
+                if (ht.cellType === wijmo.grid.CellType.Cell) {
+                    const selectedItem = this.grid.collectionView.items[ht.row]; // 선택된 행 데이터
+                    this.grid.select(new wijmo.grid.CellRange(ht.row, -1)); // 행 전체 선택
+                    this.selectedItem = selectedItem; // 선택된 데이터 저장
+                    this.select(selectedItem); // 동작 수행
+                }
+            });
+
+            //setTimeout(function(){_this.grid.align();}, 1000);
+            this.$popDetectDeviForm = $content.find('#popDetectDeviForm');
+            this.$popActionDetail = $content.find('#popActionDetail');
+            this.$btnPopSaveDeviAction = $content.find("#btnPopSaveDeviAction");
+            this.$btnPopCloseDeviAction = $content.find("#btnPopCloseDeviAction");
+            this.$popActionCode = $content.find('#popActionCode');
+            
+            this.$btnPopCloseDeviAction.click(function(e){
+            	_this.close();
+            });
+
+            this.$btnPopSaveDeviAction.click(function(e){
+            	let data = FormUtil.extractForm(_this.$popDetectDeviForm);
+            	
+            	if(data.AbnormalDetail=="" || data.AbnormalDetail==null){
+            		Alert.alert("입력 누락","이탈 사항을 입력하세요");
+            		return;
+            	}
+            	
+            	if(data.ActionDetail=="" || data.ActionDetail==null){
+                    Alert.alert("입력 누락","조치 사항을 입력하세요");
+                    return;
+                }
+            	
+            	Alert.confirm('입력저장', '저장하시겠습니까?', function(){
+            		_this.save(data);	
+            	});
+            	
+            });
+            this.$btnPopCloseDeviAction.click(function(e){
+            	
+            });
+            
+            this.loadData();
+            
+            
+            
+        }
+
+        loadData(){
+        	let _this = this;
+            let data = {
+                'hddd_id': this.hddd_id,
+                'parent_code' : this.parent_code
+            };
+            
+            //detectDeviForm
+
+            
+            let url = this.url + "/haccpDeviDetectActionDetail"
+            
+            let fnsuccess = function(result){
+                if (result.success) {
+                	FormUtil.BindDataForm(result.data.detail, _this.$popDetectDeviForm);
+                	
+                	if(result.data.detail.ActorName!="직접입력"){
+                		_this.$popActionDetail.attr('readonly', 'readonly');
+                	}
+
+                    _this.grid.itemsSource.sourceCollection = result.data.items;
+                }
+            };
+
+            AjaxUtil.getAsyncData(url, data, fnsuccess);
+        }
+
+        save(data){
+        	let _this = this;
+        	let url = this.url + "/saveHaccpDetectAction";
+        	let fnsuccess = function(result){
+        		if(result.success){
+        			
+        			Alert.alert('이탈조치', '저장되었습니다.');
+        			
+                    if(_this.callback){
+                        _this.callback(data);
+                        _this.close();
+                    }
+        		}
+        	};
+        	
+        	AjaxUtil.postAsyncData(url, data, fnsuccess);
+        }
+
+        select(item) {
+        	
+            if(item.Code=='직접입력'){
+                this.$popActionDetail.removeAttr('readonly');
+            }else{
+                this.$popActionDetail.attr('readonly','readonly');
+            }
+            this.$popActionDetail.val(item.Value);
+            this.$popActionCode.val(item.Code);
+        }
+
+        close() {
+        	this.modalContainer.close();
+        }
+    }
+</script>
+</th:block>

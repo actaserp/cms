@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<style>
+  .btn-clear {
+    display: none !important; /* 강제로 숨김 */
+  }
+  .btn-close {
+    display: none !important; /* 강제로 숨김 */
+  }
+  /* 검색 영역 스타일 */
+  #searcharea, #detailarea {
+    position: relative;
+    width: 100%;
+    margin-top: 10px;
+  }
+
+  /* 검색 아이콘 (SVG) */
+  .search-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+  }
+
+  /* 검색 가이드 스타일 */
+  .search-guide {
+    padding: 10px;
+    font-size: 14px;
+    color: #666;
+  }
+
+  /* 버튼 스타일 */
+  .btn-select, .btn-login {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  /* 모달 오버레이 (배경 흐리게) */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5); /* 반투명한 검은색 배경 */
+    z-index: 999; /* 모달보다 한 단계 아래 */
+  }
+
+  /* 모달 스타일 */
+  .modal {
+    display: none;
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 400px;
+    height: 650px;
+    max-width: 90%;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    border: none;
+    z-index: 9999;
+  }
+
+  /* 모달 닫기 버튼 스타일 */
+  .modal-close {
+    position: absolute;
+    top: 10px;
+    right: 5px;
+    width: 30px; /* 버튼 크기 */
+    height: 25px;
+    border: none;
+    border-radius: 3px;
+    background: none; !important; /* 배경 제거 */
+    background-color: transparent; !important; /* 배경을 투명하게 */
+    z-index: 1000;
+    cursor: pointer; /* 클릭 가능한 버튼 스타일 */
+  }
+
+  #loadingSpinner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.8); /* 배경 어둡게 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+
+  #loadingImage {
+    width: 95%; /* 전체 화면의 80% 크기 */
+    max-width: 900px; /* 최대 크기 제한 */
+  }
+
+  .contents-wrap dd{
+    margin-bottom: 20px;
+  }
+
+  .contents-wrap dt{
+    margin-left: 10px;
+    margin-bottom: 5px;
+  }
+
+</style>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACTAS MES</title>
+  <link rel="icon" type="image/png" href="/images/logo/actas_log_a.png">
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/> <!-- Slide css -->
+  <link rel="stylesheet" href="/resource/ax5ui/ax5ui.all.css">
+  <link rel="stylesheet" type="text/css" href="/assets_mobile/css/import.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+
+  <script src="/assets_mobile/js/ui.js"></script> <!-- Common js -->
+  <script th:inline="javascript">
+    var sandanData = /*[[${session.sandanList}]]*/ [];
+  </script>
+
+
+  <script type="text/javascript" src="/resource/ax5ui/ax5ui.all.min.js?v=1000"></script>
+
+  <script type="text/javascript" src="/js/ax5commUtil.js?v=1070"></script>
+
+  <script src="/js/common.js?v=1060"></script>
+  <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script> <!-- Slide js -->
+  <script src="/js/Mobile.js"></script>
+</head>
+
+<body>
+<div class="mobile-wrapper page-ticket-list"><!-- ★페이지 Class명 -->
+  <!-- [모바일] 헤더  -->
+  <div class="mobile-layout-header">
+    <header>
+      <div class="left">
+        <a href="#" title="전체메뉴" class="logo">
+        </a>
+      </div>
+      <div class="left" style="margin-left:35px; font-size: 25px;">
+        <h2>휴가수정</h2>
+      </div>
+      <div class="right">
+        <a href="#" title="전체메뉴" class="btn-menu">
+          <img src="/assets_mobile/images/icon/btn-menu.svg" alt="전체메뉴 아이콘">
+        </a>
+      </div>
+    </header>
+  </div> <!-- //mobile-layout-header end-->
+
+  <!-- [모바일] 메뉴  -->
+  <div th:insert="~{mobile/mobile_menu :: mobile_menu}"></div>
+  <!-- [모바일] 컨덴츠  -->
+  <div class="mobile-layout-contents">
+    <!--- (레이아웃) Contents 영역 -->
+    <div class="layout-contents" >
+      <!-- 검색 영역  -->
+      <div class="search-wrap">
+
+      </div>
+      <!-- 컨텐츠 영역  -->
+      <div class="contents-wrap">
+        <dl>
+          <dt>사용자ID</dt>
+          <dd>
+            <div style="display: flex; gap: 10px">
+              <div style="width: 100%">
+                <input type="text" id="SearchKeywords" readonly>
+              </div>
+            </div>
+          </dd>
+          <dt>사용자명</dt>
+          <dd>
+            <div style="display: flex; gap: 10px">
+              <div style="width: 100%">
+                <input type="text" id="searchName" >
+              </div>
+            </div>
+          </dd>
+          <dt>근태항목</dt>
+          <dd>
+            <div style="display: flex; gap: 10%">
+              <select style="width: 60%">
+                <option>휴가</option>
+              </select>
+              <label style="display: flex; align-items: center"><input type="checkbox" style="margin: 0">&nbsp;&nbsp;연차</label>
+            </div>
+          </dd>
+          <dt>기간</dt>
+          <dd>
+            <div style="display: flex; gap: 10px">
+              <div style="width: 100%">
+                <input type="date" id="" style="width: 40%">
+                <span style="font-weight: bold; margin: 0px 10px 0px 10px;">~</span>
+                <input type="date" id="" style="width: 40%">
+              </div>
+            </div>
+          </dd>
+          <div style="display: flex;">
+            <dt>사용일수</dt>
+            <dt style="margin-left: auto">연차잔여일수</dt>
+          </div>
+          <dd>
+            <div style="display: flex; gap: 10px">
+              <div style="width: 100%; display: flex;">
+                <input type="number" id="" style="width: 45%;">
+                <input type="number" id="" style="width: 45%; margin-left: auto;" readonly>
+              </div>
+            </div>
+          </dd>
+          <dt>사유</dt>
+          <dd>
+            <div style="display: flex; gap: 10px">
+              <div style="width: 100%">
+                <input type="text" id="" >
+              </div>
+            </div>
+          </dd>
+        </dl>
+        <div class="srch-btn">
+          <button class="btn-dark" onclick="searchdata()">등록</button>
+        </div>
+      </div>
+    </div><!--// contents-wrap end-->
+  </div> <!--//layout-contents end -->
+
+</div> <!-- //mobile-layout-contents end-->
+</div> <!-- //page-wrapper end-->
+<script th:inline="javascript">
+  // // Thymeleaf에서 값 설정: Null 체크와 기본값 처리
+  // var groupid = [[${session.groupid != null ? session.groupid : 'null'}]];
+  // var id = /*[[${id != null ? id : 'null'}]]*/;
+  // var groupname = /*[[${groupname != null ? groupname : 'null'}]]*/;
+  // var username = /*[[${username != null ? username : 'null'}]]*/;
+  //
+  // // 로컬스토리지에 값 유지 (null 또는 빈 문자열은 저장하지 않음)
+  // if (groupid && groupid !== 'null') localStorage.setItem('groupid', groupid);
+  // if (id && id !== 'null') localStorage.setItem('id', id);
+  // if (username && username !== 'null') localStorage.setItem('username', username);
+  // if (groupname && groupname !== 'null') localStorage.setItem('groupname', groupname);
+</script>
+
+<script type="text/javascript">
+
+  $(document).ready(function () {
+  });
+
+
+
+
+</script>
+</body>
+</html>

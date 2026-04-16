@@ -1,0 +1,317 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>월별 발주량</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>발주/수불관리</li>
+        <li>월별 발주량</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>
+              <label>
+               연도
+              </label>
+            </dt>
+            <dd>
+              <select class="" id="cboYear" name="cboYear" >
+              </select>
+            </dd>
+          </dl>
+          <dl id="searchComArea">
+            <dt>
+              업체
+            </dt>
+            <dd>
+              <input type="text" id="cboCompany" name="cboCompany" placeholder="업체검색버튼으로 검색하세요.">
+              <input type="hidden" id="cboCompanyHidden">
+              <input type="hidden" id="spjangcdHidden">
+              &nbsp;
+              <a class="btn btn-delete" title="검색" id="btnCompanySearch">
+                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                업체 검색
+              </a>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              <label>
+                품목그룹
+              </label>
+            </dt>
+            <dd>
+              <select class="" id="cboMatGrp" name="cboMatGrp" >
+              </select>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              <label for="cboDataDiv">
+                조회 데이터<span class="eq"></span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboDataDiv" name="cboDataDiv">
+                  <option value="qty">수량</option>
+                  <option value="money">금액</option>
+                </select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" title="검색" id="btnSearch">
+                  <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                  <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+
+      </div>
+      <div class="container-fluid">
+        <div id="theGrid" style="height: 730px;"></div>
+      </div>
+    </section>
+  </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <!--<th:block th:replace="/common/columns_setting :: columns_setting"></th:block>-->
+  <th:block th:replace="/common/multiform_material :: multiform_material"></th:block>
+<!--  <th:block th:replace="/common/popup_company :: popup_company"></th:block>-->
+  <th:block th:replace="/common/popup_company_purchase :: popup_company_Purchase"></th:block>
+  <script type="text/javascript">
+    class BaljuOrderListPage {
+      constructor() {
+        this.grid = null;
+        this.$btnEdit = $('#btnEdit');
+        this.$btnAddNew = $('#btnAddNew');
+        this.spjangcd = $('#spjangcdHidden');
+        this.viewData = new wijmo.collections.CollectionView();
+        this.init();
+      }
+
+      init() {
+        let _this = this;
+        this.grid =  new wijmo.grid.FlexGrid('#theGrid', {
+          frozenColumns: 7,
+          frozenRows: 0,
+          allowSorting: wijmo.grid.AllowSorting.MultiColumn,
+          selectionMode: wijmo.grid.SelectionMode.Row, // 단일행 선택
+          allowMerging: wijmo.grid.AllowMerging.Cells,  //셀 병합
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'mat_grp_name', header: '제품그룹', width: 150, align: 'center' ,allowMerging: true},
+            {binding: 'mat_code', header: '제품코드', width: 120, align: 'center' ,allowMerging: true},
+            {binding: 'mat_name', header: '제품명', width: 270, align: 'left' ,allowMerging: true,},
+            {binding: 'unit_name', header: '단위', width: 70, align: 'center', allowSorting: false },
+            { binding: 'year_qty_sum', header: '연발주량', width: 100, align: 'right', format: 'n0', },
+            { binding: 'year_money_sum', header: '연발주액', width: 100, align: 'right', format: 'n0', },
+            {binding: 'company_name', header: '업체', width: 200, align: 'left', allowSorting: false },
+            {
+             binding: 'mon_1', header: '1월', width: 95, align: 'right', allowSorting: false,
+              format: 'n0',
+            },
+            {
+             binding: 'mon_2', header: '2월', width: 95, align: 'right', allowSorting: false,
+              format: 'n0',
+            },
+            {
+             binding: 'mon_3', header: '3월', width: 95, align: 'right', allowSorting: false,
+              format: 'n0',
+            },
+            {
+             binding: 'mon_4', header: '4월', width: 95, align: 'right', allowSorting: false,
+              format: 'n0',
+            },
+            {
+             binding: 'mon_5', header: '5월', width: 95, align: 'right', allowSorting: false,
+              format: 'n0',
+            },
+            {
+             binding: 'mon_6', header: '6월', width: 95, align: 'right', allowSorting: false,
+              format: 'n0',
+            },
+            {
+             binding: 'mon_7', header: '7월', width: 95, align: 'right', allowSorting: false,
+              format: 'n0',
+            },
+            {
+             binding: 'mon_8', header: '8월', width: 95, align: 'right', allowSorting: false,
+              format: 'n0',
+            },
+            {
+             binding: 'mon_9', header: '9월', width: 95, align: 'right', allowSorting: false,
+              format: 'n0',
+            },
+            {
+             binding: 'mon_10', header: '10월', width: 95, align: 'right', allowSorting: false,
+              format: 'n0',
+            },
+            {
+             binding: 'mon_11', header: '11월', width: 95, align: 'right', allowSorting: false,
+              format: 'n0',
+            },
+            {
+             binding: 'mon_12', header: '12월', width: 95, align: 'right', allowSorting: false,
+              format: 'n0',
+            },
+          ],
+          itemsSource: this.viewData,
+        });
+        this.grid.rowHeaders.columns.splice(0, 1);
+        this.grid.itemFormatter = function (panel, row, col, cell) {
+          if (panel.cellType === wijmo.grid.CellType.Cell) {
+            const colName = panel.columns[col].binding;
+            const item = panel.rows[row].dataItem;
+
+            //모든 셀 공통 초기화 (기존 스타일 제거)
+            cell.style.backgroundColor = '';
+            cell.style.color = '';
+            cell.style.fontWeight = '';
+            cell.style.textAlign = '';
+            cell.style.verticalAlign = '';
+            cell.style.display = '';
+            cell.style.alignItems = '';
+            cell.style.justifyContent = '';
+
+            //'전체' 업체명인 셀만 스타일 적용
+            if (
+              colName === 'company_name' &&
+              typeof item?.[colName] === 'string' &&
+              item[colName].trim() === '전체'
+            ) {
+              cell.style.backgroundColor = '#f0f9ff';
+              cell.style.color = '#007acc';
+              cell.style.fontWeight = 'bold';
+            }
+
+            //중앙 정렬 컬럼
+            if (['mat_grp_name', 'mat_code', 'unit_name'].includes(colName)) {
+              cell.style.textAlign = 'center';
+              cell.style.verticalAlign = 'middle';
+              cell.style.display = 'flex';
+              cell.style.alignItems = 'center';
+              cell.style.justifyContent = 'center';
+            }
+          }
+        };
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '발주 내역';
+      }
+
+      searchMainData() {
+        let _this = this;
+        let url = '/api/balju/balju_order_list/read'
+        let data = {
+          'cboYear': $("#cboYear").val(),
+          'cboCompany': $("#cboCompanyHidden").val(),
+          'cboMatGrp': $("#cboMatGrp").val(),
+          'cboDataDiv': $("#cboDataDiv").val(),
+          spjangcd: this.spjangcd.val()  //사업장 코드
+        }
+        let fnsuccess = function (result) {
+          if (result != null) {
+            _this.viewData.sourceCollection = result.data;
+          }
+        };
+        AjaxUtil.getAsyncData(url, data, fnsuccess);
+      }
+    }
+    let page = null;
+
+    $(document).ready(function (e) {
+      const spjangcd = sessionStorage.getItem('spjangcd');
+      if (spjangcd) {
+        $('#spjangcdHidden').val(spjangcd);  // hidden input이 있어야 함
+      }
+      page = new BaljuOrderListPage();
+
+      AjaxUtil.fillSelectOptions($('#cboCompany'), 'company', 'all', '', 'sale');
+      AjaxUtil.fillSelectOptions($('#cboMatGrp'), 'material_group', 'all', '', 'product,semi');
+      AjaxUtil.fillSelectOptions($('#cboYear'), 'data_year', '', false);
+
+      $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+      $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+      page.searchMainData();
+
+      // 검색
+      $('#btnSearch').click(function (e) {
+        if ($('#cboCompanyHidden').val() === '' && $('#cboCompany').val() !== '') {
+          Alert.alert('', '업체명은 업체검색 버튼을 통해서 \n 검색해주세요');
+          return;
+        }
+        page.searchMainData();
+      });
+
+      $('#btnGridSetting').click(function (e) {
+        let _this = this;
+        let fix_cols = page.grid_config.frozenColumnIndex;
+        page.popColSetting.show(gui.gui_code, gui.template_key, 'grid', page.grid_config.columns, page.grid, { 'order_fix':false,  'fix_cols' : fix_cols });
+      });
+
+      $('#btnCompanySearch').click(function () {
+        let poppage = new PopCompComponentPurchase();
+        let $poppage = $(poppage);
+        let searchcallback = function (items) {
+          // $content.find('#cboCompany').val(items.id);
+          // $content.find('#CompanyName').val(items.compname);
+          console.log('items : ',items);
+          document.getElementById('cboCompany').value = items.compname;
+          document.getElementById('cboCompanyHidden').value = items.id;
+        };
+
+        poppage.show(searchcallback);
+      });
+      $('#cboCompany').on('input', function () {
+        const val = $(this).val();
+        if (val === '') {
+          $('#cboCompanyHidden').val('');
+        }
+      });
+      // .btn-clear 클릭 후 input 이벤트 강제 발생
+      $(document).on('click', '.btn-clear', function () {
+        const $input = $(this).siblings('input[type="text"]');
+        $input.val('');
+        $input.trigger('input'); // 🔥 input 이벤트 강제 발생
+      });
+      // 초기화 버튼 클릭 이벤트
+      $('#btnClear').click(function () {
+
+        document.getElementById('cboCompany').value = '';
+        document.getElementById('cboCompanyHidden').value = '';
+      });
+
+    })
+  </script>
+
+</th:block>
+
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html>

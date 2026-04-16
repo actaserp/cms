@@ -1,0 +1,1281 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        #matListTb input, #matListTb textarea {
+            width: 100px;
+            height: 40px;
+        }
+
+        input[type="date"][readonly] {
+            background-color: #EDEFF5;
+        }
+        /* ============================================
+   FlexGrid 셀 기본 폰트 & 패딩 확대 (UPGRADE)
+   ============================================ */
+        #workReportPage .wj-flexgrid .wj-cell {
+            font-size: 14px !important;       /* 13 → 14 */
+            padding: 8px 10px !important;     /* 6→8, 8→10 */
+        }
+
+        /* ============================================
+           그룹행 Row 전체 높이 증가 (핵심!)
+           ============================================ */
+        #workReportPage .wj-flexgrid .wj-row[aria-level] {
+            height: 30px !important;          /* 26 → 30 */
+        }
+
+        /* 그룹 셀 높이 맞춤 */
+        #workReportPage .wj-flexgrid .wj-cell.wj-group {
+            display: flex !important;
+            align-items: center !important;
+            height: 35px !important;          /* 30 → 32 */
+            line-height: 32px !important;
+            padding: 0 10px !important;       /* 좌우 패딩 살짝 증가 */
+            font-weight: 500;
+            font-size: 14px !important;       /* 그룹셀 폰트도 같이 증가 */
+        }
+
+        /* ============================================
+           그룹 화살표 버튼 크기 (조금 확대)
+           ============================================ */
+        #workReportPage .wj-flexgrid .wj-group .wj-btn-glyph {
+            height: 20px !important;          /* 18 → 20 */
+            width: 20px !important;           /* 18 → 20 */
+            margin-right: 8px !important;     /* 6 → 8 */
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        /* 아이콘 보정 */
+        #workReportPage .wj-flexgrid .wj-group .wj-btn-glyph .wj-glyph-right,
+        #workReportPage .wj-flexgrid .wj-group .wj-btn-glyph .wj-glyph-down {
+            margin: 0 !important;
+            top: 0 !important;
+        }
+
+        /* 그룹 패널 전체 */
+        #workReportPage #theGridPanel {
+            height: 48px;               /* 기본은 45~55px → 줄임 */
+            padding: 4px 8px !important;
+            font-size: 12px !important; /* FlexGrid와 동일하게 */
+            display: flex;
+            align-items: center;        /* 텍스트 및 아이콘 가운데 정렬 */
+            border: 1px solid #dcdcdc;
+            border-bottom: none;        /* 그리드와 붙여보이도록 */
+            background-color: #f8f8f8;  /* 그룹패널 느낌 유지 */
+        }
+
+        /* Panel 내부 placeholder 텍스트 */
+        #workReportPage #theGridPanel .wj-grouppanel-placeholder {
+            font-size: 12px !important;
+            color: #777 !important;
+        }
+
+        /* Panel 내부 field chip (그룹 기준 필드) */
+        #workReportPage #theGridPanel .wj-grouppanel-field {
+            padding: 2px 6px !important;
+            font-size: 12px !important;
+            margin-right: 5px !important;
+            height: 20px !important;
+            display: flex;
+            align-items: center;
+        }
+
+        #workReportPage #theGridPanel .wj-grouppanel .wj-groupmarker {
+            padding: 4px 6px 3px 6px;
+        }
+
+
+
+    </style>
+</head>
+<th:block layout:fragment="content">
+
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>업무일지 현황</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>유지보수</li>
+                <li>업무일지 현황</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label for="cboDateKind">
+                                구분<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboDateKind" name="cboDateKind">
+                                    <option value="selectDate" selected>기간</option>
+                                    <option value="week">주간</option>
+                                    <option value="month">월간</option>
+                                </select>
+                                <div id="extraSelectBox" style="display:inline-block; margin-left: 10px;"></div>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            조회기간<span class="eq">*</span>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input type="date" id="srchStartDt" name="srchStartDt">
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input type="date" id="srchEndDt" name="srchEndDt">
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            사원명
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input style="width:180px;"
+                                       id="txtName"
+                                       name="txtName"
+                                       th:value="${session.groupid == 2} ? ${session.username} : ''"
+                                       th:readonly="${session.groupid == 2}">
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="조회" id="btnSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    조회
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <a class="btn btn-excell" title="등록" id="btnAddNew">
+                                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                일지등록
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid"  id="workReportPage">
+                <div id="theGridPanel"></div>
+                <div id="theGrid" style="height: calc(100vh - 390px);"></div>
+            </div>
+            <div class="container-fluid" style="margin-top: 10px;">
+                <div class="search-wrap" style="display: flex; gap: 20px;">
+
+                    <dl style="flex: 2;">
+                        <dt>
+                            <label for="rptremark">
+                                업무내용<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <textarea id="rptremark" style="height:150px; width:100%; box-sizing:border-box;" readonly></textarea>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl style="flex: 2;">
+                        <dt>
+                            <label for="remark">
+                                지시사항<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <textarea id="remark" style="height:150px; width:100%; box-sizing:border-box;" readonly></textarea>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl style="flex: 1;">
+                        <dt>
+                            <label for="etcremark">
+                                연장/특근업무<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <textarea id="etcremark" style="height:150px; width:100%; box-sizing:border-box;" readonly></textarea>
+                            </div>
+                        </dd>
+                    </dl>
+
+                </div>
+            </div>
+
+
+        </section>
+
+    </div>
+    <script type="text/x-tmpl" id="planTemplate">
+        <style>
+            /* 아이템 테이블 전체 설정 */
+            .item-table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+                margin-top: 10px;
+            }
+
+            /* 헤더 셀 스타일 */
+            .item-table th {
+                background-color: #EDEFF5;
+                text-align: center;
+                font-weight: bold;
+                padding: 8px;
+                border: 1px solid #ccc;
+            }
+
+            /* 바디 셀 스타일 */
+            .item-table td {
+                padding: 6px;
+                text-align: center;
+                border: 1px solid #ccc;
+            }
+
+            /* 입력 필드 기본 스타일 */
+            .item-table input {
+                width: 100%;
+                box-sizing: border-box;
+                padding: 4px;
+            }
+
+            /* 품목 & 비고 왼쪽 정렬 */
+            .item-table td:first-child,
+            .item-table td:nth-child(6) {
+                text-align: left;
+            }
+
+            /* 공통 버튼 스타일 */
+            .item-table .btn.in_btn {
+                display: inline-flex;
+                justify-content: center;
+                align-items: center;
+                width: 32px;
+                height: 32px;
+                border-radius: 4px;
+                padding: 0;
+                border: 1px solid #B3B3B3;
+                background-color: #fff;
+                cursor: pointer;
+                transition: background-color 0.2s;
+                line-height: 0;
+            }
+
+            /* + 버튼 전용 스타일 */
+            .item-table .btn.in_btn.plus img {
+                width: 10px;
+                height: 10px;
+                display: block;
+            }
+
+            /* 공통 아이콘 버튼 이미지 (삭제, 검색 포함) */
+            .item-table .btn.in_btn img {
+                width: 12px;
+                height: 12px;
+                display: block;
+                margin-right: 5px;
+            }
+
+            /* 모달 구조 */
+            .content_wrap.popup {
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+                height: 100%;
+            }
+
+            .table-wrap {
+                flex: 1;
+                overflow-y: auto;
+                padding-right: 5px;
+                width: 100%;
+            }
+
+            /* 테이블 전체 반응형 */
+            .write-table,
+            .item-table {
+                width: 100%;
+                table-layout: fixed;
+                border-collapse: collapse;
+            }
+
+            /* colgroup 지정된 th 열 좁게 설정 */
+            .write-table col.col-th {
+                width: 80px !important;
+            }
+
+            .write-table col.col-td {
+                width: auto;
+            }
+
+            .write-table input,
+            .write-table select,
+            .write-table textarea,
+            .item-table input,
+            .item-table select,
+            .item-table textarea {
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+            /* 기본 셀 스타일 */
+            .write-table th,
+            .write-table td {
+                border: 1px solid #ccc;
+                padding: 6px;
+            }
+
+            /* th 텍스트 줄바꿈 방지 */
+            .write-table th {
+                white-space: nowrap;
+                text-align: center;
+            }
+
+            .popup-button {
+                flex-shrink: 0;
+                padding: 10px;
+                background: #fff;
+                border-top: 1px solid #ddd;
+            }
+            .clt-wrapper {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .clt-wrapper #cltnm {
+                flex: 1;
+            }
+
+            .clt-wrapper #btnCompanySearch {
+                flex-shrink: 0;
+                display: inline-flex;
+                justify-content: center;
+                align-items: center;
+                width: 32px;
+                height: 32px;
+                border: 1px solid #B3B3B3;
+                border-radius: 4px;
+                background-color: #fff;
+            }
+
+            .clt-wrapper #btnCompanySearch img {
+                width: 16px;
+                height: 16px;
+            }
+
+        </style>
+
+        <div class="content_wrap popup">
+            <div class="table-wrap">
+                <form id="reportForm">
+                    <table class="write-table">
+                        <colgroup>
+                            <col style="width:80px">
+                            <col style="width:17%">
+
+                            <col style="width:80px">
+                            <col style="width:45%">
+
+                            <col style="width:80px">
+                            <col style="width:14%">
+                        </colgroup>
+
+                        <caption>등록 테이블</caption>
+                        <input type="hidden" id="id" name="id">
+
+                        <tbody>
+                            <tr>
+                                <th><label for="rptdate">날짜</label></th>
+                                <td>
+                                    <input class="form-control2" type="date" id="rptdate" name="rptdate" style="min-width:135px; width:80%;">
+                                    <span id="rptdateDay" style="font-weight: bold; color: #555;"></span> <!-- 요일 표시 -->
+                                </td>
+                                <th><label for="datetype">주차</label></th>
+                                <td>
+                                    <div class="input-group" style="display:flex; align-items:center; gap:5px;">
+                                        <!-- datetype 숨김 -->
+                                        <select id="datetype" name="datetype" style="display:none;">
+                                            <option value="week">주간</option>
+                                        </select>
+                                        <!-- 시작일 종료일 -->
+                                        <input type="date" id="stdate" name="stdate" style="max-width:120px;" readonly>
+                                        ~
+                                        <input type="date" id="eddate" name="eddate" style="max-width:120px;" readonly>
+                                    </div>
+                                </td>
+
+                                <th><label for="fixperid">본사담당</label></th>
+                                <td>
+                                    <input type="hidden" id="fixperid" name="fixperid">
+                                    <input type="text" id="fixpernm" name="fixpernm" readonly>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th><label for="cltnm">업체명</label></th>
+                                <td colspan="3">
+                                    <div class="clt-wrapper">
+                                        <input class="form-control2" type="hidden" id="cltcd" name="cltcd">
+                                        <input class="form-control2" type="text" id="cltnm" name="cltnm"
+                                            placeholder="엔터 눌러서 검색 또는 입력 후 엔터">
+
+                                        <a class="btn" title="검색" id="btnCompanySearch">
+                                            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        </a>
+                                    </div>
+                                </td>
+                                <th><label for="fixflag">업무구분</label></th>
+                                <td>
+                                    <select class="form-control2" id="fixflag" name="fixflag"></select>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th><label for="asmenu">화면명</label></th>
+                                <td colspan="3">
+                                    <input class="form-control2" type="text" id="asmenu" name="asmenu">
+                                </td>
+                                <th><label for="actflag">근무구분</label></th>
+                                <td>
+                                    <select class="form-control2" id="actflag" name="actflag"></select>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th><label for="asdv">구분</label></th>
+                                <td>
+                                    <select class="form-control2" type="text" id="asdv" name="asdv"></select>
+                                </td>
+                                <th><label for="recyn">진행상태</label></th>
+                                <td colspan="3">
+                                    <select class="form-control2" id="recyn" name="recyn" style="max-width:140px;"></select>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th><label for="rptremark">업무내용</label></th>
+                                <td colspan="5">
+                                    <textarea id="rptremark" name="rptremark" style="height:130px;"></textarea>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th><label for="etcremark">야근/특근 <br>업무</label></th>
+                                <td colspan="5">
+                                    <textarea id="etcremark" name="etcremark" style="height:70px;"></textarea>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th><label for="remark">지시사항</label></th>
+                                <td colspan="5">
+                                    <textarea id="remark" name="remark" style="height:130px;" readonly></textarea>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+
+            <div class="popup-button" style="margin-top:0px;">
+                <button type="button" class="btn-popup y_write_auth" id="btnPopSave">저장</button>
+                <button type="button" class="btn-popup y_write_auth" id="btnEdit" style="display:none;">수정</button>
+                <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+                <button type="button" class="btn-popup y_write_auth" id="btnDelete" style="display:none;">삭제</button>
+            </div>
+        </div>
+    </script>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/popup_company_all :: popup_company_all"></th:block>
+    <script type="text/javascript">
+
+        class WorkReportPage {
+            constructor() {
+                this.url = '/api/report/work_report';
+                this.grid = null;
+                this.$btnEdit = $('#btnEdit');
+                this.$btnAddNew = $('#btnAddNew');
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+
+            }
+
+            resetPlanListIndex() {
+                this.planListIndex = 0;
+            }
+
+            nextPlanListIndex() {
+                return this.planListIndex++;
+            }
+
+            init() {
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+
+                        // 🔹 GroupRow인 경우
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell &&
+                            s.rows[e.row] instanceof wijmo.grid.GroupRow) {
+
+                            // 그룹 행은 색상 제거 (혹시 남아있던 스타일 초기화)
+                            e.cell.style.backgroundColor = '';
+                            e.cell.style.color = '#000';
+
+                            // 항목 수 표기 변경
+                            let html = e.cell.innerHTML;
+                            html = html.replace(/\((\d+)\s+items\)/, '($1 건)');
+                            e.cell.innerHTML = html;
+                            return;
+                        }
+
+                        // 🔹 일반 데이터 행만 색상 적용 (GroupRow 제외)
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell &&
+                            !(s.rows[e.row] instanceof wijmo.grid.GroupRow)) {
+
+                            const item = s.rows[e.row].dataItem;
+                            if (!item) return;
+
+                            // 색상 초기화 (다시 그릴 때 중첩 방지)
+                            e.cell.style.backgroundColor = '';
+
+                            // fixflag 값에 따라 색상 지정
+                            if (item.fixflag === "1") {
+                                e.cell.style.backgroundColor = '#FFF5E1'; // 연한 주황
+                            } else if (item.fixflag === "2") {
+                                e.cell.style.backgroundColor = '#E6F3FF'; // 연한 파랑
+                            }
+                        }
+                    },
+                    columns: [
+                        {binding: 'id', visible:false},
+                        {binding: 'rptdate', header: '작성일자', width: 120, align: 'center'},
+                        {binding: 'rptweek', header: '주차', width: 140, align: 'center'},
+                        {binding: 'fixflag_nm', header: '업무구분', width: 100, align: 'center'},
+                        {binding: 'fixpernm', header: '사원명', width: 120, align: 'center'},
+                        {binding: 'cltnm', header: '업체명', width: 150, align: 'center'},
+                        {binding: 'asmenu', header: '화면명', width: 200, align: 'left'},
+                        {binding: 'rptremark', header: '업무내용', width: '*', align: 'left'},
+                        {binding: 'recyn_nm', header: '진행상태', width: 100, align: 'center'},
+                        {binding: 'asdv_nm', header: '근무구분', width: 100, align: 'center'},
+                        {binding: 'inputdate', header: '입력일자', width: 150, align: 'center'},
+                    ],
+
+                    itemsSource: this.viewData
+                });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '업무보고 내역';
+
+                // -----------------------------
+                // 2) GroupPanel 생성
+                // -----------------------------
+                this.groupPanel = new wijmo.grid.grouppanel.GroupPanel('#theGridPanel', {
+                    grid: this.grid,
+                    placeholder: '여기에 필드를 끌어서 그룹화할 수 있습니다.'
+                });
+
+                // -----------------------------
+                // 3) 기본 그룹 설정
+                // -----------------------------
+                this.viewData.groupDescriptions.clear();
+
+                // 1단계 그룹: 주차
+                this.viewData.groupDescriptions.push(
+                    new wijmo.collections.PropertyGroupDescription('rptweek')
+                );
+
+                // 2단계 그룹: 사원명
+                this.viewData.groupDescriptions.push(
+                    new wijmo.collections.PropertyGroupDescription('fixpernm')
+                );
+
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '업무일지 내역';
+
+                this.grid.selectionChanged.addHandler((s, e) => {
+                    const row = s.selection.row;
+                    if (row < 0) return;
+
+                    const item = s.rows[row].dataItem;
+                    if (!item) return;
+
+                    $("#rptremark").val(item.rptremark || "");
+                    $("#etcremark").val(item.etcremark || "");
+                    $("#remark").val(item.remark || "");
+                });
+
+
+                // 🔵 FlexGrid 더블클릭 → 상세 조회 & 수정 팝업 열기
+                this.grid.hostElement.addEventListener('dblclick', (e) => {
+                    const view = this.grid;                  // grid 참조
+                    const selected = view.selectedItems;     // 선택된 행들
+
+                    // 선택된 행이 없으면 중단
+                    if (!selected || selected.length !== 1) {
+                        Alert.alert('', '선택된 데이터가 없습니다.');
+                        return;
+                    }
+
+                    const item = selected[0];
+
+                    // 🔵 뒤에서 재선택하기 위해 ID 저장
+                    window.selectedGridId = item.id;
+
+                    // 🔵 상세 조회 요청
+                    const params = {
+                        id: item.id,
+                        action: 'detail'
+                    };
+
+                    AjaxUtil.getAsyncData(this.url + '/detail', params, (result) => {
+                        if (!result || !result.data) {
+                            Alert.alert('', '데이터를 불러오지 못했습니다.');
+                            return;
+                        }
+
+                        result.data.mode = 'edit';       // 수정 모드 지정
+                        this.showReportForm(result.data); // 팝업 열기
+
+                        // admin이면 지시사항 readonly 해제
+                        const userId = sessionStorage.getItem('userid');
+
+                        if (userId === 'admin') {
+                            setTimeout(() => {
+                                $('textarea[name="remark"]').prop('readonly', false);
+                            }, 0);
+                        }
+                    });
+                });
+
+                //수주등록 클릭
+                this.$btnAddNew.click(function (e) {
+                    let defaultData = {
+                        id: '',
+                        mode: 'new'
+                    };
+                    _this.showReportForm(defaultData);
+                });
+
+                // 엔터키 검색
+                $('#keyword').on('keypress', function (e) {
+                    if (e.keyCode === 13) {
+                        _this.searchMainData();
+                    }
+                });
+            }
+
+            showReportForm(data) {
+
+                let _this = this;
+                let content = tmpl('planTemplate', data);
+                let $content = $(content);
+                let $btnPopSave = $content.find('#btnPopSave');
+                let $btnEdit = $content.find('#btnEdit');
+                let $btnDelete = $content.find('#btnDelete');
+                let $reportForm = $content.find('#reportForm');
+                $content.find('#datetype').val('week').hide();
+
+                let modalContainer = null;
+                if (data.mode === 'new') {
+                    modalContainer = new PopupDraggable('등록');
+                    $btnPopSave.show();
+                    $btnEdit.hide();
+                    $btnDelete.hide();
+                } else {
+                    modalContainer = new PopupDraggable('수정');
+                    $btnPopSave.hide();
+                    $btnEdit.show();
+                    $btnDelete.show();
+                }
+                modalContainer.open({width: 1300, height: 700, $content});
+
+                let initDateStr = "";
+
+                if (data.mode === 'new') {
+                    // 신규 → 오늘 날짜
+                    initDateStr = new Date().toISOString().slice(0, 10);
+                    const username = sessionStorage.getItem("username");
+                    const userid = sessionStorage.getItem("userid");
+                    $content.find('#fixperid').val(userid);
+                    // 값이 있으면 fixperid 자동 입력
+                    if (username) {
+                        $content.find('#fixpernm').val(username);
+                    }
+                } else {
+                    // 수정 → 기존 날짜
+                    initDateStr = data.rptdate;
+                }
+
+                // 입력창에 넣음
+                $content.find('#rptdate').val(initDateStr);
+
+                // 날짜 → 요일 표시 함수
+                function getKoreanDayOfWeek(dateString) {
+                    if (!dateString) return "";
+                    const days = ["일", "월", "화", "수", "목", "금", "토"];
+                    const date = new Date(dateString);
+                    return days[date.getDay()];
+                }
+
+                // 날짜 초기화 시 표시
+                const $rptdate = $content.find('#rptdate');
+                const $rptdateDay = $('<span id="rptdateDay" style="font-weight:bold; color:#555; margin-left:6px;"></span>');
+                $rptdate.after($rptdateDay);
+
+                // 초기 요일 표시
+                $rptdateDay.text('(' + getKoreanDayOfWeek(initDateStr) + ')');
+
+                // 날짜 변경 시 요일 자동 변경
+                $rptdate.on('change', function () {
+                    const val = $(this).val();
+                    $rptdateDay.text(val ? '(' + getKoreanDayOfWeek(val) + ')' : '');
+                });
+
+                // stdate에도 기준 설정
+                $content.find('#stdate').val(initDateStr);
+
+                AjaxUtil.fillSelectOptions($content.find('#fixflag'), 'system_code', '', '', 'fixflag');
+                AjaxUtil.fillSelectOptions($content.find('#actflag'), 'system_code', '', '3', 'actflag');
+                if (data.actflag) {
+                    $content.find('#actflag').val(data.actflag);
+                }
+
+                AjaxUtil.fillSelectOptions($content.find('#recyn'), 'system_code', '', '1', 'recyn');
+                if (data.recyn) {
+                    $content.find('#recyn').val(data.recyn);
+                }
+
+                // asdv: data에 값 없으면 new
+                AjaxUtil.fillSelectOptions($content.find('#asdv'), 'system_code', '', '4', 'asdv');
+                if (data.asdv) {
+                    $content.find('#asdv').val(data.asdv);
+                }
+
+                // -----------------------
+                // 2) week 계산 로직 실행
+                // -----------------------
+                initPopupDateKindHandler($content);
+
+                // datetype 강제 트리거 (week 로직 실행)
+                $content.find('#datetype').trigger('change');
+
+
+                // -----------------------
+                // 3) 날짜 변경 시 주간 자동 재계산
+                // -----------------------
+                $content.find('#rptdate').on('change', function () {
+                    let dateStr = $(this).val();
+
+                    // 기준 날짜만 변경되었으니, 그냥 다시 week 계산
+                    $content.find('#datetype').trigger('change');
+                });
+
+                // -----------------------
+                // 4) 기존 데이터 바인딩 (수정 모드)
+                // -----------------------
+                setTimeout(() => {
+                    FormUtil.BindDataForm(data, $reportForm);
+                }, 100);
+
+                $content.find('#cltnm').on('keydown', function (e) {
+                    if (e.key !== 'Enter' && e.keyCode !== 13) return;
+                    e.preventDefault();
+                    _this.searchCompany($content);
+                });
+
+                $content.find('#btnCompanySearch').on('click', function () {
+                    _this.searchCompany($content);
+                });
+
+                $content.find('#cltnm').on('input', function () {
+                    $content.find('#cltcd').val('');
+                });
+
+                // 수주등록 팝업 저장버튼 클릭
+                $btnPopSave.click(function (e) {
+
+                    let data = FormUtil.extractForm($reportForm);
+
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+
+                        AjaxUtil.postJsonData(_this.url + '/save', data, function (res) {
+                            if (res.success) {
+                                Notify.success("저장되었습니다.");
+                                _this.searchMainData();
+                                $content.find('#cltcd').val('');
+                                $content.find('#cltnm').val('');
+                                $content.find('#asmenu').val('');
+                                $content.find('#rptremark').val('');
+                                $content.find('#etcremark').val('');
+                                $content.find('#remark').val('');
+                            } else {
+                                Alert.alert('저장 실패', res.message || '관리자에게 문의하세요.');
+                            }
+                        });
+
+                    });
+                });
+
+                $btnEdit.click(function (e) {
+
+                    let data = FormUtil.extractForm($reportForm);
+
+                    Alert.confirm('', '수정하시겠습니까?', function () {
+
+                        AjaxUtil.postJsonData(_this.url + '/save', data, function (res) {
+                            if (res.success) {
+                                Notify.success("수정되었습니다.");
+                                _this.searchMainData();
+
+                            } else {
+                                Alert.alert('수정 실패', res.message || '관리자에게 문의하세요.');
+                            }
+                        });
+
+                    });
+                    modalContainer.close();
+                });
+
+
+                // 삭제 버튼
+                $btnDelete.click(function (e) {
+                    let data = FormUtil.extractForm($reportForm);
+
+                    Alert.confirm('', '삭제하시겠습니까?',
+                        function () {
+                            let id = data.id;
+                            _this.deleteReportData(id);
+                            $("#rptremark").val("");
+                            $("#etcremark").val("");
+                            $("#remark").val("");
+                        },
+                        function () {
+                        }
+                    );
+                    modalContainer.close();
+
+                });
+
+            }
+
+            searchCompany($content) {
+                const keyword = $content.find('#cltnm').val().trim();
+                const poppage = new PopCompComponentAll();
+
+                const searchcallback = function (item) {
+                    console.log('item', item);
+                    $content.find('#cltnm').val(item.compname);
+                    $content.find('#cltcd').val(item.id);
+                };
+
+                if (!keyword) {
+                    poppage.focusAfterClose = $content.find('#cltnm')[0];
+                    poppage.show(searchcallback);
+                    return;
+                }
+
+                const result = AjaxUtil.getSyncData('/api/popup/search_Comp_all', {
+                    compCode: '',
+                    compName: keyword,
+                    business_number: ''
+                });
+                const rows = result?.data || [];
+
+                if (rows.length === 1) {
+                    searchcallback(rows[0]);
+                } else {
+                    poppage.show(searchcallback);
+                    setTimeout(() => {
+                        poppage.$compName.val(keyword);
+                        poppage.$btnCompSearch.trigger('click');
+                    }, 50);
+                }
+            }
+
+            deleteReportData(id) {
+                let _this = this;
+                let url = _this.url + '/delete';
+                let data = {'id': id}
+                let fnsuccess = function (res) {
+                    if (res.success) {
+                        Notify.success('삭제되었습니다.');
+                        _this.searchMainData();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+            searchMainData() {
+                let _this = this;
+                let start = $('#srchStartDt').val();
+                let end = $('#srchEndDt').val();
+                let txtName = $('#txtName').val();
+                let url = this.url + '/read';
+
+                let data = {
+                    'start': start,
+                    'end': end,
+                    'txtName': txtName,
+                    'action': 'read'
+                };
+
+                let fnsuccess = function (result) {
+                    if (result != null) {
+                        _this.viewData.sourceCollection = result.data;
+
+                        setTimeout(() => {
+                            _this.grid.collapseGroupsToLevel(0);
+                        }, 10);
+
+                        if (window.selectedGridId) {
+                            // GridUtil.selectRowById(_this.grid, window.selectedGridId);
+                            GridUtil.selectRowById(_this.grid, window.selectedGridId, {idField: 'id'});
+                            window.selectedGridId = null;
+                        }
+                    }
+                };
+                AjaxUtil.getAsyncData(url, data, fnsuccess);
+
+            }
+        }
+
+
+
+        let page = null;
+
+        $(document).ready(function (e) {
+
+            page = new WorkReportPage();
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+            // 이번주 일요일 구하는 함수
+            function getThisSunday() {
+                const today = new Date();
+                const day = today.getDay(); // 0: 일요일, 6: 토요일
+                const diff = (7 - day) % 7; // 일요일이면 0 유지
+                const sunday = new Date(today);
+                sunday.setDate(today.getDate() + diff);
+                const year = sunday.getFullYear();
+                const month = String(sunday.getMonth() + 1).padStart(2, '0');
+                const date = String(sunday.getDate()).padStart(2, '0');
+                return `${year}-${month}-${date}`;
+            }
+            $('#srchEndDt').val(getThisSunday());
+
+            page.searchMainData();
+
+
+            // 검색
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+        })
+
+    </script>
+    <script type="text/javascript">
+
+        // ✅ 한국식 주차 계산 (1월 첫 월요일 전까지는 이전 해로 간주)
+        function getKoreanWeekYear(date) {
+            const monday = new Date(date);
+            monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7)); // 이번 주 월요일
+
+            // 🔥 만약 이번 주 월요일이 1월 4일 이전이면 → 작년 마지막 주
+            if (monday.getMonth() === 0 && monday.getDate() < 4) {
+                return monday.getFullYear() - 1;
+            }
+            return monday.getFullYear();
+        }
+
+
+        function getKoreanWeekNumber(date) {
+            const year = getKoreanWeekYear(date);
+
+            // 해당 연도의 첫 월요일
+            let firstMonday = new Date(year, 0, 1);
+            while (firstMonday.getDay() !== 1) {
+                firstMonday.setDate(firstMonday.getDate() + 1);
+            }
+
+            const monday = new Date(date);
+            monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7)); // 이번 주 월요일
+
+            const diff = Math.floor((monday - firstMonday) / (7 * 24 * 60 * 60 * 1000)) + 1;
+            return diff;
+        }
+
+        // ✅ 한국식: 연도(year)의 n번째 주(week)의 월요일 반환
+        function getDateOfKoreanWeek(week, year) {
+            // 해당 연도의 첫 월요일
+            let firstMonday = new Date(year, 0, 1);
+            while (firstMonday.getDay() !== 1) {
+                firstMonday.setDate(firstMonday.getDate() + 1);
+            }
+
+            const monday = new Date(firstMonday);
+            monday.setDate(firstMonday.getDate() + (week - 1) * 7);
+            return monday;
+        }
+
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, "0");
+            const d = String(date.getDate()).padStart(2, "0");
+            return `${y}-${m}-${d}`;
+        }
+
+        function parseDate(str) {
+            if (!str) return new Date();
+            if (/^\d{8}$/.test(str)) {
+                return new Date(
+                    parseInt(str.slice(0, 4)),
+                    parseInt(str.slice(4, 6)) - 1,
+                    parseInt(str.slice(6, 8))
+                );
+            } else if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+                return new Date(str);
+            }
+            return new Date();
+        }
+
+        // ✅ 팝업 주차 계산
+        function initPopupDateKindHandler($content) {
+            const $datetype = $content.find('#datetype');
+            const $extraSelectBox = $('<span id="extraSelectBox"></span>');
+            const $stdate = $content.find('#stdate');
+            const $eddate = $content.find('#eddate');
+            const $rptdate = $content.find('#rptdate');
+
+            $datetype.after($extraSelectBox);
+
+            $datetype.on('change', function () {
+                const type = $(this).val();
+                $extraSelectBox.empty();
+
+                const baseStr = $rptdate.val() || $stdate.val();
+                const targetDate = baseStr ? parseDate(baseStr) : new Date();
+
+                $stdate.prop('readOnly', false);
+                $eddate.prop('readOnly', false);
+
+                if (type === 'week') {
+                    const $weekSelect = $('<select id="popupWeekSelector" name="popupWeekSelector" style="min-width: 140px;"></select>');
+
+                    const isoYear = getKoreanWeekYear(targetDate);
+                    const currentWeek = getKoreanWeekNumber(targetDate);
+                    // ✅ 해당 연도의 마지막 주차 계산 (연도 경계 보정)
+                    let lastWeekDate = new Date(isoYear, 11, 31);
+                    let lastWeekYear = getKoreanWeekYear(lastWeekDate);
+
+                    // 12월 31일이 다음 해로 넘어가면 보정
+                    if (lastWeekYear !== isoYear) {
+                        lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+                    }
+
+                    // 안전하게 주차 계산
+                    let lastWeek = getKoreanWeekNumber(lastWeekDate);
+
+                    // 혹시라도 0이나 음수가 나오면 최소 52로 보정
+                    if (lastWeek <= 0) lastWeek = 52;
+
+                    for (let i = 1; i <= lastWeek; i++) {
+                        const value = `${isoYear}년 ${i}주차`;
+                        const text = `${isoYear}년 ${i}주차`;
+                        const $option = $(`<option value="${value}">${text}</option>`);
+                        if (i === currentWeek) $option.prop("selected", true);
+                        $weekSelect.append($option);
+                    }
+
+                    $weekSelect.on('change', function () {
+                        let val = $(this).val();
+
+                        // ✅ 값이 없으면 첫 번째 option 자동 선택
+                        if (!val) {
+                            const firstVal = $(this).find("option:first").val();
+                            if (firstVal) {
+                                $(this).val(firstVal);
+                                val = firstVal;
+                            } else {
+                                console.warn("⚠️ 주차 옵션이 없습니다.");
+                                return;
+                            }
+                        }
+
+                        const y = parseInt(val.split("년")[0].trim());
+                        const w = parseInt(val.split("년")[1].replace("주차", "").trim());
+
+                        const start = getDateOfKoreanWeek(w, y);
+                        const end = new Date(start);
+                        end.setDate(start.getDate() + 6);
+
+                        $stdate.val(formatDate(start)).prop('readOnly', true);
+                        $eddate.val(formatDate(end)).prop('readOnly', true);
+                    });
+
+                    $extraSelectBox.append($weekSelect);
+                    $weekSelect.trigger('change');
+
+                } else if (type === 'month') {
+                    const $monthSelect = $('<select id="popupMonthSelector"></select>');
+                    const year = targetDate.getFullYear();
+                    const selectedMonth = targetDate.getMonth() + 1;
+                    for (let i = 1; i <= 12; i++) {
+                        const value = `${year}-${String(i).padStart(2, "0")}`;
+                        const text = `${year}년 ${i}월`;
+                        const $option = $(`<option value="${value}">${text}</option>`);
+                        if (i === selectedMonth) $option.prop("selected", true);
+                        $monthSelect.append($option);
+                    }
+                    $monthSelect.on('change', function () {
+                        const [y, m] = $(this).val().split('-');
+                        const start = new Date(parseInt(y), parseInt(m) - 1, 1);
+                        const end = new Date(parseInt(y), parseInt(m), 0);
+                        $stdate.val(formatDate(start)).prop('readOnly', true);
+                        $eddate.val(formatDate(end)).prop('readOnly', true);
+                    });
+                    $extraSelectBox.append($monthSelect);
+                    $monthSelect.trigger('change');
+                }
+            });
+            // ✅ rptdate 변경 시 주차 자동 갱신
+            $rptdate.on('change', function () {
+                const newDate = parseDate($(this).val());
+                const newYear = getKoreanWeekYear(newDate);
+                const newWeek = getKoreanWeekNumber(newDate);
+
+                // 주차 셀렉트박스 갱신
+                const $weekSelector = $content.find('#popupWeekSelector');
+                if ($weekSelector.length) {
+                    $weekSelector.val(`${newYear}년 ${newWeek}주차`).trigger('change');
+                } else {
+                    $datetype.trigger('change'); // 주차 셀렉트박스 없을 경우 재생성
+                }
+            });
+            $datetype.trigger('change');
+        }
+
+        // ✅ 조회 화면의 “주간/월간” 필터 로직 (상단 검색 부분)
+        document.addEventListener("DOMContentLoaded", function () {
+            const cboDateKind = document.getElementById("cboDateKind");
+            const extraSelectBox = document.getElementById("extraSelectBox");
+            const srchStartDt = document.getElementById("srchStartDt");
+            const srchEndDt = document.getElementById("srchEndDt");
+
+            cboDateKind.addEventListener("change", function () {
+                const type = this.value;
+                extraSelectBox.innerHTML = "";
+                srchStartDt.value = "";
+                srchEndDt.value = "";
+                srchStartDt.readOnly = false;
+                srchEndDt.readOnly = false;
+
+                if (type === "week") {
+                    const select = document.createElement("select");
+                    select.id = "weekSelector";
+
+                    const today = new Date();
+                    const isoYear = getKoreanWeekYear(today);
+                    const currentWeek = getKoreanWeekNumber(today);
+                    const lastWeek = getKoreanWeekNumber(new Date(isoYear, 11, 28));
+
+                    for (let i = 1; i <= lastWeek; i++) {
+                        const option = document.createElement("option");
+                        option.value = `${isoYear}년 ${i}주차`;
+                        option.textContent = `${isoYear}년 ${i}주차`;
+                        if (i === currentWeek) option.selected = true;
+                        select.appendChild(option);
+                    }
+
+                    select.addEventListener("change", function () {
+                        const val = this.value;
+                        const y = parseInt(val.split("년")[0].trim());
+                        const w = parseInt(val.split("년")[1].replace("주차", "").trim());
+                        const start = getDateOfKoreanWeek(w, y);
+                        const end = new Date(start);
+                        end.setDate(start.getDate() + 6);
+                        srchStartDt.value = formatDate(start);
+                        srchEndDt.value = formatDate(end);
+                        srchStartDt.readOnly = true;
+                        srchEndDt.readOnly = true;
+                    });
+
+                    extraSelectBox.appendChild(select);
+                    select.dispatchEvent(new Event("change"));
+
+                } else if (type === "month") {
+                    const select = document.createElement("select");
+                    select.id = "monthSelector";
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const monthNow = now.getMonth() + 1;
+                    for (let i = 1; i <= 12; i++) {
+                        const option = document.createElement("option");
+                        option.value = `${year}-${String(i).padStart(2, "0")}`;
+                        option.textContent = `${year}년 ${i}월`;
+                        if (i === monthNow) option.selected = true;
+                        select.appendChild(option);
+                    }
+                    select.addEventListener("change", function () {
+                        const [y, m] = this.value.split("-");
+                        const start = new Date(parseInt(y), parseInt(m) - 1, 1);
+                        const end = new Date(parseInt(y), parseInt(m), 0);
+                        srchStartDt.value = formatDate(start);
+                        srchEndDt.value = formatDate(end);
+                        srchStartDt.readOnly = true;
+                        srchEndDt.readOnly = true;
+                    });
+                    extraSelectBox.appendChild(select);
+                    select.dispatchEvent(new Event("change"));
+                }
+            });
+        });
+
+    </script>
+
+</th:block>
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html>

@@ -1,0 +1,306 @@
+<th:block th:fragment="multiform_company">
+<script type="text/x-tmpl" id="multiCompanyTemplate">
+    {% if (o.type == 'combobox') { %}
+    <select class="form-control2" id="{%=o.element_id%}" name="{%=o.element_id%}" >
+    </select>
+    {% } else if (o.type == 'popup') { %}
+    <div class="input-group" >
+        <input type="hidden" id="{%=o.element_id%}" name="{%=o.element_id%}" />
+        <input class="form-control2" id="{%=o.element_id%}_text" name="{%=o.element_id%}_text" />
+        <button type="button" class="btn-default" id="{%=o.button_id%}">...</button>
+    </div>
+    {% } %}
+</script>
+<script type="text/x-tmpl" id="mult_compSearchTemplate">
+<div class="content_wrap popup">
+            <!--<header>
+                <h4 id="popTitle">품목 선택</h4>
+                <div class="popup_close_box"><button class="btn_popup_close" id="company-search-close"><i class="fas fa-times"></i></button></div>
+            </header>-->
+
+        <section class="pt-2">
+
+            <div class="table_box search">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4" data-commonCd="업체구분">업체구분</span>
+                                </div>
+                                 <select class="form-control2" id='cboCompanyType' name="cboCompanyType" ></select>
+                            </div>
+                        </div>
+                    <!--
+
+
+                        <div class="col-6">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4" data-commonCd="품목그룹">품목그룹</span>
+                                </div>
+                                 <select class="form-control2" id='cboMaterialGrp' name="cboMaterialGrp" ></select>
+                            </div>
+                        </div>
+                    -->
+                        <div class="col-6">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4" data-commonCd="회사명">회사명</span>
+                                </div>
+                                 <input class="form-control2" type="text" id="keyword" name="keyword" />
+                            </div>
+                        </div>
+
+                        <div class="col-1" >
+                                <button type="button" class="btn-default" id="btnCompanySearch" title="조회"><i class="fas fa-search"></i></button>
+                        </div>
+
+                    </div>
+            </div>
+            <div class="grid_box">
+                    <div class="h-300" data-ax5grid="company-search-grid" ></div>
+            </div>
+
+        </section>
+
+        <section class="popupcontent" >
+            <div class="align_left">
+                <button type="button" class="btn-popup" id="btnCompanySelect" ><span data-commonCd="선택">선택</span></button>
+                <button type="button" class="btn-popup" id="btn-company-search-close"><span data-commonCd="닫기">닫기</span></button>
+                <button type="button" class="btn-popup" id="btnTest"><span data-commonCd="새로고침">새로고침</span></button>
+            </div>
+        </section>
+
+    </div>
+</script>
+
+<script type="text/javascript">
+    class CompanySelector {
+        constructor(selector_id, type, element_id, comp_type, option) {
+            // this.data = data;
+            this.type = 'combobox';
+            if (type == 'popup')
+                this.type = 'popup';
+            this.comp_type = comp_type;
+            this.element_id = element_id;
+            this.option = option;
+            if (option && option.button_id)
+                this.button_id = option.button_id;
+            else
+                this.button_id = 'btnPopCompany';
+            let data = {
+                type: this.type,
+                element_id: element_id,
+                button_id: this.button_id,
+            };
+            let mat_html = tmpl('multiCompanyTemplate', data);
+            $('#' + selector_id).html(mat_html);
+
+            this.init();
+        }
+        init() {
+            let _this = this;
+            if (_this.type == 'combobox') {
+               let null_option = 'all';
+                let selected_value = '';
+                let condition1 = _this.comp_type;
+                let condition2 = '';
+                let condition3 = '';
+                let data_fill = true;
+                if (_this.option) {
+                    null_option = this.option.null_option;
+                    selected_value = this.option.selected_value;
+                    if (this.option.condition1)
+                        condition1 = this.option.condition1;
+                    condition2 = this.option.condition2;
+                    condition3 = this.option.condition3;
+                    data_fill = this.option.data_fill;
+                }
+                if (data_fill)
+                    AjaxUtil.fillSelectOptions($('#' + _this.element_id), 'company', null_option, selected_value, condition1, condition2, condition3);
+                else {
+                    let text = null_option;
+                   if (null_option == 'choose') {
+                        text = i18n.getCommonText('선택');//'선택하세요(Choose)';
+                    }
+                    else if (null_option == 'all') {
+                        text = i18n.getCommonText('전체'); //'전체(All
+                    }
+ 
+                    let combo_option = $('<option>',
+                    {
+                        value: '',
+                        text: text,
+                    });
+                    $('#' + _this.element_id).append(combo_option);
+
+                }
+            }
+            if (_this.type == 'popup') {
+                $('#' + _this.button_id).click(function (e) {
+                    let searchcallback = function (items) {
+                        let row = items;
+                        $('#' + _this.element_id).val(row.id);
+                        $('#' + _this.element_id + '_text').val(row.Name);
+
+                        if (_this.option.clickCallback) {
+                            _this.option.clickCallback();
+                        }
+                    };
+
+                    let poppage = new PopCompanyComponent();
+                    poppage.company_type = _this.comp_type;
+                    let $poppage = $(poppage);
+                    poppage.show(searchcallback);
+                });
+            }
+        }
+    }
+
+    class PopCompanyComponent {
+        constructor() {
+            this.grid = null;
+            this.selectedItem = null;
+            this.callback = null;
+            this.modalContainer = new PopupDraggable('업체 선택');
+            this.$btnMaterialSearch = null;
+            this.$cboMaterialGroup = null;
+            this.$btnMaterialSelect = null;
+            this.$keyword = null;
+            this.company_type = null;
+        }
+
+        searchDataBind() {
+            let _this = this;
+            let url = '/api/popup/search_company';
+            let data = {
+                'comp_type': _this.$cboCompanyType.val(),
+                //'group_name': _this.$cboMaterialGrp.val(),
+                'keyword': _this.$keyword.val(),
+            };
+
+            let result = AjaxUtil.getSyncData(url, data);
+            if (result != null) {
+                let recordsTotal = result.length;
+                _this.grid.setData({
+                    list: result,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            }
+
+            //검색버튼을 누르고 초기화한다
+            this.selectedItem = null;
+        }
+
+        selectData(item) {
+            if (typeof this.callback !== 'undefined' && this.callback != null) {
+                this.callback(item);
+            }
+            this.close();
+        }
+
+        show(callback) {
+            let _this = this;
+
+            this.callback = callback;
+
+            let content = tmpl('mult_compSearchTemplate', {});
+            let $content = $(content);
+            this.modalContainer.open({ width: 760, height: 480, $content });
+
+            let config = {
+                target: $('[data-ax5grid="company-search-grid"]'),
+                sortable: true,
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 30  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function () {
+                        _this.grid.select(this.dindex);
+                    },
+                    onDBLClick: function () {
+                        _this.grid.select(this.dindex);
+                        _this.selectData(this.item);
+                        _this.selectedItem = this.item;
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'id', label: '번호', width: 50, align: 'right' },
+                    { key: 'comp_code', label: '회사코드', width: 150, align: 'center' },
+                    { key: 'name', label: '회사명', width: 250, align: 'left' },
+                    { key: 'eng_name', label: '영문명', width: 250, align: 'left' },
+                    { key: 'address', label: '주소', width: 250, align: 'left' },
+
+                    //{ key: 'Description', label: '설명', width: 250, align: 'center', sortable: false },
+                ]
+            };
+
+            this.grid = new ax5.ui.grid(config);
+            this.$btnCompanySearch = $content.find('#btnCompanySearch');
+            this.$cboCompanyType = $content.find('#cboCompanyType');
+
+            this.$keyword = $content.find('#keyword');
+            this.$btnCompanySelect = $content.find('#btnCompanySelect');
+
+            AjaxUtil.fillSelectOptions(this.$cboCompanyType, 'system_code', 'all', false, 'company_type');
+            //AjaxUtil.fillSelectOptions(this.$cboMaterialGrp, 'material_group', 'all', false);
+
+            if (this.company_type != null) {
+                this.$cboCompanyType.val(this.company_type);
+            }
+            //this.$cboCompanyType.val('product');
+
+            this.$btnCompanySearch.click(function (e) {
+                _this.searchDataBind();
+            });
+
+            this.$btnCompanySelect.click(function (e) {
+                // 그리드에서 현재 선택된 item을 찾아서 호출한다.
+                let items = _this.grid.getList("selected");
+                if (items.length == 0) {
+                    return false;
+                }
+                _this.selectData(items[0]);
+            });
+
+            this.$keyword.on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    _this.searchDataBind();
+                }
+            });
+
+
+            //닫기버튼을 아래 ID로 사용한다면 호출하는 화면에서 이벤트 처리 필요없음
+            $content.find('#company-search-close, #btn-company-search-close').on('click', function () {
+                _this.close();
+            });
+
+            //새로고침
+            let $btnTest = $('#btnTest');
+
+            $btnTest.click(function (e) {
+                _this.grid.init().repaint();
+            });
+        }
+
+        close() {
+            this.modalContainer.close();
+        }
+    }
+</script>

@@ -1,0 +1,660 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>C/S 관리</h2>
+                <!--                <a title="북마크" class="bookmark toggle">-->
+                <!--                    내메뉴-->
+                <!--                </a>-->
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>조치 및 통계</li>
+                <li>업무지원</li>
+                <li>C/S관리</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            등록일<span class="eq"></span>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input class="tac w150 date_from " type="date" id="srchStartDt" name="srchStartDt"/>
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input class="tac w150 date_to" type="date" id="srchEndDt" name="srchEndDt"/>
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label>유형</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select class="form-control2" id="cboTypeFormSearch" name="cboTypeFormSearch"
+                                        style="border-radius: 5px 5px 5px 5px;"></select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt><span class="eq"></span></dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+            </div> <!--//section-top end -->
+            <div class="container-fluid">
+                <p id="selectedItem"></p>
+                <div id="theGrid" style="height: 300px; max-height: 300px;"></div>
+            </div>
+            <div class="btn-wrap">
+            </div>
+        </section>
+        <section>
+
+            <div class="section-top">
+                <div class="search-wrap">
+                    <ul>
+                        <li>
+                            <!-- <a class="btn btn-excell" title="신규등록" id="btnNew" >
+                                 <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                 신규등록
+                             </a>-->
+                            <button type="button" class="btn btn-excel" id="btnNew" name="btnNew" title="신규"
+                                    style="height: 36px; width:115px; ">
+                                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                신규등록
+                            </button>
+                            <!--  <button type="button" class="btn-default" id="btnNew" name="btnNew"><i
+                                      class="fas fa-plus"></i></button>-->
+                        </li>
+
+
+                        <li>
+                            <!-- <a class="btn btn-edit" id="btnSave" title="저장">
+                                 <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                                 저장
+                             </a>-->
+                            <button type="button" class="btn-default y_write_auth" id="btnSave"
+                                    style="float:none; height: 36px; width:115px; ">
+                                <i class="fas fa-save"></i>
+                                저장
+                            </button>
+                        </li>
+
+
+                        <li>
+                            <!--  <a class="btn btn-delete" title="삭제" id="btnDel">
+                                  <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                  삭제
+                              </a>-->
+                            <button type="button" class="btn-danger y_write_auth" id="btnDel"
+                                    style="float:none; height: 36px; width:115px; ">
+                                <i class="fas fa-trash"></i> 삭제
+                            </button>
+                        </li>
+
+                        <li>
+                            <!--<a class="btn btn-delete" title="조치완료" id="btnFinish">
+                                조치완료
+                            </a>-->
+                            <button type="button" class="btn-default" id="btnFinish" name="btnFinish"
+                                    style=" height: 36px; width:115px;">조치완료
+                            </button>
+                        </li>
+
+                        <li>
+                            <!--<a class="btn btn-delete" title="완료취소" id="btnCancel" >
+                                완료취소
+                            </a>-->
+                            <button type="button" class="btn-danger" id="btnCancel" name="btnCancel"
+                                    style="height: 36px; width:115px;">완료취소
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="table-wrap" style=" overflow-x: auto;">
+                <form id="customForm">
+                    <table class="write-table" style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                        <caption style="text-align: left; margin-bottom: 8px;">등록테이블</caption>
+                        <input type="hidden" id="id" name="id"/>
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="chkDt">등록일</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="date" id="chkDt" name="chkDt" style="width: 100%;">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="chkName">작성자</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" id="chkName" name="chkName" style="width: 100%;" readonly>
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="cboType"><span class="eq">*</span>유형</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <select style="width: 100%;" id="cboType" name="cboType"></select>
+                            </td>
+                            <th style="width: 7%; padding: 5px; border: 1px solid #ddd; text-align: center;">
+                                <label for="cusCnt">발생건수</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="number" style="width: 100%;" id="cusCnt" name="cusCnt">
+                            </td>
+                        </tr>
+
+
+                        <tr>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="title"><span class="eq">*</span>제목</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" style="width: 100%;" id="title" name="title">
+                            </td>
+                            <th style="width: 7%; padding: 5px; border: 1px solid #ddd; text-align: center;">
+                                <label for="chkState">진행상태</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" style="width: 100%;" id="chkState" name="chkState">
+                            </td>
+                            <th style="width: 7%; padding: 5px; border: 1px solid #ddd; text-align: center;">
+                                <label for="finishDt">조치완료일</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="date" style="width: 100%;" id="finishDt" name="finishDt">
+                            </td>
+                            <th></th>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <th style="width: 7%; padding: 5px; border: 1px solid #ddd; text-align: center;">
+                                <label>내용</label>
+                            </th>
+                            <td colspan="7">
+                                <textarea id="content" name="content"></textarea>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th></th>
+                            <td colspan="7">
+                                <div class="input-group">
+                                    <div class="grid_box" id='image_upload1' style="width: 100%"></div>
+                                </div>
+                            </td>
+                        </tr>
+
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+        </section>
+    </div> <!--//layout-contents end -->
+
+    <footer style="margin-top: 24px;">
+        <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+    </footer>
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+    <script type="text/javascript">
+        /*/api/support/custom_svc*/
+
+        var theGrid;
+        var viewdata;
+
+        let columns = [
+            {binding: 'id', header: 'id', width: 100, align: 'center', visible:false},
+            {binding: 'no', header: 'No', width: 100, align: 'center'},
+            {binding: 'chkDt', header: '등록일', width: 160, align: 'center'},
+            {binding: 'chkName', header: '작성자', width: 120, align: 'center'},
+            {binding: 'type', header: '유형', width: 160, align: 'center'},
+            {binding: 'title', header: '제목', width: 300, align: 'center'},
+            {binding: 'chkState', header: '진행상태', width: 120, align: 'center'},
+            {binding: 'cusCnt', header: '발생건수', width: 120, align: 'center'},
+            {binding: 'finishDt', header: '조치완료일', width: 160, align: 'center'},
+            {binding: '', header: '', width: "*", align: 'center'},
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            let data2 = [];
+            let startDt = $('#srchStartDt').val();
+            let endDt = $('#srchEndDt').val();
+            let combo = $('#cboTypeFormSearch').val();
+
+            $.ajax({
+                url: '/api/support/custom_svc/read',
+                type: 'GET',
+                data: {
+                    'startDt': startDt,
+                    'endDt': endDt,
+                    'combo': combo
+                },
+                async: false,
+                success: function (data) {
+                    /*console.log('c/s데이터 확인', data.data);*/
+                    data2 = data.data;
+
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_count data:', textStatus, errorThrown);
+                }
+            })
+
+            viewdata = new wijmo.collections.CollectionView(data2);
+
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+
+            theGrid.hostElement.addEventListener('dblclick', function (e) {
+                let selectedItem = theGrid.selectedItems[0];
+                /*console.log(selectedItem);*/
+
+                document.getElementById('id').value = selectedItem.id;
+
+                let type_nameSelect = document.getElementById('cboType');
+                if (type_nameSelect) {
+                    for (let i = 0; i < type_nameSelect.options.length; i++) {
+                        if (type_nameSelect.options[i].text === selectedItem.type) {
+                            type_nameSelect.options[i].selected = true;
+                            break;
+                        }
+                    }
+                }
+                document.getElementById('title').value = selectedItem.title;
+                document.getElementById('cusCnt').value = selectedItem.cusCnt;
+                document.getElementById('chkDt').value = selectedItem.chkDt;
+                document.getElementById('chkName').value = selectedItem.chkName;
+                document.getElementById('chkState').value = selectedItem.chkState;
+                document.getElementById('content').value = selectedItem.content;
+                // finishDt 값을 확인하고 처리
+                if (selectedItem.finishDt) {
+                    document.getElementById('finishDt').value = selectedItem.finishDt;
+                } else {
+                    // 기본값을 설정
+                    $(document.body).ready(function () {
+                        $('#finishDt').val(CommonUtil.getYYYYMMDD());
+                    });
+                }
+
+                setButtonState();
+
+            });
+
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+        }
+
+        function setButtonState() {
+            let pk = $('#id').val();
+            $('#btnNew').prop('disabled', false);
+            $('#btnSave').prop('disabled', false);
+            if (pk) {
+                $('#btnDel').prop('disabled', false);
+                $('#btnFinish').prop('disabled', false);
+                $('#btnCancel').prop('disabled', false);
+            } else {
+                $('#btnDel').prop('disabled', true);
+                $('#btnFinish').prop('disabled', true);
+                $('#btnCancel').prop('disabled', true);
+            }
+        }
+
+        function setUploader(id) {
+            let _this = this;
+            // 파일 업로드에 관련된 권한처리는 나중에 적용
+            $('#addFile').prop('disabled', false);
+
+            let accept_files = 'hwp,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,gif,mbp,png,txt,zip,pdf';
+            let accept = '.' + accept_files.split(',').join(',.');
+
+            let uploader = new ax5FileUploadClass('image_upload1', id,
+                {
+                    table_name: 'cust_complain',
+                    attach_name: 'basic',
+                    accept_files: accept_files,
+                    multiple: true,
+                    max_count: 5,
+                    file_size: 500,
+                    upload_callback: function (param) {
+                        // uploader.showLastImage('imgPhoto');
+                        return;
+                    },
+                    delete_callback: function (param) {
+                        //  $('#imgPhoto').attr('src', '');
+                        return;
+                    },
+                    file_click_callback: function (file_id) {
+                        // uploader.showImage('imgPhoto', file_id);
+                        return;
+                    },
+                    can_write: userinfo.can_write(),
+                });
+            _this.uploader = uploader;
+        }
+
+        // 목록 조회
+        function searchMainData() {
+            let startDt = $('#srchStartDt').val();
+            let endDt = $('#srchEndDt').val();
+            let combo = $('#cboTypeFormSearch').val();
+
+            $.ajax({
+                url: '/api/support/custom_svc/read',
+                type: 'GET',
+                data: {
+                    'startDt': startDt,
+                    'endDt': endDt,
+                    'combo': combo
+                },
+                async: false,
+                success: function (result) {
+                    if (result.success) {
+                        grid_binding(result.data);
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+
+                }
+            });
+
+
+            $('#customForm').find('#id').val('');
+
+            $('#detail_box').find('select,input, textarea').each(function () {
+                if (!$(this).is(':disabled')) {
+                    $(this).attr('disabled', 'disabled');
+                }
+            });
+            clearForm();
+        }
+
+        function grid_binding(data) {
+            if (!Array.isArray(data)) {
+                console.error('데이터가 배열 형식이 아닙니다:', data);
+                return;
+            }
+
+
+            let menulogData = data.map(item => ({
+                id: item.id,
+                no: item.no,
+                type: item.type,
+                title: item.title,
+                cusCnt: item.cusCnt,
+                chkDt: item.chkDt,
+                chkName: item.chkName,
+                chkState: item.chkState,
+                finishDt: item.finishDt,
+                content: item.content
+            }));
+
+            if (typeof theGrid === 'undefined' || typeof viewdata === 'undefined') {
+                console.error('theGrid 또는 viewdata가 정의되지 않았습니다.');
+                return;
+            }
+
+            theGrid.columns.clear();
+            theGrid.autoGenerateColumns = false;
+
+            // columns 배열이 정의되어 있는지 확인
+            if (typeof columns === 'undefined' || !Array.isArray(columns)) {
+                console.error('columns 배열이 정의되지 않았습니다.');
+                return;
+            }
+
+            columns.forEach(columnDef => {
+                var col = new wijmo.grid.Column(columnDef);
+                theGrid.columns.push(col);
+            });
+
+            viewdata = new wijmo.collections.CollectionView(menulogData);
+
+            theGrid.itemsSource = viewdata;
+            theGrid.refresh();
+        }
+
+
+        // 문서종류 상세정보 조회
+        function showDetailForm(id) {
+            let param = {'id': id};
+            let result = AjaxUtil.getSyncData(this.url + "/detail", param);
+
+            if (result.data != null) {
+                FormUtil.BindDataForm(result.data, $('#customForm'));
+            }
+            page.setUploader(id);
+            //page.setButtonDisable(false, false, false);
+            page.setButtonState();
+        }
+
+        // 정보 저장
+        function saveData(type) {
+            let url = '/api/support/custom_svc/save';
+            let validate = true;
+            let $target = null;
+
+            let data = FormUtil.extractForm($('#customForm'));
+            data.type = type;
+
+            /*if (!data.title || !data.cboType) {
+                Alert.alert('', '필수 항목 [ 제목, 유형 ]을 입력해주세요.', function () {
+                    if ($target) $target.focus();
+                });
+                return;
+            }*/
+
+            if (!data.title) {
+                Alert.alert('', '제목을 입력해주세요.');
+                $('#customForm #title').focus();
+                return;
+            } else if (!data.cboType) {
+                Alert.alert('', '유형을 입력해주세요.');
+                $('#customForm #cboType').focus();
+                return;
+            }
+
+            let fnSuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '저장되었습니다');
+                    searchMainData(); // 저장 후 데이터 갱신
+                } else {
+                    Alert.alert('저장 실패', result.message);
+                    console.error('저장 실패:', result.message);
+                }
+            };
+
+            // 데이터 저장 요청
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+
+
+            $('#detail_box').find('input, textarea, select').each(function () {
+                if ($(this).is(':required')) {
+                    if (!$(this).val()) {
+                        validate = false;
+                        $target = $(this);
+                        return false;
+                    }
+                }
+            });
+
+            if (type == "F") {
+                if ($('#finishDt').val() == '') {
+                    Alert.alert('', '조치완료일을 입력해주세요.')
+                    return
+                }
+            }
+
+        }
+
+        // 문서종류 정보 삭제
+        function deleteForm() {
+            let url = '/api/support/custom_svc/delete';
+            let id = $('#customForm').find('#id').val();
+            let data = {id: id};
+
+            /*console.log(data);*/
+
+            let fnSuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '삭제되었습니다');
+                    searchMainData(); // 저장 후 데이터 갱신
+                } else {
+                    Alert.alert('삭제 실패', result.message);
+                    console.error('삭제 실패:', result.message);
+                }
+            };
+            // 데이터 저장 요청
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        function clearForm() {
+            $('#id').val('')
+            $('#chkDt').val(CommonUtil.getYYYYMMDD());
+            $('#cboType').val('')
+            $('#cusCnt').val('')
+            $('#chkState').val('조치중')
+            $('#chkName').val(userinfo.username)
+            $('#finishDt').val(CommonUtil.getYYYYMMDD());
+            $('#title').val('')
+            $('#content').val('')
+            setUploader();
+            /* uploader.mode = 'active';*/
+
+        }
+
+
+        $(document.body).ready(function (e) {
+            setUploader();
+            setButtonState();
+
+            AjaxUtil.fillSelectOptions($('#cboTypeFormSearch'), 'system_code', 'all', '', 'cs_type');
+            AjaxUtil.fillSelectOptions($('#cboType'), 'system_code', 'all', '', 'cs_type');
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-30));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+            $('#finishDt').val(CommonUtil.getYYYYMMDD());
+            $('#chkDt').val(CommonUtil.getYYYYMMDD());
+
+            $('#chkState').val('조치중')
+            $('#chkName').val(userinfo.username)
+
+            // 검색버튼
+            $('#btnSearch').click(function (e) {
+                searchMainData();
+            });
+
+            // 신규버튼
+            $('#btnNew').click(function (e) {
+                $('#customForm').find('#id').val('');
+
+                $('#detail_box').find('select,input, textarea').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                clearForm();
+                //page.setButtonDisable(true, false, true);
+                setButtonState();
+            });
+
+            // 저장버튼
+            $('#btnSave').click(function (e) {
+                Alert.confirm('',
+                    "저장하시겠습니까?",
+                    function () {
+                        saveData('S')
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $('#btnCancel').click(function (e) {
+                Alert.confirm('',
+                    "조치완료를 취소 하시겠습니까?",
+                    function () {
+                        saveData('S')
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $('#btnFinish').click(function (e) {
+                Alert.confirm('',
+                    "조치완료 하시겠습니까?",
+                    function () {
+                        saveData('F')
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            // 삭제버튼
+            $('#btnDel').click(function (e) {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        deleteForm()
+                    },
+                    function () {
+                    }
+                );
+            });
+        });
+
+    </script>
+</th:block>
+
+</html>

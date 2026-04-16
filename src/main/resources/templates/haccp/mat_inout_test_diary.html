@@ -1,0 +1,522 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>입고검사</h2>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>검사관리</li>
+                <li>입고검사</li>
+            </ul>
+        </div>
+        <input type="hidden" id="bhId" th:value="${bh_id}"/>
+        <input type="hidden" id="viewMode" th:value="${view_mode}"/>
+        <input type="hidden" id="apprView" th:value="${appr_view}"/>
+        <input type="hidden" id="createrName" th:value="${creater_name}"/>
+        <section class="section">
+            <div class="section-card-wrap">
+                <div class="col-5">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">점검명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="title" name="title"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="check_date">점검일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="date" id="check_date" name="check_date">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="creater_name">작성자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="creater_name" name="creater_name"
+                                       disabled/>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-6">
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+        </section>
+        <section class="section">
+            <form id="searchForm" autocomplete="off">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                입출일
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <input type="date" id="srchStartDt" name="srchStartDt">
+                                        <label for="srchStartDt" class="hide">시작일</label>
+                                    </li>
+                                    <li>
+                                        <input type="date" id="srchEndDt" name="srchEndDt">
+                                        <label for="srchEndDt" class="hide">종료일</label>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="button-wrap">
+                        <button type="button" class="btn" id="btnReqAppr">결재상신</button>
+                        <button type="button" class="btn" id="btnAppr" style="display:none;">승인</button>
+                        <button type="button" class="btn" id="btnReject" style="display:none;">반려</button>
+                        <button type="button" class="btn" id="btnSave">저장</button>
+                        <button type="button" class="btn" id="btnList">목록</button>
+                    </div>
+                </div>
+            </form>
+            <div id="mat_inout_test">
+                <div class="container-fluid">
+                    <div id="mat_inout_item_grid" style="height: 490px;"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script type="text/x-tmpl" id="imagePopup">
+
+        <div class="content_wrap modal-content popup">
+                <section class="pt-2">
+                   <div class="table_box sub" >
+                        <div class ="row">
+                            <div class="col-12">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text fit_box_t5" data-labelCd="점검항목명">점검항목명</span>
+                                    </div>
+                                    <input class="form-control2 tac" type="text" id="pop_item_name" disabled="disabled" />
+                                </div>
+                            </div>
+                            </div>
+                            <div class="col-12 mx-auto" id="image_upload1"></div>
+                    </div>
+                </section>
+                <section>
+                    <div class="align_left popup_button_group bottom">
+                        <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+                    </div>
+                </section>
+        </div>
+    </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/upload_one_image_box.html :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code.html :: popup_select_user_code"></th:block>
+    <script type="text/javascript">
+        class MatInoutTestPageDiaryPage {
+            constructor() {
+                this.grid = null;
+                this.approveBoxUtil = null;
+                this.appr_view = null;
+                this.baseUrl = '/api/haccp/mat_inout_test';
+                this.checkMaster = '입고검사 육안검사일지';
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                this.resultGrid = new wijmo.grid.FlexGrid('#mat_inout_item_grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    frozenColumns: 0,
+                    frozenRows: 0,
+                    allowSorting: false,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    columns: [], // Columns will be dynamically configured
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                    itemFormatter: (panel, row, col, cell) => {
+                        if (panel.cellType === wijmo.grid.CellType.Cell) {
+                            cell.style.verticalAlign = 'middle';
+                        }
+                    }
+                });
+
+                $('#title').val('입고검사 육안검사일지');
+                //view mode
+                if ($('#viewMode').val().toLowerCase() == 'true') {
+                    $('#title').attr('disabled', 'disabled');
+                    $('#check_date').attr('disabled', 'disabled');
+                    $('#btnSave').hide();
+                    $('#searchArea').hide();
+                    $('#mat_inout_test').find('#btnDeviActionSave').hide();
+                    $('#btnReqAppr').hide();
+                }
+            }
+
+            // 일지 리스트
+            searchMainData(val) {
+                let _this = this;
+
+                let srchStartDt = $('#searchForm').find("#srchStartDt").val();
+                let srchEndDt = $('#searchForm').find("#srchEndDt").val();
+
+                let param = {
+                    'action': 'result_list',
+                    'bh_id': $('#bhId').val(),
+                    'srchStartDt': srchStartDt,
+                    'srchEndDt': srchEndDt,
+                    'first': val
+                }
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/result_list', param);
+
+                _this.itemResult = result.data.item_result;
+
+                let columnConfig = [];
+
+                if ($('#bhId').val() > 0 && val) {
+                    _this.mst_info = result.data.mst_info;
+
+                    $('#check_date').val(_this.mst_info.DataDate);
+                    $('#title').val(_this.mst_info.title);
+
+                    $('#searchForm').find('#srchStartDt').val(_this.mst_info.startDt);
+                    $('#searchForm').find('#srchEndDt').val(_this.mst_info.endDt);
+                }
+
+                if (_this.itemResult.length > 0) {
+
+                    let keys = Object.keys(_this.itemResult[0])
+
+                    for (var i = 0; i < keys.length; i++) {
+                        if (keys[i] === 'id') {
+                            columnConfig.push({binding: 'id', header: 'id', visible: false});
+                        } else if (keys[i] === 'InoutDate') {
+                            columnConfig.push({binding: 'InoutDate', header: '입고일시', width: 90, align: 'center'});
+                        } else if (keys[i] === 'InputQty') {
+                            columnConfig.push({binding: 'InputQty', header: '입고량', width: 90, align: 'center'});
+                        } else if (keys[i] === 'PotentialInputQty') {
+                            columnConfig.push({
+                                binding: 'PotentialInputQty',
+                                header: '가입고량',
+                                width: 90,
+                                align: 'center'
+                            });
+                        } else if (keys[i] === 'Name') {
+                            columnConfig.push({binding: 'Name', header: '품명', width: 250, align: 'center'});
+                        } else if (keys[i] === 'EffectiveDate') {
+                            columnConfig.push({binding: 'EffectiveDate', header: '유통기한', width: 90, align: 'center'});
+                        } else if (keys[i] === 'JudgeCode') {
+                            columnConfig.push({binding: 'JudgeCode', header: '판정', width: 50, align: 'center'});
+                        } else if (keys[i] === 'CharResult') {
+                            columnConfig.push({
+                                binding: 'CharResult',
+                                header: '부적합시 조치 내용',
+                                width: 200,
+                                align: 'center'
+                            });
+                        } else {
+                            columnConfig.push({binding: keys[i], header: keys[i], align: 'center'});
+                        }
+                    }
+
+                }
+
+                if (columnConfig.length === 0) {
+                    columnConfig.push({binding: '데이터없음', header: '데이터없음'})
+                }
+
+                this.resultGrid.columns.clear();
+                columnConfig.forEach(col => this.resultGrid.columns.push(new wijmo.grid.Column(col)));
+
+                this.resultGrid.itemsSource.sourceCollection = _this.itemResult;
+
+                if ($('#bhId').val() > 0) {
+                    if ($('#viewMode').val().toLowerCase() !== 'true') {
+                        $('#mat_inout_test').find('#btnDeviActionSave').show();
+                    }
+
+                }
+
+
+                _this.approveBoxUtil = new ApproveBoxUtil(0, _this.checkMaster, $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+
+            }
+
+            save(isAppr) {
+                let _this = this;
+                let callback = null;
+
+                let srchStartDt = $('#searchForm').find("#srchStartDt").val();
+                let srchEndDt = $('#searchForm').find("#srchEndDt").val();
+
+                callback = function () {
+
+                    let Q = [];
+                    let data = null
+
+                    if ($('#bhId').val() > 0) {
+                        Q = _this.itemResult;
+
+                        data = {
+                            bh_id: $('#bhId').val(),
+                            check_date: $('#check_date').val(),
+                            title: $('#title').val(),
+                            Q: JSON.stringify(Q),
+                            srchStartDt: srchStartDt,
+                            srchEndDt: srchEndDt,
+
+                        }
+                    } else {
+                        let matInoutTestResult = {
+                            'tabList': _this.resultGrid.itemsSource.sourceCollection,
+                        }
+
+
+                        Q = [
+                            matInoutTestResult
+                        ];
+
+
+                        data = {
+                            check_date: $('#check_date').val(),
+                            title: $('#title').val(),
+                            Q: JSON.stringify(Q),
+                            srchStartDt: srchStartDt,
+                            srchEndDt: srchEndDt,
+                        }
+                    }
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            $('#bhId').val(resp.data.id);
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                Notify.success('저장하였습니다.');
+                                $('#btnDelete').show();
+                                _this.searchMainData(true);
+
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    }
+                    let action = $('#bhId').val() > 0 ? '/save' : '/insert'
+
+                    AjaxUtil.postAsyncData(_this.baseUrl + action, data, fnSuccess);
+                }
+
+                if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                } else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                let Q = _this.resultGrid.selectedItems;
+
+                let param = {
+                    Q: JSON.stringify(Q)
+                }
+
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    if (isAppr) {
+                        AjaxUtil.postAsyncData('/api/inventory/material_inout/check_in_test', param);
+                    }
+                    $('#btnList').click();
+                });
+            }
+
+            // 결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit'
+                let srchStartDt = $('#searchForm').find("#srchStartDt").val();
+                let srchEndDt = $('#searchForm').find("#srchEndDt").val();
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'data_date': $('#check_date').val(),
+                    'srchStartDt': srchStartDt,
+                    'srchEndDt': srchEndDt,
+                    'first': true
+                };
+
+                /**
+                 * 결재선 : 푸드/박원준 , 푸드/고형석
+                 * */
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+            // 이미지 팝업
+            setImagePopup(data) {
+                let _this = this;
+
+                let content = tmpl('imagePopup', data);
+                let $content = $(content);
+                let modalContainer;
+
+                if (data && data.file_id) {
+                    modalContainer = new PopupDraggable('점검항목 이미지');
+                    modalContainer.open({width: 500, height: 350, $content});
+                }
+
+                let fncCallback = function () {
+                };
+                _this.upload = new UploadOneImage(1, {
+                    table_name: 'check_item',
+                    data_pk: data.checkItem_id,
+                    attach_name: 'check_item_image',
+                    file_id: data.file_id,
+                    upload_form_id: 'upload_form1',
+                    upload_div_id: 'image_upload1',
+                    image_width: '100%',
+                    image_height: 'auto',
+                    callback: fncCallback,
+                });
+
+                _this.upload.printFormDiv();
+                $('#pop_item_name').val(data.item_name);
+                $('#btnUpload1').hide();
+                $('#btnRemoveFile1').hide();
+                $('#attachFileId1').hide();
+            }
+
+        }
+
+        $(document).ready(function (e) {
+
+            this.appr_view = $('#apprView').val()
+
+            let creater = $('#createrName').val()
+
+            $('#creater_name').val(creater)
+
+            page = new MatInoutTestPageDiaryPage();
+
+
+            $('#check_date').val(CommonUtil.getYYYYMMDD());
+
+            $('#searchForm').find('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+            $('#searchForm').find('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            // 목록
+            $('#btnList').on('click', function () {
+                if (this.appr_view) {
+                    location.href = '/gui/' + this.appr_view
+                } else {
+                    location.href = '/gui/' + gui.gui_code
+                }
+
+            });
+            $('#btnSearch').click(function (e) {
+                page.searchMainData(false);
+            });
+            $('#btnDeviActionSave').click(function (e) {
+                page.saveDeviAction();
+            });
+            // 신규저장
+            $('#btnSave').on('click', function () {
+                page.save(false);
+            });
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+
+            page.searchMainData(true);
+        });
+    </script>
+
+    <style>
+        .background-yellow {
+            background: #ffd800
+        }
+
+        .background-skyblue {
+            background: #00e0ff
+        }
+
+        .background-white {
+            background: #ffffff
+        }
+
+        table.type01 {
+            border-collapse: collapse;
+            text-align: left;
+            line-height: 1.5;
+            margin: 20px 10px;
+        }
+
+        table.type01 th {
+            width: 150px;
+            padding: 10px;
+            font-weight: bold;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        table.type01 td {
+            width: 650px;
+            padding: 10px;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+        }
+    </style>
+</th:block>
+</html>

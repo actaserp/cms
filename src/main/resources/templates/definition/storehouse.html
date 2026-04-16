@@ -1,0 +1,478 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>창고 정보</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>창고정보</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px">
+            <section class="section" style="width: 60%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>창고명</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" class="form-control2" id="txtStorehouse" name="txtStorehouse">
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div> <!--//section-top end -->
+                <div class="container-fluid">
+                    <p id="selectedItem"></p>
+                    <div id="theGrid" style=""></div>
+                </div>
+                <div class="btn-wrap">
+                </div>
+            </section>
+
+            <section style="width: 40%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <ul>
+                            <li>
+                                <!-- <a class="btn btn-excell" title="신규등록" id="btnNew" >
+                                     <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                     신규등록
+                                 </a>-->
+                                <button type="button" class="btn-excellt btn-default" id="btnNew" name="btnNew"
+                                        style="height: 36px; width:115px;"><i
+                                        class="fas fa-plus"></i>신규등록
+                                </button>
+                            </li>
+
+                            <li>
+                                <!--  <a class="btn btn-delete" title="삭제" id="btnDel">
+                                      <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                      삭제
+                                  </a>-->
+                                <button type="button" class="btn-delete btn-danger y_write_auth" id="btnDel"
+                                        style="float:none; height: 36px; width:115px;"><i
+                                        class="fas fa-trash"></i>삭제
+                                </button>
+                            </li>
+
+                            <li>
+                                <!-- <a class="btn btn-edit" id="btnSave" title="저장">
+                                     <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                                     저장
+                                 </a>-->
+                                <button type="button" class="btn-excellt btn-default y_write_auth" id="btnSave"
+                                        style="float:none; height: 36px; width:115px;">
+                                    <i class="fas fa-save"></i>저장
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="table-wrap" style=" overflow-x: auto;">
+                    <form id="storehouseForm">
+                        <table class="write-table" style="width: 100%; border-collapse: collapse; ">
+                            <caption style="text-align: left; margin-bottom: 8px;">등록테이블</caption>
+                            <input type="hidden" id="id" name="id"/>
+                            <col class="wp20">
+                            <col class="wp80">
+                            <tbody>
+                            <tr>
+                                <th>
+                                    <label for="storehouse_type"><span class="eq">*</span>창고 구분</label>
+                                </th>
+                                <td>
+                                    <select id="storehouse_type" name="storehouse_type" style="width: 100%;"></select>
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="storehouse_code"><span class="eq">*</span>창고코드</label>
+                                </th>
+                                <td>
+                                    <input type="text" id="storehouse_code" name="storehouse_code" style="width: 100%;">
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="storehouse_name"><span class="eq">*</span>창고명</label>
+                                </th>
+                                <td>
+                                    <input type="text" style="width: 100%;" id="storehouse_name" name="storehouse_name">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="factory_id"><span class="eq">*</span>공장</label>
+                                </th>
+                                <td>
+                                    <select type="text" style="width: 100%;" id="factory_id" name="factory_id"></select>
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="created">생성일</label>
+                                </th>
+                                <td>
+                                    <input class="form-control2 readonly" type="text" style="width: 100%;" id="created"
+                                           name="created" placeholder="자동으로 생성됩니다." disabled="disabled" readonly>
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="description">비고</label>
+                                </th>
+                                <td>
+                                    <input type="text" id="description" name="description" style="width: 100%;">
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+            </section>
+        </div>
+    </div> <!--//layout-contents end -->
+
+    <footer style="margin-top: 24px;">
+        <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+    </footer>
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+    <script type="text/javascript">
+        /*'/api/definition/storehouse'*/
+
+
+        var theGrid;
+        var viewdata;
+
+        let columns = [
+            {binding: 'id', header: '번호', width: 100, align: 'left', visible: false},
+            {binding: 'storehouse_type', header: '창고구분', width: 150, align: 'center'},
+            {binding: 'storehouse_code', header: '창고코드', width: 150, align: 'center'},
+            {binding: 'storehouse_name', header: '창고명', width: 200, align: 'center'},
+            {binding: 'factory_name', header: '공장', width: 150, align: 'center'},
+            {binding: 'created', header: '생성일', width: 200, align: 'center'},
+            {binding: 'description', header: '비고', width: '*', align: 'center'},
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            let data2 = [];
+
+            let storehouse_name = $('#txtStorehouse').val();
+
+            $.ajax({
+                url: '/api/definition/storehouse/read',
+                type: 'GET',
+                data: {
+                    'storehouse_name': storehouse_name,
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                },
+                async: false,
+                success: function (data) {
+                    data2 = data.data;
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_count data:', textStatus, errorThrown);
+                }
+            })
+
+            viewdata = new wijmo.collections.CollectionView(data2);
+
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+
+            theGrid.hostElement.addEventListener('dblclick', function (e) {
+                let selectedItem = theGrid.selectedItems[0];
+
+                document.getElementById('id').value = selectedItem.id;
+
+                let storehouse_type_typeSelect = document.getElementById('storehouse_type');
+                if (storehouse_type_typeSelect) {
+                    for (let i = 0; i < storehouse_type_typeSelect.options.length; i++) {
+                        if (storehouse_type_typeSelect.options[i].text === selectedItem.storehouse_type) {
+                            storehouse_type_typeSelect.options[i].selected = true;
+                            break;
+                        }
+                    }
+                }
+
+                let factory_name_typeSelect = document.getElementById('factory_id');
+                if (factory_name_typeSelect) {
+                    for (let i = 0; i < factory_name_typeSelect.options.length; i++) {
+                        if (factory_name_typeSelect.options[i].text === selectedItem.factory_name) {
+                            factory_name_typeSelect.options[i].selected = true;
+                            break;
+                        }
+                    }
+                }
+                document.getElementById('storehouse_code').value = selectedItem.storehouse_code;
+                document.getElementById('storehouse_name').value = selectedItem.storehouse_name;
+                document.getElementById('description').value = selectedItem.description;
+                document.getElementById('created').value = selectedItem.created;
+
+                setButtonState();
+            });
+
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+            /*  new FlexGridContextMenu(theGrid);*/
+        }
+
+        // 버튼 활성화 설정
+        function setButtonState() {
+            let pk = $('#id').val();
+            $('#btnNew').prop('disabled', false);
+            $('#btnSave').prop('disabled', false);
+            if (pk) {
+                $('#btnDel').prop('disabled', false);
+            } else
+                $('#btnDel').prop('disabled', true);
+        }
+
+        function searchMainData() {
+            let storehouse_name = $('#txtStorehouse').val();
+
+            $.ajax({
+                url: '/api/definition/storehouse/read',
+                type: 'GET',
+                data: {
+                    'storehouse_name': storehouse_name,
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                },
+                async: false,
+                success: function (result) {
+                    if (result.success) {
+                        grid_binding(result.data);
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+
+                }
+            });
+
+            $('#storehouseForm')[0].reset();
+            $('#storehouseForm').find('#id').val('');
+
+            $('#detail_box').find('input, select, textarea').each(function () {
+                if (!$(this).is(':disabled')) {
+                    $(this).attr('disabled', 'disabled');
+                }
+            });
+
+            setButtonState();
+        }
+
+        function grid_binding(data) {
+            if (!Array.isArray(data)) {
+                console.error('데이터가 배열 형식이 아닙니다:', data);
+                return;
+            }
+
+            let menulogData = data.map(item => ({
+                id: item.id,
+                storehouse_type: item.storehouse_type,
+                storehouse_code: item.storehouse_code,
+                storehouse_name: item.storehouse_name,
+                factory_name: item.factory_name,
+                description: item.description
+            }));
+
+            if (typeof theGrid === 'undefined' || typeof viewdata === 'undefined') {
+                console.error('theGrid 또는 viewdata가 정의되지 않았습니다.');
+                return;
+            }
+
+            theGrid.columns.clear();
+            theGrid.autoGenerateColumns = false;
+
+            // columns 배열이 정의되어 있는지 확인
+            if (typeof columns === 'undefined' || !Array.isArray(columns)) {
+                console.error('columns 배열이 정의되지 않았습니다.');
+                return;
+            }
+
+            columns.forEach(columnDef => {
+                var col = new wijmo.grid.Column(columnDef);
+                theGrid.columns.push(col);
+            });
+
+            viewdata = new wijmo.collections.CollectionView(menulogData);
+
+            theGrid.itemsSource = viewdata;
+            theGrid.refresh();
+        }
+
+        // 창고 정보 저장
+        function saveStoreHouse() {
+            let url = '/api/definition/storehouse/save';
+            let validate = true;
+            let $target = null;
+
+            //let data = $('#storehouseForm').serialize();
+            let data = FormUtil.extractForm($('#storehouseForm'));
+
+            // 필수입력 check routine
+
+            if (!data.storehouse_type) {
+                Alert.alert('', '창고구분을 선택해주세요.');
+                $('#storehouseForm #storehouse_type').focus();
+                return;
+            } else if (!data.storehouse_code) {
+                Alert.alert('', '창고 코드를 입력해주세요.');
+                $('#storehouseForm #storehouse_code').focus();
+                return;
+            } else if (!data.storehouse_name) {
+                Alert.alert('', '창고명을 입력해주세요.');
+                $('#storehouseForm #storehouse_name').focus();
+                return;
+            } else if (!data.factory_id) {
+                Alert.alert('', '공장을 선택해주세요.');
+                $('#storehouseForm #factory_id').focus();
+                return;
+            }
+
+            data.spjangcd = sessionStorage.getItem('spjangcd');
+
+
+            Alert.confirm('', '저장하시겠습니까?', function () {
+                let fnSuccess = function (result) {
+                    if (result.success) {
+                        Alert.alert('', '저장되었습니다');
+                        searchMainData(); // 저장 후 데이터 갱신
+                    } else {
+                        Alert.alert('저장 실패', result.message);
+                        console.error('저장 실패:', result.message);
+                    }
+                };
+
+                // 데이터 저장 요청
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            });
+
+
+        }
+
+
+        function deleteStoreHouse() {
+            let url = '/api/definition/storehouse/delete';
+            let id = $('#storehouseForm').find('#id').val();
+            let data = { id: id };
+
+            Alert.confirm('', '삭제하시겠습니까?', function () {
+                let fnSuccess = function (result) {
+                    if (result.success) {
+                        Alert.alert('', '삭제되었습니다');
+                        searchMainData(); // 데이터 갱신
+                    } else {
+                        Alert.alert('삭제 실패', result.message);
+                        console.error('삭제 실패:', result.message);
+                    }
+                };
+                // 데이터 삭제 요청
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            });
+        }
+
+
+
+        $(document).ready(function (e) {
+            setButtonState();
+            AjaxUtil.fillSelectOptions($('#factory_id'), 'factory', 'choose', false);
+            AjaxUtil.fillSelectOptions($('#storehouse_type'), 'system_code', 'choose', false, 'storehouse_type');
+
+            // 엔터키 검색
+            $('#txtStorehouse').on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    searchMainData();
+                }
+            });
+
+
+            // 검색버튼 클릭
+            $('#btnSearch').click(function (e) {
+                searchMainData();
+            });
+
+            // 신규버튼
+            $('#btnNew').click(function (e) {
+
+                $('#storehouseForm')[0].reset();
+                $('#storehouseForm').find('#id').val('');
+
+                $('#detail_box').find('input, select, textarea').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                //page.setButtonDisable(true, false, true);
+                setButtonState();
+            });
+
+            // 저장버튼
+            $('#btnSave').click(function (e) {
+                saveStoreHouse();
+            });
+
+            // 삭제버튼
+            $('#btnDel').click(function (e) {
+                deleteStoreHouse();
+            });
+
+        });
+    </script>
+</th:block>
+
+</html>

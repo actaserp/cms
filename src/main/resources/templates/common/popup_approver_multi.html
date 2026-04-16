@@ -1,0 +1,322 @@
+﻿<th:block th:fragment="personSearchTemplate">
+    <script type="text/x-tmpl" id="personSearchTemplate">
+
+        <div class="content_wrap popup" id="mpopup">
+    <!--        <header>
+                <h4 id="popTitle">결재자 선택</h4>
+                <div class="popup_close_box"><button class="btn_popup_close" id="person-search-close"><i class="fas fa-times"></i></button></div>
+            </header>-->
+
+            <section class="pt-2" >
+                <div class="section-top">
+                <div class="search-wrap" style="text-align: left;">
+                    <dl>
+                        <dt>
+                            <label>
+                                부서<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select class="form-control2" id='cboDept' name="cboDept" ></select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            <label for="cboMaterialGrp">
+                                작업자명<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <input class="form-control2" type="text" id="keyword" name="keyword" />
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnPersonSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+                </div>
+                <div class="grid_box">
+                    <div class="row">
+                        <div class="col-5">
+                            <div class="h-360" id="person-search-grid"></div>
+                        </div>
+                        <div class="col-2">
+                            <br /><br /><br /><br />
+                            <select class="form-control2" id='cboApprDept' name="cboApprDept" style="width: 120px;"></select>
+                            <br /><br />
+                            <select class="form-control2" id="shift" name="shift" style="width: 120px;">
+                                <option value="">전체</option>
+                                <option value="D">주간</option>
+                                <option value="N">야간</option>
+                            </select>
+                            <br /><br /><br /><br />
+                            <button type="button" class="btn-default" id="btnAdd" title="추가"><i class="fas fa-arrow-right"></i></button>
+                            <br /><br />
+                            <button type="button" style="width: 124px; height: 42px;" class="btn-cancel" id="btnExcept" title="제외"><i class="fas fa-arrow-left"></i></button>
+                        </div>
+                        <div class="col-5">
+                            <div class="h-360" id="approver-grid"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+
+
+        <div class="popup-button">
+                <button type="button" class="btn-popup" id="btnApproverSelect" ><span data-commonCd="저장">저장</span></button>
+                <button type="button" class="btn-popup" id="modal-close-button"><span data-commonCd="닫기">닫기</span></button>
+        </div>
+        </div>
+
+    </script>
+
+
+    <script type="text/javascript">
+
+
+        class PopupApproverMultiPage {
+            constructor() {
+                this.personGrid = null;
+                this.approverGrid = null;
+                this.selectedItem = null;
+                this.callback = null;
+                this.modalContainer = new PopupDraggable('결재자 선택');
+                this.$btnPersonSearch = null;
+                this.$keyword = null;
+                this.approverList = [];
+                this.SelectItem = [];
+                this.SelectItem2 = [];
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+
+            }
+
+
+            searchDataBind() {
+                let _this = this;
+                let url = '/api/popup/search_approver';
+                let data = {
+                    //'action': 'read',
+                    'depart_id': _this.$cboDept.val(),
+                    'keyword': _this.$keyword.val(),
+                };
+
+                let result = AjaxUtil.getSyncData(url + '/read', data);
+
+
+                if (result != null) {
+
+                    this.viewData.sourceCollection = result;
+
+                }
+
+                //검색버튼을 누르고 초기화한다
+                this.selectedItem = null;
+            }
+
+            selectData(item) {
+                if (typeof this.callback !== 'undefined' && this.callback!=null) {
+                    console.log('호출됨', item);
+                    //let copiedArray = deepCopyObservableArray(item);
+                    let copiedArray = structuredClone(item); //  깊은 복사하여 부모 페이지로 전달
+                    this.callback(copiedArray);
+                }
+                this.close();
+            }
+
+            show(callback, data){
+                let _this = this;
+
+                this.callback = callback;
+
+                // if(data !== null && data !== undefined){
+                //     this.viewData2.sourceCollection = data;
+                // }
+
+                let content = tmpl('personSearchTemplate', {});
+                let $content = $(content);
+                this.modalContainer.open({ width: 1000, height: 600, $content });
+
+                this.personGrid = new wijmo.grid.FlexGrid('#person-search-grid', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowSorting: 'MultiColumn',
+                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'DepartName', header: '부서', width: '*', align: 'left' },
+                        { binding: 'Name', header: '이름', width: '*', align: 'left' },
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                        }
+                    },
+                });
+                let selector = new wijmo.grid.selector.Selector(this.personGrid, {
+                    itemChecked: (e, ctx) => {
+                        this.SelectItem = this.personGrid.rows.filter(r => r.isSelected);
+
+                    }
+                });
+
+                this.approverGrid = new wijmo.grid.FlexGrid('#approver-grid', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowSorting: 'MultiColumn',
+                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'ShiftName', header: '근무조', width: '*', align: 'left' },
+                        { binding: 'DepartName', header: '결제부서', width: '*', align: 'left' },
+                        { binding: 'Name', header: '이름', width: '*', align: 'left' },
+                        { binding: 'Depart_id', header: '이름', width: 100, align: 'left', visible: false },
+                        { binding: 'Shift', header: '이름', width: 100, align: 'left', visible: false },
+                        { binding: 'User_id', header: '이름', width: 100, align: 'left', visible: false },
+
+
+                    ],
+                    itemsSource: this.viewData2,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                        }
+                    },
+                });
+
+                let selector2 = new wijmo.grid.selector.Selector(this.approverGrid, {
+                    itemChecked: (e, ctx) => {
+                        this.SelectItem2 = this.approverGrid.rows.filter(r => r.isSelected);
+
+                    }
+                });
+
+                this.$btnPersonSearch = $content.find('#btnPersonSearch');
+                this.$cboDept = $content.find('#cboDept');
+                this.$keyword = $content.find('#keyword');
+                this.$btnApproverSelect = $content.find('#btnApproverSelect');
+
+                AjaxUtil.fillSelectOptions(this.$cboDept, 'depart', 'all', false, '');
+                AjaxUtil.fillSelectOptions($content.find('#cboApprDept'), 'depart', 'all', false, '');
+
+                if(this.approverList.length > 0){
+                    this.approverGrid.itemsSource = _this.approverList;
+                }
+
+                this.$btnPersonSearch.click(function (e) {
+                    _this.searchDataBind();
+                });
+
+                this.$keyword.on('keypress', function (e) {
+                    if (event.keyCode == 13) {
+                        _this.searchDataBind();
+                    }
+                });
+
+                $('#btnAdd').on('click', function () {
+
+                    let selectedData = _this.personGrid.selectedItems;
+
+
+                    let shiftVal = $('#shift').val();
+                    let shiftName = $("#shift option:checked").text();
+                    let deptVal = $('#cboApprDept').val();
+                    let deptName = $("#cboApprDept option:checked").text();
+
+                    let cv = _this.approverGrid.collectionView;
+
+                    //  데이터만 추출하여 복사 (순환 참조 방지)
+                    let gridList = (cv.sourceCollection || []).map(item => JSON.parse(JSON.stringify(item)));
+
+                    selectedData.forEach(data => {
+                        let addData = JSON.parse(JSON.stringify(data)); //  깊은 복사하여 추가
+                        addData.Shift = shiftVal;
+                        addData.ShiftName = shiftName;
+                        addData.Depart_id = deptVal;
+                        addData.DepartName = deptName;
+
+                        let isDuplicate = gridList.some(x => x.User_id === addData.User_id && x.Shift === addData.Shift);
+                        if (!isDuplicate) {
+                            gridList.push(addData);
+                        }
+
+                        cv.sourceCollection = gridList;
+                        cv.refresh();
+
+
+                        let newRowIndex = cv.items.length - 1;
+
+                        setTimeout(() => {
+                            _this.approverGrid.select(newRowIndex, 0);
+                            _this.approverGrid.rows[newRowIndex].isSelected = true;
+                        })
+                    });
+
+
+
+
+
+                    $('#btnPersonSearch').click();
+                });
+
+                $('#btnExcept').on('click', function () {
+                    let cv = _this.approverGrid.collectionView;
+
+                    // 현재 선택된 행 필터링
+                    let selectedItems = _this.approverGrid.rows
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
+
+                    if (selectedItems.length > 0) {
+                        // 기존 sourceCollection에서 선택된 항목 제거
+                        cv.sourceCollection = cv.sourceCollection.filter(item => !selectedItems.includes(item));
+
+                        cv.refresh(); // UI 업데이트
+                    }
+                });
+
+                this.$btnApproverSelect.click(function (e) {
+                    // 그리드에서 현재 선택된 item을 찾아서 호출한다.
+                    let items = _this.approverGrid.collectionView.items;
+                    console.log(items);
+
+                    //여기부분 너무 짜증났다. 참조변수 객체라서 값이 동기화된다. ㅅㅂ
+                    //동기화된 값은 콜백함수의 리턴값으로 날아간다.
+                    //그래서 여기서 그냥 일반 배열객체로 참조 관계 끊어줬다. 자바스크립트 너무 싫어
+
+                    let dataArray = Array.from({ length: items.length }, (_, i) => items[i]);
+                    dataArray = JSON.parse(JSON.stringify(dataArray));
+
+                    _this.selectData(dataArray);
+                });
+
+
+                $content.find('#person-search-close').on('click', function () {
+                    _this.close();
+                });
+
+                $('#btnPersonSearch').click();
+
+            }
+
+            close() {
+                this.modalContainer.close();
+            }
+
+        }
+    </script>

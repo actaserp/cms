@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ko">
+<style>
+    .btn-clear {
+        display: none !important; /* 강제로 숨김 */
+    }
+    .btn-close {
+        display: none !important; /* 강제로 숨김 */
+    }
+    /* 검색 영역 스타일 */
+    #searcharea, #detailarea {
+        position: relative;
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .search-container input {
+        margin-top: 10px;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 5px rgba(0, 0, 0, 0.2);
+    }
+
+    #searcharea input, #detailarea input {
+        width: 100%;
+        border: none;
+        outline: none;
+        font-size: 16px;
+        padding: 10px;
+    }
+
+    /* 검색 아이콘 (SVG) */
+    .search-icon {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+    }
+
+    /* 검색 가이드 스타일 */
+    .search-guide {
+        padding: 10px;
+        font-size: 14px;
+        color: #666;
+    }
+
+    /* 버튼 스타일 */
+    .btn-select, .btn-login {
+        width: 100%;
+        padding: 10px;
+        margin-top: 10px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    /* 모달 오버레이 (배경 흐리게) */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5); /* 반투명한 검은색 배경 */
+        z-index: 999; /* 모달보다 한 단계 아래 */
+    }
+
+    /* 모달 스타일 */
+    .modal {
+        display: none;
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 400px;
+        height: 650px;
+        max-width: 90%;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        border: none;
+        z-index: 9999;
+    }
+
+    /* 모달 닫기 버튼 스타일 */
+    .modal-close {
+        position: absolute;
+        top: 10px;
+        right: 5px;
+        width: 30px; /* 버튼 크기 */
+        height: 25px;
+        border: none;
+        border-radius: 3px;
+        background: none; !important; /* 배경 제거 */
+        background-color: transparent; !important; /* 배경을 투명하게 */
+        z-index: 1000;
+        cursor: pointer; /* 클릭 가능한 버튼 스타일 */
+    }
+
+    #loadingSpinner {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.8); /* 배경 어둡게 */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    #loadingImage {
+        width: 95%; /* 전체 화면의 80% 크기 */
+        max-width: 900px; /* 최대 크기 제한 */
+    }
+    .contents-wrap h4{
+        width: 100%;
+        margin-bottom: 20px;
+        text-align: center;
+        line-height: 1.5;
+        font-size: 18px;
+        font-weight: bold;
+        word-break: keep-all;
+        overflow-wrap: break-word;
+        white-space: normal;
+    }
+
+
+
+</style>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACTAS MES</title>
+    <meta name="ctx" th:content="@{/}">
+    <link rel="icon" type="image/png" th:href="@{/images/logo/actas_log_a.png}">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/> <!-- Slide css -->
+    <link rel="stylesheet" th:href="@{/resource/ax5ui/ax5ui.all.css}">
+    <link rel="stylesheet" th:href="@{/assets_mobile/css/import.css}">
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+
+    <script th:src="@{/assets_mobile/js/ui.js}"></script> <!-- Common js -->
+
+    <script th:inline="javascript">
+        var sandanData = /*[[${session.sandanList}]]*/ [];
+    </script>
+
+    <script type="text/javascript" th:src="@{/resource/ax5ui/ax5ui.all.min.js}"></script>
+    <script type="text/javascript" th:src="@{/js/ax5commUtil.js}"></script>
+    <script th:src="@{/js/common.js}"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script> <!-- Slide js -->
+    <script th:src="@{/js/Mobile.js}"></script>
+    <script src="https://kit.fontawesome.com/84dc79ac13.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+
+<body>
+<div class="mobile-wrapper page-ticket-list"><!-- ★페이지 Class명 -->
+    <!-- [모바일] 헤더  -->
+    <div class="mobile-layout-header">
+        <header>
+            <div class="left">
+                <a href="#" title="전체메뉴" class="logo">
+                </a>
+            </div>
+            <div class="left" style="margin-left:35px; font-size: 25px;">
+                <h2>휴가통계</h2>
+            </div>
+            <div class="right">
+                <a href="#" title="전체메뉴" class="btn-menu">
+                    <img th:src="@{/assets_mobile/images/icon/btn-menu.svg}" alt="전체메뉴 아이콘">
+                </a>
+            </div>
+        </header>
+    </div> <!-- //mobile-layout-header end-->
+
+    <!-- [모바일] 메뉴  -->
+    <div th:insert="~{mobile/mobile_menu :: mobile_menu}"></div>
+    <!-- [모바일] 컨덴츠  -->
+    <div class="mobile-layout-contents">
+        <!--- (레이아웃) Contents 영역 -->
+        <div class="layout-contents" >
+            <!-- 검색 영역  -->
+            <div class="search-wrap">
+                <div class="srch-tit aco-hd">
+                    <p>기본검색</p>
+                    <a href="#" title="열기/닫기" class="btn-aco">
+                        <img th:src="@{/assets_mobile/images/icon/ico-down.svg}" alt="열기/닫기">
+                    </a>
+                </div>
+                <div class="srch-cont aco-cont">
+                    <dl>
+                        <dt>조회년도</dt>
+                        <dd>
+                            <div style="display: flex; gap: 10px">
+                                <div style="width: 100%">
+                                    <select id="searchYear">
+                                        <option>
+                                            2025
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </dd>
+                    </dl>
+                    <div class="srch-btn">
+                        <button class="btn-dark" onclick="searchUserData(); searchDeductionData();">조회</button>
+                    </div>
+                </div>
+            </div>
+            <!-- 컨텐츠 영역  -->
+            <div class="contents-wrap" style="display: none">
+                <div>
+                    <H4>주소 : </H4>
+                    <div class="chart-wrap" style="margin-bottom: 20px;">
+                        <canvas id="SignupOfWeek" style="width: 740px; height: 550px;"></canvas>
+                    </div>
+                </div>
+            </div> <!--// contents-wrap end-->
+        </div> <!--//layout-contents end -->
+
+    </div> <!-- //mobile-layout-contents end-->
+</div> <!-- //page-wrapper end-->
+<script th:inline="javascript">
+    // // Thymeleaf에서 값 설정: Null 체크와 기본값 처리
+    // var groupid = [[${session.groupid != null ? session.groupid : 'null'}]];
+    // var id = /*[[${id != null ? id : 'null'}]]*/;
+    // var groupname = /*[[${groupname != null ? groupname : 'null'}]]*/;
+    // var username = /*[[${username != null ? username : 'null'}]]*/;
+    //
+    // // 로컬스토리지에 값 유지 (null 또는 빈 문자열은 저장하지 않음)
+    // if (groupid && groupid !== 'null') localStorage.setItem('groupid', groupid);
+    // if (id && id !== 'null') localStorage.setItem('id', id);
+    // if (username && username !== 'null') localStorage.setItem('username', username);
+    // if (groupname && groupname !== 'null') localStorage.setItem('groupname', groupname);
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script type="text/javascript">
+
+    $(document).ready(function () {
+        // ✅ 서버에서 연도 리스트 받아와 셀렉트 박스 바인딩
+        loadAvailableYears().then(() => {
+            searchDeductionData();
+            searchUserData();
+        });
+    });
+
+    // 파스텔톤 색상 리스트
+    const colorPalette = [
+        "#FFDDDD", "#B0E0E6", "#C1E1C1", "#FFF4B0", "#FFCCE5",
+        "#AFE1AF", "#FFD8B1", "#D8BFD8", "#D4EDDA", "#C6DEFF",
+        "#FFDEAD", "#e8b4c9", "#E4DBFF", "#FF6384"
+    ];
+
+    // 색상을 랜덤으로 섞기 (Fisher-Yates 알고리즘)
+    function shuffleColors(array) {
+        let shuffled = array.slice(); // 원본 배열을 복사해서 사용
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            let j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+    }
+
+    // 섞인 색상 배열 생성
+    let shuffledColors = shuffleColors(colorPalette);
+    let colorIndex = 0;
+
+    // 랜덤 색상 선택 함수 (겹치지 않게)
+    function getRandomColor() {
+        if (colorIndex >= shuffledColors.length) {
+            // 모든 색상을 사용했으면 다시 섞기
+            shuffledColors = shuffleColors(colorPalette);
+            colorIndex = 0;
+        }
+        return shuffledColors[colorIndex++];
+    }
+
+    // 연차정보 조회 후 차트 업데이트
+    function searchDeductionData() {
+        $.ajax({
+            url: '/api/attendance_statistics/read',
+            type: 'GET',
+            data: {
+                'searchYear' : document.getElementById('searchYear').value,
+            },
+            success: function (response) {
+                console.log(response); // 응답 데이터 확인
+
+                let chartWrap = document.querySelector(".chart-wrap");
+                chartWrap.innerHTML = `<canvas id="SignupOfWeek" style="width: 740px; height: 550px;"></canvas>`;
+                if (response.success && Array.isArray(response.data)) {
+
+                    data2 = response.data;
+                    // 데이터 변환
+                    let labels = data2.map(item => `${item.hisnm} (${item.hispoint} 일)`);
+                    let data = data2.map(item => item.hispoint);
+                    let backgroundColors = labels.map(() => getRandomColor()); // 각 항목별 랜덤 색상
+
+                    // 기존 차트 제거 (이미 생성된 경우)
+                    if (window.myPieChart) {
+                        window.myPieChart.destroy();
+                    }
+
+                    // 캔버스 요소 가져오기
+                    let ctx = document.getElementById('SignupOfWeek').getContext('2d');
+
+                    // 새로운 차트 생성
+                    window.myPieChart = new Chart(ctx, {
+                        type: 'pie',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: '차감 내역',
+                                data: data,
+                                backgroundColor: backgroundColors,
+                                borderColor: '#ffffff',
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (tooltipItem) {
+                                            let label = tooltipItem.label || '';
+                                            let value = tooltipItem.raw || 0;
+                                            return `${label}: ${value}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    console.error("데이터가 올바르지 않습니다.");
+                }
+                // 차트 보여주기
+                let contentsWrap = document.querySelector('.contents-wrap');
+                if (contentsWrap) {
+                    contentsWrap.style.display = 'block';
+                }
+                let canvas = document.getElementById("SignupOfWeek");
+                if (canvas) {
+                    canvas.style.display = 'block';
+                } else {
+                    console.error("SignupOfWeek 요소를 찾을 수 없습니다.");
+                }
+            },
+            error: function (error) {
+                console.error("데이터 불러오기 실패:", error);
+            }
+        });
+    }
+    // 유저정보 조회 후 통계차트 위 표기
+    function searchUserData() {
+        $.ajax({
+            url: '/api/attendance_statistics/getUserInfo',
+            type: 'GET',
+            data: {
+            },
+            success: function (response) {
+                console.log(response); // 응답 데이터 확인
+
+                // 등급, 점수 바인드
+                document.querySelector(".contents-wrap h4").innerText = `${response.data.departnm} ${response.data.Name} ${response.data.jiknm} 2025년 휴가통계`;
+            },
+            error: function (error) {
+                console.error("데이터 불러오기 실패:", error);
+            }
+        });
+    }
+    // 조회년도 바인드 로직
+    async function loadAvailableYears() {
+        try {
+            const res = await fetch('/api/attendance_current/years');
+            const result = await res.json(); // 전체 JSON 객체
+            const years = result.data;       // ✅ 실제 연도 배열만 추출
+            const select = document.getElementById('searchYear');
+            select.innerHTML = ''; // 기존 옵션 제거
+
+            if (!years || years.length === 0) {
+                const opt = document.createElement('option');
+                opt.text = new Date().getFullYear();
+                opt.value = new Date().getFullYear();
+                select.appendChild(opt);
+                return;
+            }
+
+            years.forEach(y => {
+                const opt = document.createElement('option');
+                opt.text = y;
+                opt.value = y;
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('연도 조회 실패:', e);
+        }
+    }
+</script>
+</body>
+</html>

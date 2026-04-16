@@ -1,0 +1,522 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+<div class="content_wrap">
+    <section>
+        <div class="table_box">
+            <div class="title_box">
+                <button type="button" class="btn-default" id="btnBack" title="뒤로"><i class="fa fa-arrow-circle-left"></i></button>
+                <button type="button" class="btn-default pull-right" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>
+                <input type="hidden" id="hmi_pk" name="hmi_pk" />
+            </div>
+        </div>
+        <div id="stage-parent">
+            <div id="stage"></div>
+        </div>
+    </section>
+</div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+<!-- konva -->
+<script type="text/javascript" src="/resource/konva/konva.min.js"></script>
+<!-- mqtt -->
+<script type="text/javascript" src="/js/mqtt.js?v=2000"></script>
+
+<script type="text/javascript">
+
+    class HmiDetailPage {
+        constructor() {
+            let _this = this;
+            this.baseUrl = '/api/support/hmi_b';
+            this.stage = null;
+            this.layer = null;
+            this.currentGroup = null;
+            this.tags = [];
+
+            this.$stageParent = $('#stage-parent');
+            this.initialCanvasWidth = this.$stageParent.width();
+            this.initialCanvasHeight = this.initialCanvasWidth * 0.5;
+
+            let queryString = window.location.search
+            
+            let urlParams = new URLSearchParams(queryString);
+            $('#hmi_pk').val(urlParams.get('pk'))
+            
+            let pk = $('#hmi_pk').val();
+            
+            this.getFormData(pk);
+            this.triggerPanel();
+            this.extractTags();
+
+            if (gui.hmi_running_mode == 'mqtt') {
+                // mqtt 수집전 최초 화면에서 최신 DB값 조회 후 화면에 바인딩
+                this.getDataFromDatabase();
+
+                this.mqttclient = new MQTTMessageClient(gui.mqtt_host, gui.mqtt_port);
+                this.mqttclient.setTopicMessageHandler(gui.hmi_topic, this.web_event_handler);
+                this.mqttclient.connect();
+            } else if (gui.hmi_running_mode == 'database') {
+                // 최초 한번 호출 후 타이머
+                this.getDataFromDatabase(); 
+
+                setInterval(function () {
+                    _this.getDataFromDatabase();
+                }, 10000);
+            }
+            
+            if (gui.action == 'storyboard') {
+                $('.table_box').hide();
+            }
+        }
+
+        // mqtt handler
+        web_event_handler(message) {
+            
+            let mqttData = JSON.parse(message.payloadString);
+            if (mqttData && page.layer && page.layer.children.length != 0) {
+                page.layer.children.forEach(function (val) {
+                    let group = page.findUserType({ target: val, types: ['group'] });
+                    if (group) { 
+                        let options = group.attrs.userOptions;
+                        if (options.binding_option == 'yes') { // 연동 여부가 yes
+
+                            if (options.das_config == mqttData.device.pk) { // 설정된 das config id == mqttData의 device id
+                                if (mqttData.locals.status == "F") {
+                                    // 에러상태값을 표시하고 다음 루프로 넘어간다.
+                                    // 미구현 상태, 구현 필요
+                                    let shape = page.findUserType({ target: group, types: ['shape', 'tag'] });
+                                    shape.fill('#DCDCDC');
+                                    return;
+                                }
+
+                                if (options.tag) {
+                                    if (mqttData.locals.tags.length != 0) { // tags 존재 시 value값 텍스트로 표시
+                                        mqttData.locals.tags.forEach(function (item) {
+                                            if (item.tag == options.tag) {
+                                                
+                                                if (item.tag_group == 'equip_run') {
+                                                    // 가동/비가동 여부 [ 상황에 맞게 보완필요 ]
+                                                    if (options.image) {
+                                                        let imageSrc = null;
+                                                        let imageFileName = 'swh_off.png'
+
+                                                        if (item.status) {
+                                                            let status = item.status;
+                                                            // image일 경우 지정된 on/off 이미지로 변경
+                                                            if (status == 'R') {
+                                                                imageFileName = 'swh_on.png'
+                                                                imageSrc = '/api/files/get_hmi_image?file_name=' + imageFileName + '&type=node';
+                                                            } else {
+                                                                imageSrc = '/api/files/get_hmi_image?file_name=' + imageFileName + '&type=node';
+                                                            }
+
+                                                            group.children.forEach(function (item) {
+                                                                if (item.attrs.image) {
+                                                                    group.children.splice(item.index, 1);
+                                                                }
+                                                            });
+
+                                                            Konva.Image.fromURL(imageSrc, function (image) {
+                                                                group.add(image);
+                                                            });
+                                                        }
+                                                    } else {
+                                                        // shape일 경우 색상과 text 변경
+                                                        let shape = page.findUserType({ target: group, types: ['shape', 'tag'] });
+                                                        let text = page.findUserType({ target: group, types: ['text'] });
+                                                        if (item.status) {
+                                                            let status = item.status;
+                                                            let shapeColor = '#FFFFFF';
+                                                            let textColor = '#000000';
+
+                                                            if (status == 'R') {
+                                                                shapeColor = '#006cc8';
+                                                                textColor = '#FFFFFF';
+                                                            } else if (status == 'X') {
+                                                                shapeColor = '#f45858';
+                                                                textColor = '#FFFFFF';
+                                                            }
+
+                                                            shape.fill(shapeColor);
+                                                            text.fill(textColor);
+                                                        }
+                                                    }
+                                                } else if (item.tag_group == 'equip_alarm') { // 알람 태그가 있는 경우
+                                                    let shape = page.findUserType({ target: group, types: ['shape', 'tag'] });
+                                                    let text = page.findUserType({ target: group, types: ['text'] });
+                                                    if (item.value) {
+                                                        let status = item.value;
+                                                        let shapeColor = '#FFFFFF';
+                                                        let textColor = '#000000';
+
+                                                        if (status == 1) {
+                                                            shapeColor = '#FFC000';
+                                                            textColor = '#FFFFFF';
+                                                        } else if (status == 0) {
+                                                            shapeColor = '#7F7F7F';
+                                                            textColor = '#FFFFFF';
+                                                        }
+
+                                                        shape.fill(shapeColor);
+                                                        text.fill(textColor);
+                                                    }
+                                                } else if (item.tag_group == 'level_guage') { // 게이지 태그가 있는 경우
+                                                    let text = page.findUserType({ target: group, types: ['text'] });
+                                                    let displayText = '정상';
+
+                                                    if (item.value) {
+                                                        if (item.value == 1) {
+                                                            displayText = '부족';
+                                                        }
+                                                    }
+                                                    text.text(displayText);
+                                                    group.width(text.width());
+                                                    group.height(text.height());
+                                                } else if (item.tag_group == 'prod.speed.mmss'){
+                                                    let text = page.findUserType({ target: group, types: ['text'] });
+                                                    let displayText = '0분0초';
+                                                    try {
+                                                        if (item.value) {
+                                                            let seconds = parseInt(item.value);
+                                                            let minutes = Math.floor(seconds / 60);
+                                                            let restSec = seconds % 60;
+                                                            displayText = minutes + '분' + restSec +'초';
+                                                        }
+                                                    }
+                                                    catch (error) {
+                                                        displayText = item.value;
+                                                    }
+                                                    
+                                                    text.text(displayText);
+                                                    group.width(text.width());
+                                                    group.height(text.height());
+                                                }
+                                                else {
+                                                    let text = page.findUserType({ target: group, types: ['text'] });
+                                                    text.text(item.value);
+                                                    group.width(text.width());
+                                                    group.height(text.height());
+                                                }
+                                            }
+                                        });
+                                    }
+                                } else {
+                                    
+                                }
+                            }
+                        }
+                    }
+                });
+                page.layer.draw();
+            }
+        }
+
+        // hmi화면의 tag추출
+        extractTags() {
+            let _this = this;
+
+             this.layer.children.forEach(function (val) {
+                let group = _this.findUserType({ target: val, types: ['group'] });
+                if (group) {
+                    let options = group.attrs.userOptions;
+                    if (options.binding_option == 'yes') { // 연동 여부가 yes
+                        if (options.tag) {
+                            _this.tags.push(options.tag);
+                        }
+                    }
+                }
+            });
+        }
+
+        // db로부터 최신 tagdata 가져오기
+        getDataFromDatabase() {
+            let _this = this;
+
+            if (this.tags.length != 0) {
+                let param = {
+                    'action': 'detail_data',
+                    'tag_list': JSON.stringify(this.tags)
+                }
+                let results = AjaxUtil.getSyncData(this.baseUrl, param);
+                
+                if (results) {
+                    this.layer.children.forEach(function (val) {
+                        let group = _this.findUserType({ target: val, types: ['group'] });
+                        if (group) {
+                            let options = group.attrs.userOptions;
+                            if (options.binding_option == 'yes') { // 연동 여부가 yes
+                                results.forEach(function (result) {
+                                    if (options.tag) {
+                                        if (options.tag == result.tagCode) {
+                                            if (result.tagGroupCode == 'equip_run') {
+                                                // 가동/비가동 여부 [ 상황에 맞게 보완필요 ]
+                                                // shape일 경우 색상과 text 변경
+                                                let shape = _this.findUserType({ target: group, types: ['shape', 'tag'] });
+                                                let text = _this.findUserType({ target: group, types: ['text'] });
+                                                if (result.lastStatus) {
+                                                    let status = result.lastStatus;
+                                                    let shapeColor = '#FFFFFF';
+                                                    let textColor = '#000000';
+
+                                                    if (status == 'R') {
+                                                        shapeColor = '#006cc8';
+                                                        textColor = '#FFFFFF';
+                                                    } else if (status == 'X') {
+                                                        shapeColor = '#f45858';
+                                                        textColor = '#FFFFFF';
+                                                    }
+
+                                                    shape.fill(shapeColor);
+                                                    text.fill(textColor);
+                                                }
+                                            } else {
+                                                let text = _this.findUserType({ target: group, types: ['text'] });
+
+                                                if (result.lastValue && !isNaN(result.lastValue)) {
+                                                    text.text(parseFloat(result.lastValue).toFixed(1));
+                                                } else {
+                                                    text.text(result.lastValue);
+                                                }
+
+                                                group.width(text.width());
+                                                group.height(text.height());
+                                            }
+                                        }
+                                    }
+                                });
+                            } 
+                        }
+                    });
+                }
+            }
+        }
+
+        // target내부에서 설정한 type과 filter로 노트 찾기
+        findUserType({ target, types, filter }) {
+            let _this = this;
+
+            let find = null;
+            if (types.includes(target.attrs.userType)) {
+                if (filter) {
+                    let okCount = 0;
+                    for (let [key, value] of Object.entries(filter)) {
+                        if (target.attrs.userOptions.hasOwnProperty(key) && target.attrs.userOptions[key] == value) {
+                            okCount = okCount + 1;
+                        }
+                    }
+                    if (okCount == Object.keys(filter).length) {
+                        find = target;
+                    }
+                } else {
+                    find = target;
+                }
+            }
+
+            if (!find) {
+                if (target.children) {
+                    target.children.forEach(val => {
+                        if (!find) {
+                            find = _this.findUserType({ target: val, types, filter });
+                        }
+                    });
+                }
+            }
+
+            return find;
+        }
+        
+        // canvas 크기 변경 시
+        // Resize Observer로 canvas 크기 변경 감지 중
+        triggerPanel() {
+            let _this = this;
+            let container = document.querySelector('#stage-parent');
+
+            const ro = new ResizeObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    _this.setScale();
+                });
+            });
+
+            ro.observe(container);
+        }
+
+        // scale 세팅
+        setScale() {
+            let _this = this;
+
+            let containerWidth = $('#stage-parent').width();
+            let containerHeight = $('#stage-parent').height();
+            if ($('#stage-parent').height() == 0) {
+                containerHeight = containerWidth * 0.5;
+            }
+
+            let xScale = (containerWidth / this.initialCanvasWidth);
+            let yScale = (containerHeight / this.initialCanvasHeight);
+
+            this.stage.width(this.initialCanvasWidth * xScale);
+            this.stage.height(this.initialCanvasHeight * yScale);
+            this.stage.scale({ x: xScale, y: yScale });
+        }
+
+        // 저장된 데이터 조회
+        getFormData(pk) {
+            let _this = this;
+            let param = { 'id': pk };
+            //let url = '/api/support/hmi_b';
+            let result = AjaxUtil.getSyncData(this.baseUrl + '/detail', param);
+            if (result.data.Content) {
+                $('#hmi_pk').val(result.data.id);
+                var formValue = JSON.parse(result.data.Content);
+                this.setStage(formValue);
+            }
+        }
+
+        // stage 세팅
+        setStage(stage) {
+            let _this = this;
+            let group = null;
+
+            this.initialCanvasWidth = stage.attrs.width;
+            this.initialCanvasHeight = stage.attrs.height;
+
+            this.stage = Konva.Node.create(stage, '#stage');
+            this.layer = this.findUserType({ target: this.stage, types: ['layer'] });
+
+            if (stage.attrs.userOptions) {
+                if (stage.attrs.userOptions.backgroundColor) {
+                    this.stage.getContainer().style.backgroundColor = stage.attrs.userOptions.backgroundColor;
+                } else {
+                    this.stage.getContainer().style.backgroundColor = '#EAEAEA';
+                }
+
+                if (stage.attrs.userOptions.image) {
+                    this.setBackgroundImage(stage.attrs.userOptions.image, stage.attrs.width, stage.attrs.height);
+                }
+            }
+
+            this.layer.children.forEach(function (val) {
+                let group = _this.findUserType({ target: val, types: ['group'] });
+                if (group) {
+                    let text = _this.findUserType({ target: group, types: ['text'] });
+
+                    if (text) {
+                        group.width(text.width());
+                        group.height(text.height());
+                    }
+
+                    if (group.attrs.userOptions.image) {
+                        let imageSrc = '/api/files/get_hmi_image?file_name=' + group.attrs.userOptions.image + '&type=node';
+
+                        group.children.forEach(function (item) {
+                            group.children.splice(item.index, 1);
+                        });
+
+                        Konva.Image.fromURL(imageSrc, function (image) {
+                            group.add(image);
+                        });
+                    }
+
+                    group.draggable(false);
+                }
+            });
+
+            this.stage.draw();
+        }
+
+        // 배경 이미지 설정
+        setBackgroundImage(fileName, initialWidth, initialHeight) {
+            let _this = this;
+
+            if (fileName) {
+                this.imageSrc = '/api/files/get_hmi_image?file_name=' + fileName + '&type=background';
+                this.imageObj = new Image();
+                this.imageObj.onload = function (e) {
+                    let width = initialWidth;
+                    let height = initialHeight;
+
+                    function createImage(x) {
+                        let adjX = 0;
+                        let adjY = 0;
+
+                        if (_this.imageKonva) {
+                            _this.imageKonva.destroy();
+                        }
+
+                        let count = 0;
+
+                        while (true) {
+                            count++;
+                            if (count > 5000) {
+                                return _this.imageKonva; 
+                            }
+
+                            _this.imageKonva = new Konva.Image({
+                                x: 0, y: 0,
+                                width: _this.imageObj.width,
+                                height: _this.imageObj.height,
+                                image: _this.imageObj,
+                                userType: 'background_image',
+                                scaleX: adjX,
+                                scaleY: adjY
+                            });
+
+                            if (_this.imageKonva.getClientRect().width > (width - 1) && _this.imageKonva.getClientRect().height > (height - 1)) {
+                                return _this.imageKonva;
+                            }
+
+                            if (_this.imageKonva.getClientRect().width < width) {
+                                adjX += .003;
+                            }
+
+                            if (_this.imageKonva.getClientRect().height < height) {
+                                adjY += .003;
+                            }
+
+                            _this.imageKonva.destroy();
+                        }
+                    }
+
+                    var image = createImage();
+
+                    _this.layer.children.slice().reverse().forEach(function (item, index, object) {
+                        if (item.attrs.userType === 'background_image') {
+                            _this.layer.children.splice(object.length - 1 - index, 1);
+                        }
+                    });
+
+                    _this.layer.add(image);
+                    image.moveToBottom();
+                    _this.layer.draw();
+                    _this.imageObj = null;
+                };
+
+                _this.imageObj.src = _this.imageSrc;
+
+            } else {
+                this.layer.children.slice().reverse().forEach(function (item, index, object) {
+                    if (item.attrs.userType === 'background_image') {
+                        _this.layer.children.splice(object.length - 1 - index, 1);
+                    }
+                });
+
+                this.layer.draw();
+            }
+        }
+    }
+
+    let page = null;
+
+    $(document).ready(function (e) {
+
+        page = new HmiDetailPage();
+
+        // 뒤로가기 버튼
+        $('#btnBack').click(function () {
+            location.href = '/gui/' + gui.gui_code;
+        });
+
+    });
+</script>
+</th:block>
+</html>

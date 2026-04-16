@@ -1,0 +1,256 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>메뉴 권한</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>시스템관리</li>
+                <li>메뉴권한</li>
+            </ul>
+        </div>
+        <section class="section">
+            <div class="section-top">
+                <form id="searchForm" autocomplete="off">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label for="cboUserGroup2">
+                                    사용자그룹<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <select class="form-control2" id="cboUserGroup2" name="cboUserGroup"></select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label for="cboMenuFolder">
+                                    메뉴폴더<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <select class="form-control2" id="cboMenuFolder" name="cboMenuFolder"></select>
+                            </dd>
+                        </dl>
+
+                        </br>
+                        <dl>
+                            <dd>
+                                <div class="srch-box" style="margin-top: 20px">
+                                    읽기<input type="checkbox" id="AllcheckRead">
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dd>
+                                <div class="srch-box" style="margin-top: 20px;">
+                                    쓰기<input type="checkbox" id="AllcheckWrite">
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dd>
+                                <div class="srch-box" style="margin-top: 20px;">
+                                    알람<input type="checkbox" id="AllcheckAlarm">
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                </form>
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <a class="btn btn-edit" id="btnSave2" title="저장">
+                                <img th:src="@{/images/icon/ico-save.svg}" alt="엑셀 아이콘">
+                                저장
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="container-fluid">
+                <p id="selectedItem"></p>
+                <div id="theGrid" style="max-height: 690px;"></div>
+            </div>
+            <div class="btn-wrap"></div>
+        </section>
+    </div> <!--//layout-contents end -->
+
+    <footer style="margin-top: 24px;">
+        <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+    </footer>
+
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+    <script type="text/javascript">
+
+        var theGrid;
+        var viewdata;
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        let menuGroupName = new wijmo.collections.PropertyGroupDescription('메뉴명', function (item) {
+            return item.gpname;
+        });
+
+        function init() {
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: [
+                    {binding: 'name', header: '코드명', width: 250, align: 'left'},
+                    {binding: 'r', header: '읽기', width: 200, align: 'center', dataType: wijmo.DataType.Boolean, isReadOnly: false},
+                    {binding: 'w', header: '쓰기', width: 200, align: 'center', dataType: wijmo.DataType.Boolean, isReadOnly: false},
+                    {binding: 'a', header: '알람', width: 200, align: 'center', dataType: wijmo.DataType.Boolean, isReadOnly: false},
+                    {binding: '', header: '', width: '*', align: 'center'},
+                ],
+                formatItem: function (s, e) {
+                    if (e.panel.cellType == wijmo.grid.CellType.Cell) {
+                        var col = s.columns[e.col];
+                        if (col.binding == 'name') {
+                            e.cell.style.pointerEvents = 'none';
+                            e.cell.style.userSelect = 'none';
+                        }
+                    }
+                }
+            });
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+
+            // 전체 체크박스 이벤트
+            document.getElementById('AllcheckRead').addEventListener('change', function () {
+                for (var i = 0; i < theGrid.rows.length; i++) {
+                    theGrid.setCellData(i, 'r', this.checked);
+                }
+            });
+
+            document.getElementById('AllcheckWrite').addEventListener('change', function () {
+                for (var i = 0; i < theGrid.rows.length; i++) {
+                    theGrid.setCellData(i, 'w', this.checked);
+                }
+            });
+
+            document.getElementById('AllcheckAlarm').addEventListener('change', function () {
+                for (var i = 0; i < theGrid.rows.length; i++) {
+                    theGrid.setCellData(i, 'a', this.checked);
+                }
+            });
+
+            $('#btnSave2').click(saveUserGroupMenu);
+
+            $('#cboUserGroup2, #cboMenuFolder').change(function () {
+                searchData2();
+            });
+
+            // 초기 데이터 로드
+            searchData2();
+        }
+
+        function searchData2() {
+            let group_id = $('#cboUserGroup2').val();
+            let folder_id = $('#cboMenuFolder').val();
+
+            $.ajax({
+                url: '/api/system/usergroupmenu/read',
+                type: 'GET',
+                data: {
+                    'group_id': group_id,
+                    'folder_id': folder_id
+                },
+                async: false,
+                success: function (data) {
+                    if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
+                        grid_binding2(data.data);
+                    } else {
+                        grid_binding2([]);
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching data:', textStatus, errorThrown);
+                }
+            });
+        }
+
+        function grid_binding2(data) {
+            let filteredData = data
+                .filter(item => item.r !== null || item.w !== null || item.a !== null)
+                .map(item => ({
+                    name: item.name,
+                    r: item.r,
+                    w: item.w,
+                    a: item.a,
+                    gpname: item.gpname,
+                    menu_code: item.menu_code,
+                    ugm_id: item.ugm_id
+                }));
+
+            viewdata = new wijmo.collections.CollectionView(filteredData);
+            viewdata.groupDescriptions.push(menuGroupName);
+
+            theGrid.itemsSource = viewdata;
+        }
+
+        function saveUserGroupMenu() {
+            let group_id = $('#cboUserGroup2').val();
+
+            let url = '/api/system/usergroupmenu/save';
+            let items = [];
+
+            let sourceCollection = theGrid.itemsSource.sourceCollection || [];
+            sourceCollection.forEach(item => {
+                if (item.ugm_id || item.r || item.w || item.a) {
+                    items.push({
+                        menu_code: item.menu_code,
+                        ugm_id: item.ugm_id,
+                        r: !!item.r,
+                        w: !!item.w,
+                        a: !!item.a,
+                    });
+                }
+            });
+
+            let data = {group_id: group_id, Q: JSON.stringify(items)};
+
+            Alert.confirm('', '저장하시겠습니까?', function () {
+                let fnSuccess = function (result) {
+                    if (result.success) {
+                        Alert.alert('', '저장되었습니다');
+                        searchData2();
+                    } else {
+                        console.error('저장 실패:', result.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            });
+        }
+
+        $(document).ready(function () {
+            AjaxUtil.fillSelectOptions($('#cboUserGroup2'), 'user_group', '', '');
+            AjaxUtil.fillSelectOptions($('#cboMenuFolder'), 'menu_folder', 'all', '');
+        });
+
+    </script>
+</th:block>
+</html>

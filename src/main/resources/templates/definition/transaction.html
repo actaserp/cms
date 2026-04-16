@@ -1,0 +1,581 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>거래구분</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>거래구분</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px">
+            <section class="section" style="width: 50%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>구분명</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" class="form-control2" id="searchtradenm" name="searchtradenm">
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>구분</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="searchioflag" name="searchioflag">
+                                        <option value="">전체</option>
+                                        <option value="0">입금</option>
+                                        <option value="1">출금</option>
+                                    </select>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div> <!--//section-top end -->
+                <div class="container-fluid">
+                    <p id="selectedItem"></p>
+                    <div id="transaction-grid" style=""></div>
+                </div>
+                <div class="btn-wrap">
+                </div>
+            </section>
+
+            <section style="width: 50%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <ul>
+                            <li>
+                                <button type="button" class="btn-excellt btn-default " id="btnNew" name="btnNew"
+                                        style="width: 115px; height: 36px;"><i
+                                        class="fas fa-plus"></i>신규등록
+                                </button>
+                            </li>
+
+                            <li>
+                                <button type="button" class="btn-delete btn-danger " id="btnDel"
+                                        style=" width: 115px; height: 36px;"><i
+                                        class="fas fa-trash"></i>삭제</button>
+                            </li>
+                            <li>
+                                <button type="button" class="btn-excellt btn-default" id="btnSave"
+                                        style="width: 115px; height: 36px;"><i
+                                        class="fas fa-save"></i>저장</button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <form id="tradeForm">
+                        <table class="write-table" style="width: 100%">
+                            <caption style="text-align: left; margin-bottom: 8px;">등록테이블</caption>
+                            <input type="hidden" id="id" name="id"/>
+                            <colgroup>
+                                <col class="wp20">
+                                <col class="wp80">
+                            </colgroup>
+                            <tbody>
+                            <tr>
+                                <th>
+                                    <label for="tradenm"><span class="eq">*</span>거래구분명</label>
+                                </th>
+                                <td>
+                                    <input type="text" id="tradenm" name="tradenm" style="width: 100%">
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="ioflag">입출구분</label>
+                                </th>
+                                <td>
+                                    <select type="text" id="ioflag" name="ioflag" style="width: 100%">
+                                        <option value="0">입금</option>
+                                        <option value="1">출금</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="acccd">계정코드</label>
+                                </th>
+                                <td>
+                                    <input type="text" id="acccd" name="acccd" style="display: inline-block; width: 45%;" placeholder="클릭해서 검색하세요.">
+                                    <input type="text" id="accname1" name="accname1" style="display: inline-block; width: 45%; margin-left: 4%;" readonly>
+                                </td>
+
+
+
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="reacccd">상대계정</label>
+                                </th>
+                                <td>
+                                    <input type="text" id="reacccd" name="reacccd" style="display: inline-block; width: 45%;" placeholder="클릭해서 검색하세요.">
+                                    <input type="text" id="accname2" name="accname2" style="display: inline-block; width: 45%; margin-left: 4%;" readonly>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="remark">비고</label>
+                                </th>
+                                <td colspan="3">
+                                    <input type="text" id="remark" name="remark" style="width: 100%;">
+                                    <!--<textarea id="description" name="description"></textarea>-->
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+                <!--//tab-wrap end-->
+            </section>
+        </div>
+    </div> <!--//layout-contents end -->
+
+
+    <script type="text/x-tmpl" id="TradTemplate">
+        <div class="content_wrap popup">
+            <!--<header>
+                <h4 id="popTitle">
+                {% if (o.id!='') { %}
+                  BOM 수정({%=o.Name%})
+                  {% } else { %}
+                  BOM 등록
+                  {% } %}
+                </h4>
+                <div class="popup_close_box"><button class="btn_popup_close" id="modal-close-x"><i class="fas fa-times"></i></button></div>
+            </header>-->
+
+        <div class="table-wrap">
+                <table class="write-table">
+                    <caption>주문등록 테이블</caption>
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="searchCode">계정코드</label>
+                            </th>
+                            <td style="width:50px;">
+                                <input class="form-control2 tar" id="searchCode" name="searchCode" type="text" style="width:180px;" />
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="popMaterialGroup">계정명칭</label>
+                            </th>
+                            <td style="width:50px;">
+                                 <input class="form-control2 tar" id="searchName" name="searchName" type="text"  style="width:180px;"/>
+                            </td>
+                            <td colspan="2" style="text-align: center;">
+                                <button type="button" class="btn-default" id="btnSubjectSearch" title="조회"><i class="fas fa-search"></i>검색</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="grid_box" style="margin-top: 10px;">
+                    <div id="subject-search-grid" style="height: 300px; max-height: 300px;"></div>
+                </div>
+        </div>
+
+        <div class="popup-button">
+          <button type="button" class="btn-popup" id="btnAccountSave"><span data-labelCd="선택">선택</span></button>
+          <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+</div>
+    </script>
+
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        class TransactionPage {
+            constructor() {
+                this.grid = null;
+                this.selectedPk = null;
+                this.viewData = new wijmo.collections.CollectionView();
+                this.baseUrl = '/api/definition/trade';
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#transaction-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'trid', header: '코드', width: 200, align: 'left',visible:false },
+                        {binding: 'ioflag', header: '입/출구분', width: 120, align: 'center'},
+                        {binding: 'tradenm', header: '거래구분명', width: 200, align: 'center'},
+                        {binding: 'acccd', header: '계정코드', width: 180, align: 'left'},
+                        {binding: 'reacccd', header: '상대계정', width: 250, align: 'left'},
+                        {binding: 'remark', header: '비고', width: 200, align: 'left'},
+                    ],
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                });
+
+                this.grid.hostElement.addEventListener('dblclick', (e) => {
+                    let hitTest = this.grid.hitTest(e);
+                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                        let row = hitTest.row;
+                        let item = this.grid.rows[row].dataItem;
+                        _this.showDetail(item.trid);
+
+                    }
+                });
+
+                this.grid.formatItem.addHandler((s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        let col = s.columns[e.col];
+                        let item = s.rows[e.row].dataItem;
+
+                        if (col.binding === "ioflag") {
+                            e.cell.textContent = (item.ioflag === 0 || item.ioflag === '0') ? '입금' : '출금';
+                        }
+
+                    }
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        const col = s.columns[e.col];
+                        const item = s.rows[e.row].dataItem;
+
+                        if (col.binding === "ioflag") {
+                            const isDeposit = (item.ioflag === 0 || item.ioflag === '0' || item.ioflag === '입금');
+                            e.cell.textContent = isDeposit ? '입금' : '출금';
+                            e.cell.style.backgroundColor = isDeposit ? '#d0f0c0' : '#fddde6'; // 연두색 or 연분홍색
+                        }
+                    }
+                });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '거래구분';
+
+            }
+
+            // 거래구분 조회
+            searchMainData() {
+                let _this = this;
+                let param = {
+                    'searchtradenm': $('#searchtradenm').val(),
+                    'searchioflag': $('#searchioflag').val(),
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                }
+
+                let url = '/api/definition/trade';
+
+                let result = AjaxUtil.getSyncData(url + '/read',param);
+
+                 if (result.data != null) {
+                   _this.viewData.sourceCollection = result.data;
+                }
+
+                $('#tradeForm')[0].reset();
+                $('#tradeForm').find('#id').val('');
+            }
+
+            saveData() {
+                let _this = this;
+                let data = FormUtil.extractForm($('#tradeForm'));
+                let url = '/api/definition/trade/save'
+
+                if (!data.tradenm) {
+                    Alert.alert('', '거래구분명을 입력해주세요.');
+                    return;
+                }
+
+                data.spjangcd=sessionStorage.getItem('spjangcd');
+
+                let fnSuccess = function (res) {
+                    Alert.alert('','저장되었습니다');
+                    _this.searchMainData();
+                };
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+
+            showDetail(trid){
+                let param = {'id': trid,
+                    spjangcd: sessionStorage.getItem('spjangcd')};
+                let url = '/api/definition/trade'
+
+                let result = AjaxUtil.getSyncData(url + '/detail', param);
+                if (result.success != null) {
+                    FormUtil.BindDataForm(result.data, $('#tradeForm'));
+                    $('#id').val(result.data.trid);
+                }
+
+            }
+
+            deleteData(id) {
+                let _this = this;
+
+                let url = '/api/definition/trade/delete';
+
+                let data = {id: id};
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('', '삭제되었습니다'); // Notification
+                        _this.searchMainData();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+        }
+
+        let page = null;
+        let pop = null; // 전역에 pop 선언
+
+        $(document.body).ready(function (e) {
+            page = new TransactionPage();
+
+            page.searchMainData();
+
+            pop = new PopMatComponent();
+
+            //검색
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            $('#btnSave').click(function (e) {
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        page.saveData()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $('#btnDel').click(function (e) {
+                let id = $('#tradeForm').find('#id').val();
+
+                if (id == '') {
+                    Alert.alert('', '선택된 데이터가 없습니다.');
+                    return;
+                }
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        page.deleteData(id)
+                    },
+                    function () {
+                    }
+                );
+
+            });
+
+            $('#btnNew').click(function (e) {
+                $('#tradeForm')[0].reset();
+                $('#tradeForm').find('#id').val('');
+            });
+
+
+
+            let selectedTriggerId = null;
+
+            $('#acccd').on('click', function () {
+                selectedTriggerId = 'acccd';
+                pop.show(selectedTriggerId);
+            });
+
+            $('#reacccd').on('click', function () {
+                selectedTriggerId = 'reacccd';
+                pop.show(selectedTriggerId);
+            });
+
+
+
+            $('#searchtradenm').on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    page.searchMainData();
+                }
+            });
+
+        });
+    </script>
+
+    <script type="text/javascript">
+        class PopMatComponent {
+            constructor() {
+                this.grid = null;
+                this.viewData2 = new wijmo.collections.CollectionView();
+                this.selectedItem = null;
+                this.modalContainer = new PopupDraggable('차감계정 선택');
+                this.$btnMaterialSearch = null;
+                this.$btnMaterialSelect = null;
+                this.$keyword = null;
+                this.material_type = null;
+
+            }
+
+
+            searchDataBind() {
+                let _this = this;
+                let url = '/api/definition/trade/search_acc';
+
+                let $searchCode = _this.$content.find('#searchCode');
+                let $searchName = _this.$content.find('#searchName');
+
+                let searchCode = $searchCode.val();
+                let searchName = $searchName.val();
+
+                let data = {
+                    searchCode: searchCode,
+                    searchName: searchName,
+                    spjangcd: sessionStorage.getItem('spjangcd')
+                };
+
+                AjaxUtil.getAsyncData(url, data, function (result) {
+                    if (result.success) {
+                        _this.grid2.itemsSource = result.data || [];
+                        /*console.log(result.data);*/
+                    }
+                });
+            }
+
+
+            show(selectedTriggerId) {
+                let _this = this;
+
+                let content = tmpl('TradTemplate', {});
+                let $content = $(content);
+
+                this.$content = $content;
+
+                this.modalContainer.open({ width: 800, height: 500, $content });
+
+                this.viewData2 = Array.isArray(this.viewData2) ? this.viewData2 : [];
+
+                this.grid2 = new wijmo.grid.FlexGrid('#subject-search-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        { binding: 'acccd', header: '계정코드', width: 120, align: 'center' },
+                        { binding: 'accnm', header: '계정명칭', width: 250, align: 'left' },
+                        { binding: '', header: '', width: '*', align: 'left' },
+                    ],
+                    itemsSource: this.viewData2,
+                });
+
+                this.grid2.rowHeaders.columns.splice(0, 1);
+                new FlexGridContextMenu(this.grid2);
+                this.grid2.downloadFileName = '차감코드';
+
+
+                this.searchDataBind();
+
+
+                $content.find('#btnSubjectSearch').click(() => {
+                    this.searchDataBind();
+                });
+
+                $('#searchCode, #searchName').on('keydown', function (e) {
+                    if (e.keyCode === 13) {
+                        this.searchDataBind();
+                    }
+                });
+
+                this.grid2.selectionChanged.addHandler((s, e) => {
+                    let selectedItem = s.collectionView.currentItem;
+                    this.selectedItem = selectedItem;
+                });
+
+                // 저장 버튼 클릭 이벤트
+                $content.find('#btnAccountSave').click(() => {
+                    if (this.selectedItem) {
+                        let acccd = this.selectedItem.acccd;
+                        let accname = this.selectedItem.accnm;
+
+                        // 어떤 버튼으로 모달이 열렸는지에 따라 분기
+                        if (selectedTriggerId === 'acccd') {
+                            $('#acccd').val(acccd);
+                            $('#accname1').val(accname);
+                        } else if (selectedTriggerId === 'reacccd') {
+                            $('#reacccd').val(acccd);
+                            $('#accname2').val(accname);
+                        }
+
+                        this.close();
+                    } else {
+                        Alert.alert('', '계정을 선택해주세요.');
+                    }
+                });
+
+
+                $content.find('#material-search-close, #btn-material-search-close').on('click', function () {
+                    _this.close();
+                });
+
+            }
+
+            /*그리드 셀 더블클릭 이벤트*/
+            /*this.grid2.hostElement.addEventListener('dblclick', function (e) {
+                let items = _this.grid2.selectedItems;
+                if (items.length === 0) {
+                    return false;
+                }
+                _this.selectData(items[0]); // btnMaterialSelect 클릭과 동일한 동작
+            });*/
+            close() {
+                this.modalContainer.close();
+            }
+        }
+    </script>
+</th:block>
+
+</html>

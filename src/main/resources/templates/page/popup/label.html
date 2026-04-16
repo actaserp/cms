@@ -1,0 +1,211 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+<div class="content_wrap popup" >
+    <header>
+        <h4>Label Setting<span id = "MenuTitle"></span></h4>
+        <div class="popup_close_box"><button class="btn_popup_close" id="modal-close"><i class="fas fa-times"></i></button></div>
+    </header>
+    <form id="labelForm" autocomplete="off">
+        <input type="hidden" id="lable_code_id" name="lable_code_id" />
+        <input type="hidden" id="label_lang_id" name="label_lang_id" />
+    <section id="labelcode_info_section">
+        <div class="table_box">
+            <div class="title_box">
+                <div class="left_align">
+                    <span>Label Info</span>
+                </div>
+                <div class="right_align">
+                    <span id="mode"></span>
+                </div>
+            </div>
+            <div class="table_box sub">
+                <div class="row">
+                    <input type="hidden" id="ModuleName" name="ModuleName" />
+                    <div class="col-12" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md">Menu Name</span>
+                            </div>
+                            <input class="form-control2" type="text" id="MenuName" name="menu_name" readonly />
+                        </div>
+                    </div>
+                    <div class="col-12" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md">Template</span>
+                            </div>
+                            <input class="form-control2" type="text" id="TemplateKey" name="TemplateKey" readonly />
+                        </div>
+                    </div>
+                    <div class="col-12" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md">Label Code</span>
+                            </div>
+                            <input class="form-control2" type="text" id="LabelCode" name="LabelCode" readonly />
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_area">Description</span>
+                            </div>
+                            <textarea class="form-control2 tal" id="Description" name="Description"></textarea>
+                        </div>
+                    </div> 
+                </div>
+            </div>
+        </div>
+    </section>
+    <section>
+        <div class="table_box">
+            <div class="title_box">
+                <span>Language Text</span>
+            </div>
+            <div class="table_box sub">
+                <div class="row">
+                   <div class="col-12" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md">Language</span>
+                            </div>
+                            <select class="form-control2" id="LangCode" name="LangCode"></select>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md">Display Text</span>
+                            </div>
+                            <input class="form-control2" type="text" id="DispText" name="DispText">
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </section>
+    </form>
+    <section class="popupcontent">
+        <div class="left_align">
+            <button type="button" class="btn-popup" id="saveLabelCodeLang"><span data-labelCd="저장">Save</span></button>
+            <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">Close</span></button>
+        </div>
+    </section>
+</div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+<script type="text/javascript">
+
+    class LabelSettingPage {
+        constructor() {
+            this.url = '/api/common/labels';
+            this.$form = $('#labelForm');
+            this.init();
+            $("body").css("overflow", "hidden"); 
+        }
+
+        init() {
+
+            let _this = this;
+            let gui_code = $('#ModuleName').val();
+            let template_key = $('#TemplateKey').val();
+            let label_code = $('#LabelCode').val();
+            let $LangCode = $('#LangCode');
+			
+            let lang_code = i18n.getLanguageCode();
+            AjaxUtil.fillSelectOptions($LangCode, 'system_code', '', lang_code, 'lang_code');
+            if (gui_code == '') {
+                gui_code = 'common';
+                $('#ModuleName').val('common');
+            }
+
+            let result = this.getLabelCodeLanguageDetail(lang_code, gui_code, template_key, label_code);
+            if (result) {
+                FormUtil.BindDataForm(result, this.$form);
+
+                if (gui_code == 'common') {
+                    $('#MenuName').val('Common');
+                    $('#labelcode_info_section').css('display', 'none');
+                }
+
+                if (result.lable_code_id == null) {
+                    $('#mode').text('(new)');
+                }
+
+                $LangCode.on('change', function (e) {
+                    let lcd = $(this).val();
+                    let resultdata = _this.getLabelCodeLanguageDetail(lcd, gui_code, template_key, label_code);
+                    if (resultdata != null) {
+                    	$('#DispText').val(resultdata.DispText);
+					} else { 
+						$('#DispText').val("");
+					}
+                });
+            }
+        }
+
+        getLabelCodeLanguageDetail(lang_code, gui_code, template_key, label_code) {
+            let result = {};
+            let data = {
+                gui_code: gui_code,
+                template_key: template_key,
+                label_code: label_code,
+                lang_code: lang_code,
+                action: 'labelcodelang_detail'
+            };
+            result = AjaxUtil.getSyncData(this.url + "/labelcodelang_detail", data);
+            return result.data;
+        }
+
+        saveData() {
+            let _this = this;
+            let data = FormUtil.extractForm(_this.$form);
+            let url = '/api/common/labels/save_labelcode_lang';
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Notify.success('저장했습니다.');
+                    i18n.initialize();
+                }
+            };
+            AjaxUtil.postAsyncData(url, data, fnsuccess);
+        }
+    }
+
+    let page = null;
+    $(document).ready(function (e) {
+        let queryString = window.location.search
+        
+        let urlParams = new URLSearchParams(queryString);
+        
+        let langCode = urlParams.get('lang_code')
+        let labelCode = urlParams.get('label_code')
+        let guiCode = urlParams.get('gui_code')
+        let templateKey = urlParams.get('template_key')
+        
+        $('#TemplateKey').val(templateKey)
+        $('#ModuleName').val(guiCode);
+		$('#LabelCode').val(labelCode);
+		
+		$('#MenuTitle').text("("+labelCode+")")
+		
+        page = new LabelSettingPage();
+        
+        // 저장
+        $('#saveLabelCodeLang').click(function (e) {
+            Alert.confirm('', '저장하시겠습니까?', function (e) { page.saveData(); });
+        });
+
+        // 닫기
+        $('#modal-close, #modal-close-button').on('click', function () {
+            parent.i18n.modal.close();
+        });
+    });
+</script>
+
+</th:block>
+</html>

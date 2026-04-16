@@ -1,0 +1,254 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+<div class="content_wrap">
+
+    <section class="section">
+        <div class="title_box">
+            <div class="left_align">
+                <h3 data-labelCd="온/습도 관리">온/습도 관리</h3>
+            </div>
+            <button type="button" class="btn-default pull-right" id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress"></i></button>
+            <button class="btn-default pull-right mr-1" onClick="CommonUtil.toggleFullScreen('body');">
+                <i class="fas fa-expand"></i>
+            </button>
+        </div>
+        <div class="table_box search">
+            <div class="row">
+                <div class="col-8 col-lg-4 col-xl-3">
+                    <div class="input-group" >
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_sm" data-labelCd="일자">일자</span>
+                        </div> 
+                        <div data-ax5picker="multi" id="srchDt">
+                            <div class="input-group-append">
+                                <input class="tac " type="text" id="srchStartDt" name="srchStartDt" />
+                                <span class="input-group-text fs-xl">
+                                    <i class="fas fa-calendar-alt calendar_color" ></i>
+                                </span>
+                                <span class="slow_sign">~</span>
+                                <input class="tac " type="text" id="srchEndDt" name="srchEndDt" />
+                                <span class="input-group-text fs-xl">
+                                    <i class="fas fa-calendar-alt calendar_color"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-1">
+                    <button type="button" class="btn-default" id="btnSearch" title="조회"><i class="fas fa-search"></i></button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section style="width:100%; height:100%;">
+        <div class="grid_box">
+            <div class="title_box">
+                 <span class="right_align rpt" data-labelCd="점검 현황">점검 현황</span>
+                <button type="button" class="btn-default" id="btnAdd">등록</button>
+                <button type="button" class="btn-default" id="btnExcel"><i class="fas fa-file-excel"></i></button>                
+            </div>
+            <div class="h-600" data-ax5grid="workplace_grid"></div>
+        </div>
+    </section>
+</div>
+</th:block>
+
+
+<th:block layout:fragment="scripts">
+<script type="text/javascript" src="/js/grid.js?ver=22080801"></script>
+<th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+<th:block th:replace="/common/approve_box :: approve_box" ></th:block>
+
+<script type="text/javascript">
+
+    class WorkplaceStatusPage {
+        constructor() {
+            this.grid = null;
+			this.url = '/api/precedence/clean/workplace_list';
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+
+            let config = {
+                target: $('[data-ax5grid="workplace_grid"]'),
+                sortable: true,
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 25,  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {                        
+                        _this.grid.select(this.dindex);						
+                        _this.detail(this);
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'Title', label: '일지명', width: 350, align: 'center' },
+                    { key: 'StateName', label: '결재상태', width: 100, align: 'center' },
+                    {
+                        key: 'LineName', label: '결재현황', width: 550, align: 'left',
+                        formatter: function () {
+                            return CommonUtil.convertApprLineNameHtml(this.item.LineName, this.item.LineNameState);
+                        }
+                    },
+                    { key: 'DataDate', label: '일자', width: 120, align: 'center'},
+                    {
+                        key: 'SearchYN', label: '조회', width: 80, align: 'center',
+                        formatter: function () {
+                            let html = '';
+                            if (this.item.SearchYN == 'Y') {
+                                html = '<button class="btn-default" style="width:100%; height:0.9em; font-size:1em; padding:0; margin:0">조회</button>'
+                            }
+                            return html;
+
+                        }
+                    },
+                    {
+                        key: 'EditYN', label: '수정', width: 80, align: 'center',
+                        formatter: function () {
+                            let html = '';
+                            if (this.item.EditYN == 'Y') {
+                                html = '<button class="btn-default" style="width:100%; height:0.9em; font-size:1em; padding:0; margin:0">수정</button>'
+                            }
+                            return html;
+
+                        }
+                    },
+                    {
+                        key: 'DeleteYN', label: '삭제', width: 80, align: 'center',
+                        formatter: function () {
+                            let html = '';
+                            if (this.item.DeleteYN == 'Y') {
+                                html = '<button class="btn-danger" style="width:100%; height:0.9em; font-size:1em; padding:0; margin:0">삭제</button>'
+                            }
+                            return html;
+
+                        }
+                    },
+                ]
+            };
+            this.grid = new ax5.ui.grid(config);
+            this.grid_config = config;        
+        }
+                             
+        searchMainData() {
+            let _this = this;
+            let param = {
+                'action': 'read',
+                'start_date': $('#srchStartDt').val(),
+                'end_date': $('#srchEndDt').val(),
+            };
+
+            let result = AjaxUtil.getSyncData(_this.url + '/read_list', param);            
+            if (result.data != null) {
+                let count = result.data.length;
+                _this.grid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: count,
+                        totalPages: 50,
+                    }
+                });
+            }
+        }
+        detail(data) {
+            let _this = this;
+            let detail_item = _this.grid.getList('selected')[0];
+            if (data.column.key == 'SearchYN') {
+                location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + data.item.id + '&data_date=' + data.item.DataDate + '&view_mode=true&creater_name=' + detail_item.creater_name;
+			} else if (data.column.key == 'EditYN') {				
+                location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + data.item.id + '&data_date=' + data.item.DataDate +  '&creater_name=' + detail_item.creater_name;
+			} else if (data.column.key == 'DeleteYN') {
+				Alert.confirm('', '삭제하시겠습니까?', function () {					
+					let param = {
+						bh_id: data.item.id,
+					}
+					let fnSuccess = function (resp) {
+						if (resp.success) {
+							Notify.success('삭제하였습니다.');
+							_this.searchMainData();
+						} else {
+							Alert.alert('', resp.message);
+						}
+					};
+					AjaxUtil.postAsyncData(_this.url + '/mst_delete', param, fnSuccess);
+				});
+			}
+        }
+
+		//  등록버튼 클릭 시
+        add() {
+            location.href = '/gui/' + gui.gui_code + '/edit?bh_id=0'        
+		}
+          
+    }    
+
+    let page = null;
+    let popup = null;
+    let modalContainer = null;
+    var picker = new ax5.ui.picker();
+
+    $(document).ready(function (e) {
+        page = new WorkplaceStatusPage();
+        
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),
+            direction: "top",
+            content: {
+                width: 206,  //130 270
+                margin: 10,
+                type: 'date',
+                config: {
+                    control: {
+                        left: '<i class="fa fa-chevron-left"></i>',
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-chevron-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            }           
+        });
+
+        $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-15));
+        $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+
+        //검색 기능
+        $('#btnSearch').click(function (e) {            
+            page.searchMainData();
+        });
+
+        $('#btnAdd').click(function (e) {
+            page.add();
+        });        
+
+        page.searchMainData();
+    });
+
+</script>
+</th:block>
+</html>

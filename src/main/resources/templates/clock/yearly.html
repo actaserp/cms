@@ -1,0 +1,438 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+  <style>
+      .wj-header {
+          text-align: center !important;
+      }
+
+  </style>
+
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <!-- Page Title -->
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>연차관리</h2>
+        <a title="북마크" class="bookmark toggle">
+          내메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>근태현황</li>
+        <li>연차관리</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>
+              <label>조회년도</label>
+            </dt>
+            <dd>
+              <select id="year" name="year">
+              </select>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label>기준일자</label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input type="month" class="form-control2" id="startdate" name="startdate">
+              </div>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label for="rtflag">재직구분</label>
+            </dt>
+            <dd>
+              <select style="width: 150px;" id="rtflag" name="rtflag"></select>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label>사원명</label>
+            </dt>
+            <dd>
+              <input type="text" class="form-control2" id="name" name="name">
+            </dd>
+          </dl>
+
+          <dl>
+            <dt><span class="eq"></span></dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" title="검색" id="btnSearch">
+                  <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+        <div class="button-wrap">
+          <ul>
+            <li>
+              <a class="btn btn-excell" title="저장" id="btnyearCreate">
+                <img th:src="@{/images/icon/ico-edit.svg}" alt="저장 아이콘">
+                연차생성
+              </a>
+            </li>
+            <li>
+              <a class="btn btn-excell" title="저장" id="btnMonthlyCreate">
+                <img th:src="@{/images/icon/ico-edit.svg}" alt="저장 아이콘">
+                월차생성
+              </a>
+            </li>
+            <li>
+              <a class="btn btn-excell" title="저장" id="btnSave">
+                <img th:src="@{/images/icon/ico-edit.svg}" alt="저장 아이콘">
+                저장
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div> <!--//section-top end -->
+      <div class="container-fluid" style="flex-direction: row; gap: 5px">
+          <div style="flex: 0 0 50%; max-width: 50%;">
+            <p id="selectedItem1"></p>
+            <div id="member-grid" style="height: 100%;"></div>
+          </div>
+
+          <div style="flex: 0 0 50%; max-width: 50%;">
+            <p id="selectedItem2"></p>
+            <div id="list-grid" style="height: 100%;"></div>
+          </div>
+      </div>
+    </section>
+  </div> <!--//layout-contents end -->
+
+  <footer style="margin-top: 24px;">
+    <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+  </footer>
+
+</th:block>
+<th:block layout:fragment="scripts">
+  <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+  <script type="text/javascript">
+    class YearlyPage {
+      constructor() {
+        this.viewData = new wijmo.collections.CollectionView();
+        this.viewData2 = new wijmo.collections.CollectionView();
+        this.grid = null;
+        this.grid2 = null;
+        this.init();
+      }
+
+      init() {
+        let _this = this;
+
+        this.grid = new wijmo.grid.FlexGrid('#member-grid', {
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+            //소수점1자리까지만
+            if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+              // daynum/ restnum 컬럼에만 적용
+              const col = sender.columns[e.col];
+              if (col.binding === 'daynum' || col.binding === 'restnum' || col.binding === 'ewolnum') {
+                const value = sender.getCellData(e.row, e.col, false);
+                if (typeof value === 'number') {
+                  e.cell.innerHTML = (value % 1 === 0) ? value.toString() : value.toFixed(1);
+                }
+              }
+            }
+          },
+          columns: [
+            {binding: 'rownum', header: '순번', width: 100, align: 'center'},
+            {binding: 'person_name', header: '사원명', width: 120, align: 'center'},
+            {binding: 'jik_id', header: '직위', width: 100, align: 'center'},
+            {binding: 'rtdate', header: '입사일', width: 140, align: 'center'},
+            {binding: 'ewolnum', header: '이월일', width: 140, align: 'center'},
+            {binding: 'holinum', header: '연차일수', width: 140, align: 'center'},
+            {binding: 'daynum', header: '사용일', width: 120, align: 'center'},
+            {binding: 'restnum', header: '잔여일', width: 100, align: 'center'},
+          ],
+          itemsSource: this.viewData, // 데이터를 설정할 배열
+        });
+
+
+        this.grid.hostElement.addEventListener('dblclick', (e) => {
+          let hitTest = this.grid.hitTest(e);
+          if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+            let row = hitTest.row;
+            let selectedItem = this.grid.rows[row].dataItem;
+            console.log(selectedItem);
+            _this.showDetail(selectedItem.id)
+          }
+        });
+
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '사원별근태현황';
+
+
+        this.grid2 = new wijmo.grid.FlexGrid('#list-grid', {
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'rownum', header: '순번', width: 100, align: 'center'},
+            {binding: 'worknm', header: '구분', width: 120, align: 'center'},
+            {binding: 'reqdate', header: '신청일', width: 100, align: 'center'},
+            {binding: 'frdate', header: '시작일', width: 140, align: 'center'},
+            {binding: 'todate', header: '종료일', width: 140, align: 'center'},
+            {binding: 'daynum', header: '기간', width: 140, align: 'center'},
+            {binding: 'ewolnum', header: '이월일', width: 120, align: 'center'},
+            {binding: 'holinum', header: '생성일', width: 100, align: 'center'},
+            {binding: 'daynum', header: '사용일', width: 100, align: 'center'},
+            {binding: 'restnum', header: '잔여일', width: 100, align: 'center'},
+          ],
+          itemsSource: this.viewData2, // 데이터를 설정할 배열
+        });
+
+        new FlexGridContextMenu(this.grid2);
+        this.grid2.downloadFileName = '근태내역';
+      }
+
+      searchMainData() {
+        let _this = this;
+
+        let url = '/api/clock/Yearly/read'
+        let data = {
+          'year': $('#year').val(),
+          'name': $('#name').val(),
+          'startdate': $('#startdate').val(),
+          'rtflag': $('#rtflag').val(),
+          spjangcd: sessionStorage.getItem('spjangcd'),
+        }
+
+        let result = AjaxUtil.getSyncData(url, data);
+        if (result && result.data) {
+          console.log(result);
+          _this.viewData.sourceCollection = result.data;
+        }
+
+      }//searchMainData
+
+      //연차생성
+      yearCreate() {
+        let _this = this;
+
+        let url = '/api/clock/Yearly/YearlyCreat'
+        let data = {
+          'year': $('#year').val(),
+          'startdate': $('#startdate').val(),
+          'name': $('#name').val(),
+          spjangcd: sessionStorage.getItem('spjangcd'),
+        }
+
+        let result = AjaxUtil.getSyncData(url, data);
+        if (result && result.data) {
+          result.data.sort((a, b) => a.rownum - b.rownum);
+          _this.viewData.sourceCollection = result.data;
+
+          _this.saveyear()
+        }
+
+      }
+
+//월차생성
+      MonthlyCreate() {
+        let _this = this;
+        let url = '/api/clock/Yearly/MonthlyCreate';
+        let data = {
+          'year': $('#year').val(),
+          'startdate': $('#startdate').val(),
+          'name': $('#name').val(),
+          spjangcd: sessionStorage.getItem('spjangcd'),
+        };
+
+        let result = AjaxUtil.getSyncData(url, data);
+        if (result && result.data) {
+          let newData = result.data;
+
+
+          _this.generatedMonthlyData = newData;
+
+          // 기존 데이터와 병합하여 화면에 보여줄 데이터 구성
+          if (!_this.viewData.sourceCollection || _this.viewData.sourceCollection.length === 0) {
+            _this.viewData.sourceCollection = newData;
+            return;
+          }
+
+          let mergedData = [..._this.viewData.sourceCollection];
+
+          newData.forEach(newItem => {
+            let index = mergedData.findIndex(item => String(item.id).trim() === String(newItem.id).trim());
+
+            if (index !== -1) {
+              mergedData[index].daynum = newItem.daynum;
+              mergedData[index].restnum = newItem.restnum;
+              mergedData[index].holinum = newItem.holinum;
+            } else {
+              mergedData.push(newItem);
+            }
+          });
+
+          mergedData.sort((a, b) => a.rownum - b.rownum);
+          _this.viewData.sourceCollection = mergedData;
+
+          _this.saveMonthly()
+        }
+      }
+
+
+      saveMonthly() {
+        let _this = this;
+        let url = '/api/clock/Yearly/Monthlysave';
+
+        let filteredData = _this.generatedMonthlyData;
+
+        if (!filteredData || filteredData.length === 0) {
+          Alert.alert('', '저장할 월차 생성 데이터가 없습니다.');
+          return;
+        }
+
+        let data = {
+          spjangcd: sessionStorage.getItem('spjangcd'),
+          year: $('#year').val(),
+          saveList: filteredData
+        };
+
+        let fnSuccess = function (res) {
+          if (res.success) {
+            Alert.alert('', '저장되었습니다');
+            _this.searchMainData();
+          } else {
+            Alert.alert('', res.message || '저장에 실패했습니다.');
+          }
+        };
+
+        AjaxUtil.postJsonData(url, data, fnSuccess);
+      }
+
+
+      saveyear() {
+        let _this = this;
+        let url = '/api/clock/Yearly/Yearlysave';
+
+        // viewData에서 holinum이 있는 데이터만 필터링
+        let filteredData = _this.viewData.items.filter(item => {
+          return item.holinum !== null && item.holinum !== undefined && Number(item.holinum) > 0;
+        });
+
+        if (filteredData.length === 0) {
+          Alert.alert('', '저장할 연차 생성 데이터가 없습니다.');
+          return;
+        }
+
+        let data = {
+          spjangcd: sessionStorage.getItem('spjangcd'),
+          year: $('#year').val(),
+          saveList: filteredData // 서버로 전송할 데이터
+        };
+
+        console.log(data);
+
+        let fnSuccess = function (res) {
+          if (res.success) {
+            Alert.alert('', '저장되었습니다');
+            /* _this.searchMainData();*/
+          } else {
+            Alert.alert('', res.message || '저장에 실패했습니다.');
+          }
+        };
+
+        AjaxUtil.postJsonData(url, data, fnSuccess);
+      }
+
+      showDetail(id) {
+        console.log("showdetail진입");
+        let _this = this;
+        let data = {
+          'id': id,
+          year: $('#year').val(),
+        };
+        let url = '/api/clock/Yearly';
+        let result = AjaxUtil.getSyncData(url + "/detail", data);
+
+        if (result.data != null) {
+          console.log(result);
+          _this.viewData2.sourceCollection = result.data;
+        }
+      }
+
+
+    }
+
+    let page = null;
+
+    $(document).ready(function (e) {
+      //yullinAuth.inspection();
+      yullinAuth.removeWriteButton();
+      page = new YearlyPage();
+
+      AjaxUtil.fillSelectOptions($('#rtflag'), 'system_code', 'choose', '0', 'rtflag_type');
+
+      const todayYM = CommonUtil.getYYYYMMDD().substring(0, 7);
+      $('#startdate').val(todayYM);
+
+      let select = document.getElementById('year');
+      let thisYear = new Date().getFullYear();
+      for (let y = thisYear; y > thisYear - 5; y--) {
+        let opt = document.createElement('option');
+        opt.value = y;
+        opt.text = y;
+        select.appendChild(opt);
+      }
+
+      select.addEventListener('change', function () {
+        // 현재 선택된 월 가져오기 (기존 값에서 추출)
+        let currentMonth = $('#startdate').val().substring(5, 7); // MM만 가져옴
+        let selectedYear = this.value;
+        let newValue = `${selectedYear}-${currentMonth}`;
+        $('#startdate').val(newValue);
+      });
+
+      $('#btnSearch').click(function (ex) {
+        page.searchMainData();
+      });
+
+      $('#btnyearCreate').click(function (ex) {
+        page.yearCreate();
+      });
+      $('#btnMonthlyCreate').click(function (ex) {
+        page.MonthlyCreate();
+      });
+
+
+      page.searchMainData();
+    });
+  </script>
+
+</th:block>
+
+</html>

@@ -1,0 +1,374 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+<div class="content_wrap">
+    <section class="section">
+        <div class="title_box">
+            <div class="left_align">
+                <h3 data-labelCd="설비관리대장">설비관리대장"</h3>
+            </div>
+            <button type="button" class="btn-default pull-right" id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>
+        </div>
+        <div class="table_box search">
+            <div class="row">
+                
+                <div class="col-6 col-lg-3 col-xl-2" >
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_t4" data-labelCd="에어리어">에어리어</span>
+                        </div>
+                        <select class="form-control2" id="area_id" name="area_id">
+                        </select>
+                    </div>
+                </div>
+                <div class="col-1">
+                    <button type="button" class="btn-default" id="btnSearch" title="조회"><i class="fas fa-search"></i></button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+     <section>
+        <div class="grid_box">
+            <div class="title_box">
+                <span class="right_align rpt" data-labelCd="설비 목록">설비 목록</span>
+                <button type="button" class="btn-default y_write_auth" id="btnEquipDetail" data-labelCd="정보">정보</button>
+                <!--<button type="button" class="btn-default" id="btnExcel"><i class="fas fa-file-excel"></i></button>-->
+                <button type="button" class="btn-default" id="btnGridSetting" style="visibility:hidden"><i class="fas fa-cog"></i>Setting</button>
+            </div>
+            <div class="h-550" data-ax5grid="equip-register-grid"></div>
+        </div>
+    </section>
+</div>
+
+
+<script type="text/x-tmpl" id="equipRegPopup"> 
+<div class="content_wrap popup">
+    <section class="pt-2">
+        <div class="table_box sub">
+             <form id="equipRegForm">
+                 <input type="hidden"  id="id" name="id" value="{%=o.id%}" />
+                 <div class="table_box sub">
+                     <div class="row">
+                            <div class="col-7">
+                                <div class="col-12">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_t7" data-labelCd="설비명">설비명</span>
+                                        </div>
+                                        <input class="form-control2"  id="equip_name" name="equip_name" value="{%=o.equip_name%}" readonly/>
+                                    </div>
+                                </div>
+                    
+                                <div class="col-12">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_t7" data-labelCd="설비관리번호">설비관리번호</span>
+                                        </div>
+                                        <input class="form-control2"  id="mng_number" name="mng_number" value="{%=o.mng_number%}" readonly/>
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_t7" data-labelCd="납품업체">납품업체</span>
+                                        </div>
+                                        <input class="form-control2"  id="supplier_name" name="supplier_name" value="{%=o.supplier_name%}" readonly/>
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_t7" data-labelCd="구입일자">구입일자</span>
+                                        </div>
+                                        <input class="form-control2"  id="pur_date" name="pur_date" value="{%=o.pur_date%}" readonly/>
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_t7" data-labelCd="용도">용도</span>
+                                        </div>
+                                        <input class="form-control2"  id="usage" name="usage" value="{%=o.usage%}" readonly/>
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_t7" data-labelCd="용량">용량</span>
+                                        </div>
+                                        <input class="form-control2" type="number" id="power_watt" name="power_watt" value="{%=o.power_watt%}" readonly/>
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_t7" data-labelCd="A/S 연락처">A/S 연락처</span>
+                                        </div>
+                                        <input class="form-control2" id="as_telnumber" name="as_telnumber" value="{%=o.as_telnumber%}" readonly/>
+                                    </div>
+                                </div>
+               
+                                <div class="col-12">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_t7_area" data-labelCd="기타사항">기타사항</span>
+                                        </div>
+                                        <textarea class="form-control2" id="description" name="description" readonly>{%=o.description%}</textarea>
+                                    </div>
+                                </div>
+                            
+                        
+       
+                            </div>
+                            <div class="col-5">
+                                <img id="imgPhoto" src="" height="300" width="240" />
+                            </div>
+                        
+                            <div class = "col-7">
+                                <div class="input-group">
+                                        <div class="input-group-prepend">
+                                        </div>
+                                        <textarea class="form-control2" style="height: 100px" id="atten_remark" name="atten_remark" readonly>{%=o.atten_remark%}</textarea>
+                                    </div>
+                            </div>
+                            <div class="col-5">
+                                <div style="height: 120px" data-ax5grid="history-grid"></div>
+                            </div>
+                        
+                    </div>
+                 </div>
+            </form>
+        </div>
+    </section>
+    <section class="popupcontent">
+        <div class="align_left">
+            <!--<button type="button" class="btn-default" id="btnSave"><span data-labelCd="저장">저장</span></button>-->
+            <button type="button" class="btn-default" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    </section>
+</div>
+</script> 
+</div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+<script>
+    class equipRegisterPage {
+        constructor() {
+            this.equip_reg_grid = null;
+            this.init();
+            this.baseUrl = '/api/precedence/equip_register';
+        }
+
+        init() {
+            let _this = this;
+
+            let equip_config = {
+                target: $('[data-ax5grid="equip-register-grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 30  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function () {
+                        _this.equip_reg_grid.select(this.dindex);
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'equip_name', label: '설비명', width: 150, align: 'left' },
+                    { key: 'mng_number', label: '설비관리번호', width: 150, align: 'center' },
+                    { key: 'supplier_name', label: '납품업체', width: 150, align: 'left' },
+                    { key: 'pur_date', label: '구입일자', width: 150, align: 'center' },
+                    { key: 'usage', label: '용도', width: 90, align: 'center' },
+                    { key: 'power_watt', label: '용량', width: 90, align: 'center' },
+                    { key: 'as_telnumber', label: 'A/S 연락처', width: 150, align: 'center' },
+                    { key: 'description', label: '기타사항', width: 200, align: 'left' },
+                ]
+            };
+
+            this.equip_reg_grid = new ax5.ui.grid(equip_config);
+            this.grid_config2 = equip_config;
+
+            this.history_config = {
+                //target: $('[data-ax5grid="devi-action-grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 25  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function () {
+                        //_this.devi_grid.select(this.dindex);
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'no', label: 'no', width: 50, align: 'left', sortable: false },
+                    { key: 'data_date', label: '일자', width: 100, align: 'left', sortable: false },
+                    { key: 'content', label: '주요내용', width: 100, align: 'left', sortable: false },
+                    { key: 'description', label: '비고', width: 100, align: 'left', sortable: false },
+                ]
+            };
+            AjaxUtil.fillSelectOptions($('#area_id'), 'area', '', false);
+        }
+
+
+        searchMainData() {
+            let _this = this;
+            let data = {
+                'area_id':$('#area_id').val(),
+            }
+            let result = AjaxUtil.getSyncData(_this.baseUrl + '/read', data);
+            let recordsTotal = result.data.length;
+            _this.equip_reg_grid.setData({
+                list: result.data,
+                page: {
+                    display: true,
+                    totalElements: recordsTotal,
+                }
+            });
+        }
+
+        //saveRawEyeCheck($form, modalContainer, mat_type) {
+        //    let _this = this;
+        //    let url = _this.baseUrl + '?action=save_mat_eye_check';
+        //    let data = FormUtil.extractForm($form);
+        //    data['mat_type'] = mat_type
+
+        //    // 필수입력 check routine
+        //    //if(!data.doc_form_id) {
+        //    //    Alert.alert('', '문서종류를 선택해주세요.');
+        //    //    return false;
+        //    //} else if (!data.doc_name) {
+        //    //    Alert.alert('', '제목을 입력해주세요.');
+        //    //    return false;
+        //    //}
+            
+        //    let fnSuccess = function () {
+        //        modalContainer.close();
+        //        Notify.success('저장되었습니다');
+        //        //_this.searchMainData();
+        //    }
+
+        //    AjaxUtil.postAsyncData(url, data, fnSuccess);
+        //}
+
+
+        showEquipReg(id) {
+            let _this = this;
+
+            let param = {
+                'id': id
+            }
+
+            let data = AjaxUtil.getSyncData(this.baseUrl + '/detail', param);
+            let content = tmpl('equipRegPopup', data.data.info);
+            let $content = $(content);
+            let $form = $content.find('#equipRegForm');
+            let modalContainer = new PopupDraggable('설비');
+            modalContainer.open({ width: 700, height: 550, $content });
+         
+            //_this.devi_grid = new ax5.ui.grid(history_config);
+            _this.history_config.target = $('[data-ax5grid="history-grid"]');
+            _this.history_grid = new ax5.ui.grid(_this.history_config);
+
+            //원재료
+            $form.find('#origin_confirm').prop('checked', data.origin_confirm == 'Y');
+            $form.find('#taste_smell').prop('checked', data.taste_smell == 'Y');
+            $form.find('#foreign_mat').prop('checked', data.foreign_mat == 'Y');
+            $form.find('#packing_state').prop('checked', data.packing_state == 'Y');
+            $form.find('#marking_label').prop('checked', data.marking_label == 'Y');
+
+            if (data.marking_label_file_id != null) {
+                let imgUrl = '/api/files/download?file_id=' + data.marking_label_file_id;
+                $form.find('#imgPhoto').attr('src', imgUrl);
+            }
+
+            //$content.find('#btnSave').click(function (e) {
+            //    _this.saveRawEyeCheck($form, modalContainer, 'raw_mat');
+            //});
+        }
+    }
+
+    let page = null;
+
+    $(document.body).ready(function (e) {
+        page = new equipRegisterPage();
+        
+        //picker.bind({
+        //    target: $('[data-ax5picker="basic"]'),
+        //    direction: "top",
+        //    content: {
+        //        width: 214,  //130 270
+        //        margin: 10,
+        //        type: 'date',
+        //        config: {
+        //            control: {
+        //                left: '<i class="fa fa-chevron-left"></i>',
+        //                yearTmpl: '%s',
+        //                monthTmpl: '%s',
+        //                right: '<i class="fa fa-chevron-right"></i>'
+        //            },
+        //            lang: {
+        //                yearTmpl: "%s년",
+        //                months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+        //                dayTmpl: "%s"
+        //            }
+        //        }
+        //    },
+        //    btns: { }
+        //})
+
+        //let today_string = CommonUtil.getYYYYMMDD();
+        //$('#inDate').val(today_string);
+        //$('select').select2();
+        //$('#srchDt').ax5DatePicker({ direction: 'top' });
+
+        $('#btnSearch').click(function (e) {
+            page.searchMainData();
+        });
+
+        $('#btnEquipDetail').click(function (e) {
+            let data = page.equip_reg_grid.getList('selected')[0];
+         
+            if (data == null) {
+                Alert.alert('', '선택된 설비가 없습니다.');
+            }
+
+            page.showEquipReg(data.id);
+        });
+
+        page.searchMainData();
+    });
+</script>
+</th:block>
+</html>

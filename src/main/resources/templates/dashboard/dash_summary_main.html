@@ -1,0 +1,2095 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+
+
+<style>
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 9999; /* z-index를 더 높임 */
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    /* 공통 Modal 컨텐츠 스타일 */
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        margin: 10% auto;
+        padding: 20px;
+        width: 600px;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+        position: relative;
+        top: 15%;
+    }
+    .btn-popup-close img {
+        float: right;
+    }
+
+    #modalGrid {
+        height: auto;        /* 높이를 자동으로 조정 */
+        max-height: 500px;   /* 필요에 따라 최대 높이를 지정 */
+        overflow-y: auto;    /* 스크롤 활성화 */
+    }
+
+    /* 체크박스를 수직 및 수평 중앙 정렬 */
+    .wj-cell.wj-header .wj-cell-element,
+    .wj-cell.wj-header input[type="checkbox"],
+    .wj-cell input[type="checkbox"] {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* 체크박스 칸 크기 조정 */
+    .wj-header .wj-cell {
+        text-align: center !important;
+    }
+
+    /* 🩵 FullCalendar 헤더(요일)과 날짜칸 가로폭 완전 동기화 */
+    #calendar,
+    .calendar-wrap {
+        width: 100% !important;
+        display: block !important;
+    }
+
+    .fc {
+        width: 100% !important;
+    }
+
+    /* FullCalendar 테이블 강제 동일 폭 계산 */
+    .fc-scrollgrid,
+    .fc-scrollgrid-sync-table {
+        table-layout: fixed !important;
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+
+    .fc-col-header,
+    .fc-daygrid-body {
+        width: 100% !important;
+        table-layout: fixed !important;
+    }
+
+    /* 헤더와 바디 간 스크롤 오차 제거 */
+    .fc-scroller,
+    .fc-scrollgrid {
+        overflow: hidden !important;
+    }
+
+    /* 브라우저 기본 margin/padding 영향 제거 */
+    .fc-col-header-cell,
+    .fc-daygrid-day {
+        padding: 0 !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+</style>
+<th:block layout:fragment="content">
+
+    <!--- (레이아웃) Contents 영역 -->
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>대시보드</h2><a id="toggleButton" onclick="toggleSearchWrap()"><img th:src="@{/images/icon/ico-down.png}" alt="알람 아이콘"></a>
+                <!--                <a href="#" title="북마크" class="bookmark toggle">-->
+                <!--                    내메뉴-->
+                <!--                </a>-->
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>대시보드</li>
+            </ul>
+        </div>
+        <!-- Select -->
+        <div class="search-wrap" id="searchWrap" style="display: none; padding-top:10px">
+            <ul>
+                <li>
+                    <select title="사업장코드" id="search_spjangcd" name="search_sjangcd"
+                            onchange="init()">
+                        <option value="" hidden selected disabled>선택</option>
+                        <option value="ZZ">성우에스피(주)</option>
+                        <option value="PP">성우피앤비(주)</option>
+                        <!-- 지역 옵션을 JavaScript에서 동적으로 채움 -->
+                    </select>
+                </li>
+            </ul>
+        </div>
+        <div class="tab-wrap">
+            <ul class="tab-links">
+                <li>
+                    <a href="#tab1" title="주문 캘린더" class="tab-button">현황</a>
+                </li>
+                <li>
+                    <a href="#tab2" title="업무일지" class="tab-button">업무일지</a>
+                </li>
+                <li>
+                    <a href="#tab3" title="유지보수요청현황" class="tab-button">유지보수요청현황</a>
+                </li>
+                <li>
+                    <a href="#tab4" title="공지사항" class="tab-button">공지사항</a>
+                </li>
+            </ul>
+            <div class="tab-contents">
+                <!-- Section -->
+                <section class="tab-item" id="tab1" style="height: 880px; margin-bottom: 10px">
+                    <div class="row" style="display: flex;">
+                        <!-- 왼쪽 섹션: 50% 차지 -->
+                        <section
+                                style="width: 48%; box-sizing: border-box; height: 794px; margin-right: 10px; border-radius: 10px; ">
+                            <div class="title-wrap">
+                                <h3>근태현황</h3>
+                                <div class="btn-wrap">
+                                </div>
+                            </div>
+                            <div class="calendar-wrap" style="display:block;width:100%;overflow:hidden;">
+                                <div id="calendar" style="width: 100%"></div>
+                            </div>
+                        </section>
+                        <!-- 오른쪽 섹션을 감싸는 div -->
+                        <div style="display: flex; flex-direction: column; width: 25%; margin-right: 10px;">
+                            <!-- 위쪽 섹션 -->
+                            <section style=" box-sizing: border-box;">
+                                <div style="margin-bottom: 15px">
+                                    <h3 id="month-status">월별 근태현황</h3>
+                                </div>
+                                <div class="tab-contents">
+                                    <div class="row">
+                                        <div class="section-card-wrap" style="gap: 5px">
+                                            <section style="background-color: #03428E; color: #fff; flex: 0.5; margin-right: 5px; cursor: pointer; padding: 10px 10px;" class="fetchCard" data-search-type="08">
+                                                <div class="title">
+                                                    <h3>연차</h3>
+                                                </div>
+                                                <div class="checkCnt" style="font-size: 32px; font-weight: 700; text-align: right; margin: 9px 0;">
+                                                    -<span class="small-unit" style=" font-size: 0.5em; opacity: 0.5;"> 건</span>
+                                                </div>
+                                            </section>
+                                            <section style="background-color: #3069B3; color: #fff; flex: 0.5; margin-right: 5px; cursor: pointer; padding: 10px 10px;" class="fetchCard" data-search-type="04">
+                                                <div class="title">
+                                                    <h3>반차</h3>
+                                                </div>
+                                                <div class="estimateCnt" style="font-size: 32px; font-weight: 700; text-align: right; margin: 9px 0;">
+                                                    -<span class="small-unit" style=" font-size: 0.5em; opacity: 0.5;"> 건</span>
+                                                </div>
+                                            </section>
+                                            <section style="background-color: #C7DFF4; color: #031B4B; flex: 0.5; margin-right: 5px; cursor: pointer; padding: 10px 10px;" class="fetchCard" data-search-type="13">
+                                                <div class="title">
+                                                    <h3>유연근무</h3>
+                                                </div>
+                                                <div class="produceCnt" style="font-size: 32px; font-weight: 700; text-align: right; margin: 9px 0;">
+                                                    -<span class="small-unit" style=" font-size: 0.5em; opacity: 0.5;"> 건</span>
+                                                </div>
+                                            </section>
+                                        </div> <!--//main-card-wrap end -->
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- 아래쪽 섹션 (넓게 설정) -->
+                            <section style="box-sizing: border-box;">
+                                <div style="margin-bottom: 15px; display: flex;">
+                                    <h3 id="">근태현황</h3>
+                                    <div class="btn-wrap" style="margin-left: auto;">
+                                        <a class="btn btn-delete" title="검색" id="btn-srch" onclick="fetchListData()">
+                                            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                             월별 근태현황
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="tab-item-sub" id="tab1_2">
+                                    <div class="container-fluid" style="padding-left: 0; padding-right: 0;">
+                                        <!-- 그리드 영역 -->
+                                        <div class="col-12" style="margin-bottom: 10px;">
+                                            <div id="theGrid" style="width: 100%; height: 450px;"></div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </section>
+                        </div>
+                        <div style="display: flex; flex-direction: column; width: 25%;">
+                            <!-- 아래쪽 섹션 (넓게 설정) -->
+                            <section style="flex: 1; box-sizing: border-box;">
+                                <div style="margin-bottom: 15px">
+                                    <h3 id="month-request">월별 유지보수 요청현황</h3>
+                                </div>
+                                <div class="tab-item-sub" id="tab1_3">
+                                    <div class="container-fluid" style="padding-left: 0; padding-right: 0;">
+                                        <!-- 그리드 영역 -->
+                                        <div class="col-12" style="margin-bottom: 10px;">
+                                            <div id="theGrid2" style="width: 100%; height: 690px;"></div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </section>
+                <section class="tab-item" id="tab2" style="height: 750px; overflow: hidden;">
+                    <div class="section-top">
+                        <div class="search-wrap">
+                            <dl>
+                                <dt>
+                                    조회기간<span class="eq">*</span>
+                                </dt>
+                                <dd>
+                                    <ul class="date-box">
+                                        <li>
+                                            <input type="date" id="startDate" name="startDate">
+                                            <label for="startDate" class="hide">시작일</label>
+                                        </li>
+                                        <li>
+                                            <input type="date" id="endDate" name="endDate">
+                                            <label for="endDate" class="hide">종료일</label>
+                                        </li>
+                                    </ul>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label for="searchPernm">
+                                        사원명
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <input type="text" id="searchPernm" name="searchPernm" class="input-srch"
+                                               placeholder="사원명" style="border-radius: 5px;">
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>&nbsp;</dt>
+                                <dd>
+                                    <li>
+                                        <a class="btn btn-delete" title="검색" id="searchButton1" onclick="fetchListData2()">
+                                            <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                            검색
+                                        </a>
+                                    </li>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                    <div class="container-fluid">
+                        <p id="selectedItem"></p>
+                        <div id="theGrid3" style="max-height: 630px"></div>
+                    </div>
+                </section>
+                <section class="tab-item" id="tab3" style="height: 750px; overflow: hidden;">
+                    <div class="section-top">
+                        <div class="search-wrap">
+                            <dl>
+                                <dt>
+                                    요청일자<span class="eq">*</span>
+                                </dt>
+                                <dd>
+                                    <ul class="date-box">
+                                        <li>
+                                            <input type="date" id="startDate4" name="startDate">
+                                            <label for="startDate4" class="hide">시작일</label>
+                                        </li>
+                                        <li>
+                                            <input type="date" id="endDate4" name="endDate">
+                                            <label for="endDate4" class="hide">종료일</label>
+                                        </li>
+                                    </ul>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label for="searchCltnm">
+                                        업체명<span class="eq">*</span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <input type="text" id="searchCltnm" name="searchCltnm" class="input-srch"
+                                               placeholder="업체명" style="border-radius: 5px;">
+                                    </div>
+                                </dd>
+                            </dl>
+<!--                            <dl>-->
+<!--                                <dt>-->
+<!--                                    <label for="searchtketnm">-->
+<!--                                        제목<span class="eq">*</span>-->
+<!--                                    </label>-->
+<!--                                </dt>-->
+<!--                                <dd>-->
+<!--                                    <div class="srch-box">-->
+<!--                                        <input type="text" id="searchtketnm" name="searchtketnm" class="input-srch"-->
+<!--                                               placeholder="제목" style="border-radius: 5px;">-->
+<!--                                    </div>-->
+<!--                                </dd>-->
+<!--                            </dl>-->
+                            <dl>
+                                <dt>
+                                    <label for="searchstate">
+                                        진행구분<span class="eq">*</span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <select id="searchstate" name="searchstate">
+                                            <option value="all"></option>
+                                        </select>
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>&nbsp;</dt>
+                                <dd>
+                                    <li>
+                                        <a class="btn btn-delete" title="검색" id="searchButton2" onclick="fetchListRequestData()">
+                                            <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                            검색
+                                        </a>
+                                    </li>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                    <div class="container-fluid">
+                        <p id="selectedItem2"></p>
+                        <div id="theGrid4" style="max-height: 630px"></div>
+                    </div>
+                    <div style="margin-top: 10px; display:flex; gap: 15px;">
+                        <dl style="width: 49%;">
+                            <dt style="margin-bottom: 21px;">
+                                <label>
+                                    요청내용<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <textarea placeholder=""  id="reqtextf" name="reqtextf" readonly>
+
+                                    </textarea>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl style="width: 49%;">
+                            <dt style="margin-bottom: 21px;">
+                                <label style="display: flex;">
+                                    처리내용<span class="eq"></span>
+<!--                                    <button type="button" class="btn-excellt" id="download" name="download"-->
+<!--                                            style="width: 100px; height: 36px; margin-left: auto; margin-bottom: 5px;">-->
+<!--                                        완료첨부-->
+<!--                                    </button>-->
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <textarea placeholder=""  id="reqtextf2" name="reqtextf2" readonly>
+
+                                    </textarea>
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                </section>
+                <section class="tab-item" id="tab4" style="height: 750px; overflow: hidden;">
+                    <div class="section-top">
+                        <form id="searchForm">
+                            <div class="search-wrap">
+                                <dl>
+                                    <dt>
+                                        작성일<span class="eq"></span>
+                                    </dt>
+                                    <dd>
+                                        <ul class="date-box">
+                                            <li>
+                                                <input class="tac w150 date_from " type="date" id="srchStartDt"
+                                                       name="srchStartDt"/>
+                                                <label for="srchStartDt" class="hide">시작일</label>
+                                            </li>
+                                            <li>
+                                                <input class="tac w150 date_to" type="date" id="srchEndDt" name="srchEndDt"/>
+                                                <label for="srchEndDt" class="hide">종료일</label>
+                                            </li>
+                                        </ul>
+                                    </dd>
+                                </dl>
+
+                                <dl>
+                                    <dt>
+                                        <label for="keyword">
+                                            공지 제목<span class="eq"></span>
+                                        </label>
+                                    </dt>
+                                    <dd>
+                                        <div class="srch-box">
+                                            <input type="text" class="form-control2" id="keyword" name="keyword"
+                                                   style="border-radius: 5px 5px 5px 5px;">
+                                        </div>
+                                    </dd>
+                                </dl>
+
+                                <dl>
+                                    <dt><span class="eq"></span></dt>
+                                    <dd>
+                                        <li>
+                                            <a class="btn btn-delete" title="검색" id="btnSearch">
+                                                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                                검색
+                                            </a>
+                                        </li>
+                                    </dd>
+                                </dl>
+                            </div>
+                        </form>
+                        <!--//section-top end -->
+                    </div>
+                    <div class="container-fluid">
+                        <div id="theGrid_notice"></div>
+                    </div>
+                    <div class="btn-wrap">
+                    </div>
+
+                </section>
+            </div>
+        </div>
+        </section>
+    </div> <!--//tab-contens end-->
+    </div> <!--//tab-wrap end-->
+    </div> <!--//layout-contents end -->
+    <footer style="margin-top:5px;">
+        <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+    </footer>
+    <div style="height: 10px"></div>
+
+    <!--업체 모달-->
+    <div class="modal">
+        <div id="CltnmModal" style="display: none;">
+            <div class="modal-content">
+                <h2 style="text-align: center;">거래처 정보 상세</h2>
+                <a title="팝업닫기" onclick="closePopup('CltnmModal')" class="btn-popup-close">
+                    <img th:src="@{/images/icon/btn-popup-close.svg}" style=" float: right; right: 30px;" alt="닫기">
+                </a>
+                <form id="CltnmFindForm">
+                    <div id="modalGrid" style="height: 350px;width: 100%; margin-right:0px;  margin-top: 20px;"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!--페이지 설명 모달 -->
+    <div class="modal">
+        <div id="PageModal" style="display: none;">
+            <div class="modal-content">
+                <h2 style="text-align: center;">주문 현황 페이지 설명</h2>
+                <a title="팝업닫기" onclick="closePopup('PageModal')" class="btn-popup-close">
+                    <img th:src="@{/images/icon/btn-popup-close.svg}" style="float: right; right: 30px;" alt="닫기">
+                </a>
+                <form id="PageFindForm">
+                    <p style="text-align: center;">
+                        <a href="https://foms.atlassian.net/l/cp/X9iSn8Tt"
+                           target="_blank"
+                           style="color: blue; text-decoration: underline;">
+                            Atlassian Wiki에서 페이지 보기
+                        </a>
+                    </p>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- 옵션 및 요청사항 모달 -->
+    <div class="modal">
+        <div class="popup-wrapper w700" id="OrdtextModal" style="display: none; min-width: 1050px;">
+            <div class="popup-title">
+                <h3>옵션 및 요청사항</h3>
+                <a title="팝업닫기" onclick="closePopup('OrdtextModal')" class="btn-popup-close">
+                    <img th:src="@{/images/icon/btn-popup-close.svg}" alt="닫기" style="float: right; right: 30px;">
+                </a>
+            </div>
+            <div class="popup-contents">
+                <div class="table-wrap">
+                    <table class="write-table" style="border-top: 0px;">
+                        <caption>주문의뢰 요청사항</caption>
+                        <colgroup>
+                            <col class="wp20">
+                            <col class="wp80">
+                        </colgroup>
+                        <tbody>
+                        <tr>
+                            <td>
+                                <div class="table-wrap">
+                                    <table class="write-table">
+                                        <caption>요청사항</caption>
+                                        <tbody>
+                                        <tr style="align-items: center">
+                                            <th>
+                                                <label for="ordtext">내용</label>
+                                            </th>
+                                            <td colspan="3">
+                                                <div class="textarea-box">
+                                                    <textarea id="ordtext"></textarea>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--공지사항 스크립트-->
+    <script type="text/x-tmpl" id="noticeTmpl">
+        <div class="content_wrap popup">
+            <div class="table-wrap">
+                <form id="editorForm">
+                    <table class="write-table">
+                          <input type="hidden" id="id" name="id" value="{%=o.id%}">
+                        <caption>공지사항 테이블</caption>
+                        <tbody>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="title">공지제목</label>
+                                </th>
+                                <td colspan="3">
+                                       <input class="form-control2" id="title" name="title" value="{%=o.title%}" disabled style="width:100%;" />
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="notice_yn">공지여부</label>
+                                </th>
+                                <td>
+                                     <select class="form-control2" id="notice_yn" name="notice_yn" disabled >
+                                        <option value="Y">예</option>
+                                        <option value="N" selected>아니오</option>
+                                     </select>
+                                </td>
+                                <th style="text-align: center">
+                                    <label for="notice_end_date">공지종료일</label>
+                                </th>
+                                <td style="text-align: center">
+                                    <input class="form-control2 tac" type="date" id="notice_end_date" name="notice_end_date"  value="{%=o.notice_end_date%}" disabled />
+                                        <!--<span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color" ></i></span>-->
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                        <div class="textarea_group" id="divContent">
+                           <textarea id="content" name="content" style="width:100%" >{%=o.content%}</textarea>
+                        </div>
+                </form>
+                <div class="grid_box" id='image_upload1'></div>
+            </div>
+
+            <div class="popup-button">
+              <button type="button" class="btn-popup y_write_auth" id="btn_modal_save" ><span data-labelCd="저장">확인</span></button>
+              <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+            </div>
+
+            <!--<section class="pt-2">
+                <form id="editorForm">
+                    <input type="hidden" id="id" name="id" value="{%=o.id%}">
+                    <div class="table_box search" id="detail_box">
+                        <div class="row">
+
+                                <div class="col-12" >
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_md">공지제목</span>
+                                        </div>
+                                            <input class="form-control2" id="title" name="title" value="{%=o.title%}" disabled />
+                                    </div>
+                                </div>
+
+                                <div class="col-3" >
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_md">공지여부</span>
+                                        </div>
+                                                <select class="form-control2" id="notice_yn" name="notice_yn" disabled >
+                                                    <option value="Y">예</option>
+                                                    <option value="N" selected>아니오</option>
+                                                </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-6">
+                                    <div class="input-group" data-ax5picker="basic" id="srchDt">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_md">공지종료일</span>
+                                        </div>
+                                        <input class="form-control2 tac" type="text" id="notice_end_date" name="notice_end_date"  value="{%=o.notice_end_date%}" disabled />
+                                        <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color" ></i></span>
+                                    </div>
+                                </div>
+
+                                    <div class="col-12" >
+                                            <div class="textarea_group" id="divContent">
+                                                <textarea style="height:310px;width:100%" id="content" name="content" >{%=o.content%}</textarea>
+                                            </div>
+                                </div>
+
+                        </div>
+                    </div>
+                </form>
+                <div class="grid_box" id='image_upload1'></div>
+
+            </section>
+            <section class="section">
+                <div class="popup_button_group bottom">
+                    <div class="left_align">
+                        <button type="button" class="btn-popup y_write_auth" id="btn_modal_save"><span>확인</span></button>
+                        <button type="button" class="btn-popup" id="modal-close-button"><span>닫기</span></button>
+                    </div>
+                </div>
+            </section>-->
+        </div>
+    </script>
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <script th:src="@{/resource/windowContainer/js/html5sortable.js}"></script>
+    <script th:src="@{/js/nth-tabs.js}"></script>
+    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+    <!-- <script>
+         tinymce.init({
+             language: "ko_KR",
+             selector: "#ordtext",
+             plugins: "paste image imagetools",
+             height: 500,
+             width: 900,
+             toolbar: false,       // 툴바 비활성화
+             menubar: false,       // 상단 메뉴 비활성화
+             readonly: 1,          // 읽기 전용 모드 활성화
+             paste_data_images: true,
+             file_picker_types: 'image',
+             automatic_uploads: false // 자동 업로드 비활성화
+         });
+
+     </script>-->
+    <script type="text/javascript">
+
+        let theGrid;
+        let theGrid2;
+        let calendar;
+        let modalGrid;
+        let viewdata2;
+        let viewdata;
+        let theGrid4;
+        let viewdata4;
+        let theGrid5;
+        let viewdata5;
+
+        // 공지사항 localStorage key (popup 표출확인 용도)
+        const LAST_READ_NOTICE_KEY = 'lastReadNoticeId';
+        var oEditors = [];
+        // 페이지 최초진입 확인 키
+        let isFirstNoticeLoad = true;
+
+        // 주문현황 년도 자동화
+        const currentMonth = new Date().getMonth() + 1;
+        document.getElementById('month-status').innerText = `${currentMonth}월 근태현황`;
+        document.getElementById('month-request').innerText = `${currentMonth}월 유지보수 요청현황`;
+        document.getElementById('btn-srch').innerText = `${currentMonth}월 전체조회`;
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+        let isBindSpjangcdCalled = false;
+
+
+        // 초반 페이지 진입시 그리드 바인딩 시작
+        function init() {
+            if (!isBindSpjangcdCalled) {
+                isBindSpjangcdCalled = true; // 플래그 업데이트
+            }
+            // 진행구분 셀렉트 박스 초기화
+            AjaxUtil.fillSelectOptions($('#searchstate'), 'system_code', 'all', '', 'recyn');
+
+            initCalendar(); // 근태현황 캘린더
+            applySavedSettings(); // 페이지 로드 시 설정 적용
+            fetchListData(); // 월별 근태현황 그리드 조회
+            initDatas(); // 월별근태현황 카드
+            fetchListData2(); // 업무일지 탭 그리드 조회
+            fetchListRequestData(); // 유지보수 요청현황탭 그리드 조회
+            fetchListRequestData2(); // 월별 유지보수 요청현황 조회
+            fetchListNoticeData(); // 공지사항 조회
+
+            let _this = this;
+
+
+        }
+
+        $(document).ready(function() {
+            // 현재 날짜 가져오기
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth(); // 0부터 시작하는 월(0 = 1월)
+
+            // 시작일: 당월 1일
+            const startOfMonth = new Date(year, month, 1);
+            const startMonthFormatted = startOfMonth.getFullYear() + '-' + String(startOfMonth.getMonth() + 1).padStart(2, '0') + '-' + String(startOfMonth.getDate()).padStart(2, '0');
+            $('#startDate').val(startMonthFormatted);
+            $('#startDate2').val(startMonthFormatted);
+            $('#startDate4').val(startMonthFormatted);
+
+            // 종료일: 현재 월의 마지막 날
+            const endOfMonth = new Date(year, month + 1, 0); // 다음 달 0일은 현재 달의 마지막 날
+            const endMonthFormatted = endOfMonth.getFullYear() + '-' + String(endOfMonth.getMonth() + 1).padStart(2, '0') + '-' + String(endOfMonth.getDate()).padStart(2, '0');
+            $('#endDate').val(endMonthFormatted);
+            $('#endDate2').val(endMonthFormatted);
+            $('#endDate4').val(endMonthFormatted);
+
+            nthTabs = $('#main-tabs').nthTabs();
+            console.log("✅ nthTabs 객체 상태 확인:", nthTabs);
+
+
+            $(".tab-links a").click(function (event) {
+                event.preventDefault(); // 기본 동작 방지
+
+                var targetTab = $(this).attr("href"); // 클릭한 탭의 href 값 가져오기
+
+                // 모든 탭 숨기기
+                $(".tab-item").hide();
+                $(".tab-links li").removeClass("active");
+
+                // 선택한 탭 표시
+                $(targetTab).show();
+                $(this).parent("li").addClass("active");
+
+                // ✅ tab1으로 돌아올 경우 캘린더 리사이징
+                if (targetTab === "#tab1") {
+                    setTimeout(() => {
+                        console.log("📆 캘린더 리사이징 실행");
+                        if (calendar) {
+                            calendar.updateSize(); // 캘린더 크기 재조정
+                            calendar.render(); // 다시 그리기
+                        }
+                    }, 200); // 약간의 딜레이를 줘서 렌더링 완료 후 실행
+                }
+            });
+
+            // 공지사항 기본값 설정
+            const currentDate = new Date();
+            // 오늘 날짜를 'YYYY-MM-DD' 형식으로 변환
+            const noticeToday = currentDate.toISOString().split('T')[0];
+
+            // 1개월 전 날짜 계산
+            const oneMonthAgo = new Date(currentDate);
+            oneMonthAgo.setMonth(currentDate.getMonth() - 1); // 한 달 전으로 설정
+            const oneMonthAgoFormatted = oneMonthAgo.toISOString().split('T')[0];
+            $('.date_from').val(oneMonthAgoFormatted);
+            $('.date_to').val(noticeToday);
+            // 공지사항 검색버튼클릭
+            $("#btnSearch").click(function (e) {
+                fetchListNoticeData();
+            });
+        });
+
+        // '.fetchCard' 클래스를 가진 모든 요소에 대해 클릭 이벤트 설정
+        $('.fetchCard').click(function() {
+            // 클릭된 카드의 data-search-type 속성 값 가져오기
+            const searchTypeValue = $(this).data('search-type');
+            fetchListData(searchTypeValue);  // 해당 값을 fetchListData 함수로 전달
+        });
+        function fetchListData(searchTypeValue) {
+            let data2 = []; // 데이터를 담을 배열
+            let emptyRowsCount = 8;
+            $.ajax({
+                url: '/api/dash_summary/readCalenderGrid',
+                type: 'GET',
+                data: {
+                    'search_spjangcd': sessionStorage.getItem('spjangcd'),
+                    'search_type': searchTypeValue
+                },
+                async: false,
+                success: function (response) {
+                    // 응답이 올바르게 도착했고, data 속성이 배열인지 확인
+                    if (response && Array.isArray(response.data)) {
+                        data2 = response.data;
+                        console.log("data2",data2)
+                        // 날짜 형식 변환 및 ordflag 변환
+                        data2.forEach(item => {
+
+                        });
+                    }
+                },
+                error: function () {
+                    console.error("데이터를 가져오는 중 오류가 발생했습니다.");
+                }
+            });
+
+            // 빈 객체를 emptyRowsCount만큼 추가
+            if(data2.length < emptyRowsCount) {
+                for (let i = 0; emptyRowsCount - data2.length ; i++) {
+                    data2.push({
+                        ordflag: '',
+                        reqdate: '',
+                        remark: '',
+                        deldate: '',
+                        amount: ''
+                    });
+                }
+            }
+            viewdata2 = new wijmo.collections.CollectionView(data2);
+            if (!theGrid) {
+                theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'frdate', header: '일자(요일)', align: 'center', width: 100 },
+                        { binding: 'first_name', header: '사원명', align: 'center', width: 80 },
+                        { binding: 'worknm', header: '구분', align: 'center', width: 50 },
+                        { binding: 'remark', header: '사유', align: 'left', width: 260 },
+                    ],
+                    itemsSource: viewdata2 // 빈 객체가 추가된 배열 사용
+                });
+                // 헤더를 중앙 정렬하는 이벤트 핸들러
+                theGrid.formatItem.addHandler(function (s, e) {
+                    if (e.panel === s.columnHeaders) {
+                        e.cell.style.textAlign = 'center';
+                    }
+                });
+                attachDoubleClickEvent(theGrid);   //더블클릭 이벤트
+                // 선택이 변경될 때, 현재 항목 업데이트
+                theGrid.rowHeaders.columns.splice(0, 1);
+                new FlexGridContextMenu(theGrid);
+                window.downloadFileName = '주문 현황(캘린더)';
+            } else {
+                // 이미 FlexGrid이 존재하는 경우, 데이터만 업데이트
+                theGrid.itemsSource = viewdata2; // 빈 객체가 추가된 배열 사용
+            }
+        }
+        /* 캘린더 ==========================================================================================================================*/
+
+        function initCalendar() {
+            var calendarEl = document.getElementById('calendar');
+            if (calendarEl) {
+                // FullCalendar 설정
+                calendar = new FullCalendar.Calendar(calendarEl, {
+                    locale: 'ko',
+                    headerToolbar: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth' ,
+                    },
+                    initialView: 'dayGridMonth',
+                    height: 700,
+                    dayHeaderFormat: { weekday: 'short' },
+                    views: {
+                        dayGridMonth: {
+                            dayCellContent: function (arg) {
+                                return arg.dayNumberText.replace('일', '');
+                            }
+                        }
+                    },
+                    dateClick: function (info) {
+                        console.log('Clicked on: ' + info.dateStr);
+                        document.getElementById("startDate2").value = info.dateStr;
+                        document.getElementById("endDate2").value = info.dateStr;
+                        fetchListData();
+                        initDatas()
+                    },
+                    events: [] // 기본 이벤트는 빈 배열로 설정
+                });
+
+                // 공휴일 데이터 가져오기
+                // fetchHolidays().then(holidays => {
+                //     holidays.forEach(holiday => {
+                //         calendar.addEvent({
+                //             title: holiday.name, // 공휴일 이름
+                //             start: holiday.date,  // 공휴일 날짜
+                //             backgroundColor: '#EC193A',
+                //             borderColor: '#EC193A',
+                //             textColor: 'white'
+                //         });
+                //     });
+                //     setTimeout(() => {
+                //         calendar.render(); // 캘린더 렌더링
+                //         // console.log('캘린더가 렌더링되었습니다.');
+                //     }, 500); // 500ms 딜레이
+                // }).catch(error => {
+                //     console.error('공휴일 데이터를 가져오는 데 실패했습니다:', error);
+                // });
+                // 주문현황 데이터 가져오기
+                // 연차 정보 데이터 가져와서 날짜별 그룹화 후 캘린더에 추가(캘린더에 바인드)
+                fetchOrderDates().then(orderDates => {
+                    // 1️⃣ 날짜별 그룹화 ( { "YYYY-MM-DD": { "연차": 08, "반차": 04, "유연근무": 13} } 형태로 저장 )
+                    let groupedEvents = {};
+
+                    orderDates.forEach(order => {
+                        let date = order.date;  // 시작 날짜
+                        let name = order.name;  // 근태 상태 (연차, 반차 등)
+
+                        // 해당 날짜가 이미 존재하는지 확인
+                        if (!groupedEvents[date]) {
+                            groupedEvents[date] = {};
+                        }
+
+                        // 해당 상태가 이미 존재하면 count 증가
+                        if (groupedEvents[date][name]) {
+                            groupedEvents[date][name]++;
+                        } else {
+                            groupedEvents[date][name] = 1;
+                        }
+                    });
+
+                    console.log("📢 날짜별 그룹화된 데이터:", groupedEvents);
+
+                    // 2️⃣ FullCalendar 이벤트 추가 (중복 제거 후 개수 표시)
+                    Object.keys(groupedEvents).forEach(date => {
+                        Object.keys(groupedEvents[date]).forEach(name => {
+                            let count = groupedEvents[date][name]; // 주문 개수
+                            let displayTitle = count > 1 ? `${name} (${count})` : name; // 개수 표시
+
+                            let eventColor = getEventColor(name); // 색상 가져오기
+
+                            calendar.addEvent({
+                                title: displayTitle,
+                                start: date,
+                                backgroundColor: eventColor.bg,
+                                borderColor: eventColor.border,
+                                textColor: eventColor.text
+                            });
+                        });
+                    });
+
+                    setTimeout(() => {
+                        calendar.render();
+                        calendar.updateSize();
+
+                        // 헤더 폭을 날짜 칸 폭에 맞춰 강제 조정
+                        const headerCells = document.querySelectorAll('.fc-col-header-cell');
+                        const dayCells = document.querySelectorAll('.fc-daygrid-day');
+                        if (headerCells.length === 7 && dayCells.length >= 7) {
+                            const width = dayCells[0].offsetWidth;
+                            headerCells.forEach(c => (c.style.width = width + 'px'));
+                        }
+                    }, 400);
+                }).catch(error => {
+                    console.error("❌ 주문현황 데이터를 가져오는 데 실패했습니다:", error);
+                });
+
+            }
+        }
+        // 공휴일 데이터를 가져오는 함수
+        async function fetchHolidays() {
+            const currentYear = new Date().getFullYear();
+            const yearsToFetch = [currentYear - 1, currentYear, currentYear + 1]; // 전년도, 현재 연도, 다음 연도 배열 생성
+
+            const holidays = [];
+
+            for (const year of yearsToFetch) {
+                const yearHolidays = await fetchHolidaysForYear(year);
+                holidays.push(...yearHolidays);
+            }
+
+            return holidays;
+        }
+        // 연차정보 조회 메서드(캘린더 바인드)
+        async function fetchOrderDates() {
+            let data2 = []; // 데이터를 담을 배열
+            var orderDates = [];
+            $.ajax({
+                url: '/api/dash_summary/readCalenderGrid2',
+                type: 'GET',
+                data: {
+                    'search_spjangcd': $('#search_spjangcd').val()
+                },
+                async: false,
+                success: function (response) {
+                    // 응답이 올바르게 도착했고, data 속성이 배열인지 확인
+                    if (response && Array.isArray(response.data)) {
+                        data2 = response.data;
+                        // 날짜 형식 변환 및 ordflag 변환
+                        console.log("캘린더 데이터 : ", data2);
+                    }
+                },
+                error: function () {
+                    console.error("데이터를 가져오는 중 오류가 발생했습니다.");
+                }
+            });
+
+            // 🔹 각 항목의 기간을 모든 날짜로 확장
+            data2.forEach(item => {
+                let start = new Date(item.frdate);
+                let end = new Date(item.todate);
+
+                while (start <= end) {
+                    let dateStr = start.toISOString().split('T')[0]; // YYYY-MM-DD 형식
+                    orderDates.push({
+                        name: item.Name,
+                        date: dateStr
+                    });
+                    // 다음 날짜로 이동
+                    start.setDate(start.getDate() + 1);
+                }
+            });
+            console.log("orderDates : ", orderDates)
+            return orderDates;
+        }
+
+        // 색상 설정
+        function getEventColor(name) {
+            switch (name) {
+                // case "연차":
+                //     return { bg: "#031B4B", border: "#031B4B", text: "white" };
+                default:
+                    return { bg: "031B4B", border: "031B4B", text: "white" };
+            }
+        }
+
+
+        //api 요청 (휴일)
+        async function fetchHolidaysForYear(year) {
+            return new Promise((resolve, reject) => {
+                var xhr = new XMLHttpRequest();
+                var url = 'http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo';
+                var queryParams = '?' + encodeURIComponent('serviceKey') + '=' + 'R3P3syhq6qRP0cz8mbV2J5t%2B32WwaSN9sH8ZW4k59oKAU3Ze0WvcljMrN36OJqxs38%2F780hMD4QfhCiDZQNUyA%3D%3D';
+                queryParams += '&' + encodeURIComponent('solYear') + '=' + encodeURIComponent(year);
+                queryParams += '&' + encodeURIComponent('numOfRows') + '=' + encodeURIComponent('30');
+
+                xhr.open('GET', url + queryParams);
+                xhr.onreadystatechange = function () {
+                    if (this.readyState == 4) {
+                        if (this.status == 200) {
+                            var parser = new DOMParser();
+                            var xmlDoc = parser.parseFromString(this.responseText, "text/xml");
+
+                            // XML에서 원하는 데이터 추출
+                            var items = xmlDoc.getElementsByTagName("item");
+                            let holidays = [];
+                            for (var i = 0; i < items.length; i++) {
+                                var locdate = items[i].getElementsByTagName("locdate")[0].textContent;
+                                var dateName = items[i].getElementsByTagName("dateName")[0].textContent;
+
+                                holidays.push({ date: locdate, name: dateName });
+                            }
+                            resolve(holidays);
+                        } else {
+                            console.error('오류 발생. HTTP 상태 코드:', this.status);
+                            reject(this.status);
+                        }
+                    }
+                };
+
+                xhr.send();
+            });
+        }
+
+        /*==============캘린더 끝=============================================================================================================*/
+        var nthTabs = this;
+        function fetchListData2() {
+            let data2 = [];
+
+            $.ajax({
+                url: '/api/dash_summary/read_report',
+                type: 'GET',
+                data: {
+                    'search_spjangcd': sessionStorage.getItem('spjangcd'),
+                    'startDate': $('#startDate').val(),
+                    'endDate': $('#endDate').val(),
+                    'searchPernm': $('#searchPernm').val()
+                },
+                async: false,
+                success: function (response) {
+                    if (response && Array.isArray(response.data)) {
+                        data2 = response.data;
+
+                        setTimeout(() => {
+                            theGrid2?.collapseGroupsToLevel(0);
+                        }, 10);
+
+                        if (window.selectedGridId) {
+                            GridUtil.selectRowById(_this.theGrid2, window.selectedGridId, { idField: 'id' });
+                            window.selectedGridId = null;
+                        }
+                    }
+                },
+                error: function () {
+                    console.error("데이터를 가져오는 중 오류가 발생했습니다.");
+                }
+            });
+
+            // ✅ CollectionView 생성
+            const viewdata = new wijmo.collections.CollectionView(data2);
+
+            // ✅ 그룹 기준은 'rptweek'만 (문자 그대로)
+            viewdata.groupDescriptions.clear();
+            viewdata.groupDescriptions.push(new wijmo.collections.PropertyGroupDescription('rptweek'));
+            viewdata.groupDescriptions.push(new wijmo.collections.PropertyGroupDescription('fixpernm'));
+
+            // ✅ FlexGrid 생성 또는 갱신
+            if (!theGrid2) {
+                theGrid2 = new wijmo.grid.FlexGrid('#theGrid3', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    itemsSource: viewdata,
+
+                    columns: [
+                        { binding: 'id', visible: false },
+                        { binding: 'rptdate', header: '작성일자', width: 125, align: 'center' },
+                        { binding: 'rptweek', header: '주차', width: 160, align: 'center' },
+                        { binding: 'fixflag_nm', header: '업무구분', width: 100, align: 'center' },
+                        { binding: 'fixpernm', header: '사원명', width: 120, align: 'center' },
+                        { binding: 'cltnm', header: '업체명', width: 150, align: 'center' },
+                        { binding: 'asmenu', header: '화면명', width: 200, align: 'left' },
+                        { binding: 'rptremark', header: '업무내용', width: '*', align: 'left' },
+                        { binding: 'recyn_nm', header: '진행상태', width: 100, align: 'center' },
+                        { binding: 'asdv_nm', header: '근무구분', width: 100, align: 'center' },
+                        { binding: 'inputdate', header: '입력일자', width: 150, align: 'center' },
+                    ],
+
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                            return;
+                        }
+
+                        // 🔹 GroupRow 렌더링 (표시만 수정)
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell &&
+                            s.rows[e.row] instanceof wijmo.grid.GroupRow) {
+
+                            e.cell.style.backgroundColor = '';
+                            e.cell.style.color = '#000';
+                            e.cell.style.fontWeight = '';
+
+                            let html = e.cell.innerHTML;
+
+                            // ✅ "items" → "건" 변경
+                            html = html.replace(/\((\d+)\s*items\)/, '($1건)');
+
+                            // ✅ rptweek 그룹이면 날짜 범위 추가
+                            const groupRow = s.rows[e.row];
+                            const group = groupRow.dataItem;
+                            if (group.groupDescription.propertyName === 'rptweek' && group.items.length) {
+                                const first = group.items[0];
+                                const formatDate = (str) => {
+                                    if (!str || str.length !== 8) return '';
+                                    return `${str.substring(0, 4)}-${str.substring(4, 6)}-${str.substring(6, 8)}`;
+                                };
+                                const start = formatDate(first.frdate);
+                                const end = formatDate(first.todate);
+                                html = html.replace(group.name, `${group.name} (${start} ~ ${end})`);
+                            }
+
+                            e.cell.innerHTML = html;
+                            return;
+                        }
+
+                        // 🔹 일반 행 색상
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell &&
+                            !(s.rows[e.row] instanceof wijmo.grid.GroupRow)) {
+
+                            const item = s.rows[e.row].dataItem;
+                            if (!item) return;
+
+                            e.cell.style.backgroundColor = '';
+                            if (item.fixflag === "1") e.cell.style.backgroundColor = '#FFF5E1';
+                            if (item.fixflag === "2") e.cell.style.backgroundColor = '#E6F3FF';
+                        }
+                    }
+                });
+
+                new FlexGridContextMenu(theGrid2);
+                theGrid2.downloadFileName = '업무일지 내역';
+
+                theGrid2.selectionChanged.addHandler((s, e) => {
+                    const row = s.selection.row;
+                    if (row < 0) return;
+                    const item = s.rows[row].dataItem;
+                    if (!item) return;
+                    $("#rptremark").val(item.rptremark || "");
+                    $("#etcremark").val(item.etcremark || "");
+                    $("#remark").val(item.remark || "");
+                });
+            } else {
+                theGrid2.itemsSource = viewdata;
+            }
+
+            viewdata.refresh();
+            setTimeout(() => theGrid2?.collapseGroupsToLevel(0), 50);
+        }
+
+        // ✅ 더블 클릭 이벤트 핸들러 수정
+        function attachDoubleClickEvent(grid) {
+            let lastClickTime = 0;
+
+            grid.hostElement.addEventListener('click', function (e) {
+                const now = new Date().getTime();
+
+                if (now - lastClickTime < 300) { // 300ms 이내 두 번 클릭 → 더블 클릭 처리
+                    const ht = grid.hitTest(e);
+
+                    if (ht.cellType === wijmo.grid.CellType.Cell) { // 셀을 클릭한 경우만 처리
+                        const rowData = grid.rows[ht.row].dataItem; // 클릭한 행 데이터
+
+                        if (!rowData || !rowData.reqnum) {
+                            console.warn("❌ 유효한 rowData 또는 reqnum이 없습니다.");
+                            return;
+                        }
+                        //sessionStorage 에 저장
+                        sessionStorage.setItem("selectedRowData", JSON.stringify(rowData));
+                        sessionStorage.setItem("tabAction", "toggle");
+                        window.parent.postMessage({
+                            action: "addTab",
+                            id: "order_request",
+                            title: "주문등록",
+                            url: withCtx('/gui/' + "order_request" + '/default'),
+                            active: true,
+                            allowClose: true,
+                        });
+                    }
+                }
+                lastClickTime = now;
+            });
+        }
+
+
+        //다운로드
+        function downloadFile_order_status() {
+            let selectedItems = theGrid2.selectedItems; // 선택된 항목 가져오기
+            let downloadList = [];
+
+            // 선택된 항목에서 다운로드할 파일 목록 생성
+            selectedItems.forEach(function (item) {
+                downloadList.push({
+                    reqnum: item.reqnum
+                });
+            });
+
+            // 다운로드 URL 지정
+            let downloadUrl = '/api/request/request/downloader';
+
+            // Jung.js에서 정의한 downloadFiles 함수 호출
+            downloadFiles(downloadList, downloadUrl);
+        }
+        //날짜 포맷
+        function formatDateString(dateString) {
+            if (!dateString || dateString.length !== 8) return dateString; // 유효성 검사
+            const year = dateString.substring(0, 4);
+            const month = dateString.substring(4, 6);
+            const day = dateString.substring(6, 8);
+            return `${year}-${month}-${day}`;
+        }
+
+        /*모달창=====================================================*/
+
+        // 엔터 키를 눌렀을 때 모달을 여는 이벤트 리스너 추가
+        document.getElementById('searchCltnm').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                console.log('Enter key pressed, showing CltnmModal...');
+                showPopupById('CltnmModal');  // 모달 열기 함수 호출
+                modalGrid();  // 모달 그리드 초기화 및 데이터 로드
+            }
+        });
+
+        // 모달 ID와 데이터 로드 함수를 매핑하는 객체
+        const modalDataLoaders = {
+            'CltnmModal': modalDeta,
+            // 'OrdtextModal':showOrdtextModal,
+        };
+
+        function showPopupById(popupId, rowIndex = null) {
+            const popup = document.getElementById(popupId);
+            if (popup) {
+                const modal = popup.closest('.modal');
+                if (modal) {
+                    modal.style.display = 'block';
+                    requestAnimationFrame(() => modal.classList.add('show'));
+                }
+                popup.style.display = 'block';
+                requestAnimationFrame(() => popup.classList.add('show'));
+
+                // 모달이 열리면서 해당 모달의 데이터 로드 함수 호출
+                const loadDataFunction = modalDataLoaders[popupId];
+                if (typeof loadDataFunction === 'function') {
+                    try {
+                        // rowIndex가 필요할 경우에만 전달
+                        if (popupId === 'OrdtextModal' && rowIndex !== null) {
+                            loadDataFunction(rowIndex);
+                        } else {
+                            loadDataFunction();
+                        }
+                    } catch (error) {
+                        console.error(`Error loading data for modal '${popupId}':`, error);
+                    }
+                } else {
+                    console.log(`No data load function defined for modal with ID: ${popupId}`);
+                }
+
+                console.log(`Showing modal with ID: ${popupId}`);
+            } else {
+                console.warn(`Popup with ID '${popupId}' not found.`);
+            }
+        }
+
+        /*function showOrdtextModal(rowIndex) {
+            console.log("showOrdtextModal called with rowIndex:", rowIndex);
+
+            // rowIndex가 유효한지 검증
+            if (rowIndex === undefined || rowIndex === null || !theGrid2 || !theGrid2.rows[rowIndex]) {
+                console.error("Invalid rowIndex or theGrid2 is not defined:", rowIndex);
+                return;
+            }
+
+            const selectedData = theGrid2.rows[rowIndex].dataItem;
+            console.log("Selected data from grid:", selectedData);
+
+            if (selectedData && selectedData.originalOrdtext) {
+                tinymce.get("ordtext").setContent(selectedData.originalOrdtext);
+                console.log("Ordtext loaded into TinyMCE editor");
+            } else {
+                console.error("선택한 행에 대해 원본 주문 텍스트 데이터가 발견되지 않았습니다");
+            }
+        }*/
+
+        // 모달을 닫는 함수
+        function closePopup(popupId) {
+            const popup = document.getElementById(popupId);
+            if (popup) {
+                const modal = popup.closest('.modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                    modal.classList.remove('show');
+                }
+                popup.style.display = 'none';
+                popup.classList.remove('show');
+                console.log(`Closing modal with ID: ${popupId}`);
+            }
+        }
+
+        /*모달 끝 ============================================================*/
+
+        function modalDeta() {
+            console.log('Initializing modal grid...');
+            const Modaldata = [];
+            const minimumRows = 13;
+
+            // searchTerm을 입력 필드에서 가져옵니다 (예: #searchCltnm)
+            const searchTerm = $('#searchCltnm').val();
+
+            $.ajax({
+                url: '/api/order_status/ModalRead',
+                type: 'GET',
+                data: { searchTerm: searchTerm }, // searchTerm을 쿼리 파라미터로 추가
+                async: true,
+                success: function(response) {
+                    if (response && Array.isArray(response.data)) {
+                        response.data.forEach((item, index) => {
+                            Modaldata.push({
+                                rownum: index + 1,  // 순번을 추가
+                                ...item
+                            });
+                        });
+                    }
+
+                    // 최소 행 수 채우기
+                    if (Modaldata.length < minimumRows) {
+                        for (let i = Modaldata.length; i < minimumRows; i++) {
+                            Modaldata.push({
+                                rownum: i + 1,
+                                cltcd: '',
+                                cltnm: '',
+                                telnum: '',
+                                cltadres: ''
+                            });
+                        }
+                    }
+
+                    // 디버깅: 데이터 확인
+                    console.log("Data length after adding empty rows:", Modaldata.length);
+
+                    // 데이터를 CollectionView에 바인딩
+                    const viewdata = new wijmo.collections.CollectionView(Modaldata);
+
+                    // 기존 그리드 제거 후 새로 생성
+                    if (modalGrid) {
+                        modalGrid.dispose();
+                    }
+
+                    modalGrid = new wijmo.grid.FlexGrid('#modalGrid', {
+                        autoGenerateColumns: false,
+                        isReadOnly: true,
+                        columns: [
+                            {binding: 'rownum', header: '순번', width: 50, align: 'center'},
+                            {binding: 'cltcd', header: '코드', width: 140, minWidth: 80, align: 'center'},
+                            {binding: 'cltnm', header: '거래처명', width: 250 },
+                            {binding: 'telnum', header: '전화', width: 250},
+                            {binding: 'cltadres', header: '주소', width: '*'}
+                        ],
+                        itemsSource: viewdata
+                    });
+                    modalGrid.rowHeaders.columns.splice(0, 1);
+                    console.log('Modal grid initialized and data loaded.');
+
+                    // 그리드의 더블 클릭 이벤트 추가
+                    let lastClickTime = 0;
+                    modalGrid.hostElement.addEventListener('click', function (e) {
+                        const now = new Date().getTime();
+
+                        if (now - lastClickTime < 300) { // 300ms 이내의 두 번 클릭은 더블 클릭으로 인식
+                            // 클릭된 위치의 행 데이터를 가져오기
+                            const ht = modalGrid.hitTest(e);
+
+                            if (ht.cellType === wijmo.grid.CellType.Cell) {
+                                const clickedItem = modalGrid.rows[ht.row].dataItem;
+
+                                if (clickedItem && clickedItem.cltnm) { // 클릭된 행에 'cltnm' 데이터가 있는지 확인
+                                    $('#searchCltnm').val(clickedItem.cltnm); // 검색 필드에 업체 이름 설정
+                                }
+
+                                // 원하는 기능 실행
+                                fetchListData2(); // 더블 클릭 시 원하는 함수 실행
+                                closePopup('CltnmModal'); // 모달 창 닫기
+                            }
+                        }
+
+                        lastClickTime = now;
+                    });
+                },
+                error: function() {
+                    console.error("Error fetching modal data.");
+                }
+            });
+        }
+
+        function resetForm() {
+            // 검색 관련 필드 초기화 (일반 텍스트 입력 필드)
+            const searchInputIds = [
+                'searchCltnm', 'searchtketnm'
+            ];
+
+            searchInputIds.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.value = ''; // 텍스트 필드를 빈 문자열로 초기화
+                }
+            });
+
+            // 드롭다운 필드 초기화
+            const dropdown = document.getElementById('searchstate');
+            if (dropdown) {
+                dropdown.value = '전체'; // 드롭다운을 기본값('전체')으로 설정
+            }
+        }
+        function initDatas(){
+            // 연차
+            $('.checkCnt').html(0 + '<span class="small-unit" style="font-size: 0.5em; opacity: 0.5;"> 건</span>');
+            // 반차
+            $('.estimateCnt').html(0 + '<span class="small-unit" style="font-size: 0.5em; opacity: 0.5;"> 건</span>');
+            // 유연근무
+            $('.produceCnt').html(0 + '<span class="small-unit" style="font-size: 0.5em; opacity: 0.5;"> 건</span>');
+            $.ajax({
+                url: withCtx('/api/dash_summary/initDatas'),
+                type: 'GET',
+                data: {
+                    'search_spjangcd': sessionStorage.getItem('spjangcd'),
+                },
+                async: false,
+                success: function (data) {
+                    data2 = data.data;
+                    data2.forEach(item =>{
+                        switch (item.workcd) {
+                            // 연차
+                            case "08":
+                                $('.checkCnt').html(item.workcd_count + '<span class="small-unit" style="font-size: 0.5em; opacity: 0.5;"> 건</span>');
+                                break;
+                            // 반차
+                            case "04":
+                                $('.estimateCnt').html(item.workcd_count + '<span class="small-unit" style="font-size: 0.5em; opacity: 0.5;"> 건</span>');
+                                break;
+                            // 유연근무
+                            case "13":
+                                $('.produceCnt').html(item.workcd_count + '<span class="small-unit" style="font-size: 0.5em; opacity: 0.5;"> 건</span>');
+                                break;
+                            // 병가
+                            // case "05":
+                            //     $('.produceCnt').html(item.workcd_count + '<span class="small-unit" style="font-size: 0.5em; opacity: 0.5;"> 건</span>');
+                            //     break;
+                            default:
+                                console.log("이외의 근태종류 바인드 : ", item.workcd);
+                        }
+                    })
+                }
+            })
+        }
+
+
+        function openPopup(url) {
+            // 새 창 열기
+            window.open(url, '_blank',
+                'width=1040,height=1000,toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes');
+        }
+
+        //주문 확인[주문 등록->주문 확인으로 상태 변경]
+        function CheckOK() {
+            let selectedRows = [];
+
+            if (theGrid2) {
+                let selector = new wijmo.grid.selector.Selector(theGrid2);
+
+                if (typeof selector.getCheckedItems === "function") {
+                    selectedRows = selector.getCheckedItems();
+                } else {
+                    console.warn("⚠️ `getCheckedItems()`가 존재하지 않습니다. `isSelected` 방식으로 대체합니다.");
+                    selectedRows = theGrid2.rows.filter(row => row.isSelected).map(row => row.dataItem);
+                }
+            }
+
+            if (selectedRows.length === 0) {
+                alert("선택된 주문이 없습니다.");
+                return;
+            }
+
+            // ✅ 선택된 행 데이터 콘솔에 출력
+            console.log("✅ 선택된 주문 데이터:", selectedRows);
+
+            processSelectedOrders(selectedRows);
+        }
+
+        function processSelectedOrders(selectedRows) {
+            let requestData = { orders: selectedRows };
+
+            console.log(" 서버로 전송할 데이터:", JSON.stringify(requestData));
+
+            $.ajax({
+                url: '/api/order_status/confirm',
+                type: 'POST',
+                contentType: 'application/json', // ✅ JSON 헤더 추가
+                data: JSON.stringify(requestData), // ✅ JSON 형식 변환
+                headers: {
+                    'X-CSRF-Token': $('[name=_csrf]').val()
+                },
+                success: function(response) {
+                    console.log("✅ 서버 응답:", response);
+                    Alert.alert('' ,"주문 확인 처리가 완료되었습니다.");
+                    fetchListData2();
+                },
+                error: function(xhr, status, error) {
+                    console.error("❌ 주문 확인 처리 중 오류 발생:", xhr.responseText);
+
+                    try {
+                        let response = JSON.parse(xhr.responseText);
+                        Alert.alert('', response.message || "처리 중 오류가 발생했습니다.");
+                    } catch (e) {
+                        Alert.alert('', "처리 중 오류가 발생했습니다.");
+                    }
+                }
+
+            });
+        }
+
+        //주문취소
+        function CancelOrder(){
+            let selectedRows = [];
+
+            if (theGrid2) {
+                let selector = new wijmo.grid.selector.Selector(theGrid2);
+
+                if (typeof selector.getCheckedItems === "function") {
+                    selectedRows = selector.getCheckedItems();
+                } else {
+                    console.warn("⚠️ `getCheckedItems()`가 존재하지 않습니다. `isSelected` 방식으로 대체합니다.");
+                    selectedRows = theGrid2.rows.filter(row => row.isSelected).map(row => row.dataItem);
+                }
+            }
+
+            if (selectedRows.length === 0) {
+                alert("선택된 주문이 없습니다.");
+                return;
+            }
+
+            // ✅ 선택된 행 데이터 콘솔에 출력
+            console.log("✅ 선택된 주문 데이터:", selectedRows);
+
+            processCancelOrder(selectedRows);
+        }
+
+        function processCancelOrder(selectedRows){
+            let requestData = { orders: selectedRows };
+
+            console.log(" 서버로 전송할 데이터:", JSON.stringify(requestData));
+
+            $.ajax({
+                url: '/api/order_status/CancelOrder',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(requestData),
+                headers: {
+                    'X-CSRF-Token': $('[name=_csrf]').val()
+                },
+                success: function(response) {
+                    console.log("✅ 서버 응답:", response);
+                    Alert.alert('' ,"주문 확인 처리가 완료되었습니다.");
+                    fetchListData2();
+                },
+                error: function(xhr, status, error) {
+                    console.error("❌ 주문 확인 처리 중 오류 발생:", xhr.responseText);
+
+                    try {
+                        let response = JSON.parse(xhr.responseText);
+                        Alert.alert('', response.message || "처리 중 오류가 발생했습니다.");
+                    } catch (e) {
+                        Alert.alert('', "처리 중 오류가 발생했습니다.");
+                    }
+                }
+
+            });
+        }
+
+        //공통 코드
+        const selectConfigs = [
+            {parentCode: 'ordflag', elementId: 'searchstate'},
+        ];
+
+
+        // 관리자 Dashboard 카드 클릭이동
+        function applySavedSettings() {
+            var activeSection = sessionStorage.getItem("activeSection");
+            var searchState = sessionStorage.getItem("searchState");
+
+            if (searchState) {
+                // tab2 활성화
+                activateSection();
+                // 진행구분 선택 탭 상태값에 따라 인덱스 바인드
+                setSelectedIndex(document.getElementById("searchstate"), searchState); // 진행구분 select 바인딩
+                // 주문일자 올해건수 바인드
+                setOrderDateRange();
+            }
+            // sessionStorage 값 삭제 (한 번만 적용되도록)
+            sessionStorage.removeItem("activeSection");
+            sessionStorage.removeItem("searchState");
+        }
+        function activateSection() {
+            $(".tab-item").hide(); // 모든 섹션 숨기기
+            $("#tab2").show(); // 해당 섹션 표시
+            $(".tab-links li").removeClass("active"); // 모든 탭에서 active 제거
+
+            // 특정 title을 가진 <a> 태그를 찾아 해당 <li>에 active 추가
+            $(".tab-links a[title='주문 확인']").parent("li").addClass("active");
+        }
+        // option값 value bind
+        function setSelectedIndex(selectElement, selectedValue) {
+            let found = false;
+            let normalizedValue = String(selectedValue).trim(); // 🔥 `selectedValue`를 `String` 변환하여 비교
+
+            for (let i = 0; i < selectElement.options.length; i++) {
+
+                if (selectElement.options[i].value.trim() === normalizedValue) {
+                    selectElement.selectedIndex = i;
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                selectElement.selectedIndex = 0;
+                console.warn("❌ 일치하는 값이 없어 기본값 0 설정");
+            }
+        }
+
+        function setOrderDateRange() {
+            const today = new Date();
+            const year = today.getFullYear();
+
+            // 올해 1월 1일 (로컬 시간 기준)
+            const startDate = new Date(year, 0, 1); // 월: 0 = 1월
+            const startDateStr = formatDate(startDate);
+
+            // 올해 12월 31일 (로컬 시간 기준)
+            const endDate = new Date(year, 11, 31);
+            const endDateStr = formatDate(endDate);
+
+            const startDateInput = document.getElementById("startDate");
+            const endDateInput = document.getElementById("endDate");
+            startDateInput.value = startDateStr;
+            endDateInput.value = endDateStr;
+
+        }
+
+        //로컬 시간 기준으로 날짜를 YYYY-MM-DD 형식으로 변환하는 함수
+        function formatDate(date) {
+            let yyyy = date.getFullYear();
+            let mm = String(date.getMonth() + 1).padStart(2, "0"); // 월은 0부터 시작하므로 +1 필요
+            let dd = String(date.getDate()).padStart(2, "0");
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // 유지보수요청현황 탭 그리드 조회
+        function fetchListRequestData() {
+            let data2 = []; // 데이터를 담을 배열
+            let emptyRowsCount = 8;
+
+            $.ajax({
+                url: withCtx('/api/dash_summary/readRequest'),
+                type: 'GET',
+                data : {
+                    searchfrdate: $('#startDate4').val(),
+                    searchtodate: $('#endDate4').val(),
+                    // searchCompCd: $('#cboCompanyHidden2').val(),
+                    searchCompnm: $('#searchCltnm').val(),
+                    // aspernm: $('#aspernm2').val(),
+                    // reqType : $('#reqType2').val(),
+                    recyn : $('#searchstate').val(),
+                    spjangcd: getSpjangcdFromSession(),
+                },
+                async: false,
+                success: function (response) {
+                    // 응답이 올바르게 도착했고, data 속성이 배열인지 확인
+                    if (response && Array.isArray(response.data)) {
+                        data2 = response.data;
+                        console.log("data2",data2)
+                        // 날짜 형식 변환 및 ordflag 변환
+                        data2.forEach(item => {
+
+                        });
+                    }
+                },
+                error: function () {
+                    console.error("데이터를 가져오는 중 오류가 발생했습니다.");
+                }
+            });
+
+            // 빈 객체를 emptyRowsCount만큼 추가
+            if(data2.length < emptyRowsCount) {
+                for (let i = 0; emptyRowsCount - data2.length ; i++) {
+                    data2.push({
+
+                    });
+                }
+            }
+            viewdata4 = new wijmo.collections.CollectionView(data2);
+            if (!theGrid4) {
+                theGrid4 = new wijmo.grid.FlexGrid('#theGrid4', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'asdate', header: '요청일자', align: 'center', width: 120 },
+                        { binding: 'cltnm', header: '업체명', align: 'left', width: 150 },
+                        { binding: 'usernm', header: '요청자', align: 'left', width: 120},
+                        { binding: 'retitle', header: '제목', align: 'left', width: '*' },
+                        { binding: 'asdv_nm', header: '요청구분', align: 'center', width: 120 },
+                        { binding: 'asmenu', header: '화면명', align: 'left', width: 150 },
+                        { binding: 'aspernm', header: '본사담당', align: 'left', width: 120 },
+                        { binding: 'recyn_nm', header: '진행구분', align: 'center', width: 120 },
+                        // { binding: 'hasProcess', header: '처리여부', align: 'center', width: 100 },
+                        { binding: 'recdate', header: '접수일자', align: 'center', width: 150 },
+                    ],
+                    itemsSource: viewdata4 // 빈 객체가 추가된 배열 사용
+                });
+                // 헤더를 중앙 정렬하는 이벤트 핸들러
+                theGrid4.formatItem.addHandler(function (s, e) {
+                    if (e.panel === s.columnHeaders) {
+                        e.cell.style.textAlign = 'center';
+                    }
+                });
+                theGrid4.rowHeaders.columns.splice(0, 1);
+                // 선택이 변경될 때, 현재 항목 업데이트
+                new FlexGridContextMenu(theGrid4);
+                window.downloadFileName = '요청현황';
+
+                // 그리드 선택 이벤트 - 상세 정보 표시
+                theGrid4.selectionChanged.addHandler((s, e) => {
+                    const row = s.selection.row;
+                    if (row < 0) return;
+
+                    const item = s.rows[row].dataItem;
+                    if (!item) return;
+
+                    // ✅ HTML 태그 제거 (웹에디터 내용에서 순수 텍스트만 추출)
+                    const plainContent = (item.content || '').replace(/<[^>]+>/g, '');
+                    const plainRemark = (item.remark || '').replace(/<[^>]+>/g, '');
+
+                    // 요청현황 탭의 상세 정보 영역에 데이터 표시
+                    $('#reqtextf').val(plainContent);
+                    $('#reqtextf2').val(plainRemark);
+                    // 처리내용은 별도 조회 필요
+                });
+            } else {
+                // 이미 FlexGrid이 존재하는 경우, 데이터만 업데이트
+                theGrid4.itemsSource = viewdata4; // 빈 객체가 추가된 배열 사용
+            }
+        }
+
+        // 새 요청현황 (월별 유지보수 요청현황) 조회 및 바인딩
+        function fetchListRequestData2() {
+            $.ajax({
+                url: withCtx('/api/dash_summary/readRequest2'),
+                type: 'GET',
+                async: false,
+                success: function(response) {
+                    if (response && Array.isArray(response.data)) {
+                        console.log('📦 유지보수 요청현황 데이터', response.data);
+
+                        // 데이터 포맷팅 (필요 시)
+                        const data = response.data.map(item => {
+                            return {
+                                id: item.id,
+                                asdate: item.asdate,
+                                cltnm: item.cltnm,
+                                usernm: item.usernm,
+                                retitle: item.retitle,
+                                asdv_nm: item.asdv_nm,
+                                asmenu: item.asmenu,
+                                aspernm: item.aspernm,
+                                recyn_nm: item.recyn_nm,
+                                recdate: item.recdate,
+                                as_file: item.as_file
+                            };
+                        });
+
+                        // 그리드가 이미 생성된 경우
+                        if (window.grid1 && window.grid1.itemsSource) {
+                            window.grid1.itemsSource.sourceCollection = data;
+                            window.grid1.refresh();
+                        } else {
+                            // 최초 생성
+                            window.grid1 = new wijmo.grid.FlexGrid('#theGrid2', {
+                                autoGenerateColumns: false,
+                                showMarquee: true,
+                                allowSorting: 'MultiColumn',
+                                selectionMode: wijmo.grid.SelectionMode.Row,
+                                isReadOnly: true,
+                                columns: [
+                                    { binding: 'id', header: 'ID', visible: false },
+                                    { binding: 'asdate', header: '요청일자', align: 'center', width: 120 },
+                                    { binding: 'cltnm', header: '업체명', align: 'left', width: 150 },
+                                    { binding: 'usernm', header: '요청자', align: 'left', width: 120 },
+                                    { binding: 'retitle', header: '제목', align: 'left', width: 300 },
+                                    { binding: 'asdv_nm', header: '요청구분', align: 'center', width: 120 },
+                                    { binding: 'asmenu', header: '화면명', align: 'left', width: 150 },
+                                    { binding: 'aspernm', header: '본사담당', align: 'left', width: 120 },
+                                    { binding: 'recyn_nm', header: '진행구분', align: 'center', width: 120 },
+                                    { binding: 'recdate', header: '접수일자', align: 'center', width: 150 },
+                                    // { binding: 'as_file', header: '첨부파일', align: 'center', width: 120 }
+                                ],
+                                itemsSource: new wijmo.collections.CollectionView(data)
+                            });
+
+                            // 행번호 제거
+                            grid1.rowHeaders.columns.splice(0, 1);
+                            new FlexGridContextMenu(grid1);
+                            grid1.downloadFileName = '요청사항_처리현황';
+                        }
+                    } else {
+                        console.warn('⚠️ 서버에서 빈 데이터가 반환되었습니다.');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('❌ 유지보수 요청현황 데이터를 가져오는 중 오류 발생:', error);
+                }
+            });
+        }
+
+        // 공지사항 조회
+        function fetchListNoticeData() {
+            let keyword = $('#keyword').val();
+            let srchStartDt = $('#srchStartDt').val();
+            let srchEndDt = $('#srchEndDt').val();
+
+            let data2 = []; // 데이터를 담을 배열
+            let emptyRowsCount = 8;
+
+            $.ajax({
+                url: withCtx('/api/dash_summary/notice'),
+                type: 'GET',
+                data: {
+                    'keyword': keyword,
+                    'srchStartDt': srchStartDt,
+                    'srchEndDt': srchEndDt
+                },
+                async: false,
+                success: function (response) {
+                    // 응답이 올바르게 도착했고, data 속성이 배열인지 확인
+                    if (response && Array.isArray(response.data)) {
+                        data2 = response.data;
+                        console.log("data2",data2)
+                        // 최초 동작(페이지진입)시 미확인 공지사항 popup 출력
+                        if (isFirstNoticeLoad) {
+                            const popupTargets = getPopupTargetNotice(data2);
+                            checkUnreadNoticeOnce(popupTargets);
+                        }
+                    }
+                },
+                error: function () {
+                    console.error("데이터를 가져오는 중 오류가 발생했습니다.");
+                }
+            });
+
+            // 빈 객체를 emptyRowsCount만큼 추가
+            if(data2.length < emptyRowsCount) {
+                for (let i = 0; emptyRowsCount - data2.length ; i++) {
+                    data2.push({
+
+                    });
+                }
+            }
+            viewdata5 = new wijmo.collections.CollectionView(data2);
+            if (!theGrid5) {
+                theGrid5 = new wijmo.grid.FlexGrid('#theGrid_notice', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        {binding: 'id', header: '번호', width: 80, align: 'center'},
+                        {binding: 'title', header: '제목', width: 190, align: 'center'},
+                        {binding: 'write_date_time', header: '작성일', width: 175, align: 'center'},
+                        {binding: 'content', header: '내용', width: "*", align: 'center'},
+                        {binding: '', header: '첨부파일', width: 150, align: 'center'}
+                    ],
+                    itemsSource: viewdata5 // 빈 객체가 추가된 배열 사용
+                });
+                // 헤더를 중앙 정렬하는 이벤트 핸들러
+                theGrid5.formatItem.addHandler(function (s, e) {
+                    if (e.panel === s.columnHeaders) {
+                        e.cell.style.textAlign = 'center';
+                    }
+                });
+                theGrid5.hostElement.addEventListener('dblclick', function (e) {
+                    const ht = theGrid5.hitTest(e);
+                    if (ht.cellType !== wijmo.grid.CellType.Cell) return;
+
+                    const rowData = theGrid5.rows[ht.row].dataItem;
+                    if (!rowData || !rowData.id) return;
+
+                    showNoticeEdit(rowData);
+                });
+                theGrid5.rowHeaders.columns.splice(0, 1);
+                // 선택이 변경될 때, 현재 항목 업데이트
+                new FlexGridContextMenu(theGrid5);
+                window.downloadFileName = '공지사항';
+            } else {
+                // 이미 FlexGrid이 존재하는 경우, 데이터만 업데이트
+                theGrid5.itemsSource = viewdata5; // 빈 객체가 추가된 배열 사용
+            }
+        }
+
+        //모달
+        function showNoticeEdit(data) {
+            let _this = this;
+            let content = tmpl('noticeTmpl', data);
+            let $content = $(content);
+            let modalContainer;
+            modalContainer = new PopupDraggable('공지 사항 확인');
+            modalContainer.open({width: 1010, height: 670, $content});
+            $content.find('#srchDt').ax5DatePicker({direction: 'top'});
+            edit();
+        }
+        function edit() {
+            nhn.husky.EZCreator.createInIFrame({
+                oAppRef: oEditors,
+                elPlaceHolder: 'content', //textarea id
+                sSkinURI: '/resource/se2/SmartEditor2Skin.html',
+                htParams: {
+                    bUseToolbar: true,				// 툴바 사용 여부 (true:사용/ false:사용하지 않음)
+                    bUseVerticalResizer: true,		// 입력창 크기 조절바 사용 여부 (true:사용/ false:사용하지 않음)
+                    bUseModeChanger: true,			// 모드 탭(Editor | HTML | TEXT) 사용 여부 (true:사용/ false:사용하지 않음)
+                    //bSkipXssFilter : true,		// client-side xss filter 무시 여부 (true:사용하지 않음 / 그외:사용)
+                    //aAdditionalFontList : aAdditionalFontSet,		// 추가 글꼴 목록
+                    fOnBeforeUnload: function () {
+                        Alert.alert('',"완료!");
+                    }
+                }, //boolean
+                fOnAppLoad: function () {
+
+                    //예제 코드
+                    //oEditors.getById["content"].exec("PASTE_HTML", ["/*dfdfd*/"]);
+
+                    //초기 readonly 시키는 부분
+                    //var editor = oEditors.getById["content"];
+                    //editor.exec("DISABLE_WYSIWYG");
+                    //editor.exec("DISABLE_ALL_UI");
+                    //page.searchMain();
+                },
+                fCreator: 'createSEditor2'
+            });
+        };
+
+        // 공지사항 localStorage 확인id 값 반환(popup표출 - localStorage에 있는 id 값보다 큰값(신규공지사항))
+        function getLastReadNoticeId() {
+            return Number(localStorage.getItem(LAST_READ_NOTICE_KEY) || 0);
+        }
+
+        // 공지사항 확인 메서드
+        function setLastReadNoticeId(id) {
+            const current = getLastReadNoticeId();
+            const newId = Number(id);
+
+            if (newId > current) {
+                localStorage.setItem(LAST_READ_NOTICE_KEY, newId);
+            }
+        }
+
+        // 최초진입시 미확인 공지 팝업표출
+        function checkUnreadNoticeOnce(noticeList) {
+            if (!isFirstNoticeLoad) return;
+            isFirstNoticeLoad = false;
+
+            const lastReadId = getLastReadNoticeId();
+
+            // id 기준으로 미확인 공지 필터링
+            const unreadList = noticeList
+                .filter(n => n.id && Number(n.id) > lastReadId)
+                .sort((a, b) => b.id - a.id); // 최신 공지 우선
+
+            if (unreadList.length > 0) {
+                showNoticeEdit(unreadList[0]); // 가장 최신 1건만
+            }
+        }
+
+        // 공지사항 확인버튼 클릭 이벤트
+        $(document).on('click', '#btn_modal_save', function () {
+            const noticeId = $('#editorForm #id').val();
+
+            if (noticeId) {
+                setLastReadNoticeId(noticeId);
+            }
+
+            $('#modal-close-button').click();
+        });
+
+        // 공지사항 공지종료일 >= 오늘 여부 판단 메서드(공지종료일이 끝나지 않은경우 return)
+        function isAfterOrToday(dateStr) {
+            if (!dateStr) return false;
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const target = new Date(dateStr);
+            target.setHours(0, 0, 0, 0);
+
+            return target >= today;
+        }
+
+        // 팝업 대상 공지 필터링 로직(공지여부 값 : 'Y'인 데이터만)
+        function getPopupTargetNotice(noticeList) {
+            const lastReadId = getLastReadNoticeId(); // 이전에 만든 localStorage 기준
+
+            return noticeList
+                .filter(n =>
+                    n.notice_yn === 'Y' &&
+                    isAfterOrToday(n.notice_end_date) &&
+                    Number(n.id) > lastReadId
+                )
+                .sort((a, b) => b.id - a.id); // 최신 공지 우선
+        }
+    </script>
+</th:block>
+</html>
+

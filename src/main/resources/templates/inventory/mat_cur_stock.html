@@ -1,0 +1,271 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+    <style>
+        .grid-cell-red {
+            background: rgb(248, 210, 203) !important;
+        }
+
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>재고현황</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>재고관리</li>
+                <li>재고현황</li>
+            </ul>
+        </div>
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label for="cboMatType">
+                                품목유형<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboMatType" name="cboMatType">
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="cboMatGrp">
+                                품목그룹<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboMatGrp" name="cboMatGrp">
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="txtMatName">
+                                품목명(코드)<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input id="txtMatName" name="txtMatName" />
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="cboStoreHouse">
+                                창고
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboStoreHouse" name="cboStoreHouse">
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="material-stock-grid" style="height: 730px;"></div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+
+    <script type="text/javascript">
+        class MaterialStockPage {
+            constructor() {
+                this.gird = null;
+                this.init();
+                this.url = '/api/inventory/material_current_stock';
+            }
+
+            init() {
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#material-stock-grid', {
+                    autoGenerateColumns: false,
+                    frozenColumns: 0, // 열 고정
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    selectionMode: wijmo.grid.SelectionMode.None, // 다중 선택 불가
+                    allowSorting: true, // 정렬 가능
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'mat_type_name', header: '품목유형', width: 100, align: 'left', isReadOnly: true},
+                        {binding: 'mat_grp_name', header: '품목그룹', width: 120, align: 'left', isReadOnly: true},
+                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'center', isReadOnly: true},
+                        {binding: 'mat_name', header: '품목명', width: 250, align: 'left', isReadOnly: true},
+                        {
+                            binding: 'stock_price',
+                            header: '재고금액',
+                            width: 120,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
+                        {binding: 'unit_name', header: '단위', width: 70, align: 'center', isReadOnly: true},
+                        {
+                            binding: 'avail_stock',
+                            header: '가용재고',
+                            width: 100,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true,
+                            visible: false
+                        },
+                        {
+                            binding: 'reserve_stock',
+                            header: '예약재고',
+                            width: 100,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true,
+                            visible: false
+                        },
+                        {
+                            binding: 'cur_stock',
+                            header: '총재고',
+                            width: 100,
+                            align: 'right',
+                            format: 'n0'
+                        },
+                        {binding: 'house_name', header: '창고', width: 120, align: 'center', isReadOnly: true},
+                        {
+                            binding: 'house_stock',
+                            header: '창고재고',
+                            width: 100,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true,
+                        },
+                        {binding: 'lot_use_yn', header: '로트관리유무', width: 120, align: 'center', isReadOnly: true},
+                        {
+                            binding: 'lot_count',
+                            header: '로트 개수',
+                            width: 100,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
+                        {
+                            binding: 'safety_stock',
+                            header: '안전재고',
+                            width: 100,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        }
+                    ],
+                    itemsSource: new wijmo.collections.CollectionView([]), // 빈 데이터로 초기화
+                    itemFormatter: (panel, row, col, cell) => {
+                        if (panel.cellType === wijmo.grid.CellType.Cell) {
+                            const item = panel.rows[row].dataItem; // 현재 행 데이터
+                            const column = panel.columns[col]; // 현재 열
+
+                            // 'cur_stock' 열에 대해 조건에 따른 클래스 추가
+                            if (column.binding === 'cur_stock' && item.cur_stock < item.safety_stock) {
+                                cell.classList.add('grid-cell-red');
+                            }
+
+                            // 'house_stock' 열에 대해 조건에 따른 클래스 추가
+                            if (column.binding === 'house_stock' && item.house_stock < 0) {
+                                cell.classList.add('redText');
+                            }
+                        }
+                    }
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '재고 현황 내역';
+            }
+
+            searchDataBind() {
+                let _this = this;
+
+                let param = {
+                    'action': 'read',
+                    'mat_type': $('#cboMatType').val(),
+                    'mat_grp_pk': $('#cboMatGrp').val(),
+                    'mat_name': $('#txtMatName').val(),
+                    'store_house_id': $('#cboStoreHouse').val(),
+                    'spjangcd' : sessionStorage.getItem('spjangcd')
+
+                };
+
+
+                let result = AjaxUtil.getSyncData(this.url + '/read', param);
+                if (result != null) {
+                    _this.grid.itemsSource.sourceCollection = result.data;
+                }
+            }
+
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new MaterialStockPage();
+
+            AjaxUtil.fillSelectOptions($('#cboMatType'), 'system_code', 'all', null, 'mat_type');
+            AjaxUtil.fillSelectOptions($('#cboMatGrp'), 'material_group', 'all', false);
+
+            $('#cboMatType').on('change', function (e) {
+                let mat_type = $('#cboMatType').val();
+                AjaxUtil.fillSelectOptions($('#cboMatGrp'), 'material_group', 'all', false, mat_type);
+            });
+
+            $('#cboMatGrp').change(function () {
+                let grp_pk = $('#cboMatGrp').val();
+
+            });
+
+            AjaxUtil.fillSelectOptions($('#cboStoreHouse'), 'store_house', 'all', false);
+
+            // 검색버튼
+            $('#btnSearch').click(function (e) {
+                page.searchDataBind();
+
+            });
+
+            page.searchDataBind();
+
+        });
+
+
+    </script>
+</th:block>
+</html>

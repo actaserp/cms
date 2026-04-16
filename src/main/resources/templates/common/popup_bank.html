@@ -1,0 +1,196 @@
+<th:block th:fragment="popup_bank">
+<script type="text/x-tmpl" id="popup_bankSearchTemplate">
+
+<div class="content_wrap popup">
+
+    <section class="section" style="padding-top: 10px;">
+
+        <div class="section-top">
+            <div class="search-wrap" style="text-align: left;">
+                <dl>
+                    <dt>
+                        <label for="">
+                            은행코드<span class="eq"></span>
+                        </label>
+                    </dt>
+                    <dd>
+                        <div class="srch-box">
+                            <input type="text" id="bankCode" name="bankCode" style="width:160px;"/>
+                        </div>
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                        <label for="">
+                            은행명<span class="eq"></span>
+                        </label>
+                    </dt>
+                    <dd>
+                        <div class="srch-box">
+                            <input type="text" id='bankName' name="bankName" style="width:160px;"/>
+                        </div>
+                    </dd>
+                </dl>
+
+                <dl>
+                    <dt>&nbsp;</dt>
+                    <dd>
+                        <li>
+                            <a class="btn btn-delete" title="검색" id="btnBankSearch">
+                                <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                검색
+                            </a>
+                        </li>
+                    </dd>
+                </dl>
+            </div>
+            <div class="container-fluid">
+                <div id="theGrid_bank" style="height: 300px;"></div>
+            </div>
+        </div>
+
+    </section>
+
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="btnBankSelect" ><span data-commonCd="선택">선택</span></button>
+            <button type="button" class="btn-popup" id="btn-search-close"><span data-commonCd="닫기">닫기</span></button>
+        </div>
+
+
+</div>
+</script>
+
+<script type="text/javascript">
+
+    class PopBankComponent {
+        constructor() {
+
+            this.grid = null;
+            this.viewData = new wijmo.collections.CollectionView();
+            this.selectedItem = null;
+            this.callback = null;
+            this.modalContainer = new PopupDraggable('은행 선택');
+            this.$btnBankSearch = null;
+            this.$btnBankSelect = null;
+            this.$bankName = null;
+            this.$bankCode = null;
+
+        }
+
+        searchDataBind() {
+            let _this = this;
+            let url = '/api/popup/search_Bank';
+            let data = {
+                'bankCode': _this.$bankCode.val(),
+                'bankName': _this.$bankName.val(),
+            };
+
+            let result = AjaxUtil.getSyncData(url, data);
+            if (result && Array.isArray(result.data)) {
+                _this.viewData.sourceCollection = result.data;
+            } else {
+                _this.viewData.sourceCollection = [];
+            }
+
+            //검색버튼을 누르고 초기화한다
+            this.selectedItem = null;
+        }
+
+        selectData(item) {
+            if (typeof this.callback !== 'undefined' && this.callback != null) {
+                this.callback(item);
+            }
+            this.close();
+        }
+
+        show(callback) {
+            let _this = this;
+
+            this.callback = callback;
+
+            let content = tmpl('popup_bankSearchTemplate', {});
+            let $content = $(content);
+            this.modalContainer.open({ width: 800, height: 500, $content });
+
+            this.grid = new wijmo.grid.FlexGrid('#theGrid_bank', {
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                autoGenerateColumns: false,
+                showMarquee: true,
+                isReadOnly: true,
+                columns: [
+                    { binding: 'bankid', header: '은행코드', width: 120, align: 'center' , visible: false},
+                    { binding: 'bankcode', header: '은행코드', width: 120, align: 'center' },
+                    { binding: 'bankname', header: '은행명', width: '*', align: 'left' },
+                ],
+                itemsSource: this.viewData,
+            });
+
+            this.grid.rowHeaders.columns.splice(0, 1);
+            new FlexGridContextMenu(this.grid);
+            this.grid.downloadFileName = '은행 목록';
+
+            this.$btnBankSearch = $content.find('#btnBankSearch');
+            this.$bankCode = $content.find('#bankCode');
+            this.$bankName = $content.find('#bankName');
+            this.$btnBankSelect = $content.find('#btnBankSelect');
+
+
+            // 엔터키로 검색
+            this.$bankName.on('keypress', function (e) {
+                if (e.keyCode === 13) {
+                    _this.searchDataBind();
+                }
+            });
+
+            this.$bankCode.on('keypress', function (e) {
+                if (e.keyCode === 13) {
+                    _this.searchDataBind();
+                }
+            });
+
+
+            this.$btnBankSearch.click(function (e) {
+                _this.searchDataBind();
+            });
+
+
+            $('#btnBankSearch').click();
+
+
+            this.$btnBankSelect.click(function (e) {
+                // 그리드에서 현재 선택된 item을 찾아서 호출한다.
+                let items = _this.grid.selectedItems;
+                if (items.length === 0) {
+                    return false;
+                }
+                _this.selectData(items[0]);
+            });
+
+
+            //닫기버튼을 아래 ID로 사용한다면 호출하는 화면에서 이벤트 처리 필요없음
+            $content.find('#btn-search-close').on('click', function () {
+                _this.close();
+            });
+
+            //새로고침
+            // $('#btnTest').click(function (e) {
+            //     _this.grid.collectionView.refresh(); // Wijmo 그리드 새로고침
+            // });
+
+            this.grid.hostElement.addEventListener('dblclick', function (e) {
+                let items = _this.grid.selectedItems;
+                if (items.length === 0) {
+                    return false;
+                }
+                _this.selectData(items[0]); // btnCompSelect 클릭과 동일한 동작
+            });
+        }
+
+        close() {
+            this.modalContainer.close();
+        }
+    }
+
+</script>

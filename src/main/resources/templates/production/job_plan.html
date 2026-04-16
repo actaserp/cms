@@ -1,0 +1,1198 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        #matListTb input, #matListTb textarea {
+            width: 100px;
+            height: 40px;
+        }
+
+        input[type="date"][readonly] {
+            background-color: #EDEFF5;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>생산 계획 등록</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산 관리</li>
+                <li>생산 계획 등록</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label for="cboDateKind">
+                                계획일자<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboDateKind" name="cboDateKind">
+<!--                                    <option value="selectDate" >기간</option>-->
+                                    <option value="week" selected>주간</option>
+                                    <option value="month">월간</option>
+                                </select>
+                                <div id="extraSelectBox" style="display:inline-block; margin-left: 10px;"></div>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            조회기간<span class="eq">*</span>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input type="date" id="srchStartDt" name="srchStartDt">
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input type="date" id="srchEndDt" name="srchEndDt">
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <a class="btn btn-excell" title="등록" id="btnAddNew">
+                                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                등록
+                            </a>
+                        </li>
+                        <!--                        <li>-->
+                        <!--                            <a class="btn btn-delete" title="삭제" id="btnDelete">-->
+                        <!--                                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">-->
+                        <!--                                삭제-->
+                        <!--                            </a>-->
+                        <!--                        </li>-->
+                        <li>
+                            <a class="btn btn-edit" title="수정" id="btnEdit">
+                                <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">
+                                수정
+                            </a>
+                            <!--                        </li>-->
+                            <!--                        <li>-->
+                            <!--                            <a class="btn" title="엑셀 업로드" id="btnShowUpload">-->
+                            <!--                                엑셀 업로드-->
+                            <!--                            </a>-->
+                            <!--                        </li>-->
+                            <!--                        <li>-->
+                            <!--                            <a class="btn" title="양식 다운로드" id="btnDownloadTemplate">-->
+                            <!--                                양식 다운로드-->
+                            <!--                            </a>-->
+                            <!--                        </li>-->
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="theGrid" style="height: 730px;"></div>
+            </div>
+            <!--        <div class="grid_box">-->
+
+            <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
+            <!--        </div>-->
+        </section>
+    </div>
+    <script type="text/x-tmpl" id="planTemplate">
+        <style>
+            /* 아이템 테이블 전체 설정 */
+            .item-table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+                margin-top: 10px;
+            }
+
+            /* 헤더 셀 스타일 */
+            .item-table th {
+                background-color: #EDEFF5;
+                text-align: center;
+                font-weight: bold;
+                padding: 8px;
+                border: 1px solid #ccc;
+            }
+
+            /* 바디 셀 스타일 */
+            .item-table td {
+                padding: 6px;
+                text-align: center;
+                border: 1px solid #ccc;
+            }
+
+            /* 입력 필드 기본 스타일 */
+            .item-table input {
+                width: 100%;
+                box-sizing: border-box;
+                padding: 4px;
+            }
+
+            /* 품목 & 비고 왼쪽 정렬 */
+            .item-table td:first-child,
+            .item-table td:nth-child(6) {
+                text-align: left;
+            }
+
+            /* 공통 버튼 스타일 */
+            .item-table .btn.in_btn {
+                display: inline-flex;
+                justify-content: center;
+                align-items: center;
+                width: 32px;
+                height: 32px;
+                border-radius: 4px;
+                padding: 0;
+                border: 1px solid #B3B3B3;
+                background-color: #fff;
+                cursor: pointer;
+                transition: background-color 0.2s;
+                line-height: 0;
+            }
+
+            /* + 버튼 전용 스타일 */
+            .item-table .btn.in_btn.plus img {
+                width: 10px;
+                height: 10px;
+                display: block;
+            }
+
+            /* 공통 아이콘 버튼 이미지 (삭제, 검색 포함) */
+            .item-table .btn.in_btn img {
+                width: 12px;
+                height: 12px;
+                display: block;
+                margin-right: 5px;
+            }
+
+            .input-with-button {
+                display: flex;
+                gap: 4px; /* 버튼과 input 사이 여백 */
+                align-items: center;
+            }
+
+            .input-with-button input {
+                flex: 1; /* 나머지 영역 차지 */
+                min-width: 0;
+                padding: 4px;
+            }
+
+            .input-with-button .btn.in_btn {
+                flex-shrink: 0;
+            }
+
+            .content_wrap.popup {
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+            }
+
+            .table-wrap {
+                flex: 1;
+                overflow-y: auto;
+                padding-right: 5px;
+            }
+
+            .popup-button {
+                flex-shrink: 0;
+                padding: 10px;
+                background: #fff;
+                border-top: 1px solid #ddd;
+            }
+
+            .input-with-checkbox {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .input-with-checkbox input[type="number"] {
+                flex: 1;
+                min-width: 0;
+                padding: 4px;
+            }
+
+            .input-with-checkbox input[type="checkbox"] {
+                flex-shrink: 0;
+                width: 18px;
+                height: 18px;
+            }
+        </style>
+        <div class="content_wrap popup">
+            <div class="table-wrap">
+            <form id="planForm">
+                <table class="write-table">
+                    <caption>계획 등록 테이블</caption>
+                    <input type="hidden" id="head_id" name="head_id">
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="datetype">계획일자</label>
+                            </th>
+                            <td>
+                                <div class="input-group" id="prod_datepicker">
+                                    <select id="datetype" name="datetype">
+<!--                                        <option value="selectDate" >기간</option>-->
+                                        <option value="week" selected>주간</option>
+                                        <option value="month">월간</option>
+                                    </select>
+                                </div>
+                            </td>
+                            <th style="text-align: center">
+                                <label>납기일*</label>
+                            </th>
+                            <td>
+                                <div class="input-group" id="prod_datepicker">
+                                    <input type="date" id="stdate" name="stdate" style="margin-right: 5px;" readOnly>
+                                    ~
+                                    <input type="date" id="eddate" name="eddate" style="margin-right: 5px;" readOnly>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="actnm">현장명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="actnm" name="actnm">
+                            </td>
+                            <th style="text-align: center">
+                                <label for="cmcode">통신</label>
+                            </th>
+                            <td colspan="3">
+                                <select id="cmcode" name="cmcode">
+                                </select>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="description">비고</label>
+                            </th>
+                            <td colspan="3">
+                                <textarea id="description" name="description" style="height:40px;"></textarea>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table class="item-table">
+
+                    <table class="item-table">
+
+                    <colgroup>
+                        <col style="width: 10%">
+                        <col style="width: 30%">
+                        <col style="width: 10%">
+                        <col style="width: 45%">
+                        <col style="width: 5%">
+                    </colgroup>
+                    <thead>
+                    <tr id="itemHeaderRow">
+                        <th>코드</th>
+                        <th>품목</th>
+                        <th>수량</th>
+                        <th>메모</th>
+                        <th>
+                            <a class="btn in_btn plus" id="addRemark" title="추가">
+                                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘" />
+                            </a>
+                        </th>
+                    </tr>
+                    </thead>
+                    <tr class="item-template-row" style="display: none;">
+                        <td>
+                            <input type="text" name="product_code" readOnly/>
+                        </td>
+                        <td>
+                            <div class="input-with-button">
+                                <input type="hidden" name="id" />
+                                <input type="text" name="txtProductName" placeholder="코드 또는 품명 입력 후 엔터" autocomplete="off" />
+                                <input type="hidden" name="material_id" />
+                                <a class="btn in_btn" title="품목 검색" id="btnProductSearch" >
+                                    <img th:src="@{/images/icon/btn-srch-black.svg}" alt="검색 아이콘" />
+                                </a>
+                            </div>
+                        </td>
+                        <td><input type="text" name="qty" placeholder="수량" /></td>
+
+                        <td><input type="text" name="remark" /></td>
+
+                        <td class="al_c item_border">
+                            <a class="btn in_btn" title="삭제" onclick="removeItemRow(this)">
+                                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘" />
+                            </a>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </form>
+            </div>
+            <div class="popup-button">
+                    <button type="button" class="btn-popup y_write_auth" id="btnPopSave">저장</button>
+                    <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+                    <button type="button" class="btn-popup y_write_auth" id="btnDelete" style="display:none;">전체 삭제</button>
+            </div>
+        </div>
+    </script>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <!--<th:block th:replace="/common/columns_setting :: columns_setting"></th:block>-->
+    <th:block th:replace="/common/multiform_material :: multiform_material"></th:block>
+
+    <script type="text/javascript">
+
+        let isInternalFormatting = false;
+
+        class JobPlanPage {
+            constructor() {
+                this.url = '/api/production/job_plan';
+                this.grid = null;
+                this.$btnEdit = $('#btnEdit');
+                this.$btnAddNew = $('#btnAddNew');
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+
+            }
+
+            resetPlanListIndex() {
+                this.planListIndex = 0;
+            }
+
+            nextPlanListIndex() {
+                return this.planListIndex++;
+            }
+
+            init() {
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        const col = e.getColumn();
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            // 날짜 포맷 처리
+                            if (col.binding === 'stdate' || col.binding === 'eddate') {
+                                const raw = e.cell.textContent?.trim();
+                                if (/^\d{8}$/.test(raw)) {
+                                    e.cell.textContent = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+                                }
+                            }
+                        }
+                    },
+                    columns: [
+                        {binding: 'stdate', header: '계획 시작일', width: 120, align: 'center'},
+                        {binding: 'eddate', header: '계획 종료일', width: 120, align: 'center'},
+                        {binding: 'actnm', header: '현장명', width: 200},
+                        {binding: 'cmcode', header: '통신', width: 100, align: 'center', format: 'n0'},
+                        {binding: 'description', header: '비고', width: 200},
+                        {binding: 'mat_code', header: '품목 코드', width: 150, align: 'center'},
+                        {binding: 'mat_name', header: '품목', width: 300},
+                        {binding: 'qty', header: '수량', width: 100},
+                        {binding: 'remark', header: '메모', width: 200},
+                    ],
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '생산 계획 내역';
+
+                this.grid.hostElement.addEventListener('dblclick', function (e) {
+                    let items = _this.grid.selectedItems;
+                    if (items.length === 0) {
+                        return false;
+                    }
+                    _this.$btnEdit.trigger('click');
+                });
+
+                let nowDate = CommonUtil.getYYYYMMDD();
+                let dueDate = CommonUtil.getYYYYMMDD(10);
+
+                //수주등록 클릭
+                this.$btnAddNew.click(function (e) {
+                    let defaultData = {
+                        id: '',
+                        mode: 'new',
+                        JumunDate: nowDate,
+                        DueDate: dueDate,
+                    };
+                    _this.showPlanForm(defaultData);
+                });
+
+                // 수주 수정 클릭
+                this.$btnEdit.click(function (e) {
+                    let selectedItems = _this.grid.selectedItems;
+                    const it = _this.grid.selectedItems && _this.grid.selectedItems[0];
+                    console.log('it', it);
+                    if (selectedItems.length === 1) {
+                        window.selectedGridId = it.mat_code;
+                        let data = {
+                            head_id: selectedItems[0].head_id,
+                            action: 'detail'
+                        };
+                        let fnsuccess = function (result) {
+                            result.data['mode'] = 'edit';
+                            _this.showPlanForm(result.data);
+                        };
+                        AjaxUtil.getAsyncData(_this.url + '/detail', data, fnsuccess);
+                    } else {
+                        Alert.alert('', '선택된 데이터가 없습니다.');
+                    }
+
+                });
+
+                // 엔터키 검색
+                $('#keyword').on('keypress', function (e) {
+                    if (e.keyCode === 13) {
+                        _this.searchMainData();
+                    }
+                });
+            }
+
+            showPlanForm(data) {
+
+                let _this = this;
+                let content = tmpl('planTemplate', data);
+                let $content = $(content);
+                let $btnDelete = $content.find('#btnDelete');
+                let $planForm = $content.find('#planForm');
+                let $cmcode = $content.find('#cmcode');
+
+                let modalContainer = null;
+                if (data.mode === 'new') {
+                    modalContainer = new PopupDraggable('등록');
+                } else {
+                    modalContainer = new PopupDraggable('수정');
+                    $btnDelete.show();
+                }
+                modalContainer.open({width: 1100, height: 550, $content});
+
+                // 저장버튼
+                let $btnPopSave = $('#btnPopSave');
+
+                //수주구분
+                AjaxUtil.fillSelectOptions($cmcode, 'system_code', 'choose', '', 'comunication_type');
+
+
+                setTimeout(() => {
+                    FormUtil.BindDataPlanForm(data, $planForm);
+
+                    const datetype = $content.find('#datetype').val();
+
+                    if (datetype === 'week' || datetype === 'month') {
+                        $content.find('#datetype').trigger('change');
+
+                        // select box가 생성되기까지 잠시 기다린 뒤 값 설정
+                        setTimeout(() => {
+                            if (datetype === 'week') {
+                                const $week = $content.find('#popupWeekSelector');
+                                // ① 서버에서 계산해온 주차 값이 있으면 그걸 사용
+                                if (data.popupWeekSelector) {
+                                    $week.val(data.popupWeekSelector).trigger('change');
+                                } else if (!data.stdate || !data.eddate) {
+                                    // ② 날짜가 비어있으면 오늘 기준 ISO 주차로 선택
+                                    const today = new Date();
+                                    const isoWeekStr =
+                                        `${getISOWeekYear(today)}-W${String(getISOWeekNumber(today)).padStart(2,'0')}`;
+                                    $week.val(isoWeekStr).trigger('change');
+                                } else {
+                                    // ③ 날짜가 있으면 그대로 유지 (핸들러가 덮어쓰지 않도록 값만 다시 주입)
+                                    $content.find('#stdate').val(data.stdate);
+                                    $content.find('#eddate').val(data.eddate);
+                                }
+                            } else if (datetype === 'month') {
+                                $content.find('#popupMonthSelector').val(data.popupMonthSelector);
+                                $content.find('#stdate').val(data.stdate);
+                                $content.find('#eddate').val(data.eddate);
+                            }
+                        }, 10); // 너무 길게 줄 필요 없이 10~50ms 정도면 충분
+                    }
+                    initPopupDateKindHandler($content);
+                }, 100);
+
+                // 수주등록 팝업 저장버튼 클릭
+                $btnPopSave.click(function (e) {
+
+                    let data = FormUtil.extractForm($planForm);
+
+                    if (!data.material_id_0) {
+                        Alert.alert('', '품목을 선택하세요.');
+                        return;
+                    }
+
+                    // 2. 각 행의 유효성 체크
+                    let index = 0;
+                    while (true) {
+                        const materialId = data[`material_id_${index}`];
+
+                        if (materialId === undefined) break; // 끝까지 체크
+
+                        if (materialId !== null && materialId !== '') {
+                            const qty = data[`qty_${index}`];
+
+                            if (!qty) {
+                                Alert.alert('', `(${index + 1}번째 행) 수량을 입력하세요.`);
+                                return;
+                            }
+                        }
+
+                        index++;
+                    }
+
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        const items = [];
+                        for (let i = 0; i < page.planListIndex; i++) {
+                            const materialId = data[`material_id_${i}`];
+                            if (!materialId) continue;
+
+                            items.push({
+                                id: data[`id_${i}`] || '',
+                                material_id: materialId,
+                                txtProductName: data[`txtProductName_${i}`] || '',
+                                qty: (data[`qty_${i}`] || '0').replace(/,/g, ''),
+                                remark: data[`remark_${i}`] || '',
+                            });
+                        }
+
+
+                        // 공통 정보 + 리스트 전송
+                        const payload = {
+                            head_id: data.head_id,
+                            actnm: data.actnm,
+                            stdate: data.stdate,
+                            eddate: data.eddate,
+                            datetype: data.datetype,
+                            cmcode: data.cmcode,
+                            spjangcd: data.spjangcd,
+                            description: data.description,
+                            items: items
+                        };
+
+                        console.log('payload', payload);
+
+                        AjaxUtil.postJsonData(_this.url + '/save', payload, function (res) {
+                            if (res.success) {
+                                Notify.success("저장되었습니다.");
+                                _this.searchMainData();
+                                modalContainer.close();
+                            } else {
+                                Alert.alert('저장 실패', res.message || '알 수 없는 오류');
+                            }
+                        });
+
+                    });
+
+                });
+
+                // 숫자 포맷 (input 중 formatting)
+                $content.on('input', 'input[name^="qty_"]', function () {
+                    if (isInternalFormatting) return;
+                    isInternalFormatting = true;
+
+                    const $this = $(this);
+                    const input = this;
+                    const raw = $this.val().replace(/[^0-9]/g, '');
+                    const cursor = input.selectionStart;
+                    const prevLength = input.value.length;
+
+                    if (raw === '') {
+                        $this.val('');
+                    } else {
+                        const formatted = Number(raw).toLocaleString();
+                        $this.val(formatted);
+
+                        const diff = formatted.length - prevLength;
+                        input.setSelectionRange(cursor + diff, cursor + diff);
+                    }
+
+                    isInternalFormatting = false;
+                });
+
+                // 검색 버튼 클릭 시 팝업
+                $content.on('click', 'a[title="품목 검색"]', function () {
+                    const $row = $(this).closest('tr');
+
+                    const $productInput = $row.find('input[name^="txtProductName_"]');
+                    const $productId = $row.find('input[name^="material_id_"]');
+                    const $productCode = $row.find('input[name^="product_code_"]');
+
+                    const pop = new PopMatComponent();
+                    pop.material_type = 'product,sangpum';
+
+                    pop.show(function (item) {
+                        $productInput.val(item.Name);
+                        $productId.val(item.id);
+                        $productCode.val(item.Code);
+                    });
+
+
+                });
+
+                $content.on('keydown', 'input[name^="txtProductName_"]', function (e) {
+                    if (e.key !== 'Enter' && e.keyCode !== 13) return;
+
+                    e.preventDefault();
+
+                    const $field = $(this);
+                    const $row = $field.closest('tr');
+
+                    const $productInput = $row.find('input[name^="txtProductName_"]');
+                    const $productId = $row.find('input[name^="material_id_"]');
+                    const $productCode = $row.find('input[name^="product_code_"]');
+
+                    const keyword = $field.val().trim();
+                    const pop = new PopMatComponent();
+                    pop.material_type = 'product,sangpum';
+
+                    const callback = function (item) {
+                        $productId.val(item.id || '');
+                        $productInput.val(item.Name || '');
+                        $productCode.val(item.Code || '');
+                    };
+
+                    if (!keyword) {
+                        pop.focusAfterClose = $field[0];
+                        pop.show(callback);
+                        return;
+                    }
+
+                    const data = {
+                        keyword: keyword,
+                        spjangcd: sessionStorage.getItem('spjangcd')
+                    };
+
+                    const result = AjaxUtil.getSyncData('/api/popup/search_material', data);
+                    const rows = result?.data || [];
+
+                    if (rows.length === 1) {
+                        callback(rows[0]);
+                    } else {
+                        pop.show(callback);
+                        setTimeout(() => {
+                            pop.$keyword.val(keyword);
+                            pop.$btnMaterialSearch.trigger('click');
+                        }, 50);
+                    }
+                });
+
+                // 품목명 지우면 코드들도 같이 지워지게
+                $content.on('input', 'input[name^="txtProductName_"]', function () {
+                    const $field = $(this);
+                    const $row = $field.closest('tr');
+
+                    const $productId = $row.find('input[name^="material_id_"]');
+                    const $productCode = $row.find('input[name^="product_code_"]');
+
+                    if ($field.val().trim() === '') {
+                        // 값이 비었을 경우 연관된 필드 초기화
+                        $productId.val('');
+                        $productCode.val('');
+                    }
+                });
+
+                $content.find('#addRemark').click(function () {
+                    const $tbody = $content.find('.item-table tbody');
+                    const $template = $tbody.find('.item-template-row');
+
+                    for (let i = 0; i < 3; i++) {
+                        const $newRow = $template.clone().removeClass('item-template-row').show();
+                        const index = page.nextPlanListIndex();
+                        $newRow.find('input').each(function () {
+                            const baseName = $(this).attr('name');
+                            if (baseName) {
+                                $(this).attr('name', `${baseName}_${index}`);
+                            }
+                        });
+
+                        $newRow.find('a[title="삭제"]').attr('id', `btnDelItem_${index}`);
+                        $tbody.append($newRow);
+                    }
+                });
+
+                // 포커스 자동 이동: Enter + 방향키(←→↑↓)
+                $content.on('keydown', 'input', function (e) {
+                    const key = e.key;
+
+                    if (!['Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(key)) return;
+                    e.preventDefault();
+
+                    const $input = $(this);
+                    const $row = $input.closest('tr');
+                    const nameAttr = $input.attr('name') || '';
+
+                    const focusOrder = [
+                        'txtProductName_',
+                        'qty_',
+                        'remark_',
+                    ];
+
+                    const currentIndex = focusOrder.findIndex(prefix => nameAttr.startsWith(prefix));
+                    if (currentIndex === -1) return;
+
+                    let $nextInput = null;
+
+                    // ↔️ 좌우 이동
+                    if (key === 'ArrowRight' && currentIndex < focusOrder.length - 1) {
+                        const nextPrefix = focusOrder[currentIndex + 1];
+                        $nextInput = $row.find(`input[name^="${nextPrefix}"]`);
+                    } else if (key === 'ArrowLeft' && currentIndex > 0) {
+                        const prevPrefix = focusOrder[currentIndex - 1];
+                        $nextInput = $row.find(`input[name^="${prevPrefix}"]`);
+                    }
+
+                    // ↕️ 상하 이동
+                    if (key === 'ArrowDown' || key === 'ArrowUp') {
+                        const $targetRow = key === 'ArrowDown'
+                            ? $row.nextAll('tr:visible').first()
+                            : $row.prevAll('tr:visible').first();
+
+                        const allowAutoAdd = ['txtProductName_', 'remark_'];
+                        const isAllowedField = allowAutoAdd.some(prefix => nameAttr.startsWith(prefix));
+
+                        // ⬇️ 방향키 + 현재 행이 마지막 + 허용된 필드일 경우 → 행 자동 추가
+                        if (key === 'ArrowDown' && !$targetRow.length && isAllowedField) {
+                            $content.find('#addRemark').trigger('click');
+
+                            setTimeout(() => {
+                                const $rows = $content.find('.item-table tbody tr:visible').not('.item-template-row');
+                                const $newRow = $rows.last();
+                                const $newInput = $newRow.find('input[name^="txtProductName_"]');
+                                if ($newInput.length) $newInput.focus().select();
+                            }, 50);
+                            return;
+                        }
+                        // 일반 상하 이동
+                        $nextInput = $targetRow.find(`input[name^="${focusOrder[currentIndex]}"]`);
+                    }
+
+                    // ↵ Enter 키: 현재 행 내 다음 필드
+                    if (key === 'Enter' && currentIndex < focusOrder.length - 1) {
+                        const nextPrefix = focusOrder[currentIndex + 1];
+                        $nextInput = $row.find(`input[name^="${nextPrefix}"]`);
+                    } else if (key === 'Enter' && nameAttr.startsWith('description_')) {
+                        const $nextRow = $row.nextAll('tr:visible').first();
+                        if (!$nextRow.length) {
+                            //console.log('다음 행 없음. 행 자동 추가 트리거.');
+                            $content.find('#addRemark').trigger('click');
+
+                            setTimeout(() => {
+                                const $rows = $content.find('.item-table tbody tr:visible').not('.item-template-row');
+                                const $newRow = $rows.last();
+                                const $newInput = $newRow.find('input[name^="txtProductName_"]');
+                                if ($newInput.length) $newInput.focus().select();
+                            }, 50);
+                            return;
+                        } else {
+                            $nextInput = $nextRow.find('input[name^="txtProductName_"]');
+                        }
+                    }
+
+                    if ($nextInput && $nextInput.length) {
+                        $nextInput.focus().select();
+                    }
+                });
+
+                // 삭제 버튼
+                $btnDelete.click(function (e) {
+                    let data = FormUtil.extractForm($planForm);
+
+                    Alert.confirm('', '전체 삭제하시겠습니까?',
+                        function () {
+                            let id = data.head_id;
+                            _this.deletePlanData(id);
+                        },
+                        function () {
+                        }
+                    );
+                    modalContainer.close();
+
+                });
+
+            }
+
+            deletePlanData(id) {
+                let _this = this;
+                let url = _this.url + '/delete';
+                let data = {'id': id}
+                let fnsuccess = function (res) {
+                    if (res.success) {
+                        Notify.success('삭제되었습니다.');
+                        _this.searchMainData();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+            searchMainData() {
+                let _this = this;
+                let date_kind = $('#cboDateKind').val();
+                let start = $('#srchStartDt').val();
+                let end = $('#srchEndDt').val();
+                let url = this.url + '/read';
+
+                let data = {
+                    'date_kind': date_kind,
+                    'start': start,
+                    'end': end,
+                    'action': 'read'
+                };
+
+                let fnsuccess = function (result) {
+                    if (result != null) {
+                        console.log('result', result.data);
+                        _this.viewData.sourceCollection = result.data;
+
+                        if (window.selectedGridId) {
+                            // GridUtil.selectRowById(_this.grid, window.selectedGridId);
+                            GridUtil.selectRowById(_this.grid, window.selectedGridId, {idField: 'mat_code'});
+                            window.selectedGridId = null;
+                        }
+                    }
+                };
+                AjaxUtil.getAsyncData(url, data, fnsuccess);
+
+            }
+
+
+        }
+
+        //행 삭제 함수
+        function removeItemRow(el) {
+            const $tbody = $(el).closest('tbody');
+            const $rows = $tbody.find('tr:not(.item-template-row)');
+            const $targetRow = $(el).closest('tr');
+
+            if ($rows.length <= 3) {
+                // 입력값이 있으면 초기화만 하고 리턴
+                const hasData = $targetRow.find('input[type="text"], input[type="number"]').filter(function () {
+                    return $(this).val().trim() !== '';
+                }).length > 0;
+
+                if (hasData) {
+                    $targetRow.find('input[type="text"], input[type="number"]').val('');
+                    // hidden 값도 초기화하고 싶다면 아래 추가
+                    $targetRow.find('input[type="hidden"]').val('');
+                }
+
+                return;
+            }
+
+            // 4개 이상이면 정상 삭제
+            $targetRow.remove();
+        }
+
+        // 팝업 날짜 계산 로직
+        function initPopupDateKindHandler($content) {
+            const $datetype = $content.find('#datetype');
+            const $extraSelectBox = $('<span style="margin-top:10px;" id="extraSelectBox"></span>');
+            const $stdate = $content.find('#stdate');
+            const $eddate = $content.find('#eddate');
+            console.log('$stdate', $stdate.val());
+            console.log('$eddate', $eddate.val());
+
+            $datetype.after($extraSelectBox);
+
+            $datetype.on('change', function () {
+                const type = $(this).val();
+                $extraSelectBox.empty();
+                $stdate.val('').prop('readOnly', false);
+                $eddate.val('').prop('readOnly', false);
+
+                if (type === 'week') {
+                    const $weekSelect = $('<select id="popupWeekSelector"></select>');
+                    const now = new Date();
+                    // 👉 stdate가 있으면 그것 기준, 없으면 오늘 기준
+                    const stdateStr = $stdate.val(); // ex: "2025-08-01" 또는 "20250801"
+                    const targetDate = stdateStr
+                        ? parseDate(stdateStr)
+                        : now;
+
+                    const year = targetDate.getFullYear();
+                    const currentWeek = getISOWeekNumber(targetDate);
+
+                    for (let i = 1; i <= 52; i++) {
+                        const value = `${year}-W${String(i).padStart(2, "0")}`;
+                        const text = `${year}년 ${i}주차`;
+                        const $option = $(`<option value="${value}">${text}</option>`);
+                        if (i === currentWeek) {
+                            $option.prop("selected", true); // ✅ selected 설정
+                        }
+                        $weekSelect.append($option);
+                    }
+
+                    $weekSelect.on('change', function () {
+                        const [y, w] = $(this).val().split('-W');
+                        const weekNum = parseInt(w, 10);
+                        const start = getDateOfISOWeek(weekNum, y);
+                        const end = new Date(start);
+                        end.setDate(start.getDate() + 6);
+                        $stdate.val(formatDate(start)).prop('readOnly', true);
+                        $eddate.val(formatDate(end)).prop('readOnly', true);
+                    });
+
+                    $extraSelectBox.append($weekSelect);
+                    $weekSelect.trigger('change');
+                } else if (type === 'month') {
+                    const $monthSelect = $('<select id="popupMonthSelector"></select>');
+                    const stdateStr = $stdate.val();
+                    const targetDate = stdateStr ? parseDate(stdateStr) : new Date();
+
+                    const year = targetDate.getFullYear();
+                    const selectedMonth = targetDate.getMonth() + 1;
+
+                    for (let i = 1; i <= 12; i++) {
+                        const value = `${year}-${String(i).padStart(2, "0")}`;
+                        const text = `${year}년 ${i}월`;
+                        const $option = $(`<option value="${value}">${text}</option>`);
+                        if (i === selectedMonth) {
+                            $option.prop("selected", true);
+                        }
+                        $monthSelect.append($option);
+                    }
+
+                    $monthSelect.on('change', function () {
+                        const [y, m] = $(this).val().split('-');
+                        const start = new Date(parseInt(y), parseInt(m) - 1, 1);
+                        const end = new Date(parseInt(y), parseInt(m), 0);
+                        $stdate.val(formatDate(start)).prop('readOnly', true);
+                        $eddate.val(formatDate(end)).prop('readOnly', true);
+                    });
+
+                    $extraSelectBox.append($monthSelect);
+                    $monthSelect.trigger('change');
+                } else {
+                    const startVal = CommonUtil.getYYYYMMDD(-7);
+                    const endVal = CommonUtil.getYYYYMMDD();
+
+                    $stdate.val(startVal).prop('readOnly', false);
+                    $eddate.val(endVal).prop('readOnly', false);
+                }
+
+            });
+
+            // 최초 적용
+            $datetype.trigger('change');
+        }
+
+        // ISO 주차 계산
+        function getDateOfISOWeek(week, year) {
+            const jan4 = new Date(year, 0, 4);
+            const day = jan4.getDay() || 7;
+            const start = new Date(jan4);
+            start.setDate(jan4.getDate() - day + 1 + (week - 1) * 7);
+            return start;
+        }
+
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, "0");
+            const d = String(date.getDate()).padStart(2, "0");
+            return `${y}-${m}-${d}`;
+        }
+
+        function getISOWeekNumber(date) {
+            const target = new Date(date.valueOf());
+            const dayNum = (date.getDay() + 6) % 7;
+            target.setDate(target.getDate() - dayNum + 3);
+            const firstThursday = new Date(target.getFullYear(), 0, 4);
+            const diff = target - firstThursday;
+            return 1 + Math.round(diff / (7 * 24 * 60 * 60 * 1000));
+        }
+
+        function parseDate(str) {
+            if (!str) return new Date();
+            if (/^\d{8}$/.test(str)) {
+                return new Date(
+                    parseInt(str.slice(0, 4)),
+                    parseInt(str.slice(4, 6)) - 1,
+                    parseInt(str.slice(6, 8))
+                );
+            } else if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+                return new Date(str);
+            }
+            return new Date();
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+
+            page = new JobPlanPage();
+
+            // $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+            // $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+
+
+
+            // 검색
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+
+        })
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const cboDateKind = document.getElementById("cboDateKind");
+            const extraSelectBox = document.getElementById("extraSelectBox");
+            const srchStartDt = document.getElementById("srchStartDt");
+            const srchEndDt = document.getElementById("srchEndDt");
+
+            cboDateKind.addEventListener("change", function () {
+                const type = this.value;
+
+                extraSelectBox.innerHTML = ""; // 초기화
+                srchStartDt.value = "";
+                srchEndDt.value = "";
+                srchStartDt.readOnly = false;
+                srchEndDt.readOnly = false;
+
+                if (type === "week") {
+                    const select = document.createElement("select");
+                    select.id = "weekSelector";
+
+                    const now = new Date();
+                    const currentYear = now.getFullYear();
+                    const currentWeek = getISOWeekNumber(now);
+                    for (let i = 1; i <= 52; i++) {
+                        const option = document.createElement("option");
+                        option.value = `${currentYear}-W${String(i).padStart(2, "0")}`;
+                        option.textContent = `${currentYear}년 ${i}주차`;
+                        if (i === currentWeek) {
+                            option.selected = true; // ← 현재 주차 자동 선택
+                        }
+                        select.appendChild(option);
+                    }
+
+                    select.addEventListener("change", function () {
+                        const week = this.value;
+                        const [year, weekNumStr] = week.split("-W");
+                        const weekNum = parseInt(weekNumStr, 10);
+
+                        const start = getDateOfISOWeek(weekNum, year);
+                        const end = new Date(start);
+                        end.setDate(start.getDate() + 6);
+
+                        srchStartDt.value = formatDate(start);
+                        srchEndDt.value = formatDate(end);
+                        srchStartDt.readOnly = true;
+                        srchEndDt.readOnly = true;
+                    });
+
+                    extraSelectBox.appendChild(select);
+                    select.dispatchEvent(new Event("change")); // 초기 선택값 반영
+                } else if (type === "month") {
+                    const select = document.createElement("select");
+                    select.id = "monthSelector";
+
+                    const now = new Date();
+                    const currentYear = now.getFullYear();
+                    const currentMonth = now.getMonth();
+
+                    for (let i = 0; i < 12; i++) {
+                        const month = new Date(currentYear, i, 1);
+                        const option = document.createElement("option");
+                        option.value = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
+                        option.textContent = `${month.getFullYear()}년 ${month.getMonth() + 1}월`;
+                        if (i === currentMonth) {
+                            option.selected = true; // ← 현재 달 자동 선택
+                        }
+                        select.appendChild(option);
+                    }
+
+                    select.selectedIndex = currentMonth;
+
+                    select.addEventListener("change", function () {
+                        const [year, month] = this.value.split("-");
+                        const start = new Date(parseInt(year), parseInt(month) - 1, 1);
+                        const end = new Date(parseInt(year), parseInt(month), 0); // 말일
+
+                        srchStartDt.value = formatDate(start);
+                        srchEndDt.value = formatDate(end);
+                        srchStartDt.readOnly = true;
+                        srchEndDt.readOnly = true;
+                    });
+
+                    extraSelectBox.appendChild(select);
+                    select.dispatchEvent(new Event("change")); // 초기 선택값 반영
+                } else {
+                    const startVal = CommonUtil.getYYYYMMDD(-7);
+                    const endVal = CommonUtil.getYYYYMMDD();
+
+                    $('#srchStartDt').val(startVal).prop('readOnly', false);
+                    $('#srchEndDt').val(endVal).prop('readOnly', false);
+                }
+            });
+
+            function getDateOfISOWeek(week, year) {
+                const jan4 = new Date(year, 0, 4); // 항상 1월 4일 기준
+                const day = jan4.getDay() || 7;
+                const start = new Date(jan4);
+                start.setDate(jan4.getDate() - day + 1 + (week - 1) * 7);
+                return start;
+            }
+
+            function formatDate(date) {
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, "0");
+                const d = String(date.getDate()).padStart(2, "0");
+                return `${y}-${m}-${d}`;
+            }
+
+            function getISOWeekNumber(date) {
+                const target = new Date(date.valueOf());
+                const dayNum = (date.getDay() + 6) % 7;
+                target.setDate(target.getDate() - dayNum + 3);
+                const firstThursday = new Date(target.getFullYear(), 0, 4);
+                const diff = target - firstThursday;
+                return 1 + Math.round(diff / (7 * 24 * 60 * 60 * 1000));
+            }
+            cboDateKind.dispatchEvent(new Event("change"));
+
+            // 날짜가 세팅된 다음에 검색 호출
+            page.searchMainData();
+        });
+
+
+    </script>
+
+</th:block>
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html>

@@ -1,0 +1,815 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>검사 항목</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>관리메뉴</li>
+                <li>검사관리</li>
+                <li>검사항목</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px;">
+            <section class="section" style="flex: 1;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>검사방법</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="cboTestMethod" name="cboTestMethod" class="form-control2"></select>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>항목명</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" id="txtItemName" name="txtItemName" class="form-control2">
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>결과값유형</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="cboResType" name="cboResType" class="form-control2"></select>
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>단위</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="cboUnit" name="cboUnit" class="form-control2"></select>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div> <!--//section-top end -->
+
+                <div class="container-fluid">
+                    <div id="test-item-grid"></div>
+                </div>
+            </section>
+
+            <div class="tab-wrap" style="flex: 1; min-width: 0;">
+                <ul class="tab-links">
+                    <li><a href="#tab_basic">기본 정보</a></li>
+                    <li><a href="#tab_res">선택형결과</a></li>
+                </ul>
+                <div>
+                    <section class="tab-item" id="tab_basic" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                            <div class="button-wrap">
+                                <ul>
+                                    <li>
+                                        <button type="button" class="btn-default" id="btnNew" name="btnNew"
+                                                style="width: 115px; height: 36px;"><i
+                                                class="fas fa-plus"></i>신규등록
+                                        </button>
+                                    </li>
+
+                                    <li>
+                                        <button type="button" class="btn-danger y_write_auth" id="btnDel"
+                                                style="width: 115px; height: 36px;"><i
+                                                class="fas fa-trash"></i>삭제
+                                        </button>
+                                    </li>
+
+                                    <li>
+                                        <button type="button" class="btn-default y_write_auth" id="btnSave"
+                                                style="width: 115px; height: 36px;"><i
+                                                class="fas fa-save"></i>저장
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div id="detail_box">
+                            <form id="testItemForm">
+                                <table class="write-table"
+                                       style="width: 100%; border-collapse: collapse; ">
+                                    <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+                                    <input type="hidden" class="form-control2" id="id" name="id" readonly
+                                           style="background-color:#cecece" disabled/>
+                                    <tbody>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="test_method_id"><span class="eq">*</span>검사방법</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <select type="text" id="test_method_id" name="test_method_id"
+                                                    style="width: 100%;"></select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="item_type">구분</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" id="item_type" name="item_type"
+                                                   style="width: 100%;">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="item_code"><span class="eq">*</span>코드</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" style="width: 100%;" id="item_code"
+                                                   name="item_code">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="item_name"><span class="eq">*</span>항목명</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" style="width: 100%;" id="item_name"
+                                                   name="item_name">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="item_eng_name">영문명</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" id="item_eng_name" name="item_eng_name"
+                                                   style="width: 100%;">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="res_type"><span class="eq">*</span>결과값유형</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <select type="text" id="res_type" name="res_type"
+                                                    style="width: 100%;"></select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="item_unit">단위</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <select style="width: 100%;" id="item_unit"
+                                                    name="item_unit"></select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="item_round_digit">소수점자리수</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" style="width: 100%;" id="item_round_digit"
+                                                   name="item_round_digit">
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </form>
+                        </div>
+                    </section>
+
+                    <section class="tab-item" id="tab_res" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                            <div class="button-wrap">
+                                <ul>
+                                    <li>
+                                        <button type="button" class="btn-default" id="btnAddRow"
+                                                style="width: 115px; height: 36px;"><i class="fas fa-plus"></i>추가
+                                        </button>
+                                    </li>
+
+                                    <li>
+                                        <button type="button" class="btn-danger y_write_auth" id="btnDelRow"
+                                                style="width: 115px; height: 36px;"><i class="fas fa-trash"></i>삭제
+                                        </button>
+                                    </li>
+
+                                    <li>
+                                        <button type="button" class="btn-default y_write_auth" id="btnSaveRow"
+                                                style="width: 115px; height: 36px;"><i class="fas fa-save">저장</i>
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="container-fluid">
+                            <div id="res-grid"></div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+
+    <script type="text/javascript">
+        class TestItemPage {
+            constructor() {
+                this.grid = null;
+                this.grid2 = null;
+                this.res_grid = null;
+                this.url = '/api/test/test_item';
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#test-item-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'test_method_name', header: '검사방법', width: 150, align: 'left'},
+                        {binding: 'item_type', header: '구분', width: 150, align: 'left'},
+                        {binding: 'item_code', header: '코드', width: 150, align: 'left'},
+                        {binding: 'item_name', header: '검사항목명', width: 150, align: 'left'},
+                        {binding: 'item_eng_name', header: '영문명', width: 200, align: 'left'},
+                        {binding: 'item_res_type', header: '결과값유형', width: 150, align: 'left'},
+                        {binding: 'unit_name', header: '단위', width: 150, align: 'center'},
+                        {binding: 'item_round_digit', header: '소수점자리수', width: 150, align: 'right'}
+                    ],
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                });
+
+                // 데이터 로드 후 초기 선택 상태 해제
+                this.grid.loadedRows.addHandler(() => {
+                    setTimeout(() => {
+                        this.grid.select(-1, -1); // 선택 상태 초기화
+                    }, 0); // 비동기로 처리하여 초기 선택 해제
+                });
+
+                let isInitialLoad = true; // 초기 상태 플래그
+
+                this.grid.selectionChanged.addHandler((s, e) => {
+                    if (isInitialLoad) {
+                        isInitialLoad = false; // 초기 로드 이후 플래그 해제
+                        return;
+                    }
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let id = selectedRowData.id; // 품목 ID 가져오기
+
+                        _this.showDetailItem(id);
+                        _this.showDetailRes(id);
+
+                        /*console.log(`선택된 행 인덱스: ${selectedRowIndex}`);
+                        console.log('선택된 행 데이터:', selectedRowData);*/
+                    }
+                });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '검사항목';
+
+
+                /*let config = {
+                    target: $('[data-ax5grid="test-item-grid"]'),
+                    sortable: true,
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: true, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 38  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            _this.grid.select(this.dindex);
+                            _this.showDetailItem(e.item.id);
+                            _this.showDetailRes(e.item.id);
+                        }
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        {key: 'test_method_name', label: '검사방법', width: 150, align: 'left', sortable: false},
+                        {key: 'item_type', label: '구분', width: 150, align: 'left', sortable: false},
+                        {key: 'item_code', label: '코드', width: 150, align: 'left', sortable: false},
+                        {key: 'item_name', label: '검사항목명', width: 150, align: 'left'},
+                        {key: 'item_eng_name', label: '영문명', width: 200, align: 'left', sortable: false},
+                        {key: 'item_res_type', label: '결과값유형', width: 150, align: 'left', sortable: false},
+                        {key: 'unit_name', label: '단위', width: 150, align: 'center', sortable: false},
+                        {key: 'item_round_digit', label: '소수점자리수', width: 150, align: 'right', sortable: false},
+                    ]
+                };
+*/
+                /* this.grid = new ax5.ui.grid(config);*/
+
+                this.grid2 = new wijmo.grid.FlexGrid('#res-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        let headerText = e.cell.textContent.trim();
+                        if (headerText === '결과코드' || headerText === '결과명') {
+                            e.cell.style.color = 'blue';
+                        }
+                    },
+                    columns: [
+                        {
+                            binding: 'test_item_id',
+                            header: '검사항목id',
+                            width: 150,
+                            align: 'center',
+                            visible: false,
+                            /*editor: {type: "number"}*/
+                        },
+                        {
+                            binding: 'result_code',
+                            header: '결과코드',
+                            width: 150,
+                            align: 'left',
+                            /*editor: {type: "number"}*/
+                        },
+                        {
+                            binding: 'result_name',
+                            header: '결과명',
+                            width: 150,
+                            align: 'left',
+                            /*editor: {type: "text"}*/
+                        },
+                        {
+                            binding: 'pass_yn',
+                            header: '합격테이터',
+                            width: 200,
+                            align: 'center',
+                            /*editor: {type: "checkbox", config: {height: 17, trueValue: "Y", falseValue: "N"}}*/
+                            dataMap: new wijmo.grid.DataMap([
+                                {key: 'Y', value: 'Y'},   // 체크 표시
+                                {key: 'N', value: 'N'}   // 빈 값
+                            ], 'key', 'value'),
+                            isReadOnly: false,
+                        }
+                    ],
+                    itemsSource: this.viewData2, // 데이터를 설정할 배열
+                });
+
+                new FlexGridContextMenu(this.grid2);
+                this.grid2.downloadFileName = '선택형결과';
+
+                /*let res_config = {
+                    target: $('[data-ax5grid="res-grid"]'),
+                    sortable: true,
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: false, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 38  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            _this.res_grid.select(this.dindex);
+                        }
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        {
+                            key: 'test_item_id',
+                            label: '검사항목id',
+                            width: 150,
+                            align: 'center',
+                            hidden: true,
+                            editor: {type: "number"}
+                        },
+                        {
+                            key: 'result_code',
+                            label: '<span style="color:blue">결과코드</span>',
+                            width: 150,
+                            align: 'left',
+                            editor: {type: "number"}
+                        },
+                        {
+                            key: 'result_name',
+                            label: '<span style="color:blue">결과명</span>',
+                            width: 150,
+                            align: 'left',
+                            editor: {type: "text"}
+                        },
+                        {
+                            key: 'pass_yn',
+                            label: '합격테이터',
+                            width: 200,
+                            align: 'center',
+                            editor: {type: "checkbox", config: {height: 17, trueValue: "Y", falseValue: "N"}}
+                        },
+                    ]
+                };
+
+                this.res_grid = new ax5.ui.grid(res_config);*/
+            }
+
+            // 버튼 활성화 설정
+            setButtonState() {
+                let pk = $('#id').val();
+                $('#btnNew').prop('disabled', false);
+                $('#btnSave').prop('disabled', false);
+                if (pk) {
+                    $('#btnDel').prop('disabled', false);
+                } else {
+                    $('#btnDel').prop('disabled', true);
+                }
+            }
+
+            // 목록 조회
+            searchMainData() {
+                let _this = this;
+                let url = this.url + "/read";
+                let param = {
+                    'test_method_id': $('#cboTestMethod').val(),
+                    'test_item_name': $('#txtItemName').val(),
+                    'test_res_type': $('#cboResType').val(),
+                    'unit': $('#cboUnit').val()
+                };
+
+                let result = AjaxUtil.getSyncData(url, param);
+                if (result != null) {
+                    _this.viewData.sourceCollection = result.data;
+                    _this.viewData2.sourceCollection = result.data;
+                }
+
+                $('#testItemForm')[0].reset();
+                $('#testItemForm').find('#id').val('');
+
+                $('#detail_box').find('input, select').each(function () {
+                    if (!$(this).is(':disabled')) {
+                        $(this).attr('disabled', 'disabled');
+                    }
+                });
+
+                this.setButtonState();
+            }
+
+            // 상세정보 조회
+            showDetailItem(id) {
+                let param = {'id': id};
+                let result = AjaxUtil.getSyncData(this.url + '/detail', param);
+
+                if (result != null) {
+                    FormUtil.BindDataForm(result.data, $('#testItemForm'));
+                }
+
+                this.setButtonState();
+            }
+
+            // 정보 저장
+            saveItem() {
+                let _this = this;
+                let data = FormUtil.extractForm($('#testItemForm'));
+
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('', '저장되었습니다');
+                        _this.searchMainData();
+                        /*_this.showDetailItem(res.data.id);*/
+                    } else if (!res.success) {
+                        Alert.alert('', res.message);
+                    }
+                }
+
+                AjaxUtil.postAsyncData(this.url + '/save', data, fnSuccess);
+            }
+
+            // 상세 정보 삭제
+            deleteItem() {
+                let _this = this;
+                let id = $('#testItemForm').find('#id').val();
+                let data = {'id': id};
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('', '삭제되었습니다');
+                        _this.searchMainData();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                }
+
+                AjaxUtil.postAsyncData(this.url + '/delete', data, fnSuccess);
+            }
+
+            // 선택형결과 상세 정보 조회
+            showDetailRes(id) {
+                let _this = this;
+                let param = {'id': id};
+
+                let result = AjaxUtil.getSyncData(this.url + '/detail_res', param);
+                if (result != null) {
+                    /*let count = result.data.length;
+                    _this.res_grid.setData({
+                        list: result.data,
+                        page: {
+                            display: true,
+                            totalElements: count,
+                        }
+                    });*/
+                    _this.viewData2.sourceCollection = result.data;
+                }
+
+                page.setButtonState();
+            }
+
+
+            // 선택형결과 정보 저장
+            saveRes() {
+                let _this = this;
+
+                let res_grid = wijmo.Control.getControl('#res-grid');
+                let dataSource = res_grid.itemsSource.sourceCollection;
+
+                // 'modified' 상태인 항목 필터링 (isModified가 true인 항목)
+                let modifiedItems = dataSource.filter(item => item.isModified === true);
+
+                if (modifiedItems.length === 0) {
+                    console.warn('수정된 항목이 없습니다.');
+                    return;
+                }
+
+                let data = {
+                    list: JSON.stringify(modifiedItems),
+                    'test_item_id': $('#detail_box').find('#id').val()
+                };
+
+                let fnSuccess = function (res) {
+                    if (!res.success) {
+                        Alert.alert('', res.message);
+                    } else {
+                        Alert.alert('', '저장되었습니다');
+                        _this.showDetailRes(data.test_item_id);
+                    }
+                };
+
+                AjaxUtil.postAsyncData(_this.url + '/save_res', data, fnSuccess);
+            }
+
+
+            // 선택형결과 정보 삭제
+            deleteRes() {
+                let _this = this;
+                /*let id = _this.res_grid.getList("selected")[0].id;*/
+
+                let res_grid = wijmo.Control.getControl('#res-grid');
+                let selectedRow = res_grid.selection.row;
+
+                let selectedItem = res_grid.rows[selectedRow].dataItem;
+                let id = selectedItem.id;
+
+                let test_item_id = $('#detail_box').find('#id').val();
+                let data = {'id': id};
+                let fnSuccess = function () {
+                    Alert.alert('', '삭제되었습니다');
+                    _this.showDetailRes(test_item_id);
+                }
+
+                AjaxUtil.postAsyncData(this.url + '/delete_res', data, fnSuccess);
+            }
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new TestItemPage();
+
+            page.searchMainData();
+
+            // filter
+            AjaxUtil.fillSelectOptions($('#cboTestMethod'), 'test_method', 'all', false);
+            AjaxUtil.fillSelectOptions($('#cboResType'), 'system_code', 'all', false, 'result_type');
+            AjaxUtil.fillSelectOptions($('#cboUnit'), 'unit', 'all', false);
+
+            // form 내부
+            AjaxUtil.fillSelectOptions($('#detail_box').find('#test_method_id'), 'test_method', 'choose', false);
+            AjaxUtil.fillSelectOptions($('#detail_box').find('#item_unit'), 'unit', 'choose', false);
+            AjaxUtil.fillSelectOptions($('#detail_box').find('#res_type'), 'system_code', 'choose', false, 'result_type');
+
+            // 검색버튼
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            // 신규버튼
+            $('#btnNew').click(function (e) {
+                page.searchMainData();
+
+                $('#testItemForm')[0].reset();
+                $('#testItemForm').find('#id').val('');
+
+                $('#detail_box').find('input, select').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                if (page.grid2 && page.grid2.collectionView) {
+                    page.grid2.collectionView.sourceCollection.length = 0;  // 기존 CollectionView 유지하면서 데이터만 비움
+                    page.grid2.collectionView.refresh();  // 갱신
+                } else {
+                    console.log("grid2가 아직 생성되지 않았습니다.");
+                }
+
+                page.setButtonState();
+            });
+
+
+            // 저장버튼
+            $('#btnSave').click(function (e) {
+                let data = FormUtil.extractForm($('#testItemForm'));
+
+                if (!data.test_method_id) {
+                    Alert.alert('', '검사방법을 선택해주세요.');
+                    return false;
+                } else if (!data.item_code) {
+                    Alert.alert('', '코드를 입력해주세요.');
+                    return false;
+                } else if (!data.item_name) {
+                    Alert.alert('', '항목명을 입력해주세요.');
+                    return false;
+                } else if (!data.res_type) {
+                    Alert.alert('', '결과값 유형을 선택해주세요.');
+                    return false;
+                }
+
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        page.saveItem()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            // 삭제버튼
+            $('#btnDel').click(function (e) {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        page.deleteItem()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            // 선택형결과 > 추가
+            $('#btnAddRow').click(function (e) {
+                let res_grid = wijmo.Control.getControl('#res-grid');
+
+                if (!res_grid || !(res_grid instanceof wijmo.grid.FlexGrid)) {
+                    console.error("res_grid가 초기화되지 않았습니다.");
+                    return;
+                }
+
+                if ($('#detail_box').find('#res_type').val() === 'S') {
+                    let test_item_id = $('#detail_box').find('#id').val();
+
+                    if (!test_item_id) {
+                        Alert.alert('', '테스트 항목 ID가 없습니다.');
+                        return;
+                    }
+
+
+                    let view = res_grid.collectionView;
+                    view.beginUpdate();
+                    let newItem = view.addNew();
+                    newItem.test_item_id = test_item_id;
+                    view.commitNew();
+                    view.endUpdate();
+
+                    res_grid.refresh();
+
+                } else {
+                    Alert.alert('', '선택형 결과값만 입력하실 수 있습니다.');
+                }
+            });
+
+
+            // 선택형결과 > 저장
+            $('#btnSaveRow').click(function (e) {
+                let res_grid = wijmo.Control.getControl('#res-grid');
+                let selectedRow = res_grid.selection.row;
+
+                // 선택한 행의 데이터 가져오기 (단일 객체)
+                let selectedItem = res_grid.rows[selectedRow].dataItem;
+
+                if (!selectedItem.result_code) {
+                    Alert.alert('', '결과코드를 입력해주세요');
+                    return;
+                }
+                if (!selectedItem.result_name) {
+                    Alert.alert('', '결과명을 입력해주세요');
+                    return;
+                }
+
+                selectedItem.isModified = true;
+
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        page.saveRes();
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            // 선택형결과 > 삭제
+            $('#btnDelRow').click(function (e) {
+
+                let res_grid = wijmo.Control.getControl('#res-grid');
+                let selectedRow = res_grid.selection.row;
+
+                // 선택한 행의 데이터 가져오기 (단일 객체)
+                let selectedItem = res_grid.rows[selectedRow].dataItem;
+
+                /*  if (page.res_grid.getList("selected").length < 1) {
+                      Alert.alert('', '삭제할 그리드를 선택하세요.');
+                      return;
+                  }*/
+
+                if (selectedItem.length === 0) {
+                    Alert.alert('', '삭제할 그리드를 선택하세요.');
+                    return;
+                }
+
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        page.deleteRes()
+                    },
+                    function () {
+                    }
+                );
+            });
+        });
+
+    </script>
+</th:block>
+</html>

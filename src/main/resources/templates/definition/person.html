@@ -1,0 +1,717 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>직원 정보</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>직원정보</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px">
+            <section class="section" style="width: 50%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>워크센터</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select type="text" class="form-control2" id="cboWcType" name="cboWcType"></select>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>이름</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" class="form-control2" id="txtName" name="txtName">
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label>재직여부</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="searchRtflag" name="searchRtflag"></select>
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>부서</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="searchDepart" name="searchDepart"></select>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label>근무조</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="searchShift" name="searchShift"></select>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </dd>
+                        </dl>
+                    </div>
+
+                </div> <!--//section-top end -->
+                <div class="container-fluid">
+                    <p id="selectedItem"></p>
+                    <div id="theGrid" style=""></div>
+                </div>
+                <div class="btn-wrap">
+                </div>
+            </section>
+            <section style="width: 50%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <ul>
+                            <li>
+                                <!-- <a class="btn btn-excell" title="신규등록" id="btnNew" >
+                                     <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                     신규등록
+                                 </a>-->
+                                <button type="button" class="btn-excellt btn-default" id="btnNew" name="btnNew"
+                                        style="height: 36px; width:115px;"><i
+                                        class="fas fa-plus"></i>신규등록
+                                </button>
+                            </li>
+
+                            <li>
+                                <!-- <a class="btn btn-edit" id="btnSave" title="저장">
+                                     <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                                     저장
+                                 </a>-->
+                                <button type="button" class="btn-excellt btn-default y_write_auth" id="btnSave"
+                                        style="float:none; height: 36px; width:115px;">
+                                    <i class="fas fa-save"></i>저장
+                                </button>
+                            </li>
+
+                            <li>
+                                <!--  <a class="btn btn-delete" title="삭제" id="btnDel">
+                                      <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                      삭제
+                                  </a>-->
+                                <button type="button" class="btn-delete btn-danger y_write_auth" id="btnDel"
+                                        style="float:none; height: 36px; width:115px;"><i
+                                        class="fas fa-trash"></i>삭제
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="table-wrap" style=" overflow-x: auto;">
+                    <form id="personForm">
+                        <table class="write-table" style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                            <caption style="text-align: left; margin-bottom: 8px;">등록테이블</caption>
+                            <colgroup>
+                                <col class="wp15">
+                                <col class="wp35">
+                                <col class="wp18">
+                                <col class="wp32">
+                            </colgroup>
+                            <input type="hidden" id="id" name="id"/>
+                            <tbody>
+                            <tr>
+                                <th>
+                                    <label for="WorkCenter_id">워크센터</label>
+                                </th>
+                                <td>
+                                    <select id="WorkCenter_id" name="WorkCenter_id" style="width: 100%;"></select>
+                                </td>
+                                <th>
+                                    <label for="Code"><span class="eq">*</span>코드</label>
+                                </th>
+                                <td>
+                                    <input type="text" id="Code" name="Code" style="width: 100%;">
+                                </td>
+
+
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="Name"><span class="eq">*</span>성명</label>
+                                </th>
+                                <td>
+                                    <input type="text" style="width: 100%;" id="Name" name="Name">
+                                </td>
+                                <th>
+                                    <label for="WorkHour"><span class="eq">*</span>기본근무시간</label>
+                                </th>
+                                <td>
+                                    <input type="text" style="width: 100%;" id="WorkHour" name="WorkHour">
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th>
+                                    <label for="Factory_id"><span class="eq">*</span>공장</label>
+                                </th>
+                                <td>
+                                    <select style="width: 100%;" id="Factory_id" name="Factory_id"></select>
+                                </td>
+
+                                <th>
+                                    <label for="ShiftCode"><span class="eq">*</span>근무조</label>
+                                </th>
+                                <td>
+                                    <select style="width: 100%;" id="ShiftCode" name="ShiftCode"></select>
+                                </td>
+
+
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="Depart_id"><span class="eq">*</span>부서</label>
+                                </th>
+                                <td>
+                                    <select style="width: 100%;" id="Depart_id" name="Depart_id"></select>
+                                </td>
+                                <th>
+                                    <label for="work_division"><span class="eq">*</span>근무구분</label>
+                                </th>
+                                <td>
+                                    <select style="width: 100%;" id="work_division" name="work_division"></select>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th>
+                                    <label for="jik_id"><span class="eq">*</span>직위</label>
+                                </th>
+                                <td>
+                                    <select id="jik_id" name="jik_id" style="width: 100%;"></select>
+                                    <!--<textarea id="Description" name="Description"></textarea>-->
+                                </td>
+
+                                <th>
+                                    <label for="rtdate"><span class="eq">*</span>입사일</label>
+                                </th>
+                                <td>
+                                    <input type="date" id="rtdate" name="rtdate" style="width: 100%">
+                                </td>
+
+
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="enddate">퇴사일</label>
+                                </th>
+                                <td>
+                                    <input type="date" id="enddate" name="enddate" style="width: 100%">
+                                </td>
+
+                                <th>
+                                    <label for="rtflag">재직구분</label>
+                                </th>
+                                <td>
+                                    <select style="width: 100%;" id="rtflag" name="rtflag"></select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="Description">비고</label>
+                                </th>
+                                <td colspan="3">
+                                    <input type="text" id="Description" name="Description" style="width: 100%;">
+                                    <!--<textarea id="Description" name="Description"></textarea>-->
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+            </section>
+        </div>
+    </div> <!--//layout-contents end -->
+
+    <footer style="margin-top: 24px;">
+        <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+    </footer>
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+    <script type="text/javascript">
+
+        var theGrid;
+        var viewdata;
+
+        let columns = [
+            {binding: 'workcenter_name', header: '워크센터', width: 150, align: 'center',visible: false},
+            {binding: 'person_code', header: '코드', width: 100, align: 'center'},
+            {binding: 'person_name', header: '이름', width: 100, align: 'center',},
+            {binding: 'jik_id', header: '직위', width: 100, align: 'center',},
+            {binding: 'work_hour', header: '기본 근무시간', width: 120, align: 'center'},
+            {binding: 'shift_name', header: '현 근무조', width: 120, align: 'center'},
+            {binding: 'person_group_name', header: '근무구분', width: 120, align: 'center'},
+            {binding: 'dept_name', header: '부서', width: 120, align: 'center'},
+            {binding: 'factory_name', header: '공장', width: 120, align: 'center'},
+            {binding: 'rtdate', header: '입사일', width: 120, align: 'center'},
+            {binding: 'enddate', header: '퇴사일', width: 120, align: 'center'},
+            {binding: 'rtflag', header: '재직여부', width: 120, align: 'center'},
+            {binding: 'description', header: '비고', width: '*', align: 'center'},
+        ]
+
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            let data2 = [];
+
+            let worker_name = $('#txtName').val();
+            let workcenter_id = $('#cboWcType').val();
+            let searchRtflag = $('#searchRtflag').val();
+            let searchDepart = $('#searchDepart').val();
+            let searchShift = $('#searchShift').val();
+
+            $.ajax({
+                url: withCtx('/api/definition/person/read'),
+                type: 'GET',
+                data: {
+                    'worker_name': worker_name,
+                    'workcenter_id': workcenter_id,
+                    'searchRtflag' : searchRtflag,
+                    'searchDepart' : searchDepart,
+                    'searchShift' : searchShift,
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                },
+                async: false,
+                success: function (data) {
+                    data2 = data.data.map(item => {
+                        let groupName = '기타근무';
+                        if (item.person_group_id == 1) groupName = '주간근무';
+                        else if (item.person_group_id == 2) groupName = '야간근무';
+
+                        // 날짜 변환
+                        let formattedRtdate = '';
+                        if (item.rtdate && item.rtdate.length === 8) {
+                            formattedRtdate = `${item.rtdate.substring(0, 4)}-${item.rtdate.substring(4, 6)}-${item.rtdate.substring(6, 8)}`;
+                        }
+
+                        let formattedEnddate = '';
+                        if (item.enddate && item.enddate.length === 8) {
+                            formattedEnddate = `${item.enddate.substring(0, 4)}-${item.enddate.substring(4, 6)}-${item.enddate.substring(6, 8)}`;
+                        }
+
+                        const { person_group_name, rtdate, ...rest } = item;
+
+                        return {
+                            ...rest,
+                            person_group_name: groupName,
+                            rtdate: formattedRtdate, // 포맷된 날짜를 사용
+                            enddate: formattedEnddate
+                        };
+                    });
+
+
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_count data:', textStatus, errorThrown);
+                }
+            })
+
+            viewdata = new wijmo.collections.CollectionView(data2);
+
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+            // 퇴직 색 부여
+            theGrid.formatItem.addHandler(function(s, e) {
+                if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                    let col = s.columns[e.col];
+                    let item = s.rows[e.row].dataItem;
+
+                    // 부서 컬럼 && 값이 '퇴직'이면
+                    if (col.binding === 'rtflag' && item.rtflag === '퇴직') {
+                        e.cell.style.backgroundColor = '#ffe5e5'; // 연한 빨강
+                    }
+                }
+            });
+
+
+            theGrid.hostElement.addEventListener('dblclick', function (e) {
+                let selectedItem = theGrid.selectedItems[0];
+                document.getElementById('id').value = selectedItem.id;
+console.log(selectedItem);
+
+                document.getElementById('Code').value = selectedItem.person_code;
+                document.getElementById('Name').value = selectedItem.person_name;
+                document.getElementById('WorkHour').value = selectedItem.work_hour;
+                document.getElementById('Description').value = selectedItem.description; // 체크박스 상태 설정
+                document.getElementById('rtdate').value = selectedItem.rtdate;
+                document.getElementById('enddate').value = selectedItem.enddate;
+                function setSelectValue(selectId, valueToMatch) {
+                    let selectElement = document.getElementById(selectId);
+                    if (selectElement) {
+                        for (let option of selectElement.options) {
+                          /*  if (selectId === 'work_division') {
+                                // 'work_division'은 value로 비교
+                                option.selected = option.value == valueToMatch;
+                            } else {
+                                // 나머지는 text로 비교*/
+                                option.selected = option.text === valueToMatch;
+                          /*  }*/
+                        }
+                    }
+                }
+
+
+                setSelectValue('work_division', selectedItem.person_group_name);
+                setSelectValue('ShiftCode', selectedItem.shift_name);
+                setSelectValue('jik_id', selectedItem.jik_id);
+                setSelectValue('rtflag', selectedItem.rtflag);
+                setSelectValue('Depart_id', selectedItem.dept_name);
+                setSelectValue('WorkCenter_id', selectedItem.workcenter_name);
+                setSelectValue('Factory_id', selectedItem.factory_name);
+
+                setButtonState();
+
+            });
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+            /*  new FlexGridContextMenu(theGrid);*/
+
+        }
+
+        //버튼 활성화 설정
+        function setButtonState() {
+            let pk = $('#id').val();
+            $('#btnNew').prop('disabled', false);
+            $('#btnSave').prop('disabled', false);
+            if (pk) {
+                $('#btnDel').prop('disabled', false);
+            } else {
+                $('#btnDel').prop('disabled', true);
+            }
+        }
+
+        function searchMainData() {
+            let worker_name = $('#txtName').val();
+            let workcenter_id = $('#cboWcType').val();
+            let searchRtflag = $('#searchRtflag').val();
+            let searchDepart = $('#searchDepart').val();
+            let searchShift = $('#searchShift').val();
+
+            $.ajax({
+                url: withCtx('/api/definition/person/read'),
+                type: 'GET',
+                data: {
+                    'worker_name': worker_name,
+                    'workcenter_id': workcenter_id,
+                    'searchRtflag' : searchRtflag,
+                    'searchDepart' : searchDepart,
+                    'searchShift' : searchShift,
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                },
+                async: false,
+                success: function (result) {
+                    if (result.success) {
+                        grid_binding(result.data);
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+
+                }
+            });
+
+            $('#personForm')[0].reset();
+            $('#personForm').find('#id').val('');
+
+            $('#detail_box').find('input, select, textarea').each(function () {
+                if (!$(this).is(':disabled')) {
+                    $(this).attr('disabled', 'disabled');
+                }
+            });
+
+            setButtonState();
+        }
+
+        function grid_binding(data) {
+            if (!Array.isArray(data)) {
+                console.error('데이터가 배열 형식이 아닙니다:', data);
+                return;
+            }
+
+            let menulogData = data.map(item => {
+                let groupName = '기타근무';
+                if (item.person_group_id == 1) groupName = '주간근무';
+                else if (item.person_group_id == 2) groupName = '야간근무';
+
+                // 날짜 포맷 함수
+                const formatDate = (dateStr) => {
+                    if (dateStr && dateStr.length === 8) {
+                        return `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+                    }
+                    return dateStr; // 포맷할 수 없으면 원본 유지
+                };
+
+                return {
+                    id: item.id,
+                    workcenter_name: item.workcenter_name,
+                    person_code: item.person_code,
+                    person_name: item.person_name,
+                    person_group_name: groupName, // 변환된 이름 사용
+                    jik_id: item.jik_id,
+                    work_hour: item.work_hour,
+                    shift_name: item.shift_name,
+                    dept_name: item.dept_name,
+                    factory_name: item.factory_name,
+                    rtdate: formatDate(item.rtdate),
+                    enddate: formatDate(item.enddate),
+                    rtflag: item.rtflag,
+                    description: item.description
+                };
+            });
+
+
+            if (typeof theGrid === 'undefined' || typeof viewdata === 'undefined') {
+                console.error('theGrid 또는 viewdata가 정의되지 않았습니다.');
+                return;
+            }
+
+            theGrid.columns.clear();
+            theGrid.autoGenerateColumns = false;
+
+            // columns 배열이 정의되어 있는지 확인
+            if (typeof columns === 'undefined' || !Array.isArray(columns)) {
+                console.error('columns 배열이 정의되지 않았습니다.');
+                return;
+            }
+
+            columns.forEach(columnDef => {
+                var col = new wijmo.grid.Column(columnDef);
+                theGrid.columns.push(col);
+            });
+
+            viewdata = new wijmo.collections.CollectionView(menulogData);
+
+            theGrid.itemsSource = viewdata;
+            theGrid.refresh();
+        }
+
+
+        // 작업자 정보 저장
+        function savePerson() {
+            let url = '/api/definition/person';
+
+            let data = FormUtil.extractForm($('#personForm'));
+
+            data.spjangcd = sessionStorage.getItem('spjangcd');
+
+            // 필수입력 check routine
+            if (!data.Code) {
+                Alert.alert('', '사번을 입력해주세요.');
+                $('#personForm #Code').focus();
+                return false;
+            }else if (!data.Name) {
+                Alert.alert('', '이름을 입력해주세요.');
+                $('#personForm #Name').focus();
+                return false;
+            }  else if (!data.WorkHour) {
+                Alert.alert('', '기본근무시간을 입력해주세요.');
+                $('#personForm #WorkHour').focus();
+                return false;
+            }else if (!data.Factory_id) {
+                Alert.alert('', '공장을 선택해주세요.');
+                $('#personForm #Factory_id').focus();
+                return false;
+            } else if (!data.ShiftCode) {
+                Alert.alert('', '근무조를 선택해주세요.');
+                $('#personForm #ShiftCode').focus();
+                return false;
+            }else if (!data.Depart_id) {
+                Alert.alert('', '부서를 선택해주세요.');
+                $('#personForm #Depart_id').focus();
+                return false;
+            }else if (!data.jik_id) {
+                Alert.alert('', '직위를 선택해주세요.');
+                $('#personForm #jik_id').focus();
+                return false;
+            }
+
+
+            //else if (!data.Factory_id) {
+            //    Alert.alert('', '공장을 입력해주세요.');
+            //    return false;
+            //} else if (!data.WorkHour) {
+            //    Alert.alert('', '기본근무시간을 입력해주세요.');
+            //    return false;
+            //}
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Alert.alert('', '저장되었습니다');
+                    searchMainData(); // 저장 후 데이터 갱신
+                } else {
+                    Alert.alert('저장 실패', res.message);
+                    console.error('저장 실패:', res.message);
+                }
+            }
+            AjaxUtil.postAsyncData(url + '/save', data, fnSuccess);
+        }
+
+        // 작업자 정보 삭제
+        function deletePerson() {
+            let url = '/api/definition/person';
+            let id = $('#personForm').find('#id').val();
+            let data = {id: id};
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Alert.alert('', '삭제되었습니다');
+                    searchMainData();
+                } else {
+                    Alert.alert('삭제 실패', res.message);
+                    console.error('삭제 실패:', res.message);
+                }
+            };
+
+            AjaxUtil.postAsyncData(url + '/delete', data, fnSuccess);
+        }
+
+        // ShiftCode가 변경될 때 work_division 자동 설정
+        $('#ShiftCode').on('change', function () {
+            const shiftText = $('#ShiftCode option:selected').text();
+            let targetWorkDivision = '기타근무'; // 기본값
+
+            if (shiftText.includes('주간조')) {
+                targetWorkDivision = '주간근무';
+            } else if (shiftText.includes('야간조')) {
+                targetWorkDivision = '야간근무';
+            }
+
+            // work_division의 text와 비교하여 자동 선택
+            $('#work_division option').each(function () {
+                if ($(this).text() === targetWorkDivision) {
+                    $(this).prop('selected', true);
+                }
+            });
+        });
+
+
+        $(document.body).ready(function (e) {
+            setButtonState();
+            AjaxUtil.fillSelectOptions($('#cboWcType'), 'workcenter', 'all', false);
+            AjaxUtil.fillSelectOptions($('#WorkCenter_id'), 'workcenter', 'choose', false);
+            AjaxUtil.fillSelectOptions($('#Factory_id'), 'factory', '', false);
+            AjaxUtil.fillSelectOptions($('#ShiftCode'), 'shift', 'choose', false);
+            AjaxUtil.fillSelectOptions($('#searchShift'), 'shift', 'choose', false);
+            AjaxUtil.fillSelectOptions($('#Depart_id'), 'depart', 'choose', false);
+            AjaxUtil.fillSelectOptions($('#searchDepart'), 'depart', 'all', false);
+            AjaxUtil.fillSelectOptions($('#rtflag'), 'system_code', 'choose', '', 'rtflag_type');
+            AjaxUtil.fillSelectOptions($('#searchRtflag'), 'system_code', 'all', '', 'rtflag_type');
+            AjaxUtil.fillSelectOptions($('#work_division'), 'system_code', 'choose', '', 'work_division');
+            AjaxUtil.fillSelectOptions($('#jik_id'), 'system_code', 'choose','', 'jik_type');
+
+
+
+            // 엔터키 검색
+            $('#txtName').on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    searchMainData();
+                }
+            });
+
+            // 검색버튼 클릭
+            $('#btnSearch').click(function (e) {
+                searchMainData();
+            });
+
+            // 신규버튼
+            $('#btnNew').click(function (e) {
+
+                $('#personForm')[0].reset();
+                $('#personForm').find('#id').val('');
+
+                $('#detail_box').find('input, select, textarea').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                setButtonState();
+            });
+
+            // 저장버튼
+            $('#btnSave').click(function (e) {
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        savePerson()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            // 삭제버튼
+            $('#btnDel').click(function (e) {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        deletePerson()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+        });
+
+    </script>
+
+</th:block>
+
+</html>

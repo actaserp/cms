@@ -1,0 +1,491 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+      .wj-header {
+          text-align: center !important;
+      }
+      .wj-flexgrid {
+          overflow-x: auto; /* 가로 스크롤만 허용 */
+          overflow-y: auto; /* 세로 스크롤만 허용 */
+      }
+  </style>
+</head>
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>프로젝트 현황</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>프로젝트관리</li>
+        <li>프로젝트 현황</li>
+      </ul>
+    </div>
+    <div style="display: flex; gap: 5px">
+      <section class="section" style="flex: 1;">
+        <div class="section-top">
+          <div class="search-wrap">
+            <input type="hidden" id="spjangcdHidden">
+            <dl>
+              <dt>
+                <label>
+                  연도
+                </label>
+              </dt>
+              <dd>
+                <select class="" id="cboYear" name="cboYear">
+                </select>
+              </dd>
+            </dl>
+            <dl>
+              <dt>
+                <label>프로젝트명</label>
+              </dt>
+              <dd>
+                <div class="srch-box">
+                  <input type="text" class="form-control2" id="txtProjectName" name="txtProjectName"
+                         placeholder="프로젝트명">
+                </div>
+              </dd>
+            </dl>
+
+            <dl>
+              <dt><span class="eq"></span></dt>
+              <dd>
+                <li>
+                  <a class="btn btn-delete" title="검색" id="btnSearch">
+                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                    검색
+                  </a>
+                </li>
+              </dd>
+            </dl>
+          </div>
+          <!--<div class="button-wrap" style="border-top:none; text-align: right; !important;">
+            <ul>
+              <li>
+                <a class="btn btn-excell" title="신규등록" id="Newbtn">
+                  <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                  신규등록
+                </a>
+              </li>
+              <li>
+                <a class="btn btn-edit" id="btnSave" title="저장">
+                  <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                  저장
+                </a>
+              </li>
+              <li>
+                <a class="btn btn-delete" title="삭제" id="btnDelete">
+                  <img th:src="@{/images/icon/ico-delete.svg}" alt="엑셀 아이콘">
+                  삭제
+                </a>
+              </li>
+            </ul>
+          </div>-->
+        </div>
+        <div class="container-fluid">
+          <p id="ProjectStatus"></p>
+          <div id="theGrid" style="height: 300px"></div>
+        </div>
+      </section>
+
+      <div class="tab-wrap" style="flex: 1; min-width: 0">
+        <ul class="tab-links">
+          <li><a href="#tabs_ExpenseHistory">경비사용내역</a></li>
+          <li><a href="#tabs_SalesHistory">매출내역</a></li>
+          <li><a href="#tabs_TransactionHistory">입출금내역</a></li>
+        </ul>
+
+        <div>
+          <!--경비사용내역-->
+          <section class="tab-item" id="tabs_ExpenseHistory" style="border-top-left-radius: 0;">
+            <div class="container-fluid">
+              <p id="ExpenseHistory"></p>
+              <div id="ExpenseHistoryGrid" style="height: 300px; "></div>
+            </div>
+          </section>
+          <!-- 매출내역 -->
+          <section class="tab-item" id="tabs_SalesHistory" style="border-top-left-radius: 0;">
+            <div class="container-fluid">
+              <p id="SalesHistory"></p>
+              <div id="SalesHistoryGrid" style="height: 300px; "></div>
+            </div>
+          </section>
+          <!--입출금 내역-->
+          <section class="tab-item" id="tabs_TransactionHistory" style="border-top-left-radius: 0;">
+            <!--<div class="section-top" style="margin-bottom: 5px;">
+              <dl>
+                <dt>
+                  <label>
+                    입출금 구분
+                  </label>
+                </dt>
+                <dd>
+                  <select class="form-control2" id="io_type" name="io_type" >
+                    <option value="0">입금</option>
+                    <option value="1">출금</option>
+                  </select>
+                </dd>
+              </dl>
+            </div>-->
+            <div class="container-fluid">
+              <p id="TransactionHistory"></p>
+              <div id="TransactionHistoryGrid" style="height: 300px; "></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+  <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+  <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+  <script type="text/javascript">
+    class ProjectStatusPage {
+      constructor() {
+        this.grid = null;
+        this.grid2 = null;
+        this.grid3 = null;
+        this.grid4 = null;
+        this.viewData = new wijmo.collections.CollectionView();
+        this.spjangcd = $('#spjangcdHidden');
+        this.init();
+      }//constructor
+
+      init() {
+        let _this = this;
+        this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+          autoGenerateColumns: false,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          isReadOnly: true,
+          showMarquee: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+            if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+              const col = sender.columns[e.col];
+              const row = sender.rows[e.row];
+              const item = row.dataItem;
+
+              // 손익액 계산하여 표시
+              if (col.header === '손익액') {
+                const sales = item.sales_totalamt || 0;
+                const cost = item.invo_totalamt || 0;
+                const profit = sales - cost;
+                e.cell.textContent = profit.toLocaleString(); // 숫자 포맷
+
+                /*  // 색상 강조 (예: 손실은 빨간색)
+                  e.cell.style.color = profit < 0 ? 'red' : 'black';
+                  e.cell.style.textAlign = 'right';*/
+              }
+
+              if (col.header === '수금여부') {
+                const sales = item.sales_totalamt || 0;
+                const accin = item.total_accin || 0;
+
+                // 금액이 정확히 일치할 때만 동그라미 표시
+                e.cell.innerHTML = accin === sales ?
+                  '<span style="font-size: 18px; color: green;">&#x2B55;</span>' : '';
+                e.cell.style.textAlign = 'center';
+              }
+            }
+          },
+          columns: [
+            {binding: 'projno', header: '번호', width: 100, align: 'center'},
+            {binding: 'projnm', header: '프로젝트명', width: 200},
+            {binding: 'contdate', header: '계약일자', width: 110, align: 'center'},
+            {binding: 'suju_totalamt', header: '수주금액', width: 130},
+            {binding: 'sales_totalamt', header: '매출금액', width: 130},
+            {binding: 'total_accin', header: '수금액', width: 130, align: 'right'},
+            {binding: 'invo_totalamt', header: '소요경비', width: 130},
+            {binding: 'total_accout', header: '지급액', width: 130, align: 'right'},
+            {binding: '', header: '수금여부', width: 100},
+            {binding: '', header: '손익액', width: 140, align: 'right'},
+          ],
+          itemsSource: this.viewData, // 데이터를 설정할 배열
+        });
+
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '프로젝트 현황';
+        this.grid.hostElement.addEventListener('click', function (e) {
+          let ht = _this.grid.hitTest(e);
+          if (ht.cellType === wijmo.grid.CellType.Cell || ht.cellType === wijmo.grid.CellType.RowHeader) {
+            const selectedItem = _this.grid.selectedItems[0];
+            if (selectedItem) {
+              _this.loadTabData(selectedItem);
+            }
+          }
+        });
+        // 엔터키 검색
+        $('#txtProjectName').on('keypress', function (e) {
+          if (e.keyCode === 13) {
+            // 탭 그리드 초기화
+            page.grid2.itemsSource = [];
+            page.grid3.itemsSource = [];
+            page.grid4.itemsSource = [];
+
+            // 필요한 경우, 탭 내 상태도 초기화할 수 있음 (ex: 텍스트 초기화)
+            $('#TransactionHistory').empty();
+            _this.searchMainData();
+          }
+        });
+
+        //경비 사용내역
+        this.grid2 = new wijmo.grid.FlexGrid('#ExpenseHistoryGrid', {
+          autoGenerateColumns: false,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          isReadOnly: true,
+          showMarquee: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'misdate', header: '매입일자', width: 120, align: 'center'},
+            {binding: 'misnum', header: '번호', width: 60, align: 'center'},
+            {binding: 'misseq', header: '순번', width: 60, align: 'center'},
+            {binding: 'artnm', header: '계정과목', width: 100, align: 'center'},
+            {binding: 'itemnm', header: '품목명', width: 130},
+            {binding: 'spec', header: '규격', width: 250},
+            {binding: 'qty', header: '수량', width: 60, align: 'center'},
+            {binding: 'unitcost', header: '단가', width: 140},
+            {binding: 'supplycost', header: '공급가액', width: 140},
+            {binding: 'taxtotal', header: '세액', width: 140},
+            {binding: 'remark', header: '비고', width: 140},
+          ],
+          itemsSource: this.viewData, // 데이터를 설정할 배열
+        });
+
+        new FlexGridContextMenu(this.grid2);
+        this.grid2.downloadFileName = '경비사용내역';
+
+        //Footer 패널 사용 설정
+        this.grid2.columnFooters.rows.push(new wijmo.grid.Row());
+        //Footer 합계 설정
+        this.grid2.loadedRows.addHandler(() => {
+          const rows = this.grid2.rows;
+          const footer = this.grid2.columnFooters.rows[0];
+
+          const getSum = (field) => rows.map(r => +r.dataItem[field] || 0).reduce((a, b) => a + b, 0);
+
+          footer.dataItem = {
+            misdate: "합계",
+            unitcost: getSum('unitcost'),
+            supplycost: getSum('supplycost'),
+            taxtotal: getSum('taxtotal'),
+            qty: getSum('qty'),
+            remark: getSum('supplycost') + getSum('taxtotal')
+          };
+        });
+
+
+        //매출내역
+        this.grid3 = new wijmo.grid.FlexGrid('#SalesHistoryGrid', {
+          autoGenerateColumns: false,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          isReadOnly: true,
+          showMarquee: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'misgubun', header: '매출구분', width: 100, align: 'center'},
+            {binding: 'icerdeptnm', header: '부서', width: 110, align: 'center'},
+            {binding: 'misdate', header: '일자', width: 110, align: 'center'},
+            {binding: 'itemnm', header: '품목', width: 140},
+            {binding: 'spec', header: '규격', width: 250, align: 'center'},
+            {binding: 'qty', header: '수량', width: 60, align: 'center'},
+            {binding: 'unitcost', header: '단가', width: 140},
+            {binding: 'supplycost', header: '공급가액', width: 140},
+            {binding: 'taxtotal', header: '세액', width: 140},
+            {binding: 'remark', header: '비고', width: 140},
+          ],
+          itemsSource: this.viewData, // 데이터를 설정할 배열
+        });
+
+        new FlexGridContextMenu(this.grid3);
+        this.grid3.downloadFileName = '매출내역';
+        //Footer 패널 사용 설정
+        this.grid3.columnFooters.rows.push(new wijmo.grid.Row());
+        //Footer 합계 설정
+        this.grid3.loadedRows.addHandler(() => {
+          const rows = this.grid3.rows;
+          const footer = this.grid3.columnFooters.rows[0];
+
+          const getSum = (field) => rows.map(r => +r.dataItem[field] || 0).reduce((a, b) => a + b, 0);
+
+          footer.dataItem = {
+            misgubun: "합계",
+            unitcost: getSum('unitcost'),
+            supplycost: getSum('supplycost'),
+            taxtotal: getSum('taxtotal'),
+            qty: getSum('qty'),
+            remark: getSum('supplycost') + getSum('taxtotal')
+          };
+        });
+
+        //입출금 내역
+        this.grid4 = new wijmo.grid.FlexGrid('#TransactionHistoryGrid', {
+          autoGenerateColumns: false,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          isReadOnly: true,
+          showMarquee: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'trdate', header: '일자', width: 110},
+            {binding: 'comp_name', header: '거래처', width: 100},
+            {binding: 'io_type', header: '입출금 구분', width: 100, align: 'center'},
+            {binding: 'accin', header: '입금액', width: 130},
+            {binding: 'accout', header: '출금액', width: 130},
+            {binding: 'memo', header: '메모', width: 140},
+          ],
+          itemsSource: this.viewData, // 데이터를 설정할 배열
+        });
+
+        new FlexGridContextMenu(this.grid4);
+        this.grid4.downloadFileName = '입출금 내역';
+
+        //Footer 패널 사용 설정
+        this.grid4.columnFooters.rows.push(new wijmo.grid.Row());
+        this.grid4.loadedRows.addHandler(() => {
+          const rows = this.grid4.rows;
+          const footer = this.grid4.columnFooters.rows[0];
+
+          const getSum = (field) => rows.map(r => +r.dataItem[field] || 0).reduce((a, b) => a + b, 0);
+
+          footer.dataItem = {
+            trdate: "합계",
+            accin: getSum('accin'),
+            accout: getSum('accout'),
+          };
+        });
+      }//init
+
+      searchMainData() {
+        let _this = this;
+        let url = '/api/transaction/ProjectStatus'
+
+        let data = {
+          'cboYear': $("#cboYear").val(),
+          'txtProjectName': $("#txtProjectName").val(),
+          spjangcd: this.spjangcd.val()  //사업장 코드
+        }
+        let fnsuccess = function (result) {
+          if (result != null) {
+            _this.viewData = new wijmo.collections.CollectionView(result.data);
+            _this.grid.itemsSource = _this.viewData;
+          }
+        };
+        AjaxUtil.getAsyncData(url + '/allRead', data, fnsuccess);
+      }
+
+      //탭 요청
+      loadTabData(selectedItem) {
+        let _this = this;
+        const projno = selectedItem.projno;
+        const url = '/api/transaction/ProjectStatus';
+        const data = {
+          projno: projno,
+          spjangcd: this.spjangcd.val()
+        };
+
+        // 1. 경비사용내역
+        AjaxUtil.getAsyncData(url + '/ExpenseHistory', data, function (result) {
+          if (result != null) {
+            _this.grid2.itemsSource = result.data;
+          }
+        });
+
+        // 2. 매출내역
+        AjaxUtil.getAsyncData(url + '/SalesHistory', data, function (result) {
+          if (result != null) {
+            _this.grid3.itemsSource = result.data;
+          }
+        });
+
+        // 3. 입출금내역
+        AjaxUtil.getAsyncData(url + '/TransactionHistory', data, function (result) {
+          if (result != null) {
+            _this.grid4.itemsSource = result.data;
+          }
+        });
+
+        // 탭 자동 전환: 첫 번째 탭 열기
+        document.querySelector('.tab-links li:first-child a').click();
+      }
+    }
+
+    $(document).ready(function (e) {
+
+      const spjangcd = sessionStorage.getItem('spjangcd');
+      if (spjangcd) {
+        $('#spjangcdHidden').val(spjangcd);  // hidden input이 있어야 함
+      }
+      AjaxUtil.fillSelectOptions($('#cboYear'), 'data_year', '', false);
+
+      page = new ProjectStatusPage();
+
+      page.searchMainData();
+
+      // 검색
+      $('#btnSearch').click(function (e) {
+        e.preventDefault();
+        // 탭 그리드 초기화
+        page.grid2.itemsSource = [];
+        page.grid3.itemsSource = [];
+        page.grid4.itemsSource = [];
+
+        // 필요한 경우, 탭 내 상태도 초기화할 수 있음 (ex: 텍스트 초기화)
+        $('#TransactionHistory').empty();
+        page.searchMainData();
+      });
+
+      // 값이 사라지면 hidden도 비움
+      $('#btnCompanySearch').on('input', function () {
+        const val = $(this).val();
+        if (val === '') {
+          $('#cboCompanyHidden').val('');
+        }
+      });
+      $('#balcltnm').click(function () {
+        const poppage = new PopCompComponent();
+        const $poppage = $(poppage);
+        const searchcallback = function (items) {
+          $('#balcltnm').val(items.compname);
+          $('#balcltcd').val(items.id);
+        };
+        poppage.show(searchcallback);
+      });
+
+      $('#balcltnm').on('input', function () {
+        if ($(this).val().trim() === '') {
+          $('#balcltcd').val('');
+        }
+      });
+
+    })
+
+  </script>
+</th:block>
+</html>

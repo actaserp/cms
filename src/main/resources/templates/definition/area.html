@@ -1,0 +1,591 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /*.wj-cell.wj-group {
+            background-color: #FFFFFF !important; !* 연한 초록 *!
+        }*/
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>에어리어</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>에어리어</li>
+            </ul>
+        </div>
+        <div style="display: flex; gap: 5px">
+            <section class="section" style="width: 60%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>이름</label>
+                            </dt>
+                            <dd>
+                                <input type="text" class="form-control2" id="txtName" name="txtName">
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+
+                </div>
+
+                 <!--<div class="grid_box">
+                     <div class="h-460" data-ax5grid="area-grid" ></div>
+                 </div>-->
+                <div class="container-fluid">
+                    <div id="area-grid" style=""></div>
+                </div>
+            </section>
+
+            <div class="tab-wrap" style="width: 40%;">
+                <section class="section">
+                    <div class="section-top">
+                        <div class="button-wrap" style="margin-left: auto;">
+                            <ul>
+                                <li>
+                                    <button type="button" class="btn-default " id="btnNew" name="btnNew" style="width: 115px; height: 36px;"><i class="fas fa-plus"></i>신규등록</button>
+                                </li>
+                                <li>
+                                    <button type="button" class="btn-excellt btn-default" id="btnNewChild" name="btnNewChild" style="width: 115px; height: 36px;">하위추가</button>
+                                </li>
+
+                                <li>
+                                    <button type="button" class="btn-excellt btn-default" id="btnNewBro" name="btnNewBro" style="width: 115px; height: 36px;">형제추가</button>
+                                </li>
+                                <li>
+                                    <button type="button" class="btn-delete btn-danger " id="btnDel" style="float:none;width: 115px; height: 36px; "><i class="fas fa-trash"></i>삭제</button>
+                                </li>
+                                <li>
+                                    <button type="button" class="btn-excellt btn-default" id="btnSave" style="float:none; width: 115px; height: 36px;"><i class="fas fa-save"></i>저장</button>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="table-wrap" style=" overflow-x: auto;">
+                            <form id="basicForm">
+                                <table class="write-table"
+                                       style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                                    <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+                                    <input type="hidden" id="parent_id" name="parent_id" value=""/>
+                                    <input class="form-control2" type="hidden" id="id" name="id" disabled/>
+                                    <col class="wp20">
+                                    <col class="wp80">
+                                    <tbody>
+
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="factory_id">공장</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <select type="text" id="factory_id" name="factory_id"
+                                                    style="width: 100%;"></select>
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="parent_name">상위에어리어</label>
+                                        </th>
+                                        <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" id="parent_name" name="parent_name" style="width: 100%;">
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="name"><span class="eq">*</span>이름</label>
+                                        </th>
+                                        <td style=" padding: 5px; border: 1px solid #ddd;">
+                                            <input type="text" style="width: 100%" id="name" name="name">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: center; padding: 5px; border: 1px solid #ddd;">
+                                            <label for="description">설명</label>
+                                        </th>
+                                        <td style="padding: 5px; border: 1px solid #ddd;" >
+                                            <!--<textarea id="description" name="description"></textarea>-->
+                                            <input type="text" id="description" name="description" style="width: 100%;">
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+    <script type="text/javascript">
+        class AreaPage {
+            constructor() {
+                this.url = '/api/definition/area';
+                this.viewData = new wijmo.collections.CollectionView();
+                this.grid = null;
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+                /*let config = {
+                    target: $('[data-ax5grid="area-grid"]'),
+                    sortable: true,
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: true, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 38  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            //e.colIndex
+                            //e.dindex
+                            //c.value
+                            //e.column
+                            //e.item
+                            //e.list
+                            //_this.grid.select(this.dindex, { __selected__: true });
+                            _this.showDetail(e.item.id);
+                        },
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        { key: 'id', label: '코드번호', width: 70, align: 'center', hidden: true },
+                        { key: 'factory_name', label: '공장', width: 100, align: 'center' },
+                        { key: 'name', label: '이름', width: 250, align: 'left', treeControl: true },
+                        { key: 'description', label: '설명', width: 350, align: 'left' },
+                    ],
+                    tree: {
+                        use: true,
+                        indentWidth: 15,
+                        arrowWidth: 15,
+                        iconWidth: 18,
+                        icons: {
+                            openedArrow: '<i class="fa fa-caret-down" aria-hidden="true"></i>',
+                            collapsedArrow: '<i class="fa fa-caret-right" aria-hidden="true"></i>',
+                            groupIcon: '<i class="fa fa-minus-square" aria-hidden="true"></i>',
+                            collapsedGroupIcon: '<i class="fa fa-plus-square" aria-hidden="true"></i>',
+                            itemIcon: '-'
+                        },
+                        columnKeys: {
+                            parentKey: 'parent_id',
+                            selfKey: 'id'
+                        }
+                    },
+                    //contextMenu: {
+                    //    iconWidth: 20,
+                    //    acceleratorWidth: 100,
+                    //    itemClickAndClose: true,
+                    //    icons: {
+                    //        'arrow': '<i class="fa fa-caret-right"></i>'
+                    //    },
+                    //    items: [
+                    //        { action: 'create', label: "하위추가" },
+                    //        { divide: true },
+                    //        { action: 'delete', label: "삭제" },
+                    //    ],
+                    //    popupFilter: function (item, param) {
+                    //        if(param.element) {
+                    //            return true;
+                    //        }else{
+                    //            return item.type == 1;
+                    //        }
+                    //    },
+                    //    onClick: function (item, param) {
+                    //        _this.clickContextMenu(item.action, param);
+                    //        //close();
+                    //        //또는 return true;
+                    //    }
+                    //}
+                };
+
+                this.grid = new ax5.ui.grid(config);
+                this.grid_config = config;*/
+
+
+                this.grid = new wijmo.grid.FlexGrid('#area-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            let item = sender.rows[e.row].dataItem; // 현재 행의 데이터 아이템
+                            if (item && item.children && item.children.length > 0) {
+                                // 부모(그룹) 행 배경색
+                                e.cell.style.backgroundColor = '#f0fcf7';
+                            } else {
+                                // 자식(일반) 행 배경색
+                                e.cell.style.backgroundColor = '#ffffff';
+                            }
+                        }
+                    },
+                    columns: [
+                        {binding: 'id', header: '코드번호', width: 70, align: 'center',visible:false},
+                        {binding: 'factory_name', header: '공장', width: 100, align: 'center' },
+                        {binding: 'name', header: '이름', width: 250, align: 'left' },
+                        {binding: 'description', header: '설명', width: 350, align: 'left' },
+                        {binding: '', header: '', width: '*', align: 'left' },
+
+                    ],
+                    childItemsPath: 'children',
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                });
+
+                this.grid.hostElement.addEventListener('dblclick', (e) => {
+                    let hitTest = this.grid.hitTest(e);
+                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                        let row = hitTest.row;
+                        let selectedItem = this.grid.rows[row].dataItem;
+                        _this.showDetail(selectedItem.id)
+                    }
+                });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '에어리어';
+            }
+
+            //clickContextMenu(action, param) {
+            //    let _this = this;
+            //    let pk = param.item.id;
+            //    let parent_name = param.item.name;
+            //    let factory_id = param.item.factory_id;
+            //    let $basicForm = $('#basicForm');
+            //    if (action == 'create') {
+            //        let newItem = {
+            //            'parent_id': pk,
+            //            'factory_id': factory_id,
+            //            'parent_name': parent_name,
+            //            'id': '',
+            //            'code': '',
+            //            'name': '',
+            //            'description':''
+            //        }
+            //        FormUtil.BindDataForm(newItem, $basicForm);
+            //        $('#description').text('');
+            //    }  else if (action == 'delete') {
+            //        Alert.confirm('',
+            //            '삭제하시겠습니까?',
+            //            function () { _this.deleteArea(pk) },
+            //            function () { }
+            //        );
+            //    }
+            //}
+
+            //setButtonDisable(_boolnew, _boolsave, _booldel) {
+            //    $('#btnNew').prop('disabled', _boolnew);
+            //    $('#btnSave').prop('disabled', _boolsave);
+            //    $('#btnDel').prop('disabled', _booldel);
+
+            //}
+
+            //버튼 활성화
+            setButtonState() {
+                let pk = $('#id').val();
+                $('#btnNew').prop('disabled', false);
+                $('#btnSave').prop('disabled', false);
+                if (pk) {
+                    $('#btnDel').prop('disabled', false);
+                    $('#btnNewChild').prop('disabled', false);
+                    $('#btnNewBro').prop('disabled', false);
+                }
+                else {
+                    $('#btnDel').prop('disabled', true);
+                    $('#btnNewChild').prop('disabled', true);
+                    $('#btnNewBro').prop('disabled', true);
+                }
+                //$('.write_auth:button').prop('disabled', userinfo.write_flag != 'True');
+            }
+
+            /*"action": 'detail'*/
+            //let url = '/api/definition/area';
+
+            showDetail(idx) {
+                let param = { 'id': idx };
+
+                let result = AjaxUtil.getSyncData(this.url+'/detail', param);
+                if (result.success) {
+                    FormUtil.BindDataForm(result.data.area, $('#basicForm'));
+                    document.getElementById('parent_name').value = result.data.parent_name;
+                    //$('#description').text(result.description);
+                }
+
+                //page.setButtonDisable(false, false, false);
+                page.setButtonState();
+            }
+
+            searchMainData() {
+                let _this = this;
+                //let txtName = $('#txtName').val();
+                //let url = '/api/definition/area?txtName='+txtName;
+                let data = {
+                    'txtName' :$('#txtName').val(),
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                    //'action':'read'
+                }
+                let result = AjaxUtil.getSyncData(this.url+'/read', data);
+                console.log(result);
+
+                if (result && result.data) {
+                    let treeData = _this.buildTree(result.data); // 계층 구조 변환
+                    _this.viewData.sourceCollection = treeData;
+                }
+
+                $('#basicForm')[0].reset();
+                $('#basicForm').find('input, select, textarea').each(function () {
+                    if (!$(this).is(':disabled')) {
+                        $(this).attr('disabled', 'disabled');
+                    }
+                });
+
+                //page.setButtonDisable(true, false, false);
+                page.setButtonState();
+            }//searchMainData
+
+            buildTree(flatData) {
+                let tree = [];
+                let map = {};
+
+                // 모든 항목을 id 기준으로 매핑
+                flatData.forEach(item => {
+                    map[item.id] = { ...item, children: [] };
+                });
+
+                // 부모-자식 관계 설정
+                flatData.forEach(item => {
+                    if (item.parent_id !== null && map[item.parent_id]) {
+                        map[item.parent_id].children.push(map[item.id]);
+                    } else {
+                        tree.push(map[item.id]); // 최상위 레벨
+                    }
+                });
+
+                return tree;
+            }
+
+
+            saveArea() {
+                let _this = this;
+                let url = '/api/definition/area/save';
+                //데이터입력체크루틴 누락
+
+                //let data = $('#basicForm').serialize();
+                let data = FormUtil.extractForm($('#basicForm'));
+                if (!data.name) {
+                    Alert.alert('', '에어리어 이름을 입력해주세요.');
+                    $('#basicForm #name').focus();
+                    return;
+                }
+
+                data.spjangcd = sessionStorage.getItem('spjangcd')
+
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('','저장되었습니다'); // Notification
+                        _this.searchMainData();
+                    }  else if (!res.success) {
+                        Alert.alert('', res.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+            deleteArea(id) {
+                let _this = this;
+                let url = '/api/definition/area/delete';
+                let data = { 'id': id };
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('','삭제되었습니다'); // Notification
+                        $('#basicForm')[0].reset();
+                        $('#parent_id').val('');
+                        $('#id').val('');
+                        $('#description').text('');
+                        _this.searchMainData();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(url, data,fnSuccess);
+            }
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            //yullinAuth.inspection();
+            yullinAuth.removeWriteButton();
+            page = new AreaPage();
+
+            //그리드 컬럼 설정
+            //page.popColSetting = new popColSetting();
+            //let columns = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'grid', page.grid);
+
+            //if (userinfo.group_code == 'admin') {
+            //    $('#btnGridSetting').css('visibility', 'visible');
+            //}
+
+            //$('#btnGridSetting').click(function (e) {
+            //   let _this = this;
+            //    let fix_cols = page.grid_config.frozenColumnIndex;
+            //    page.popColSetting.show(gui.gui_code, gui.template_key, 'grid', page.grid_config.columns, page.grid, { 'order_fix': false, 'fix_cols': fix_cols });
+            //});
+
+
+            page.searchMainData();
+
+            AjaxUtil.fillSelectOptions($('#factory_id'), 'factory', '', false);
+
+            $('#btnSearch').click(function (ex) {
+                page.searchMainData();
+            });
+
+            $('#btnNew').click(function (e) {
+                $('#basicForm')[0].reset();
+                $('#parent_id').val('');
+                $('#id').val('');
+                $('#description').text('');
+
+                $('#basicForm #code').attr('readonly', false);
+                $('#basicForm input').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                $('#basicForm select').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                $('#basicForm textarea').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+                //$('#parent_name').click(function (e) {
+                //    Alert.alert('', '하위 에어리어 추가는 그리드에서 우클릭으로 진행해 주세요.');
+                //});
+                //page.setButtonDisable(true, false, true);
+                page.setButtonState();
+
+                //$('#basicForm').reset();
+
+            });
+
+            $('#txtName').on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    page.searchMainData();
+                }
+            });
+
+            $('#btnSave').click(function (e) {
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        page.saveArea();
+                    },
+                    function () { }
+                );
+            });
+
+            $('#btnDel').click(function (e) {
+                let id = $('#basicForm').find('#id').val()
+                let spjangcd = sessionStorage.getItem('spjangcd');
+
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () { page.deleteArea(id) },
+                    function () { }
+                );
+            });
+
+            // 하위추가
+            $('#btnNewChild').click(function (e) {
+                let data = FormUtil.extractForm($('#basicForm'))
+                let newItem = {
+                    'parent_id': data.id,
+                    'factory_id': data.factory_id,
+                    'parent_name': data.name,
+                    'id': '',
+                    'code': '',
+                    'name': '',
+                    'description':''
+                }
+                FormUtil.BindDataForm(newItem, $('#basicForm'));
+                $('#btnNewChild').prop('disabled', true);
+                $('#btnNewBro').prop('disabled', true);
+            });
+
+            // 형제추가
+            $('#btnNewBro').click(function (e) {
+                let data = FormUtil.extractForm($('#basicForm'))
+                let newItem = {
+                    'parent_id': data.parent_id,
+                    'parent_name': data.parent_name == undefined ? '' : data.parent_name,
+                    'id': '',
+                    'code': '',
+                    'name': '',
+                    'description':''
+                }
+                FormUtil.BindDataForm(newItem, $('#basicForm'));
+                $('#btnNewChild').prop('disabled', true);
+                $('#btnNewBro').prop('disabled', true);
+            });
+
+            // 엑셀 다운로드
+            $('#btnExcel').click(function (e) {
+                page.grid.exportExcel('에어리어정보.xls');
+            });
+
+            //if (userinfo.write_flag != 'True')
+            //    $('.write_auth').prop('disabled', true);
+            //$('.write_auth:button').prop('disabled', userinfo.write_flag != 'True');
+            //yullinAuth.removeWriteButton2();
+
+        });
+    </script>
+
+</th:block>
+</html>

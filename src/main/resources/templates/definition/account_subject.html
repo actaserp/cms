@@ -1,0 +1,1000 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <script type="text/javascript" th:src="@{/js/fileupload.js}"></script>
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>계정과목관리</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>계정과목관리</li>
+            </ul>
+        </div>
+
+
+        <div style="display: flex; gap: 5px">
+            <section class="section" style="width: 50%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>계정코드</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" class="form-control2" id="acccd" name="acccd">
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>계정명</label>
+                            </dt>
+                            <dd>
+                                <input type="text" class="form-control2" id="accnm" name="accnm">
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>사용여부</label>
+                            </dt>
+                            <dd>
+                                <input type="checkbox" class="form-control2" id="useyn" name="useyn">
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="button-wrap">
+                        <button type="button" class="btn-edit btn-default" id="btnAccedit"
+                                style=" width: 115px; height: 36px;">수정
+                        </button>
+                        <button type="button" class="btn-delete btn-danger" id="btnAccDel"
+                                style=" width: 115px; height: 36px;"><i class="fas fa-trash"></i>삭제
+                        </button>
+                        <button type="button" class="btn-excellt btn-default" id="btnAccNew"
+                                style="width: 115px; height: 36px;">등록
+                        </button>
+                    </div>
+                </div>
+
+                <!--<div class="grid_box">
+                     <div class="h-280" data-ax5grid="material-grid" ></div>
+                </div>-->
+                <div class="container-fluid">
+                    <div id="theGrid" style=""></div>
+                </div>
+            </section>
+        <!--border-radius: 6px 0 0 0;-->
+
+            <div class="tab-wrap" style="width: 50%;">
+                <ul class="tab-links">
+                    <li><a href="#tab_basic" name="tab_test_master">계정별관리항목</a></li>
+                </ul>
+
+                <div>
+                    <section class="tab-item" id="tab_basic" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                            <div class="search-wrap">
+                                <dl>
+                                    <dt></dt>
+                                    <dd>
+                                        <select class="s-150" id="cboAccountGroup" name="cboAccountGroup"></select>
+                                    </dd>
+                                </dl>
+                                <dl>
+                                    <dt></dt>
+                                    <dd>
+                                        <button type="button" class="btn-excellt btn-default" id="btnAddSubject"
+                                                style="width: 115px; height: 36px;"><i
+                                                class="fas fa-plus"></i>추가
+                                        </button>
+                                    </dd>
+                                </dl>
+
+                            </div>
+                            <div class="button-wrap">
+                                <button type="button" class="btn-excellt btn-default"
+                                        id="btnSaveSubject" style="width: 115px; height: 36px;">저장</span>
+                                </button>
+
+                                <button type="button" class="btn-delete btn-danger" id="btndelSubject"
+                                        style="width: 115px; height: 36px;">삭제
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="container-fluid">
+                            <div id="subject-grid" style="" ></div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="text/x-tmpl" id="AccountTemplate">
+        <div class="content_wrap popup">
+            <!--<header>
+                <h4 id="popTitle">
+                {% if (o.id!='') { %}
+                  BOM 수정({%=o.Name%})
+                  {% } else { %}
+                  BOM 등록
+                  {% } %}
+                </h4>
+                <div class="popup_close_box"><button class="btn_popup_close" id="modal-close-x"><i class="fas fa-times"></i></button></div>
+            </header>-->
+
+    <div class="table-wrap">
+           <form id="AccountForm">
+                <table class="write-table">
+                    <caption>주문등록 테이블</caption>
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                               <label for="cboUacccd">상위계정</label>
+                            </th>
+                            <td>
+                                <select class="form-control2" id="cboUacccd" name="cboUacccd"></select>
+                                <input class="form-control2" type="hidden" name="acclv" id="acclv">
+                                 <input class="form-control2" type="hidden" name="uacccd" id="uacccd">
+                            </td>
+                            <th style="text-align: center">
+                                <label for="drcr">차/대</label>
+                            </th>
+                            <td style="text-align: center;">
+                                <div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
+                                    <label>차변</label>
+                                    <input class="form-control2" type="checkbox" name="drcr" value="1">
+                                    <label>대변</label>
+                                    <input class="form-control2" type="checkbox" name="drcr" value="2">
+                                </div>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="acccd">계정코드</label>
+                            </th>
+                            <td>
+                                <input type="text" id="acccd" name="acccd"/>
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="accnm">계정명</label>
+                            </th>
+                            <td>
+                                  <input type="text" id="accnm" name="accnm"/>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="dcpl">대 손</label>
+                            </th>
+                            <td>
+                                <select class="form-control2" id="dcpl" name="dcpl">
+                                    <option value="1">대차</option>
+                                    <option value="2">손익</option>
+                                    <option value="3">기타</option>
+                                </select>
+                            </td>
+                            <th style="text-align: center">전표발행</th>
+                            <td>
+                                <input class="form-control2 tar" id="spyn" name="spyn" type="checkbox" style="display: block; margin: auto;  height: 26px; width: 26px;" value="1" />
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="accprtnm">양식 명칭</label>
+                            </th>
+                            <td>
+                                 <input id="accprtnm" name="accprtnm" type="text" style="width:100%"/>
+                            </td>
+
+                             <th style="text-align: center">
+                                <label for="useyn">사용여부</label>
+                            </th>
+                            <td>
+                             <input class="form-control2 tar" id="useyn" name="useyn"  type="checkbox"  style="display: block; margin: auto;  height: 26px; width: 26px;" value="Y" checked/>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                 <label for="cacccd">차감계정</label>
+                            </th>
+                            <td>
+                              <input id="cacccd" name="cacccd" type="text" style="width:100%" />
+                            </td>
+                            <td colspan="2">
+                               <input id="etccode" name="etccode" type="text" style="width:100%" readonly/>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+        </form>
+    </div>
+
+        <div class="popup-button">
+          <button type="button" class="btn-popup" id="btnAccountSave"><span data-labelCd="저장">저장</span></button>
+          <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+</div>
+    </script>
+
+
+    <script type="text/x-tmpl" id="Account_subjectTemplate">
+        <div class="content_wrap popup">
+            <!--<header>
+                <h4 id="popTitle">
+                {% if (o.id!='') { %}
+                  BOM 수정({%=o.Name%})
+                  {% } else { %}
+                  BOM 등록
+                  {% } %}
+                </h4>
+                <div class="popup_close_box"><button class="btn_popup_close" id="modal-close-x"><i class="fas fa-times"></i></button></div>
+            </header>-->
+
+        <div class="table-wrap">
+                <table class="write-table">
+                    <caption>주문등록 테이블</caption>
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="searchCode">계정코드</label>
+                            </th>
+                            <td style="width:50px;">
+                                <input id="searchCode" name="searchCode" type="text" style="width:180px;" />
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="popMaterialGroup">계정명칭</label>
+                            </th>
+                            <td style="width:50px;">
+                                 <input id="searchName" name="searchName" type="text"  style="width:180px;"/>
+                            </td>
+                            <td colspan="2" style="text-align: center;">
+                                <button type="button" class="btn-default" id="btnSubjectSearch" title="조회"><i class="fas fa-search"></i>검색</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="grid_box" style="margin-top: 10px;">
+                    <div id="subject-search-grid" style="height: 300px; max-height: 300px;"></div>
+                </div>
+        </div>
+
+        <div class="popup-button">
+          <button type="button" class="btn-popup" id="btnAccountSave"><span data-labelCd="선택">선택</span></button>
+          <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+</div>
+    </script>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+    <script type="text/javascript" th:src="@{/js/grid.js}"></script>
+
+    <script type="text/javascript">
+        class AccountsubjectPage {
+            constructor() {
+                this.url = '/api/definition/Accsubject';
+                this.grid = null;
+                this.subject_grid = null;
+                this.delMoldClassIds = [];
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'acccd', header: '계정코드', width: 100, align: 'center'},
+                        {binding: 'accnm', header: '계정명칭', width: 250, align: 'left'},
+                        {binding: 'uacccd', header: '상위계정', width: 150, align: 'center'},
+                        {binding: 'uaccde_name', header: '상위계정명칭', width: 150, align: 'center'},
+                        {binding: 'acclv', header: '레벨', width: 80, align: 'center'},
+                        {binding: 'drcr', header: '차/대', width: 100, align: 'center'},
+                        {binding: 'dcpl', header: '대 손', width: 100, align: 'center'},
+                        {binding: 'spyn', header: '전표발행', width: 120, align: 'center'},
+                        {binding: 'useyn', header: '사용', width: 100, align: 'center'},
+                        {binding: 'cacccd', header: '차감계정', width: 150, align: 'left'},
+                        {binding: 'etccode', header: '차감계정명칭', width: 150, align: 'left'},
+
+                    ],
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '계정과목';
+
+                // 데이터 로드 후 초기 선택 상태 해제
+                this.grid.loadedRows.addHandler(() => {
+                    setTimeout(() => {
+                        this.grid.select(-1, -1); // 선택 상태 초기화
+                    }, 0); // 비동기로 처리하여 초기 선택 해제
+                });
+                let isInitialLoad = true; // 초기 상태 플래그
+
+                this.grid.selectionChanged.addHandler((s, e) => {
+                    if (isInitialLoad) {
+                        isInitialLoad = false; // 초기 로드 이후 플래그 해제
+                        return;
+                    }
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let id = selectedRowData.acccd; // 품목 ID 가져오기
+                        /*console.log(selectedRowData);*/
+
+                        // 상세 정보 표시
+                        _this.showDetail(id);
+
+                    }
+                });
+
+                this.grid.formatItem.addHandler((s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        let col = s.columns[e.col];
+                        let item = s.rows[e.row].dataItem;
+
+                        if (col.binding === "drcr") {
+                            e.cell.textContent = (item.drcr === 1 || item.drcr === '1') ? '차변' : '대변';
+                        }
+
+                        if (col.binding === "dcpl") {
+                            if (item.dcpl === 1 || item.dcpl === '1') {
+                                e.cell.textContent = '대차';
+                            } else if (item.dcpl === 2 || item.dcpl === '2') {
+                                e.cell.textContent = '손익';
+                            } else if (item.dcpl === 3 || item.dcpl === '3') {
+                                e.cell.textContent = '기타';
+                            } else {
+                                e.cell.textContent = '';
+                            }
+                        }
+
+                        if (col.binding === "spyn") {
+                            e.cell.textContent = (item.spyn === 1 || item.spyn === '1') ? '사용' : '미사용';
+                        }
+
+                        // 전체 행의 배경색 변경
+                        if (item.spyn === 1 || item.spyn === '1') {
+                            e.cell.style.backgroundColor = '#ffffff'; // 사용일 때
+                        } else {
+                            e.cell.style.backgroundColor = '#f0fcf7'; // 미사용일 때
+                            if (col.binding === "accnm") {
+                                e.cell.style.color = 'red'; // accnm 컬럼만 글자색 빨강
+                            }
+                        }
+                    }
+                });
+
+
+                this.subject_grid = new wijmo.grid.FlexGrid('#subject-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false, // 체크박스 클릭 가능하도록 설정
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'code', header: '번호', width: 100, align: 'center'},
+                        {binding: 'name', header: '관리 항목 목록', width: 180, align: 'center'},
+                        { binding: 'required', header: '필수', width: 150, align: 'center', dataType: 'Boolean' },
+                        { binding: 'used', header: '사용', width: 150, align: 'center', dataType: 'Boolean' },
+                        {binding: '', header: '', width: '*', align: 'center'}
+                    ],
+                    itemsSource: this.viewData2, // 데이터를 설정할 배열
+                });
+
+                new FlexGridContextMenu(this.subject_grid);
+                this.grid.downloadFileName = '관리항목';
+
+                // filter dropdown load
+                AjaxUtil.fillSelectOptions($('#cboAccountGroup'), 'system_code', 'choose', false, 'account_item');
+
+            }
+
+            // 계정과목 리스트 조회
+            searchDataBind(data) {
+                let _this = this;
+                let url = '/api/definition/Accsubject';
+
+
+                let param = {
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                    'acccd': data?.acccd || '',
+                    'accnm': data?.accnm || '',
+                    'useyn': data?.useyn || ''
+
+                }
+                let result = AjaxUtil.getSyncData(url + '/read',param);
+                if (result.success) {
+                       _this.viewData.sourceCollection = result.data;
+                }
+            }
+
+            showDetail(id) {
+                let _this = this;
+                let data = { id };
+                let url = '/api/definition/Accsubject';
+
+                let result = AjaxUtil.getSyncData(url + "/AddDetail", data);
+
+                let processedData = [];
+
+                // result.data가 null이 아니고, 배열이면서, 빈 배열이 아닌 경우만 처리
+                if (result.data != null && Array.isArray(result.data) && result.data.length > 0) {
+                    processedData = result.data.filter(item => {
+                        // 항목에 필요한 필드 값들이 null이나 빈 문자열이 아닌 경우만 포함
+                        return item.code != null && item.name != null && item.required != null && item.used != null;
+                    }).map(item => ({
+                        ...item,
+                        required: item.required == "1",
+                        used: item.used == "Y"
+                    }));
+                }
+
+                // 데이터가 없으면 빈 배열로 처리
+                if (processedData.length === 0) {
+                    processedData = [];
+                }
+
+                // 데이터가 없으면 빈 그리드 처리
+                _this.viewData2.sourceCollection = processedData;
+
+                if (_this.subject_grid) {
+                    _this.subject_grid.itemsSource = null; // 기존 항목 초기화
+                    _this.subject_grid.itemsSource = _this.viewData2; // 새로운 데이터로 갱신
+                }
+            }
+
+
+            //계정과목 저장
+            saveData($form) {
+                let _this = this;
+
+                let url = '/api/definition/Accsubject/save';
+                let data = FormUtil.extractForm($form);
+
+                let fnSuccess = function (res) {
+                    if (!res.success) {
+                        Alert.alert('', res.message);
+                    } else {
+                        Alert.alert('', "저장되었습니다.");
+                        _this.searchDataBind()
+                    }
+                };
+
+                // 데이터 저장 요청
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+
+            }
+
+
+            //  삭제
+            deleteData(id) {
+                let _this = this;
+
+                let url = '/api/definition/Accsubject/delete';
+
+                let data = {id: id};
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('', '삭제되었습니다');
+
+                        if (_this.subject_grid) {
+                            _this.subject_grid.itemsSource = [];
+                        }
+                        _this.searchDataBind();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+
+            showAccountEdit(data,data2) {
+                let _this = this;
+                let content = tmpl('AccountTemplate', data);
+                let $content = $(content);
+
+
+                let modalContainer = new PopupDraggable(data2.acccd ? '계정과목 수정' : '계정과목 등록');
+                modalContainer.open({width: 1025, height: 370, $content});
+
+                FormUtil.BindDataForm(data2, $('#AccountForm'));
+                let drcrValue = data2.drcr; // drcr 값 (1 또는 2)
+                let $drcrCheckboxes = $content.find('input[name="drcr"]'); // name="drcr"인 체크박스들 찾기
+
+                $drcrCheckboxes.each(function() {
+                    if (this.value === String(drcrValue)) {
+                        $(this).prop('checked', true);
+                    } else {
+                        $(this).prop('checked', false);
+                    }
+                });
+
+
+                let $cacccd = $content.find('#cacccd');
+
+                $cacccd.on('click', function (e) {
+                    let pop = new PopMatComponent();
+                    pop.show()
+                });
+
+                let $cboUacccd = $content.find('#cboUacccd');
+                let $acclv = $content.find('#acclv');
+                let $uacccd = $content.find('#uacccd');
+
+                // 기본 옵션 추가
+                let defaultOption = document.createElement('option');
+                defaultOption.text = '선택하세요';
+                defaultOption.value = '';
+                $cboUacccd.append(defaultOption);
+
+                /*console.log(data);*/
+
+                data.forEach(function (item) {
+                    // 옵션 생성
+                    const option = new Option(item.accnm, item.acccd);
+                    option.setAttribute('data-acclv', item.acclv);
+                    $cboUacccd.append(option);
+                });
+
+                $cboUacccd.on('change', function () {
+                    const selectedOption = this.options[this.selectedIndex];
+                    const acclv = selectedOption.getAttribute('data-acclv');
+                    $acclv.val(acclv || '');
+
+                    const uacccd = selectedOption.value;
+                    $uacccd.val(uacccd || '');
+
+                    let selectedItem = data.find(item => item.acccd == uacccd);
+                    let $spynCheckbox = $content.find('input[name="spyn"]');
+
+                    if (selectedItem && selectedItem.spyn === "0") {
+                        $spynCheckbox.prop('checked', true);
+                    } else {
+                        $spynCheckbox.prop('checked', false);
+                    }
+
+                    const acccdNum = parseInt(uacccd, 10);
+                    let $drcrCheckboxes = $content.find('input[name="drcr"]');
+
+                    if ((acccdNum >= 1000 && acccdNum <= 1999) || (acccdNum >= 6000 && acccdNum <= 8999)) {
+                        $drcrCheckboxes.each(function () {
+                            $(this).prop('checked', this.value === '1');
+                        });
+                    } else if (acccdNum >= 2000 && acccdNum <= 3999) {
+                        $drcrCheckboxes.each(function () {
+                            $(this).prop('checked', this.value === '2');
+                        });
+                    } else {
+                        // 범위에 해당하지 않으면 모두 체크 해제
+                        $drcrCheckboxes.prop('checked', false);
+                    }
+
+                });
+
+
+                if (data2.uacccd) {
+                    $cboUacccd.val(data2.uacccd); // uacccd가 select의 value에 해당
+                    let selectedItem = data.find(item => item.acccd === data2.uacccd);
+                    if (selectedItem) {
+                        $acclv.val(selectedItem.acclv);
+                        $uacccd.val(selectedItem.acccd);
+                    }
+                }
+
+               /* if (data2.acclv > 0) {
+                    let targetAcclv = data2.acclv - 1;
+                    let matchedItem = data.find(item => item.acclv == targetAcclv);
+
+                    if (matchedItem) {
+                        $cboUacccd.val(matchedItem.acccd);
+                        $acclv.val(matchedItem.acclv);
+                        $uacccd.val(matchedItem.acccd);
+                    }
+                }*/
+
+
+                $content.find('#btnAccountSave').on('click', function () {
+                    let $form = $content.find('#AccountForm');
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        _this.saveData($form);
+                        $('#AccountForm')[0].reset();
+
+                    });
+                });
+
+            }
+
+        }
+
+        let page = null;
+        $(document).ready(function (e) {
+            page = new AccountsubjectPage();
+            //page.searchDataBind();
+
+
+            // 등록버튼 클릭
+            $('#btnAccNew').click(function (e) {
+                let url = '/api/definition/Accsubject';
+
+                let result = AjaxUtil.getSyncData(url + '/list');
+                let id = '';
+                /*console.log(result);*/
+                page.showAccountEdit(result,id);
+
+            });
+
+            // 계정과목 저장
+            $('#btnAccountSave').click(function (e) {
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        page.saveData()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+
+            // 계정과목 삭제
+            $('#btnAccDel').click(function (e) {
+                let selectedItems = page.grid.selectedItems;
+
+                if (selectedItems.length === 0) { // 선택된 항목이 없는 경우
+                    Alert.alert('삭제할 항목을 선택하세요.');
+                    return false;
+                }
+
+                let data = selectedItems[0]; // 첫 번째 선택된 항목 가져오기
+                /*console.log('선택된 데이터:', data);*/
+
+                let id = data.acccd;
+
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        page.deleteData(id)
+                    },
+                    function () {
+                    }
+                );
+            });
+
+
+            // 계정과목 수정
+            $('#btnAccedit').click(function (e) {
+                let url = '/api/definition/Accsubject';
+                let result = AjaxUtil.getSyncData(url + '/list');
+
+                let grid = wijmo.Control.getControl('#theGrid');
+                let selection = grid.selection;
+
+                if (selection.row > -1) {
+                    let item = grid.rows[selection.row].dataItem;
+                    console.log(item);
+
+                    if (item) {
+                        let id = item.acccd;
+                        let url = '/api/definition/Accsubject/detail';
+                        let result2 = AjaxUtil.getSyncData(url, { id: id });
+
+                        if (result2.success && result2.data) {
+                            page.showAccountEdit(result, result2.data);
+                        } else {
+                            Alert.alert("상세조회 오류", "상세 데이터가 없습니다.");
+                        }
+                    }
+                } else {
+                    Alert.alert("선택 오류", "편집할 계정과목을 선택하세요.");
+                }
+            });
+
+
+
+            let selectedAcccd = null;
+            $('#btnAddSubject').click(function (e) {
+                let selectedItems = page.grid.selectedItems;
+                let data = selectedItems[0];
+                let id = data.acccd;
+
+                selectedAcccd = id; // 전역 변수에 저장
+
+                let AccountGroup_id = $('#cboAccountGroup').val();
+                let AccountGroup_name = $('#cboAccountGroup option:selected').text();
+
+                if (!id) return;
+                let grid = page.subject_grid;
+
+                let data2 = grid.collectionView ? grid.collectionView.sourceCollection : [];
+
+                let already = data2.some(row => row.AccountGroup_id == AccountGroup_id);
+                if (already) return;
+
+                let row = {};
+                row["code"] = AccountGroup_id;
+                row["name"] = AccountGroup_name;
+                row["required"] = false;
+                row["used"] = true;
+
+                data2.push(row);
+                grid.collectionView.refresh();
+            });
+
+            $('#btnSaveSubject').click(function (e) {
+                let id = selectedAcccd; // 전역 변수에서 가져옴
+
+                let url = '/api/definition/Accsubject/add';
+
+                let grid = page.subject_grid;
+                let rawList = grid.collectionView ? grid.collectionView.sourceCollection : [];
+
+
+                let list = rawList.map(row => {
+                    return {
+                        code: row.code,
+                        name: row.name,
+                        required: row.required,
+                        used: row.used
+                    };
+                });
+
+                let data = {
+                    Q: JSON.stringify(list),
+                    id: selectedAcccd,
+                    deleteYn: "N"
+                };
+
+                console.log(data);
+
+                let result = AjaxUtil.postSyncData(url, data);
+
+                if (result.data != null) {
+                    Alert.alert('', "저장되었습니다.");
+                      page.searchDataBind()
+                }
+            });
+
+            $('#btndelSubject').click(function (e) {
+                let url = '/api/definition/Accsubject/add';
+                let grid = page.subject_grid;
+                let selectedRow = grid.selection.row; // 선택된 행 인덱스
+                let selectedItems = page.grid.selectedItems;
+                let data3 = selectedItems[0];
+
+                if (selectedRow >= 0) {
+                    let viewdata2 = grid.collectionView.items; // 데이터를 올바르게 가져오기
+                    let selectedItem = viewdata2[selectedRow];
+
+                    if (!selectedItem || !selectedItem.code || !selectedItem.name) {
+                        console.log("삭제할 데이터의 코드 또는 이름이 없음:", selectedItem);
+                        Alert.alert('삭제할 데이터의 필수 정보를 찾을 수 없습니다.');
+                        return;
+                    }
+
+                    let id = data3.acccd;
+                    grid.collectionView.remove(selectedItem); // 그리드에서 항목 제거
+
+                    // 서버에 삭제할 데이터 전송
+                    let data = {
+                        Q: JSON.stringify([selectedItem]),  // 수정된 부분: 선택된 항목만 전송
+                        id: id,
+                        deleteYn: "Y"
+                    };
+
+                    /*console.log(data);*/
+
+                    // 서버에 데이터 전송
+                    AjaxUtil.postAsyncData(url, data, function (result) {
+                        if (result.data != null) {
+                            Alert.alert('', `${selectedItem.code} (${selectedItem.name}) 항목이 삭제되었습니다.`);
+                            page.searchDataBind(); // 데이터 갱신
+                        } else {
+                            Alert.alert('', '서버 처리에 실패했습니다.');
+                        }
+                    });
+                } else {
+                    Alert.alert('삭제할 행을 선택하세요.');
+                }
+            });
+            // 계정과목 검색필터 조회
+            $('#btnSearch').click(function (e) {
+                let data = {
+                    'acccd' : document.getElementById('acccd').value,
+                    'accnm' : document.getElementById('accnm').value,
+                    'useyn': document.getElementById('useyn').checked ? 'Y' : '',
+                }
+                page.searchDataBind(data);
+            });
+
+
+            page.searchDataBind()
+        });
+
+    </script>
+    <script type="text/javascript">
+        class PopMatComponent {
+            constructor() {
+                this.grid = null;
+                this.viewData2 = new wijmo.collections.CollectionView();
+                this.selectedItem = null;
+                this.modalContainer = new PopupDraggable('차감계정 선택');
+                this.$btnMaterialSearch = null;
+                this.$btnMaterialSelect = null;
+                this.$keyword = null;
+                this.material_type = null;
+
+            }
+
+
+            searchDataBind() {
+                let _this = this;
+                let url = '/api/definition/Accsubject/search_acc';
+
+                let $searchCode = _this.$content.find('#searchCode');
+                let $searchName = _this.$content.find('#searchName');
+
+                let searchCode = $searchCode.val();
+                let searchName = $searchName.val();
+
+                let data = {
+                    searchCode: searchCode,
+                    searchName: searchName,
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                };
+
+                AjaxUtil.getAsyncData(url, data, function (result) {
+                    if (result.success) {
+                        _this.grid2.itemsSource = result.data || [];
+                        /*console.log(result.data);*/
+                    }
+                });
+            }
+
+
+            show() {
+                let _this = this;
+
+                let content = tmpl('Account_subjectTemplate', {});
+                let $content = $(content);
+
+                this.$content = $content;
+
+                this.modalContainer.open({ width: 800, height: 500, $content });
+
+                this.viewData2 = Array.isArray(this.viewData2) ? this.viewData2 : [];
+
+                this.grid2 = new wijmo.grid.FlexGrid('#subject-search-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        { binding: 'acccd', header: '계정코드', width: 120, align: 'center' },
+                        { binding: 'accnm', header: '계정명칭', width: 250, align: 'left' },
+                        { binding: '', header: '', width: '*', align: 'left' },
+                    ],
+                    itemsSource: this.viewData2,
+                });
+
+                this.grid2.rowHeaders.columns.splice(0, 1);
+                new FlexGridContextMenu(this.grid2);
+                this.grid2.downloadFileName = '차감계정';
+
+
+                this.searchDataBind();
+
+
+                $content.find('#btnSubjectSearch').click(() => {
+                    this.searchDataBind();
+                });
+
+                $('#searchCode, #searchName').on('keydown', function (e) {
+                    if (e.keyCode === 13) {
+                        this.searchDataBind();
+                    }
+                });
+
+                this.grid2.selectionChanged.addHandler((s, e) => {
+                    let selectedItem = s.collectionView.currentItem;
+                    this.selectedItem = selectedItem;
+                });
+
+                // 저장 버튼 클릭 이벤트
+                $content.find('#btnAccountSave').click(() => {
+                    if (this.selectedItem) {
+                        // 선택된 계정 정보
+                        let acccd = this.selectedItem.acccd;
+                        let accnm = this.selectedItem.accnm;
+
+                        // 부모 화면의 input에 값 설정
+                        $('#cacccd').val(acccd);
+                        $('#etccode').val(accnm);
+
+                        // 모달 닫기
+                        this.close();
+                    } else {
+                        Alert.alert('','계정을 선택해주세요.');
+                    }
+                });
+
+                $content.find('#material-search-close, #btn-material-search-close').on('click', function () {
+                    _this.close();
+                });
+
+            }
+
+            /*그리드 셀 더블클릭 이벤트*/
+            /*this.grid2.hostElement.addEventListener('dblclick', function (e) {
+                let items = _this.grid2.selectedItems;
+                if (items.length === 0) {
+                    return false;
+                }
+                _this.selectData(items[0]); // btnMaterialSelect 클릭과 동일한 동작
+            });*/
+            close() {
+                this.modalContainer.close();
+            }
+        }
+    </script>
+
+</th:block>
+</html>

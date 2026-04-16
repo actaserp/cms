@@ -1,0 +1,297 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+
+<meta name="_csrf" content="${_csrf.token}">
+<meta name="_csrf_header" content="${_csrf.headerName}">
+
+<head>
+  <style>
+    .wj-header {
+      text-align: center;
+    }
+
+    /* 셀 왼쪽 정렬 */
+    .wj-cell {
+      text-align: left;
+    }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+
+  <!--- (레이아웃) Contents 영역 -->
+  <div class="layout-contents">
+    <!-- Page Title -->
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>결재라인현황</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>결재라인관리</li>
+        <li>결재라인현황</li>
+      </ul>
+    </div>
+
+
+    <!-- Select -->
+    <div class="search-wrap">
+      <!--            <ul>-->
+      <!--                <li>-->
+      <!--                    <select title="지역" id="spworkcd" name="spworkcd" onchange="updateSelect('spworkcd', 'spworknm')">-->
+      <!--                        <option value="001">대구</option>-->
+      <!--                        <input type="hidden" id="spworknm" name="spworknm">-->
+      <!--                    </select>-->
+      <!--                </li>-->
+      <!--                <li>-->
+      <!--                    <select title="구" id="spcompcd" name="spcompcd" onchange="updateSelect('spcompcd', 'spcompnm')">-->
+      <!--                        <option value="001">성서산단</option>-->
+      <!--                        <input type="hidden" id="spcompnm" name="spcompnm">-->
+      <!--                    </select>-->
+      <!--                </li>-->
+      <!--                <li>-->
+      <!--                    <select title="시설" id="spplancd" name="spplancd" onchange="updateSelect('spplancd', 'spplannm')">-->
+      <!--                        <option value="001">대구물류센터</option>-->
+      <!--                        <input type="hidden" id="spplannm" name="spplannm">-->
+      <!--                    </select>-->
+      <!--                </li>-->
+      <!--            </ul>-->
+    </div>
+
+    <div class="tab-wrap">
+      <!--            <ul class="tab-links">-->
+      <!--                <li>-->
+      <!--                    <a href="#tab1" title="목록">목록</a>-->
+      <!--                </li>-->
+      <!--                 <li>-->
+      <!--                  <a href="#tab2" title="등록">등록</a>-->
+      <!--                </li>-->
+      <!--            </ul>-->
+      <div class="tab-contents">
+        <!-- Section -->
+        <section class="tab-item" id="tab1">
+          <div class="section-top">
+            <div class="search-wrap">
+              <dl>
+                <dt>
+                  <label for="comcd">
+                    문서코드
+                  </label>
+                </dt>
+                <dd>
+                  <select id="comcd" onchange="changeComcdSelect(); fetchListData2();">
+                    <option></option>
+                  </select>
+                </dd>
+              </dl>
+            </div>
+          </div> <!--//section-top end -->
+          <div class="row">
+            <div class="wp30 mg-r10">
+              <div class="container-fluid col">
+                <div id="theGrid" style="height: 580px;"></div>
+              </div>
+            </div>
+            <div class="col wp68">
+              <div class="section">
+                <div class="container-fluid col">
+                  <div id="theGrid2" style="height: 580px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- Section -->
+      </div>
+    </div>
+  </div> <!--//layout-contents end -->
+
+  <footer style="margin-top: 12px;">
+    <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+  </footer>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+  <script type="text/javascript">
+    var theGrid;
+    var viewdata;
+    var theGrid2;
+    var viewdata2;
+    let csrfToken = $("[name=_csrf]").val();
+
+    document.readyState === 'complete' ? init() : window.onload = init;
+    // 오늘 날짜 설정
+    const date = new Date();
+    date.setHours(date.getHours() + 9); // UTC+9로 한국 시간 설정
+    const today = date.toISOString().split('T')[0];
+    // 일주일 뒤 날짜 설정
+    const nextWeek = new Date(date); // 오늘 날짜를 복사하여 새 객체 생성
+    nextWeek.setDate(nextWeek.getDate() + 7); // 7일 더하기
+    const nextWeekDate = nextWeek.toISOString().split('T')[0];
+
+    function init() {
+      AjaxUtil.fillSelectOptions($('#comcd'), 'system_code', 'choose', false, 'appr_doc');
+      fetchListData();
+      fetchListData2();
+    }
+    // 문서코드 그리드
+    function fetchListData() {
+      let data2 = [];
+      $.ajax({
+        url: '/api/paymentLine/read',
+        type: 'GET',
+        data: {
+          'comcd': $('#comcd').val()
+        },
+        async: false,
+        success: function (data) {
+          data2 = data.data;
+          data2.forEach(item =>{
+          })
+          // data2의 개수가 11개 미만인 경우 빈 객체 추가
+          while (data2.length < 14) {
+            data2.push({});
+          }
+        }
+      })
+
+      viewdata = new wijmo.collections.CollectionView(data2);
+
+      if (!theGrid) {
+
+        // 데이터 그리드에 바인딩
+        theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          columns: [
+            {binding: 'personid', header: '사원코드', width: '*', minWidth: 105, align: 'center'},
+            {binding: 'pernm', header: '사원명', width: '*', minWidth: 105, align: 'center'},
+            {binding: 'papernm', header: '문서명', width: '*', minWidth: 105, align: 'center'}
+          ],
+          itemsSource: viewdata,
+          itemFormatter: function (panel, r, c, cell) {
+            if (panel.cellType === wijmo.grid.CellType.Cell) {
+              var item = panel.rows[r].dataItem; // 현재 행의 데이터 항목
+              if (panel.columns[c].binding === 'downloads') {
+                cell.innerHTML = ''; // 셀 내용 초기화
+                if (item.isdownload) {
+                  cell.innerHTML = '<a title="다운로드" class="btn-filedown" onclick="downloadFile_order()">다운로드</a>';
+                }
+              }
+            }
+          }
+        });
+        // 헤더를 중앙 정렬하는 이벤트 핸들러
+        theGrid.formatItem.addHandler(function (s, e) {
+          if (e.panel === s.columnHeaders) {
+            e.cell.style.textAlign = 'center';
+          }
+        });
+        theGrid.rowHeaders.columns.splice(0, 1);  //맨 앞에 헤더부분 없애기
+        new FlexGridContextMenu(theGrid);
+        window.downloadFileName = '문서코드';
+        // 더블클릭 이벤트
+        theGrid.hostElement.addEventListener('dblclick', function (e) {
+          let hitTest = theGrid.hitTest(e);
+          if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+            // 행(row), 행의 데이터(item) 정보 가져오기
+            let row = hitTest.row;
+            let item = theGrid.rows[row].dataItem;
+            fetchListData2(item.personid);
+          }
+        })
+      } else {
+        // 이미 FlexGrid이 존재하는 경우, 데이터만 업데이트
+        theGrid.itemsSource = viewdata;
+      }
+    }
+    // 결재라인 그리드
+    function fetchListData2(perid) {
+      let data2 = [];
+      $.ajax({
+        url: '/api/paymentLine/readLine',
+        type: 'GET',
+        data: {
+          'comcd': $('#comcd').val(),
+          'personid': perid
+        },
+        async: false,
+        success: function (data) {
+          data2 = data.data;
+          console.log("data2 : ", data2)
+          data2.forEach(item =>{
+          })
+          // data2의 개수가 11개 미만인 경우 빈 객체 추가
+          while (data2.length < 14) {
+            data2.push({});
+          }
+        }
+      })
+
+      viewdata2 = new wijmo.collections.CollectionView(data2);
+
+      if (!theGrid2) {
+
+        // 데이터 그리드에 바인딩
+        theGrid2 = new wijmo.grid.FlexGrid('#theGrid2', {
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          columns: [
+            {binding: 'no', header: 'No', width: 80, align: 'center'},
+            {binding: 'kcpersonid', header: '결재자코드', width: '*', minWidth: 105, align: 'center'},
+            {binding: 'kcpernm', header: '결재자명', width: '*', minWidth: 105, align: 'center'},
+            {binding: 'gubunnm', header: '구분', width: '*', minWidth: 105, align: 'center'},
+            {binding: 'seq', header: '결재순서', width: '*', minWidth: 105, align: 'center'},
+            {binding: 'remark', header: '비고', width: '*', minWidth: 105, align: 'center'}
+          ],
+          itemsSource: viewdata2,
+          itemFormatter: function (panel, r, c, cell) {
+            if (panel.cellType === wijmo.grid.CellType.Cell) {
+              var item = panel.rows[r].dataItem; // 현재 행의 데이터 항목
+              if (panel.columns[c].binding === 'downloads') {
+                cell.innerHTML = ''; // 셀 내용 초기화
+                if (item.isdownload) {
+                  cell.innerHTML = '<a title="다운로드" class="btn-filedown" onclick="downloadFile_order()">다운로드</a>';
+                }
+              }
+            }
+          }
+        });
+        // 헤더를 중앙 정렬하는 이벤트 핸들러
+        theGrid2.formatItem.addHandler(function (s, e) {
+          if (e.panel === s.columnHeaders) {
+            e.cell.style.textAlign = 'center';
+          }
+        });
+        theGrid2.rowHeaders.columns.splice(0, 1);  //맨 앞에 헤더부분 없애기
+        new FlexGridContextMenu(theGrid2);
+        window.downloadFileName = '사원문서';
+      } else {
+        // 이미 FlexGrid이 존재하는 경우, 데이터만 업데이트
+        theGrid2.itemsSource = viewdata2;
+      }
+    }
+
+
+    // 문서코드 선택시 그리드 fetch 및 결재자 코드 option 바인드
+    function changeComcdSelect(){
+      let selectedValue = document.getElementById('comcd').value;
+
+      if (selectedValue) {
+        // 1. 그리드 데이터 Fetch
+        fetchListData(selectedValue);
+      }
+    }
+
+  </script>
+
+</th:block>
+</html>
+

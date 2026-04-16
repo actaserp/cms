@@ -1,0 +1,81 @@
+<th:block th:fragment="popup_sign">
+	<script type="text/x-tmpl" id="signTemp">
+	<div style="background-color: #ffffff">
+	    <div>
+	        <canvas id="signature-pad" class="signature-pad" width=400 height=200></canvas>
+	    </div>
+	    <div>
+	        <button id="saveSign">저장</button>
+	        <button id="clearSign">초기화</button>
+	    </div>
+	</div>
+	<div class="pr-2" style="text-align: right;">
+		<button id="close-modal" class="btn-popup">닫기</button>
+	</div>
+</script>
+<script type="text/javascript" src="/resource/signature_pad/signature_pad.umd.js"></script>
+
+<script type="text/javascript">
+
+	class SignPage {
+		constructor() {
+		this.signaturePad = null;
+		this.modalContainer = new PopupModalContaniner
+		this.signData = null;
+		this.callback = null;
+		}
+		
+	show(callback) {
+		let _this = this
+		
+		this.callback = callback;
+		
+		let content = tmpl('signTemp', {});
+		let $content = $(content);
+		let canvasArea = $content.find('#signature-pad');
+		
+		this.signaturePad = new SignaturePad(
+			canvasArea[0], 
+		{backgroundColor: 'rgb(255, 255, 255, 0)', penColor: 'rgb(0, 0, 0)'}
+		);
+		
+		this.modalContainer.open({ width: 420, height: 280, $content });
+		
+		$($content.find('#close-modal')).click(function () {
+             _this.close();
+         });
+         
+		$($content.find('#clearSign')).click(function () {
+            _this.signaturePad.clear()
+         });
+         
+		$($content.find('#saveSign')).click(function () {
+			if (_this.signaturePad.isEmpty()) {
+				Alert.alert('', '서명해주세요');
+			} else {
+	            _this.signData = _this.signaturePad.toDataURL();
+	            _this.save();
+			}
+         });
+         
+		}
+	
+    save() {
+		this.callback({'src': this.signData})
+		this.close();
+	}
+    close() {
+        this.modalContainer.close();
+    }
+        
+    
+	}
+     $(document).ready(function (e) {
+	
+		let page = new SignPage();
+		
+		
+	});
+     
+ </script>
+</th:block>

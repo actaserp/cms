@@ -1,0 +1,1387 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        #matListTb input, #matListTb textarea {
+            width: 100px;
+            height: 40px;
+        }
+
+    </style>
+</head>
+<th:block layout:fragment="content">
+
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>수주 및 계획량 등록</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>영업 관리</li>
+                <li>수주 및 계획량 등록</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label for="cboDateKind">
+                                검색 구분<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboDateKind" name="cboDateKind">
+                                    <option value="sales">수주일</option>
+                                    <option value="delivery">납기일</option>
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            조회기간<span class="eq">*</span>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input type="date" id="srchStartDt" name="srchStartDt">
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input type="date" id="srchEndDt" name="srchEndDt">
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <a class="btn btn-excell" title="등록" id="btnAddNew">
+                                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                등록
+                            </a>
+                        </li>
+                        <li>
+                            <a class="btn btn-delete" title="삭제" id="btnDelete">
+                                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                삭제
+                            </a>
+                        </li>
+                        <li>
+                            <a class="btn btn-edit" title="수정" id="btnEdit">
+                                <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">
+                                수정
+                            </a>
+                        </li>
+                        <li>
+                            <a class="btn" title="엑셀 업로드" id="btnShowUpload">
+                                엑셀 업로드
+                            </a>
+                        </li>
+                        <li>
+                            <a class="btn" title="양식 다운로드" id="btnDownloadTemplate">
+                                양식 다운로드
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="theGrid" style="height: 730px;"></div>
+            </div>
+            <!--        <div class="grid_box">-->
+
+            <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
+            <!--        </div>-->
+        </section>
+    </div>
+    <script type="text/x-tmpl" id="sujuTemplate">
+        <style>
+            /* 아이템 테이블 전체 설정 */
+            .item-table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+                margin-top: 10px;
+            }
+
+            /* 헤더 셀 스타일 */
+            .item-table th {
+                background-color: #EDEFF5;
+                text-align: center;
+                font-weight: bold;
+                padding: 8px;
+                border: 1px solid #ccc;
+            }
+
+            /* 바디 셀 스타일 */
+            .item-table td {
+                padding: 6px;
+                text-align: center;
+                border: 1px solid #ccc;
+            }
+
+            /* 입력 필드 기본 스타일 */
+            .item-table input {
+                width: 100%;
+                box-sizing: border-box;
+                padding: 4px;
+            }
+
+            /* 품목 & 비고 왼쪽 정렬 */
+            .item-table td:first-child,
+            .item-table td:nth-child(6) {
+                text-align: left;
+            }
+
+            /* 공통 버튼 스타일 */
+            .item-table .btn.in_btn {
+                display: inline-flex;
+                justify-content: center;
+                align-items: center;
+                width: 32px;
+                height: 32px;
+                border-radius: 4px;
+                padding: 0;
+                border: 1px solid #B3B3B3;
+                background-color: #fff;
+                cursor: pointer;
+                transition: background-color 0.2s;
+                line-height: 0;
+            }
+
+            /* + 버튼 전용 스타일 */
+            .item-table .btn.in_btn.plus img {
+                width: 10px;
+                height: 10px;
+                display: block;
+            }
+
+            /* 공통 아이콘 버튼 이미지 (삭제, 검색 포함) */
+            .item-table .btn.in_btn img {
+                width: 12px;
+                height: 12px;
+                display: block;
+                margin-right: 5px;
+            }
+
+            .input-with-button {
+                display: flex;
+                gap: 4px; /* 버튼과 input 사이 여백 */
+                align-items: center;
+            }
+
+            .input-with-button input {
+                flex: 1; /* 나머지 영역 차지 */
+                min-width: 0;
+                padding: 4px;
+            }
+
+            .input-with-button .btn.in_btn {
+                flex-shrink: 0;
+            }
+
+            .content_wrap.popup {
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+            }
+
+            .table-wrap {
+                flex: 1;
+                overflow-y: auto;
+                padding-right: 5px;
+            }
+
+            .popup-button {
+                flex-shrink: 0;
+                padding: 10px;
+                background: #fff;
+                border-top: 1px solid #ddd;
+            }
+
+            .input-with-checkbox {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .input-with-checkbox input[type="number"] {
+                flex: 1;
+                min-width: 0;
+                padding: 4px;
+            }
+
+            .input-with-checkbox input[type="checkbox"] {
+                flex-shrink: 0;
+                width: 18px;
+                height: 18px;
+            }
+        </style>
+        <div class="content_wrap popup" id="div_excel_upload">
+            <div class="table-wrap">
+            <form id="sujuForm">
+                <table class="write-table">
+                    <caption>주문등록 테이블</caption>
+                    <input type="hidden" id="id" name="id">
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="JumunDate">수주일*</label>
+                            </th>
+                            <td>
+                                <input type="date" id="JumunDate" name="JumunDate">
+                            </td>
+                            <th style="text-align: center">
+                                <label for="DueDate">납기일*</label>
+                            </th>
+                            <td>
+                                <input type="date" id="DueDate" name="DueDate">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="cboCompany">판매처*</label>
+                            </th>
+                            <td colspan="3">
+                                <input id="cboCompany" name="Company_id" type="hidden">
+                                <input class="form-control2" type="text" id="CompanyName" name="CompanyName"
+                                placeholder="판매처 검색 버튼을 클릭하여 판매처를 검색하세요" readonly/>
+                                &nbsp;
+                                <a class="btn btn-delete" title="검색" id="btnCompanySearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    판매처 검색
+                                </a>
+                            </td>
+                        </tr>
+<!--                        <tr>-->
+<!--                            <th style="text-align: center">-->
+<!--                                <label for="cboCompany">프로젝트</label>-->
+<!--                            </th>-->
+<!--                            <td colspan="3">-->
+<!--                                <input id="projectHidden" name="projectHidden" type="hidden">-->
+<!--                                <input class="form-control2" type="text" id="project" name="project"-->
+<!--                                placeholder="프로젝트 검색 버튼을 클릭하여 검색하세요" readonly/>-->
+<!--                                &nbsp;-->
+<!--                                <a class="btn btn-delete" title="검색" id="btnSelect_project">-->
+<!--                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">-->
+<!--                                    프로젝트 검색-->
+<!--                                </a>-->
+<!--                            </td>-->
+<!--                        </tr>-->
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="cboSujuType">수주구분</label>
+                            </th>
+                            <td colspan="3">
+                                <select id="cboSujuType" name="SujuType"></select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="Description">비고</label>
+                            </th>
+                            <td colspan="3">
+                                <textarea id="Description" name="Description" style="height:40px;"></textarea>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="StateName">상태</label>
+                            </th>
+                            <td>
+                                <input type="text" id="StateName" name="StateName" readonly disabled>
+                            </td>
+                            <th style="text-align: center">
+                                <label for="totalAmountSum">총액</label>
+                            </th>
+                            <td>
+                                <input id="totalAmountSum" name="totalAmountSum" style="text-align:right;" readonly>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table class="item-table">
+
+                    <table class="item-table">
+
+                    <colgroup>
+                        <col style="width: 6%">
+                        <col style="width: 18%">
+                        <col style="width: 6%">
+                        <col style="width: 13%">
+                        <col style="width: 9%">
+                        <col style="width: 9%">
+                        <col style="width: 9%">
+                        <col style="width: 10%">
+                        <col style="width: 11%">
+                        <col style="width: 5%">
+                        <col style="width: 4%">
+                    </colgroup>
+                    <thead>
+                    <tr id="itemHeaderRow">
+                        <th>코드</th>
+                        <th>품목</th>
+                        <th>수량</th>
+                        <th>단가 <span style="font-size: 13px;">(선택시 부가세 포함)</span></th>
+                        <th>공급가액</th>
+                        <th>부가세</th>
+                        <th>합계</th>
+                        <th>프로젝트</th>
+                        <th>비고</th>
+                        <th>상태</th>
+                        <th>
+                            <a class="btn in_btn plus" id="addRemark" title="추가">
+                                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘" />
+                            </a>
+                        </th>
+                    </tr>
+                    </thead>
+                    <tr class="item-template-row" style="display: none;">
+                        <td>
+                            <input type="text" name="product_code" readonly/>
+                        </td>
+                        <td>
+                            <div class="input-with-button">
+                                <input type="hidden" name="suju_id" />
+                                <input type="text" name="txtProductName" placeholder="코드 또는 품명 입력 후 엔터" autocomplete="off" />
+                                <input type="hidden" name="MaterialGroupName" />
+                                <input type="hidden" name="Material_id" />
+                                <a class="btn in_btn" title="품목 검색" id="btnProductSearch" >
+                                    <img th:src="@{/images/icon/btn-srch-black.svg}" alt="검색 아이콘" />
+                                </a>
+                            </div>
+                        </td>
+                        <td><input type="text" name="quantity" placeholder="수량" /></td>
+                        <td>
+                            <div class="input-with-checkbox">
+                                <input type="text" name="unitPrice" placeholder="단가" />
+                                <input type="hidden" name="originalUnitPrice" />
+                                <input type="checkbox" name="VatIncluded" />
+                            </div>
+                        </td>
+                        <td><input type="text" name="supplyAmount" /></td>
+                        <td><input type="text" name="VatAmount" /></td>
+                        <td><input type="text" name="totalAmount" /></td>
+                        <td>
+                            <input name="projectHidden" type="hidden">
+                            <input type="text" name="project" placeholder="입력 후 엔터">
+                        </td>
+                        <td><input type="text" name="description" /></td>
+                         <td>
+                            <input type="hidden" name="State"/>
+                            <input type="text" name="suju_StateName" readonly />
+                        </td>
+                        <td class="al_c item_border">
+                            <a class="btn in_btn" title="삭제" onclick="removeItemRow(this)">
+                                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘" />
+                            </a>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </form>
+            </div>
+            <div id="notUpdate" style="display:none;">*계획 또는 출하가 진행된 수주는 수정이 불가합니다.</div>
+            <div class="popup-button">
+                    <button type="button" class="btn-popup y_write_auth" id="btnPopSujuSave">저장</button>
+                    <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-tmpl" id="excelUploadTemplate">
+        <div class="content_wrap popup" id="div_excel_upload">
+
+            <div class="table-wrap">
+                <form id="excelUploadForm">
+                <table class="write-table">
+                    <colgroup>
+                        <col style="width: 25%;">
+                        <col style="width: 75%;">
+                    </colgroup>
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label>일자</label>
+                            </th>
+                            <td>
+                                <input style="width:300px;" type="date" id="data_date" name="data_date" value=""  />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label>첨부파일</label>
+                            </th>
+                            <td>
+                                <input style="width:300px; height: 44px;" type="file" id="upload_file" name="upload_file" enctype="multipart/form-data" accept=".xls, .xlsx"/>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                </form>
+            </div>
+            <div class="pt-2">
+                <textarea id="upload_message" style='display:none;width:100%;height:150px;'></textarea>
+            </div>
+
+            </section>
+
+            <div class="popup-button">
+                <button type="button" class="btn-popup y_write_auth" id="btn_excel_save" >저장</button>
+                <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+            </div>
+        </div>
+    </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <!--<th:block th:replace="/common/columns_setting :: columns_setting"></th:block>-->
+    <th:block th:replace="/common/multiform_material :: multiform_material"></th:block>
+    <th:block th:replace="/common/popup_company :: popup_company"></th:block>
+    <th:block th:replace="/common/popup_project :: popup_project"></th:block>
+
+    <script type="text/javascript">
+
+        let isInternalFormatting = false;
+        class SujuUploadPage {
+            constructor() {
+                this.url = '/api/sales/suju';
+                this.grid = null;
+                this.$btnEdit = $('#btnEdit');
+                this.$btnAddNew = $('#btnAddNew');
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+
+            }
+
+            resetSujuListIndex() {
+                this.sujuListIndex = 0;
+            }
+
+            nextSujuListIndex() {
+                return this.sujuListIndex++;
+            }
+
+            init() {
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'CompanyName', header: '판매처', width: 150, align: 'center'},
+                        {binding: 'JumunDate', header: '수주일', width: 130, align: 'center'},
+                        {binding: 'JumunNumber', header: '수주 번호', width: 150, align: 'center'},
+                        {binding: 'product_name', header: '제품명', width: 400},
+                        {binding: 'TotalPrice', header: '총액', width: 120, align: 'right', format: 'n2'},
+                        {binding: 'DueDate', header: '납기일', width: 130, align: 'center'},
+                        {binding: 'StateName', header: '작업상태', width: 100, align: 'center'},
+                        {binding: 'ShipmentStateName', header: '출하상태', width: 100, align: 'center'},
+                        {binding: 'Description', header: '비고', width: '*'}
+                    ],
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '수주 내역';
+
+                this.grid.hostElement.addEventListener('dblclick', function (e) {
+                    let items = _this.grid.selectedItems;
+                    if (items.length === 0) {
+                        return false;
+                    }
+                    _this.$btnEdit.trigger('click');
+                });
+
+                let nowDate = CommonUtil.getYYYYMMDD();
+                let dueDate = CommonUtil.getYYYYMMDD(10);
+
+                //수주등록 클릭
+                this.$btnAddNew.click(function (e) {
+                    let defaultData = {
+                        id: '',
+                        mode: 'new',
+                        JumunDate: nowDate,
+                        DueDate: dueDate,
+                    };
+                    _this.showSujuForm(defaultData);
+                });
+
+                // 수주 수정 클릭
+                this.$btnEdit.click(function (e) {
+                    let selectedItems = _this.grid.selectedItems;
+                    const it = _this.grid.selectedItems && _this.grid.selectedItems[0];
+
+                    if (selectedItems.length === 1) {
+                        window.selectedGridId = it.id;
+                        let data = {
+                            id: selectedItems[0].id,
+                            action: 'detail'
+                        };
+                        let fnsuccess = function (result) {
+                            result.data['mode'] = 'edit';
+                            const selected = selectedItems[0];
+                            // 기본 설정
+                            if (selected.StateName) {
+                                result.data['StateName'] = selected.StateName;
+                            }
+                            if (selected.State) {
+                                result.data['State'] = selected.State;
+                            }
+
+                            // 출하 상태가 있다면 덮어쓰기
+                            if (selected.ShipmentStateName) {
+                                result.data['StateName'] = selected.ShipmentStateName;
+                            }
+                            _this.showSujuForm(result.data);
+                        };
+                        AjaxUtil.getAsyncData(_this.url + '/detail', data, fnsuccess);
+                    } else {
+                        Alert.alert('', '선택된 데이터가 없습니다.');
+                    }
+
+                });
+
+                // 삭제 버튼
+                $('#btnDelete').click(function (e) {
+                    let items = _this.grid.selectedItems;
+                    if (items.length > 0) {
+                        Alert.confirm('', '삭제하시겠습니까?',
+                            function () {
+                                let id = items[0].id;
+                                let state = items[0].State;
+                                let ShipmentStateName = items[0].ShipmentStateName;
+                                _this.deleteSujuData(id, state, ShipmentStateName);
+                            },
+                            function () {
+                            }
+                        );
+                    } else {
+                        Alert.alert('', '삭제할 항목을 선택해주세요.', function () {
+                            $(this).focus();
+                        });
+                    }
+                });
+
+                // 엔터키 검색
+                $('#keyword').on('keypress', function (e) {
+                    if (e.keyCode === 13) {
+                        _this.searchMainData();
+                    }
+                });
+            }
+
+            showSujuForm(data) {
+                console.log('showSujuForm userinfo', userinfo);
+                //sujuTemplate
+                let _this = this;
+                let content = tmpl('sujuTemplate', data);
+                let $content = $(content);
+
+                let modalContainer = null;
+                if (data.mode === 'new') {
+                    modalContainer = new PopupDraggable('등록');
+                } else {
+                    modalContainer = new PopupDraggable('수정');
+                }
+                modalContainer.open({width: 1300, height: 600, $content});
+
+                // 제품검색
+                let $btnProductSearch = $content.find('#btnProductSearch');
+                let $sujuForm = $content.find('#sujuForm');
+
+                let $cboSujuType = $content.find('#cboSujuType');
+
+                if (data.mode === 'new') {
+                    $btnProductSearch.removeAttr('disabled');
+                }
+
+                $content.find('#btnCompanySearch').click(function () {
+                    let poppage = new PopCompComponent();
+                    let $poppage = $(poppage);
+                    let searchcallback = function (items) {
+                        $content.find('#cboCompany').val(items.id);
+                        $content.find('#CompanyName').val(items.compname);
+
+                        // if ($Material_id.val() && $cboCompany.val()) {
+                        //     tryShowPrice();
+                        // }
+                    };
+
+                    poppage.show(searchcallback);
+                });
+
+                // 저장버튼
+                let $btnPopSujuSave = $('#btnPopSujuSave');
+
+                //수주구분
+                AjaxUtil.fillSelectOptions($cboSujuType, 'system_code', 'choose', 'sales', 'suju_type');
+
+                setTimeout(() => {
+                    FormUtil.BindDataSujuForm(data, $sujuForm);
+                    $content.find('tr:visible').each(function () {
+                        calculateAmounts($(this), 'unit');
+                    });
+                }, 100);
+
+
+
+                if (data.StateName && data.StateName !== '수주') {
+                    $('#btnPopSujuSave').hide();
+                    $('#notUpdate')
+                        .css('margin-top', '10px') // 조건 만족 시 margin-top 적용
+                        .show();
+                    $('.popup-button').css('margin-top', '10px');
+                }
+
+                if (data.SujuQty > 0) {
+                    $SujuQty.val(data.SujuQty.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","));
+                }
+
+
+                // 수주등록 팝업 저장버튼 클릭
+                $btnPopSujuSave.click(function (e) {
+
+                    //수주일, 납기일 체크?
+                    let data = FormUtil.extractForm($sujuForm);
+
+                    if (!$('#cboCompany').val()) {
+                        Alert.alert('', '판매처를 선택하세요.');
+                        return;
+                    }
+
+                    if (!data.Material_id_0) {
+                        Alert.alert('', '품목을 선택하세요.');
+                        return;
+                    }
+
+                    // 2. 각 행의 유효성 체크
+                    let index = 0;
+                    while (true) {
+                        const materialId = data[`Material_id_${index}`];
+
+                        if (materialId === undefined) break; // 끝까지 체크
+
+                        if (materialId !== null && materialId !== '') {
+                            const qty = data[`quantity_${index}`];
+                            const price = data[`unitPrice_${index}`];
+
+                            if (!qty) {
+                                Alert.alert('', `(${index + 1}번째 행) 수량을 입력하세요.`);
+                                return;
+                            }
+                        }
+
+                        index++;
+                    }
+
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        const items = [];
+                        for (let i = 0; i < page.sujuListIndex; i++) {
+                            const materialId = data[`Material_id_${i}`];
+                            if (!materialId) continue;
+
+                            items.push({
+                                suju_id: data[`suju_id_${i}`] || '',
+                                Material_id: materialId,
+                                MaterialGroupName: data[`MaterialGroupName_${i}`] || '',
+                                product_code: data[`product_code_${i}`] || '',
+                                txtProductName: data[`txtProductName_${i}`] || '',
+                                quantity: (data[`quantity_${i}`] || '0').replace(/,/g, ''),
+                                unitPrice: (data[`unitPrice_${i}`] || '0').replace(/,/g, ''),
+                                supplyAmount: (data[`supplyAmount_${i}`] || '0').replace(/,/g, ''),
+                                VatAmount: data[`VatAmount_${i}`] === '면세' ? '0' : (data[`VatAmount_${i}`] || '0').replace(/,/g, ''),
+                                totalAmount: (data[`totalAmount_${i}`] || '0').replace(/,/g, ''),
+                                description: data[`description_${i}`] || '',
+                                VatIncluded: data[`VatIncluded_${i}`] === 'on' ? 'Y' : 'N',
+                                projectHidden: data[`projectHidden_${i}`] || '',
+                                unitPriceChanged: (() => {
+                                    const ori = parseFloat(data[`originalUnitPrice_${i}`] || '0');
+                                    const cur = parseFloat((data[`unitPrice_${i}`] || '0').replace(/,/g, ''));
+                                    return ori !== cur;
+                                })()
+                            });
+                        }
+
+
+                        // 공통 정보 + 리스트 전송
+                        const payload = {
+                            id: data.id,
+                            JumunDate: data.JumunDate,
+                            DueDate: data.DueDate,
+                            Company_id: data.Company_id,
+                            CompanyName: data.CompanyName,
+                            SujuType: data.SujuType,
+                            spjangcd: data.spjangcd,
+                            totalAmountSum: data.totalAmountSum,
+                            Description: data.Description,
+                            items: items
+                        };
+
+                        AjaxUtil.postJsonData(_this.url + '/manual_save', payload, function (res) {
+                            if (res.success) {
+                                Notify.success("저장되었습니다.");
+                                _this.searchMainData();
+                                modalContainer.close();
+                            } else {
+                                Alert.alert('저장 실패', res.message || '알 수 없는 오류');
+                            }
+                        });
+
+                    });
+
+                });
+
+                // 단가 정보 가져오기
+                function tryShowPrice($row) {
+                    const mat_pk = $row.find('input[name^="Material_id_"]').val();
+                    const company_id = $content.find('#cboCompany').val();
+                    const JumunDate = $content.find('#JumunDate').val();
+                    const SujuQty = parseFloat($row.find('input[name^="quantity"]').val().replace(/,/g, '') || '0');
+
+                    let url = _this.url + '/readPriceSuju';
+                    let data = {
+                        'mat_pk': mat_pk,
+                        'company_id': company_id,
+                        'JumunDate': JumunDate
+                    };
+
+                    if (mat_pk && company_id && JumunDate) {
+
+                        let fnsuccess = function (result) {
+
+                            let unitPrice = 0;
+                            if (result != null && result.data && result.data.length > 0) {
+                                unitPrice = parseFloat(result.data[0].UnitPrice);
+                                $row.find('input[name^="unitPrice_"]').val(unitPrice.toLocaleString());
+                                $row.find('input[name^="originalUnitPrice_"]').val(unitPrice.toLocaleString());
+
+                            } else {
+                                $row.find('input[name^="unitPrice"]').val('0');
+                                $row.find('input[name^="originalUnitPrice"]').val('0');
+                            }
+                            calculateAmounts($row);
+                        };
+
+                        AjaxUtil.getAsyncData(url, data, fnsuccess);
+                    }
+                }
+
+                function getNumericValue($input) {
+                    if ($input.length === 0) return '';
+                    const val = ($input.val() || '').replace(/[^0-9.]/g, '').trim();
+                    return val ? parseFloat(val) : '';
+                }
+
+                function calculateAmounts($row, source = null) {
+                    if (isInternalFormatting) return;
+                    isInternalFormatting = true;
+
+                    const quantity = getNumericValue($row.find('input[name^="quantity_"]'));
+                    const unitPrice = getNumericValue($row.find('input[name^="unitPrice_"]'));
+                    const isVatIncluded = $row.find('input[name^="VatIncluded_"]').is(':checked');
+                    const isVatExempt = false;
+
+                    let supplyAmount = getNumericValue($row.find('input[name^="supplyAmount_"]'));
+                    let vatAmount = getNumericValue($row.find('input[name^="VatAmount_"]'));
+                    const isSupplyEdited = $row.data('supplyEdited') === true;
+                    const isVatEdited = $row.data('vatEdited') === true;
+
+                    if (source === 'unit' && quantity > 0 && unitPrice >= 0) {
+                        const total = quantity * unitPrice;
+
+                        if (!isSupplyEdited || !isVatEdited) {
+                            if (isVatExempt) {
+                                supplyAmount = total;
+                                vatAmount = 0;
+                            } else if (isVatIncluded) {
+                                supplyAmount = Math.round(total / 1.1);
+                                vatAmount = total - supplyAmount;
+                            } else {
+                                supplyAmount = total;
+                                vatAmount = Math.floor(supplyAmount * 0.1);
+                            }
+
+                            if (!isSupplyEdited) {
+                                $row.find('input[name^="supplyAmount_"]').val(
+                                    supplyAmount === 0 ? '' : supplyAmount.toLocaleString()
+                                );
+                            }
+                            if (!isVatEdited) {
+                                $row.find('input[name^="VatAmount_"]').val(
+                                    vatAmount === 0 ? '' : (isVatExempt ? '면세' : vatAmount.toLocaleString())
+                                );
+
+                            }
+                        }
+                    }
+
+                    if (!isNaN(supplyAmount) && !isNaN(vatAmount)) {
+                        const total = supplyAmount + vatAmount;
+                        $row.find('input[name^="totalAmount_"]').val(
+                            total === 0 ? '' : total.toLocaleString()
+                        );
+
+                    }
+
+                    if (quantity !== '') {
+                        $row.find('input[name^="quantity_"]').val(quantity.toLocaleString());
+                    }
+                    if (unitPrice !== '') {
+                        $row.find('input[name^="unitPrice_"]').val(unitPrice.toLocaleString());
+                    }
+
+                    calculateTotalSum();
+                    isInternalFormatting = false;
+                }
+
+                function calculateTotalSum() {
+                    let sum = 0;
+
+                    $content.find('tr:visible').each(function () {
+                        const $row = $(this);
+                        const $totalInput = $row.find('input[name^="totalAmount_"]');
+
+                        const raw = ($totalInput.val() || '').replace(/[^0-9.]/g, '').trim();
+                        if (raw !== '') {
+                            const total = parseFloat(raw);
+                            if (!isNaN(total)) {
+                                sum += total;
+                            }
+                        }
+                    });
+
+                    $content.find('#totalAmountSum').val(sum > 0 ? sum.toLocaleString() : '');
+                }
+
+
+                // 수량/단가 입력 시
+                $content.on('input', 'input[name^="quantity_"], input[name^="unitPrice_"]', function () {
+                    const $row = $(this).closest('tr');
+                    $row.removeData('supplyEdited');
+                    $row.removeData('vatEdited');
+                    calculateAmounts($row, 'unit');
+                });
+
+                // 공급가 입력
+                $content.on('input', 'input[name^="supplyAmount_"]', function () {
+                    const $row = $(this).closest('tr');
+                    $row.data('supplyEdited', true);
+                    calculateAmounts($row);
+                });
+
+                // 세액 입력
+                $content.on('input', 'input[name^="VatAmount_"]', function () {
+                    const $row = $(this).closest('tr');
+                    $row.data('vatEdited', true);
+                    calculateAmounts($row);
+                });
+
+                // 합계 직접 입력 시 총합 계산
+                $content.on('input', 'input[name^="totalAmount_"]', function () {
+                    calculateTotalSum();
+                });
+
+                // 부가세 체크 변경
+                $content.on('change', 'input[name^="VatIncluded_"]', function () {
+                    const $row = $(this).closest('tr');
+                    $(this).val(this.checked ? 'Y' : 'N');
+                    $row.removeData('supplyEdited');
+                    $row.removeData('vatEdited');
+                    calculateAmounts($row, 'unit');
+                });
+
+                // 숫자 포맷 (input 중 formatting)
+                $content.on('input', 'input[name^="quantity_"], input[name^="unitPrice_"], input[name^="supplyAmount_"], input[name^="VatAmount_"], input[name^="totalAmount_"]', function () {
+                    if (isInternalFormatting) return;
+                    isInternalFormatting = true;
+
+                    const $this = $(this);
+                    const input = this;
+                    let raw = $this.val();
+
+                    // quantity_ → 정수만
+                    if ($this.attr('name').startsWith('quantity_')) {
+                        raw = raw.replace(/[^0-9]/g, '');
+                        if (raw === '') {
+                            $this.val('');
+                        } else {
+                            const formatted = Number(raw).toLocaleString();
+                            $this.val(formatted);
+                        }
+                    }
+                    // 나머지 → 소수 둘째 자리까지 허용
+                    else {
+                        raw = raw.replace(/[^0-9.]/g, ''); // 숫자와 소수점만
+                        // 소수점 여러개 입력 방지
+                        raw = raw.replace(/(\..*)\./g, '$1');
+
+                        if (raw === '') {
+                            $this.val('');
+                        } else {
+                            const num = parseFloat(raw);
+                            if (!isNaN(num)) {
+                                const formatted = num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+                                $this.val(formatted);
+                            }
+                        }
+                    }
+
+                    isInternalFormatting = false;
+                });
+
+
+                // 검색 버튼 클릭 시 팝업
+                $content.on('click', 'a[title="품목 검색"]', function () {
+                    const $row = $(this).closest('tr');
+
+                    const $productInput = $row.find('input[name^="txtProductName_"]');
+                    const $productId = $row.find('input[name^="Material_id_"]');
+                    const $productCode = $row.find('input[name^="product_code_"]');
+                    const $materialGroup = $row.find('input[name^="MaterialGroupName_"]');
+
+                    const pop = new PopMatComponent();
+                    pop.material_type = 'product,sangpum';
+
+                    pop.show(function (item) {
+                        $productInput.val(item.Name);
+                        $productId.val(item.id);
+                        $productCode.val(item.Code);
+                        $materialGroup.val(item.group_name);
+                        tryShowPrice($row);
+                    });
+
+
+                });
+
+                $content.on('keydown', 'input[name^="txtProductName_"]', function (e) {
+                    if (e.key !== 'Enter' && e.keyCode !== 13) return;
+
+                    e.preventDefault();
+
+                    const $field = $(this);
+                    const $row = $field.closest('tr');
+
+                    const $productInput = $row.find('input[name^="txtProductName_"]');
+                    const $productId = $row.find('input[name^="Material_id_"]');
+                    const $productCode = $row.find('input[name^="product_code_"]');
+
+                    const keyword = $field.val().trim();
+                    const pop = new PopMatComponent();
+                    pop.material_type = 'product,sangpum';
+
+                    const callback = function (item) {
+                        $productId.val(item.id || '');
+                        $productInput.val(item.Name || '');
+                        $productCode.val(item.Code || '');
+                        tryShowPrice($row);
+                    };
+
+                    if (!keyword) {
+                        pop.focusAfterClose = $field[0];
+                        pop.show(callback);
+                        return;
+                    }
+
+                    const data = {
+                        keyword: keyword,
+                        spjangcd: sessionStorage.getItem('spjangcd')
+                    };
+
+                    const result = AjaxUtil.getSyncData('/api/popup/search_material', data);
+                    const rows = result?.data || [];
+
+                    if (rows.length === 1) {
+                        callback(rows[0]);
+                    } else {
+                        pop.show(callback);
+                        setTimeout(() => {
+                            pop.$keyword.val(keyword);
+                            pop.$btnMaterialSearch.trigger('click');
+                        }, 50);
+                    }
+                });
+
+                // 품목명 지우면 코드들도 같이 지워지게
+                $content.on('input', 'input[name^="txtProductName_"]', function () {
+                    const $field = $(this);
+                    const $row = $field.closest('tr');
+
+                    const $productId = $row.find('input[name^="Material_id_"]');
+                    const $productCode = $row.find('input[name^="product_code_"]');
+
+                    if ($field.val().trim() === '') {
+                        // 값이 비었을 경우 연관된 필드 초기화
+                        $productId.val('');
+                        $productCode.val('');
+                    }
+                });
+
+
+                // 프로젝트 팝업 열기
+                $content.on('keydown', 'input[name^="project_"]', function (e) {
+                    if (e.key !== 'Enter' && e.keyCode !== 13) return;
+
+                    e.preventDefault();
+
+                    const $field = $(this);
+                    const $row = $field.closest('tr');
+
+                    const keyword = $field.val().trim();
+                    const pop = new PopProjectComponent();
+
+                    const callback = function (item) {
+                        $row.find('input[name^="projectHidden_"]').val(item.projno || '');
+                        $row.find('input[name^="project_"]').val(item.projnm || '');
+                    };
+
+                    if (!keyword) {
+                        pop.focusAfterClose = $field[0];
+                        pop.show(callback);
+                        return;
+                    }
+
+                    const data = {
+                        srchName: keyword,
+                        spjangcd: sessionStorage.getItem('spjangcd')
+                    };
+
+                    const result = AjaxUtil.getSyncData('/api/popup/search_project', data);
+                    const rows = result?.data || [];
+
+                    if (rows.length === 1) {
+                        callback(rows[0]);
+                    } else {
+                        pop.show(callback);
+                        setTimeout(() => {
+                            pop.$srchName.val(keyword);
+                            pop.$btnSearch.trigger('click');
+                        }, 50);
+                    }
+                });
+
+                $content.find('#addRemark').click(function () {
+                    const $tbody = $content.find('.item-table tbody');
+                    const $template = $tbody.find('.item-template-row');
+
+                    for (let i = 0; i < 3; i++) {
+                        const $newRow = $template.clone().removeClass('item-template-row').show();
+                        const index = page.nextSujuListIndex();
+                        $newRow.find('input').each(function () {
+                            const baseName = $(this).attr('name');
+                            if (baseName) {
+                                $(this).attr('name', `${baseName}_${index}`);
+                            }
+                        });
+
+                        $newRow.find('a[title="삭제"]').attr('id', `btnDelItem_${index}`);
+                        $tbody.append($newRow);
+                    }
+                });
+
+                // 포커스 자동 이동: Enter + 방향키(←→↑↓)
+                $content.on('keydown', 'input', function (e) {
+                    const key = e.key;
+
+                    if (!['Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(key)) return;
+                    e.preventDefault();
+
+                    const $input = $(this);
+                    const $row = $input.closest('tr');
+                    const nameAttr = $input.attr('name') || '';
+
+                    const focusOrder = [
+                        'txtProductName_',
+                        'quantity_',
+                        'unitPrice_',
+                        'supplyAmount_',
+                        'VatAmount_',
+                        'totalAmount_',
+                        'project_',
+                        'description_',
+                    ];
+
+                    const currentIndex = focusOrder.findIndex(prefix => nameAttr.startsWith(prefix));
+                    if (currentIndex === -1) return;
+
+                    let $nextInput = null;
+
+                    // ↔️ 좌우 이동
+                    if (key === 'ArrowRight' && currentIndex < focusOrder.length - 1) {
+                        const nextPrefix = focusOrder[currentIndex + 1];
+                        $nextInput = $row.find(`input[name^="${nextPrefix}"]`);
+                    } else if (key === 'ArrowLeft' && currentIndex > 0) {
+                        const prevPrefix = focusOrder[currentIndex - 1];
+                        $nextInput = $row.find(`input[name^="${prevPrefix}"]`);
+                    }
+
+                    // ↕️ 상하 이동
+                    if (key === 'ArrowDown' || key === 'ArrowUp') {
+                        const $targetRow = key === 'ArrowDown'
+                            ? $row.nextAll('tr:visible').first()
+                            : $row.prevAll('tr:visible').first();
+
+                        const allowAutoAdd = ['txtProductName_', 'description_'];
+                        const isAllowedField = allowAutoAdd.some(prefix => nameAttr.startsWith(prefix));
+
+                        // ⬇️ 방향키 + 현재 행이 마지막 + 허용된 필드일 경우 → 행 자동 추가
+                        if (key === 'ArrowDown' && !$targetRow.length && isAllowedField) {
+                            $content.find('#addRemark').trigger('click');
+
+                            setTimeout(() => {
+                                const $rows = $content.find('.item-table tbody tr:visible').not('.item-template-row');
+                                const $newRow = $rows.last();
+                                const $newInput = $newRow.find('input[name^="txtProductName_"]');
+                                if ($newInput.length) $newInput.focus().select();
+                            }, 50);
+                            return;
+                        }
+                        // 일반 상하 이동
+                        $nextInput = $targetRow.find(`input[name^="${focusOrder[currentIndex]}"]`);
+                    }
+
+                    // ↵ Enter 키: 현재 행 내 다음 필드
+                    if (key === 'Enter' && currentIndex < focusOrder.length - 1) {
+                        const nextPrefix = focusOrder[currentIndex + 1];
+                        $nextInput = $row.find(`input[name^="${nextPrefix}"]`);
+                    } else if (key === 'Enter' && nameAttr.startsWith('description_')) {
+                        const $nextRow = $row.nextAll('tr:visible').first();
+                        if (!$nextRow.length) {
+                            //console.log('다음 행 없음. 행 자동 추가 트리거.');
+                            $content.find('#addRemark').trigger('click');
+
+                            setTimeout(() => {
+                                const $rows = $content.find('.item-table tbody tr:visible').not('.item-template-row');
+                                const $newRow = $rows.last();
+                                const $newInput = $newRow.find('input[name^="txtProductName_"]');
+                                if ($newInput.length) $newInput.focus().select();
+                            }, 50);
+                            return;
+                        } else {
+                            $nextInput = $nextRow.find('input[name^="txtProductName_"]');
+                        }
+                    }
+
+                    if ($nextInput && $nextInput.length) {
+                        $nextInput.focus().select();
+                    }
+                });
+
+            }
+
+            deleteSujuData(id, state, ShipmentStateName) {
+                let _this = this;
+                let url = _this.url + '/delete';
+                let data = {'id': id, 'State': state, 'ShipmentStateName': ShipmentStateName}
+                let fnsuccess = function (res) {
+                    if (res.success) {
+                        Notify.success('삭제되었습니다.');
+                        _this.searchMainData();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+            // exportExcel() {
+            //     var targetview = this.grid;
+            //     targetview.exportExcel('수주내역.xls');
+            // }
+
+            searchMainData() {
+                let _this = this;
+                let date_kind = $('#cboDateKind').val();
+                let start = $('#srchStartDt').val();
+                let end = $('#srchEndDt').val();
+                let url = this.url + '/read';
+
+                let data = {
+                    'date_kind': date_kind,
+                    'start': start,
+                    'end': end,
+                    'action': 'read'
+                };
+
+                let fnsuccess = function (result) {
+                    if (result != null) {
+                        _this.viewData.sourceCollection = result.data;
+
+                        if (window.selectedGridId) {
+                            GridUtil.selectRowById(_this.grid, window.selectedGridId);
+                            window.selectedGridId = null;
+                        }
+                    }
+                };
+                AjaxUtil.getAsyncData(url, data, fnsuccess);
+
+            }
+
+            // 엑셀 업로드 버튼
+            showPopupExcelUpload(data) {
+                let _this = this;
+                let content = tmpl('excelUploadTemplate', data);
+                let $content = $(content);
+                $content.find('#data_date').val(data.data_date);
+                $content.find('#day_index').val(data.day_index);
+
+                //팝업공통모듈
+                let modalContainer = new PopupDraggable('엑셀 업로드');
+                modalContainer.open({width: 440, height: 220, $content});
+
+
+                $content.find('#btn_excel_save').on('click', function () {
+                    let $form = $content.find('#excelUploadForm');
+                    Alert.confirm('',
+                        '저장하시겠습니까?',
+                        function () {
+                            _this.saveSujuBulkData($form, modalContainer);
+                            //modalContainer.close();
+                        },
+                        function () {
+                        }
+                    );
+                });
+            }
+
+            // 엑셀 업로드 저장
+            saveSujuBulkData($form, modalContainer) {
+                let _this = this;
+                var form = $('#excelUploadForm')[0];
+                var formData = new FormData(form);
+
+                formData['data_date'] = $('#srchStartDt').val();
+                formData.append("uploadfile", $('#upload_file')[0].files[0].name);
+
+                let result = AjaxUtil.postFileSyncData(_this.url + '/upload_save', formData);
+
+                if (result) {
+                    let message = '저장되었습니다.';
+                    if (result.success) {
+                        Notify.success(message);
+                        _this.searchMainData();
+                        modalContainer.close();
+                    } else {
+
+                        Alert.alert('', result.message);
+
+                        /*let $divMessage = modalContainer.$content.find('#upload_message');
+                        $divMessage.text(JSON.stringify(result.error_items));
+                        $divMessage.show();*/
+                    }
+                }
+
+            }
+
+            downloadExcelForm() {
+                let _this = this;
+                //let url = '/api/files/mes_form?action=suju_upload';
+                let fileName = "수주업로드양식.xlsx";
+                let url = withCtx('/api/files/mes_form?file_name=') + fileName;
+                /*
+                let data = {
+                    //'tableName' : tableName,
+                    'file_name': "수주업로드양식.xlsx",
+                };
+                */
+                AjaxUtil.downloadFile(url, fileName);
+            }
+
+        }
+
+        //행 삭제 함수
+        function removeItemRow(el) {
+            const $tbody = $(el).closest('tbody');
+            const $rows = $tbody.find('tr:not(.item-template-row)');
+            const $targetRow = $(el).closest('tr');
+
+            if ($rows.length <= 3) {
+                // 입력값이 있으면 초기화만 하고 리턴
+                const hasData = $targetRow.find('input[type="text"], input[type="number"]').filter(function () {
+                    return $(this).val().trim() !== '';
+                }).length > 0;
+
+                if (hasData) {
+                    $targetRow.find('input[type="text"], input[type="number"]').val('');
+                    // hidden 값도 초기화하고 싶다면 아래 추가
+                    $targetRow.find('input[type="hidden"]').val('');
+                }
+
+                return;
+            }
+
+            // 4개 이상이면 정상 삭제
+            $targetRow.remove();
+        }
+
+
+        let page = null;
+
+        $(document).ready(function (e) {
+
+            page = new SujuUploadPage();
+
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            page.searchMainData();
+
+
+            // 검색
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            // 양식 다운로드
+            $('#btnDownloadTemplate').click(function (e) {
+                page.downloadExcelForm();
+            });
+
+            // 엑셀 업로드 버튼
+            $('#btnShowUpload').click(function (e) {
+                let data = {
+                    'id': '',
+                    'data_date': CommonUtil.getYYYYMMDD(),
+                };
+                page.showPopupExcelUpload(data);
+            });
+
+        })
+
+
+    </script>
+
+</th:block>
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html>

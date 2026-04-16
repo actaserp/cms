@@ -1,0 +1,404 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>부적합 관리</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>품질관리</li>
+                <li>부적합관리</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px;">
+            <section class="section" style="flex: 3;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>부적합유형명</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" class="form-control2" id="keyword" name="keyword">
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+
+                </div> <!--//section-top end -->
+                <div class="container-fluid">
+                    <div id="theGrid"></div>
+                </div>
+            </section>
+            <section class="section" style="flex: 2;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <ul>
+                            <li>
+                                <!-- <a class="btn btn-excell" title="신규등록" id="btnNew" >
+                                     <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                     신규등록
+                                 </a>-->
+                                <button type="button" class="btn-default" id="btnNew" name="btnNew"
+                                        style="height: 36px; width:115px;"><i
+                                        class="fas fa-plus"></i>신규등록
+                                </button>
+                            </li>
+
+                            <li>
+                                <!-- <a class="btn btn-edit" id="btnSave" title="저장">
+                                     <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                                     저장
+                                 </a>-->
+                                <button type="button" class="btn-default y_write_auth" id="btnSave"
+                                        style="float:none; height: 36px; width:115px;">
+                                    <i class="fas fa-save"></i>저장
+                                </button>
+                            </li>
+
+                            <li>
+                                <!--  <a class="btn btn-delete" title="삭제" id="btnDel">
+                                      <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                      삭제
+                                  </a>-->
+                                <button type="button" class="btn-danger y_write_auth" id="btnDel"
+                                        style="float:none; height: 36px; width:115px;"><i
+                                        class="fas fa-trash"></i>삭제
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="table-wrap" >
+                    <form id="defectTypeForm">
+                        <table class="write-table" style="width: 100%; border-collapse: collapse;">
+                            <caption style="text-align: left; margin-bottom: 8px;">등록테이블</caption>
+                            <input type="hidden" id="id" name="id"/>
+                            <tbody>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="defect_type_code"><span class="eq">*</span>코드</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" id="defect_type_code" name="defect_type_code"
+                                           style="width: 100%;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="defect_type_name"><span class="eq">*</span>부적합유형명</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <input type="text" id="defect_type_name" name="defect_type_name"
+                                           style="width: 100%;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
+                                    <label for="description">비고</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;" colspan="3">
+                                    <textarea id="description" name="description"></textarea>
+<!--                                    <input type="text" id="description" name="description" style="width: 100%;">-->
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+            </section>
+        </div>
+    </div> <!--//layout-contents end -->
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+    <script type="text/javascript">
+
+        var theGrid;
+        var viewdata;
+
+
+        let columns = [
+            {binding: 'id', header: 'id', width: 100, align: 'left', visible: false},
+            {binding: 'defect_type_code', header: '코드', width: 130, align: 'center'},
+            {binding: 'defect_type_name', header: '부적합유형명', width: 200, align: 'center'},
+            {binding: 'description', header: '비고', width: 500, align: 'center'}
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            let data2 = [];
+
+            let keyword = $('#keyword').val();
+
+            $.ajax({
+                url: '/api/definition/defect_type/read',
+                type: 'GET',
+                data: {
+                    'keyword': keyword
+                },
+                async: false,
+                success: function (data) {
+                    data2 = data.data;
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_count data:', textStatus, errorThrown);
+                }
+            })
+
+            viewdata = new wijmo.collections.CollectionView(data2);
+
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+
+            theGrid.hostElement.addEventListener('click', function (e) {
+                let selectedItem = theGrid.selectedItems[0];
+
+                document.getElementById('id').value = selectedItem.id;
+                document.getElementById('defect_type_code').value = selectedItem.defect_type_code;
+                document.getElementById('defect_type_name').value = selectedItem.defect_type_name;
+                document.getElementById('description').value = selectedItem.description;
+
+                setButtonState();
+            });
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+
+        }
+
+        //버튼 활성화
+        function setButtonState() {
+            let pk = $('#id').val();
+            $('#btnNew').prop('disabled', false);
+            $('#btnSave').prop('disabled', false);
+            if (pk) {
+                $('#btnDel').prop('disabled', false);
+            } else {
+                $('#btnDel').prop('disabled', true);
+            }
+        }
+
+
+        function searchMainData() {
+            let keyword = $('#keyword').val();
+
+            $.ajax({
+                url: '/api/definition/defect_type/read',
+                type: 'GET',
+                data: {
+                    'keyword': keyword
+                },
+                async: false,
+                success: function (result) {
+                    if (result.success) {
+                        grid_binding(result.data);
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+
+                }
+            });
+
+
+            $('#defectTypeForm')[0].reset();
+            $('#defectTypeForm').find('#id').val('');
+
+            $('#detail_box').find('input, textarea').each(function () {
+                if (!$(this).is(':disabled')) {
+                    $(this).attr('disabled', 'disabled');
+                }
+            });
+
+            setButtonState();
+        }
+
+        function grid_binding(data) {
+            if (!Array.isArray(data)) {
+                console.error('데이터가 배열 형식이 아닙니다:', data);
+                return;
+            }
+
+            let menulogData = data.map(item => ({
+                id: item.id,
+                defect_type_code: item.defect_type_code,
+                defect_type_name: item.defect_type_name,
+                description: item.description
+            }));
+
+            if (typeof theGrid === 'undefined' || typeof viewdata === 'undefined') {
+                console.error('theGrid 또는 viewdata가 정의되지 않았습니다.');
+                return;
+            }
+
+            theGrid.columns.clear();
+            theGrid.autoGenerateColumns = false;
+
+            // columns 배열이 정의되어 있는지 확인
+            if (typeof columns === 'undefined' || !Array.isArray(columns)) {
+                console.error('columns 배열이 정의되지 않았습니다.');
+                return;
+            }
+
+            columns.forEach(columnDef => {
+                var col = new wijmo.grid.Column(columnDef);
+                theGrid.columns.push(col);
+            });
+
+            viewdata = new wijmo.collections.CollectionView(menulogData);
+
+            theGrid.itemsSource = viewdata;
+            theGrid.refresh();
+        }
+
+
+        // 부적합유형 정보 저장
+        function saveDefectType() {
+            let url = '/api/definition/defect_type';
+
+            //let data = $('#defectTypeForm').serialize();
+            let data = FormUtil.extractForm($('#defectTypeForm'));
+
+            if (!data.defect_type_code) {
+                Alert.alert('', '부적합코드를 입력해 주세요');
+                $('#defectTypeForm #defect_type_code').focus();
+                return;
+            }
+            if (!data.defect_type_name) {
+                Alert.alert('', '부적합명을 입력해 주세요');
+                $('#defectTypeForm #defect_type_name').focus();
+                return;
+            }
+
+            let fnSuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '저장되었습니다');
+                    searchMainData();
+                } else {
+                    Alert.alert('저장 실패', result.message);
+                    console.error('저장 실패:', result.message);
+                }
+            }
+            AjaxUtil.postAsyncData(url + '/save', data, fnSuccess);
+
+        }
+
+        // 부적합유형 정보 삭제
+        function deleteDefectType() {
+            let url = '/api/definition/defect_type';
+            let id = $('#defectTypeForm').find('#id').val();
+            let data = {id: id};
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Alert.alert('', '삭제되었습니다');
+                    searchMainData();
+                } else {
+                    Alert.alert('삭제 실패', res.message);
+                    console.error('삭제 실패:', res.message);
+                }
+
+            }
+
+            AjaxUtil.postAsyncData(url + '/delete', data, fnSuccess);
+        }
+
+        $(document.body).ready(function (e) {
+            setButtonState();
+            // 엔터키 검색
+            $('#keyword').on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    searchMainData();
+                }
+            });
+
+            // 검색버튼
+            $('#btnSearch').click(function (e) {
+                searchMainData();
+            });
+
+            // 신규버튼
+            $('#btnNew').click(function (e) {
+
+                $('#defectTypeForm')[0].reset();
+                $('#defectTypeForm').find('#id').val('');
+
+                $('#detail_box').find('input, textarea').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                setButtonState();
+            });
+
+            // 저장버튼
+            $('#btnSave').click(function (e) {
+                Alert.confirm('',
+                    "저장하시겠습니까?",
+                    function () {
+                        saveDefectType()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            // 삭제버튼
+            $('#btnDel').click(function (e) {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        deleteDefectType()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+        });
+
+    </script>
+</th:block>
+</html>

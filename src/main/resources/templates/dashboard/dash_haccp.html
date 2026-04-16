@@ -1,0 +1,536 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+    <link th:href="@{/resource/fullCalendar/c-main.min.css}" rel="stylesheet">
+    <style>
+        .greenText span {
+            color: #66DA26;
+        }
+
+        .redText span {
+            color: #FF0000;
+        }
+
+        .grayText span {
+            color: #8C8C8C;
+        }
+
+        .blueText span {
+            color: #4374D9;
+        }
+
+        .yellowText span {
+            color: #FFE400;
+        }
+
+        [data-ax5grid] [data-ax5grid-container="root"] [data-ax5grid-container="body"] [data-ax5grid-panel] table tr td [data-ax5grid-cellHolder] {
+            font-size: 14px;
+        }
+        .card-text{
+            margin-bottom: 10px;
+        }
+        #checkTable table, tr, td {
+            border: none;
+            height: 20px;
+        }
+        #checkTable td {
+            text-align: center;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <input type="hidden" id="bhId" th:value="${bh_id}" />
+        <input type="hidden" id="data_date" th:value="${data_date}" />
+        <input type="hidden" id="search_cond" th:value="${searchcond}" />
+        <input type="hidden" id="viewMode" th:value="${view_mode}" />
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>HACCP 대시보드</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>대시보드</li>
+                <li>HACCP 대시보드</li>
+            </ul>
+        </div>
+        <div class="tab-wrap">
+            <div class="tab-contents">
+                <!-- Section -->
+                <div class="row" style="margin-bottom: 0;">
+                    <section class="wp33" style="margin-right: 5px; border-radius:15px">
+                        <div class="title-wrap">
+                            <h3>CCP가열(굽기)현황</h3>
+                        </div>
+                        <div class="content-wrap">
+                            <div class="h-300" id="ccpRoast" ></div>
+                        </div>
+                    </section>
+                    <section class="wp33" style="margin-right: 6px; border-radius:15px">
+                        <div class="title-wrap">
+                            <h3>CCP가열(유탕)현황</h3>
+                        </div>
+                        <div class="content-wrap">
+                            <div class="h-300" id="ccpMbath" ></div>
+                        </div>
+                    </section>
+
+                    <section class="wp33" style="margin-right: 0; border-radius:15px">
+                        <div class="title-wrap">
+                            <h3>이물검출CCP현황</h3>
+                        </div>
+                        <div class="content-wrap">
+                            <div class="h-300" id="ccpFmatter" ></div>
+                        </div>
+                    </section>
+                </div>
+
+
+                <div class="row">
+                    <section class="wp75" style="margin-right: 0; border-radius:15px">
+                        <div class="title-wrap">
+                            <h3>업무캘린더</h3>
+                        </div>
+                        <div class="content-wrap">
+                            <div class="card-body mobile_card_body">
+                                <div id='calendar'></div>
+                            </div>
+                        </div>
+                    </section>
+
+
+                    <div class="wp25">
+                        <section class="" style="margin-right: 0; border-radius:15px; height: 160px; overflow-y: hidden;">
+                            <div class="title-wrap">
+                                <h3>결제현황</h3>
+                            </div>
+                            <div class="content-wrap">
+                                <div class="section-card-wrap" style="height: 88px;">
+                                    <section class="card-section-top" style="width: 50%">
+                                        <div class="title card-section-title">
+                                            <h3 class="card-text-top">상신</h3><h3 class="card-text-top" id="txtApprReq"></h3>
+                                        </div>
+                                    </section>
+                                    <section class="card-section-top" style="width: 50%">
+                                        <div class="title card-section-title">
+                                            <h3>승인</h3><h3 class="card-text-top" id="txtAppr"></h3>
+                                        </div>
+                                    </section>
+                                    <section class="card-section-top" style="width: 50%">
+                                        <div class="title card-section-title">
+                                            <h3>반려</h3><h3 class="card-text-top" id="txtApprReject"></h3>
+                                        </div>
+                                    </section>
+                                </div>
+                            </div>
+                        </section>
+
+
+
+                        <section class="" style="margin-right: 0; border-radius:15px; height: 370px; padding-bottom: 0px">
+                            <div class="title-wrap">
+                                <h3>전체업무</h3>
+                            </div>
+                            <div class="content-wrap">
+                                <div class="h-300" id="total-grid" ></div>
+                            </div>
+                        </section>
+                        <section class="" style="margin-right: 0; border-radius:15px; height: 290px">
+                            <div class="title-wrap" style="margin-bottom: 0px">
+                                <h3>오늘 점검할 업무</h3>
+                            </div>
+                            <div class="content-wrap">
+                                <div class="h-220" id="today-grid" ></div>
+                            </div>
+                        </section>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</th:block>
+<th:block layout:fragment="scripts">
+    <script type="text/javascript" th:src="@{/resource/fullCalendar/c-main.min.js}"></script>
+    <script type="text/javascript" th:src="@{/resource/fullCalendar/ko.js}"></script>
+    <script type="text/javascript">
+        class PrecedenceDashPage {
+            constructor() {
+                this.grid = null;
+                this.grid2 = null;
+                this.grid3 = null;
+                this.calendar = null;
+                this.total_grid = null;
+                this.today_grid = null;
+
+                this.baseUrl = '/api/dashboard';
+                this.dicDataType = {'S':'작업시작 전', 'P':'제품','E':'작업종료 후'};
+
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+                this.viewData3 = new wijmo.collections.CollectionView();
+                this.viewData_total = new wijmo.collections.CollectionView();
+                this.viewData_today = new wijmo.collections.CollectionView();
+
+                this.init()
+            }
+
+            init() {
+                let _this  = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#ccpRoast', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'DataDate', header: '점검일', width: 110, align: 'left' },
+                        { binding: 'Judge', header: '판정(적합:O/부적합:X)', width: 100, align: 'center' },
+                        { binding: 'StartTime', header: '측정시간', width: 100, align: 'left' },
+                        { binding: 'DataType', header: '측정구분', width: 100, align: 'center'},
+                        { binding: 'equ_name', header: '설비명', width: 150, align: 'left' },
+                        { binding: 'MaterialName', header: '제품명', width: 150, align: 'left' },
+                        { binding: 'mat_code', header: '제품코드', width: 150, align: 'left' },
+                        { binding: 'item_18', header: '가열온도', width: 150, align: 'center' },
+                        { binding: 'item_28', header: '속도(RPM)', width: 150, align: 'center' },
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = 'CCP가열굽기현황';
+
+                this.grid2 = new wijmo.grid.FlexGrid('#ccpMbath', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'DataDate', header: '점검일', width: 110, align: 'left' },
+                        { binding: 'Judge', header: '판정(적합:O/부적합:X)', width: 100, align: 'center' },
+                        { binding: 'StartTime', header: '측정시간', width: 100, align: 'left' },
+                        { binding: 'DataType', header: '측정구분', width: 100, align: 'center'},
+                        { binding: 'equ_name', header: '설비명', width: 150, align: 'left' },
+                        { binding: 'MaterialName', header: '제품명', width: 150, align: 'left' },
+                        { binding: 'mat_code', header: '제품코드', width: 150, align: 'left' },
+                        { binding: 'item_18', header: '가열온도(°C)', width: 150, align: 'center' },
+                        { binding: 'item_19', header: '가열시간(초)', width: 150, align: 'center' },
+                        { binding: 'item_17', header: '품온(°C)', width: 150, align: 'center' },
+                    ],
+                    itemsSource: this.viewData2,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                });
+                new FlexGridContextMenu(this.grid2);
+                this.grid2.downloadFileName = 'CCP가열유탕현황';
+
+
+                this.grid3 = new wijmo.grid.FlexGrid('#ccpFmatter', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'DataDate', header: '점검일', width: 110, align: 'left' },
+                        { binding: 'Judge', header: '판정(적합:O/부적합:X)', width: 100, align: 'center' },
+                        { binding: 'StartTime', header: '측정시간', width: 100, align: 'left' },
+                        { binding: 'DataType', header: '측정구분', width: 100, align: 'center'},
+                        { binding: 'equ_name', header: '설비명', width: 150, align: 'left' },
+                        { binding: 'MaterialName', header: '제품명', width: 150, align: 'left' },
+                        { binding: 'mat_code', header: '제품코드', width: 150, align: 'left' },
+                        { binding: 'item_20', header: 'Fe(2.0mm)', width: 150, align: 'center' },
+                        { binding: 'item_21', header: 'STS(2.5mm)', width: 150, align: 'center' },
+                        { binding: 'item_22', header: '제품', width: 150, align: 'center' },
+                        { binding: 'item_23', header: 'Fe(2.5mm)+제품', width: 150, align: 'center' },
+                        { binding: 'item_24', header: 'STS(2.5mm)+제품', width: 150, align: 'center' },
+                    ],
+                    itemsSource: this.viewData3,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                });
+                new FlexGridContextMenu(this.grid3);
+                this.grid3.downloadFileName = '이물질검출CCP현황';
+
+                this.total_grid = new wijmo.grid.FlexGrid('#total-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'code_group_name', header: '구분', width: 200, align: 'left' },
+                        {
+                            binding: 'task_name',
+                            header: '업무명',
+                            width: 200,
+                            align: 'left',
+                            isReadOnly: true,
+                        },
+                        { binding: 'last_appr_date', header: '마지막 점검일', width: 200, align: 'center' },
+                        { binding: 'state_name', header: '결재상태', width: 200, align: 'center' },
+
+
+                    ],
+                    itemsSource: this.viewData_total,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                });
+                new FlexGridContextMenu(this.total_grid);
+                this.total_grid.downloadFileName = '전체업무';
+
+                this.today_grid = new wijmo.grid.FlexGrid('#today-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'code_group_name', header: '구분', width: 200, align: 'left' },
+                        { binding: 'task_name', header: '업무명', width: 200, align: 'left' },
+                        { binding: 'write_yn', header: '작성여부', width: 150, align: 'center' },
+                    ],
+                    itemsSource: this.viewData_today,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                });
+                new FlexGridContextMenu(this.today_grid);
+                this.today_grid.downloadFileName = '오늘업무';
+
+
+                this.calendar = $('#calendar').fullCalendar({
+                    header: {
+                        left: 'today',
+                        center: 'prevYear, prev, title, next, nextYear',
+                        right: 'month, listWeek'
+                        //right: 'month, listWeek, listDay'
+                    },
+                    views: {
+                        month: { eventLimit: 3 }, // 한 날짜에 최대 이벤트 3개, 나머지는 + 처리됨
+                        listWeek: { buttonText: '주' },
+                        listDay: { buttonText: '일' },
+                    },
+                    locale: 'ko',
+                    timezone: "local",
+                    timeFormat: 'HH:mm',
+                    allDaySlot: false,
+                    displayEventTime: true,
+                    displayEventEnd: true,
+                    dayMaxEvents: true,
+                    defaultTimedEventDuration: '00:30:00',
+                    defaultDate: moment(new Date()).format('YYYY-MM-DD'),
+                    editable: false,
+                    selectable: false,
+                    fixedWeekCount: false,
+                    minTime: '00:00:00',
+                    maxTime: '24:00:00',
+                    timeFormat: 'HH:mm',
+                    slotLabelFormat: 'HH:mm',
+                    eventLimitClick: 'week', //popover
+                    contentHeight: 670,
+                    eventRender: function (event, element, view) {
+                        return _this.eventRender(event, element, view);
+                    },
+                    //이벤트 클릭시 수정이벤트
+                    eventClick: function (event, jsEvent, view) {
+                    },
+                    eventAfterAllRender: function (view, a, b, c, d) {
+                    },
+                    //일정 리사이즈
+                    eventResize: function (event, delta, revertFunc, jsEvent, ui, view) {
+                    },
+                    eventDragStart: function (event, jsEvent, ui, view) {
+                    },
+                    //일정 드래그앤드롭
+                    eventDrop: function (event, delta, revertFunc, jsEvent, ui, view) {
+                    },
+                    dayClick: function (startDate, jsEvent, view) {
+                    },
+                    events: function (start, end, timezone, callback) {
+                        callback(_this.getBusinessData());
+                    },
+                });
+                this.loadHaccpProcessDetail();
+                this.showDiaryItemList();
+            }
+
+            goLink(menu_link) {
+                window.location.href = menu_link;
+                //parent.goLink(menu_link);
+            }
+
+            //이벤트 그리기
+            eventRender(event, element, view) {
+                //일정에 hover시 요약
+                $(element).attr('title', event.title);
+                $(element).css('height', '20px');
+                $(element).css('background-color', '#17a2b8');
+                $(element).css('color', '#fff');
+                $(element).css('font-size', '1.1em');
+            }
+
+            getBusinessData() {
+                let _this = this;
+                let moment = $('#calendar').fullCalendar('getDate');
+                let param = {
+                    year_month: moment.format('YYYY-MM'),
+                    data_year: moment.format('YYYY-MM').split('-')[0],
+                    data_month: moment.format('YYYY-MM').split('-')[1],
+                };
+
+                let calendarEvents = [];
+                let result = AjaxUtil.getSyncData(this.baseUrl + '/haccp_read', param);
+
+                /*console.log('result', result);*/
+
+                if (result != null) {
+                    let apprList = result.data.appr_list;
+                    let totaBbusiList = result.data.total_busi_list;
+                    let todayBusiList = result.data.today_busi_list;
+
+                    $('#txtApprReq').html(apprList.process_count);
+                    $('#txtAppr').html(apprList.approval_count);
+                    $('#txtApprReject').html(apprList.reject_count);
+
+                    /*console.log('total', totaBbusiList)*/
+                    _this.viewData_total.sourceCollection = totaBbusiList;
+                    _this.viewData_today.sourceCollection = todayBusiList;
+
+                    $.each(result.data.calendar_list, function (index, item) {
+                        calendarEvents.push({
+                            'id': index,
+                            'title': item.task_name,
+                            'start': item.data_date,
+                        });
+                    });
+                }
+
+                return calendarEvents;
+            }
+            // haccp공정별 데이터 가져옴
+            loadHaccpProcessDetail(){
+                let _this = this;
+                let param = {hp_id:this.hp_id};
+                let url = "/api/dashboard/detail_haccp_process";
+                let result = AjaxUtil.getSyncData(url, param);
+                if(result.success){
+                    let data = result.data;
+                    _this.ccpRoastGrid_items = result.data.getCcpRoastHead;
+                    _this.ccpMbathGrid_items = result.data.getccpMbathHead;
+                    _this.ccpFmatterGrid_items = result.data.getFmatterHead;
+                }
+                else{
+                    this.ccpRoastGrid_items = [];
+                }
+            }
+
+            showDiaryItemList() {
+                let _this = this;
+                let dic_haccp_test = {};
+                let itemsCcpRoast = [];
+                let itemsCcpMbath = [];
+                let itemsCcpFmatter = [];
+
+                var date = new Date();
+                var year = date.getFullYear();
+                var month = ("0" + (1 + date.getMonth())).slice(-2);
+                var day = ("0" + date.getDate()).slice(-2);
+                let strDate = year + "-" + month + "-" + day;
+
+                let param = {
+                    strDate: strDate
+                }
+
+                let result = AjaxUtil.getSyncData(this.baseUrl + '/getCppList', param);
+
+
+                // 굽기
+                if(result.data.getCcpRoastList != null){
+                    $.each(result.data.getCcpRoastList, function (idx, r) {
+                        //부모의 경우
+                        if (r.item_id == null) {
+                            itemsCcpRoast.push(r);
+                            dic_haccp_test[r.ht_id] = r
+                        }
+                        else {
+                            let item = dic_haccp_test[r.ht_id]
+                            let k = 'item_' + r.item_id;
+                            item[k] = r.NumResult;
+                        }
+                    });
+                }
+
+                // 유탕
+                if(result.data.getccpMbathList != null){
+                    $.each(result.data.getccpMbathList, function (idx, r) {
+                        //부모의 경우
+                        if (r.item_id == null) {
+                            itemsCcpMbath.push(r);
+                            dic_haccp_test[r.ht_id] = r
+                        }
+                        else {
+                            let item = dic_haccp_test[r.ht_id]
+                            let k = 'item_' + r.item_id;
+                            item[k] = r.NumResult;
+                        }
+                    });
+                }
+
+                // 이물검출
+                if(result.data.getccpFmatterList != null){
+                    $.each(result.data.getccpFmatterList, function (idx, r) {
+                        //부모의 경우
+                        if (r.item_id == null) {
+                            itemsCcpFmatter.push(r);
+                            dic_haccp_test[r.ht_id] = r
+                        }
+                        else {
+                            let item = dic_haccp_test[r.ht_id]
+                            let k = 'item_' + r.item_id;
+                            item[k] = r.NumResult;
+                        }
+                    });
+                }else{
+
+                }
+
+                _this.haccp_test_items = itemsCcpRoast
+
+                _this.viewData.sourceCollection = itemsCcpRoast;
+                _this.viewData2.sourceCollection = itemsCcpMbath;
+                _this.viewData3.sourceCollection = itemsCcpFmatter;
+
+            }
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new PrecedenceDashPage();
+        });
+    </script>
+</th:block>
+</html>

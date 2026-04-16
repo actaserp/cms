@@ -1,0 +1,423 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+<div class="content_wrap">
+
+    <section class="section">
+        <div class="title_box ">
+            <div class="left_align">
+                <h3 data-labelCd="설비변동사항">설비이력카드</h3>
+            </div>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>
+        </div>
+        최신기능 반영하기
+        <div class="table_box search">
+            <form id="searchForm" autocomplete="off">
+                 <div class="row">
+
+                    <div class="col-8 col-lg-5 col-xl-4">
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_sm" data-labelCd="생성일">생성일</span>
+                            </div> 
+                            <div data-ax5picker="multi" id="srchDt">
+                                <div class="input-group-append">
+                                <input class="tac " type="text" id="srchStartDt" name="srchStartDt" />
+                                    <span class="input-group-text fs-xl">
+                                        <i class="fas fa-calendar-alt calendar_color" ></i>
+                                    </span>
+                                <span class="slow_sign">~</span>
+                                <input class="tac " type="text" id="srchEndDt" name="srchEndDt" />
+                                    <span class="input-group-text fs-xl">
+                                        <i class="fas fa-calendar-alt calendar_color"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-1">
+                        <button type="button" class="btn-default" id="btnSearch" title="조회"><i class="fas fa-search"></i></button>
+                    </div>
+
+                 </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="grid_box">
+            <div class="title_box">
+                <span class="right_align rpt" data-labelCd="설비변동목록">설비변동목록</span>
+                <button type="button" class="btn-default y_write_auth" id="btnAdd" style="float:none"><span data-labelCd="등록">등록</span></button>
+                <button type="button" class="btn-default y_write_auth" id="btnInsert" style="float:none"><span data-labelCd="수정">수정</span></button>
+                <button type="button" class="btn-cancel y_write_auth" id="btnDelete" name="btnDelLot" style="float:none"><span data-labelCd="삭제">삭제</span></button>
+            </div>
+
+            <div class="grid_box">
+                    <div class="h-350" data-ax5grid="equip-grid"></div>
+            </div>
+        </div>
+    </section>
+</div>
+<script type="text/x-tmpl" id="addEquipPopup">
+<div class="content_wrap popup">
+    <section class="section popupcontent">        
+        <div class="table_box sub">
+            <form id="checkEquipFormPopup">
+                <input type="hidden" id="id" name="id" value="{%=o.id%}"/>
+                <div class ="row">
+
+                    <div class="col-6">
+                        <div class="input-group" data-ax5picker="basic" id="srchDt_pop">
+                            <div class="input-group-prepend">
+                                 <span class="input-group-text fit_box_sm" data-labelCd="일자">일자</span>
+                                <input class="tac " type="text" id="datadate" name="datadate" value="{%=o.datadate%}"/>
+                                    <span class="input-group-text fs-xl">
+                                        <i class="fas fa-calendar-alt calendar_color" ></i>
+                                    </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="설비">설비</span>
+                            </div>
+                            <select class="form-control2" type= "text" id="equ_id" name="equ_id" value="{%=o.equ_id%}"></select>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5" data-labelCd="주요내용">주요내용</span>
+                            </div>
+                            <input class="form-control2 tal" type="text" id="content" name="content" value="{%=o.content%}"/>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5" data-labelCd="금액(천원)">금액(천원)</span>
+                            </div>
+                                <input class="form-control2 tal" type="number" id="cost" name="cost" value="{%=o.cost%}"/>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5_area" data-labelCd="특이사항">특이사항</span>
+                            </div>
+                                <textarea class="form-control2 tal" type="text" id="description" name="description" >{%=o.description%}</textarea>
+                        </div>
+                    </div>
+                 </div>   
+            </form>
+            
+        </div>
+        
+    </section>
+    <section>
+        <div class="align_left popup_button_group bottom">
+            <button type="button" class="btn-popup y_write_auth" id="btnSave" ><span data-labelCd="저장">저장</span></button>
+            <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    
+    </section>
+</div>
+</script>
+</div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+<script type="text/javascript">
+
+
+    class EquipPage {
+        constructor() {
+            this.grid = null;
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="equip-grid"]'),
+                sortable: true,
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 38  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 28, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.grid.select(this.dindex);         // 그리드 선택된 것 파란색으로 보여짐
+                        //_this.showDetail(e.item.id);
+                        //_this.setButtonState(e.item.id);
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'datadate', label: '일자', width: 120, align: 'center' },
+                    { key: 'equipment_name', label: '설비명', width: 130, align: 'left' },
+                    { key: 'content', label: '주요내용', width: 130, align: 'left' },
+                    { key: 'cost', label: '금액(천원)', width: 100, align: 'left', formatter:'money' },
+                    { key: 'description', label: '특이사항', width: 235, align: 'left' },
+                ],
+
+            };
+
+            this.grid = new ax5.ui.grid(config);
+            this.equip_grid = config;
+
+            // 달력 ok 버튼 지우기
+            picker.bind({
+                target: $('[data-ax5picker="multi"]'),
+                direction: "top",
+                locale: {
+                    format: 'YYYY-MM-DD'
+                },
+                content: {
+                    width: 214,  // 130, //270,
+                    margin: 10,
+                    type: 'date',
+
+                    config: {
+                        control: {
+                            left: '<i class="fa fa-arrow-left"></i>',   //fa-chevron-left
+                            yearTmpl: '%s',
+                            monthTmpl: '%s',
+                            right: '<i class="fa fa-arrow-right"></i>'
+                        },
+                        lang: {
+                            yearTmpl: "%s년",
+                            months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                            dayTmpl: "%s"
+                        }
+                    }
+                },
+                btns: {
+
+                }
+            });
+
+            picker.bind({
+                target: $('[data-ax5picker="multi1"]'),
+                direction: "top",
+                locale: {
+                    format: 'YYYY-MM-DD'
+                },
+                content: {
+                    width: 214,  // 130, //270,
+                    margin: 10,
+                    type: 'date',
+
+                    config: {
+                        control: {
+                            left: '<i class="fa fa-arrow-left"></i>',   //fa-chevron-left
+                            yearTmpl: '%s',
+                            monthTmpl: '%s',
+                            right: '<i class="fa fa-arrow-right"></i>'
+                        },
+                        lang: {
+                            yearTmpl: "%s년",
+                            months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                            dayTmpl: "%s"
+                        }
+                    }
+                },
+                btns: {
+
+                }
+            });
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-14));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+        }
+
+        // 설비 변동목록 조회
+        searchMainData() {
+            let _this = this;
+            let param = FormUtil.extractForm($('#searchForm'));
+            let url = '/api/precedence/equip_history/read';
+
+            let result = AjaxUtil.getSyncData(url, param);
+            _this.grid.setData([]);
+            if (result != null) {
+                let recordsTotal = result.data.length;
+                _this.grid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            }
+        }
+
+        // 설비 삭제
+        deleteEquip(id) {
+            let _this = this;
+            let url = '/api/precedence/equip_history/delete';
+            let data = { id: id };
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Notify.success('삭제되었습니다'); // Notification
+                    _this.searchMainData();
+                } else {
+                    Alert.alert('', res.message);
+                }
+            };
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        // 모달
+        PopupEquip(data) {
+            let _this = this;
+            let content = tmpl('addEquipPopup', data);
+            let $content = $(content);
+            let modalContainer;
+
+            if (data.equipment_name == '') {
+                modalContainer = new PopupDraggable('설비변동사항 등록');
+                modalContainer.open({ width: 400, height: 300, $content });
+                AjaxUtil.fillSelectOptions($('#equ_id'), 'equipment', 'choose', false, '');
+                $content.find('#datadate').val(CommonUtil.getYYYYMMDD());
+            }
+            else {
+                modalContainer = new PopupDraggable('설비변동사항 수정');
+                modalContainer.open({ width: 400, height: 300, $content });
+                AjaxUtil.fillSelectOptions($content.find('#checkEquipFormPopup').find('#equ_id'), 'equipment', 'choose', data.equ_id, '');
+               
+            }
+            
+
+            
+            $content.find('#datadate').ax5DatePicker({ direction: 'top' }); 
+
+            $content.find('#btnSave').click(function (e) {
+                _this.saveData($content, modalContainer.modal)
+            });
+
+        }
+
+        // 설비 변동사항 저장
+        saveData(form, modal) {
+            let _this = this;
+            let insertUrl = '/api/precedence/equip_history/save';
+            let data = FormUtil.extractForm($('#checkEquipFormPopup'));
+
+            // 필수입력 check
+            if (!data.equ_id) {
+                Alert.alert('', '설비종류를 선택해주세요.');
+                return false;
+            } else if (!data.cost) {
+                Alert.alert('', '금액을 입력해주세요.');
+            }
+
+
+            let result = AjaxUtil.postSyncData(insertUrl, data);
+            if (result != null) {
+                if (result.success) {
+                    Notify.success('저장되었습니다.');
+                    _this.searchMainData();
+                    modal.close();
+                }
+
+            }
+
+        }
+
+    }
+
+    let page = null;
+    let modalContainer = null;
+
+    $(document).ready(function (e) {
+        page = new EquipPage();
+
+        //그리드 컬럼 설정
+        page.popColSetting = new popColSetting();
+        let columns = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'grid', page.grid);
+
+        if (userinfo.group_code == 'admin') {
+            $('#btnGridSetting').css('visibility', 'visible');
+        }
+
+        $('#btnGridSetting').click(function (e) {
+            let _this = this;
+            let fix_cols = page.grid_config.frozenColumnIndex;
+            page.popColSetting.show(gui.gui_code, gui.template_key, 'grid', page.grid_config.columns, page.grid, { 'order_fix': false, 'fix_cols': fix_cols });
+        });
+
+
+        page.searchMainData();
+
+        // 조회 버튼 클릭 시
+        $('#btnSearch').click(function (e) {
+            page.searchMainData();
+        });
+
+        // 등록 버튼 클릭 시
+        $('#btnAdd').click(function (e) {
+            let today_string = CommonUtil.getYYYYMMDD();
+            let data = {
+                'srchStartPopup': today_string,
+                'equipment_name': '',
+                'equip_content': '',
+                'equip_cost': '',
+                'equip_description': '',
+            }
+
+            page.PopupEquip(data);
+        });
+
+        // 수정 버튼 클릭 시
+        $('#btnInsert').click(function (e) {
+            let items = page.grid.getList("selected");
+
+            if (items.length > 0) {
+                let id = items[0].id;
+                let url = '/api/precedence/equip_history/detail';
+                data = AjaxUtil.getSyncData(url, { id: id });
+                page.PopupEquip(data.data);
+            } else {
+                Alert.alert('', '수정할 문서를 선택해 주세요.')
+            }
+        });
+
+        // 삭제 버튼 클릭 시
+        $('#btnDelete').click(function (e) {
+            let items = page.grid.getList("selected");
+            if (items.length > 0) {
+                Alert.confirm('', "삭제하시겠습니까?",
+                    function () {
+                        let id = items[0].id;
+                        page.deleteEquip(id);
+                    },
+                    function () { }
+                );
+            } else {
+                Alert.alert('', '삭제할 문서를 선택해 주세요.');
+            }
+        });
+
+    });
+    
+</script>
+</th:block>
+</html>

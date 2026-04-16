@@ -1,0 +1,289 @@
+<th:block th:fragment="matLotSearchTemplate">
+<script type="text/x-tmpl" id="matLotSearchTemplate">
+<div class="content_wrap popup">
+        <!--<header>
+            <h4 id="popTitle">품목 선택</h4>
+            <div class="popup_close_box"><button class="btn_popup_close" id="material-search-close"><i class="fas fa-times"></i></button></div>
+        </header>-->
+
+    <section class="section" style="padding-top: 10px;">
+
+        <div class="section-top">
+            <div class="search-wrap" style="text-align: left;">
+                    <input type="hidden" id="jr_pk" name="jr_pk" />
+                    <dl>
+                    <dt>
+                        <label for="cboMaterialType">
+                            품목구분<span class="eq"></span>
+                        </label>
+                    </dt>
+                    <dd>
+                        <div class="srch-box">
+                            <select id="cboMaterialType" name="cboMaterialType">
+
+                            </select>
+                        </div>
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                        <label for="cboMaterialGrp">
+                            품목그룹<span class="eq"></span>
+                        </label>
+                    </dt>
+                    <dd>
+                        <div class="srch-box">
+                            <select id="cboMaterialGrp" name="cboMaterialGrp">
+
+                            </select>
+                        </div>
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                        <label for="keyword">
+                            품목명<span class="eq"></span>
+                        </label>
+                    </dt>
+                    <dd>
+                        <div class="srch-box">
+                            <input class="form-control2" type="text" id="keyword" name="keyword" />
+                        </div>
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>
+                        <label for="chkBomComp">
+
+                        </label>
+                    </dt>
+                    <dd>
+                        <div class="srch-box">
+
+                            <input class="form-control2" type="checkbox" id="chkBomComp" name="chkBomComp" checked value="Y" />
+                            BOM 구성
+                        </div>
+                    </dd>
+                </dl>
+                <dl>
+                    <dt>&nbsp;</dt>
+                    <dd>
+                        <li>
+                            <a class="btn btn-delete" title="검색" id="btnMaterialSearch">
+                                <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                검색
+                            </a>
+                        </li>
+                    </dd>
+                </dl>
+        </div>
+
+            <div id="material-search-grid" style="height: 200px;"></div>
+            <div>&nbsp;</div>
+            <div id="lot-grid" style="height: 200px;"></div>
+
+    </section>
+
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="btnLotMultiSelect" ><span data-commonCd="다중 선택(일괄 투입)">다중 선택(일괄 투입)</span></button>
+            <button type="button" class="btn-popup" id="btnLotSelect" ><span data-commonCd="단일 선택">단일 선택</span></button>
+            <button type="button" class="btn-popup" id="btnClose"><span data-commonCd="닫기">닫기</span></button>
+        </div>
+
+
+</div>
+</script>
+
+
+<script type="text/javascript">
+
+    class PopupConsumMatLotPage {
+        constructor() {
+            this.jr_pk = null;
+            this.grid = null;
+            this.selectedItem = null;
+            this.callback = null;
+            this.modalContainer = new PopupDraggable('투입할 로트 선택');
+            this.$btnMaterialSearch = null;
+            this.$cboMaterialGroup = null;
+            this.$btnLotSelect = null;
+            this.$btnLotMultiSelect = null;
+            this.$keyword = null;
+            //this.material_type = null;
+            
+        }
+
+        searchDataBind() {
+            let _this = this;
+            let url = '/api/popup/pop_prod_input';
+            let data = {
+                'action': 'mat_list',
+                'mat_type': _this.$cboMaterialType.val(),
+                'mat_grp_id': _this.$cboMaterialGrp.val(),
+                'keyword': _this.$keyword.val(),
+                'jr_pk': _this.jr_pk,
+                'bom_comp_yn': _this.$chkBomComp.is(':checked') ? 'Y': '',
+            };
+            let result = AjaxUtil.getSyncData(url + '/mat_list', data);
+            if (result.data != null) {
+                _this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+            }
+
+            //검색버튼을 누르고 초기화한다
+            //this.selectedItem = null;
+        }
+
+        searchMatLot(mat_pk) {
+            let _this = this;
+            let url = '/api/popup/pop_prod_input';
+            let param = {
+                'action':'mat_lot_list',
+                'mat_pk': mat_pk,
+                'jr_pk': $('#jr_pk').val(),
+            };
+            let result = AjaxUtil.getSyncData(url + '/mat_lot_list', param);
+            if (result != null) {
+                _this.lot_grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+            }
+
+            //검색버튼을 누르고 초기화한다
+            this.selectedItem = null;
+        }
+
+        selectData(item) {
+            if (typeof this.callback !== 'undefined' && this.callback!=null) {
+                this.callback(item);
+            } 
+            this.close();
+        }
+
+        show(jr_pk, callback) {
+            let _this = this;
+
+            this.callback = callback;
+
+            let content = tmpl('matLotSearchTemplate', {});
+            let $content = $(content);
+            this.modalContainer.open({ width: 1000, height: 620, $content });
+            this.jr_pk = jr_pk; 
+            $content.find('#jr_pk').val(jr_pk);
+            // Material Grid 설정
+            this.grid = new wijmo.grid.FlexGrid('#material-search-grid', {
+                autoGenerateColumns: false,
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                isReadOnly: true,
+                columns: [
+                    { binding: 'id', header: '품목번호', width: 80, align: 'right', isReadOnly: true },
+                    { binding: 'mat_type_name', header: '품목구분', width: 120, align: 'left', isReadOnly: true },
+                    { binding: 'mat_grp_name', header: '품목그룹', width: 120, align: 'left', isReadOnly: true },
+                    { binding: 'mat_code', header: '품목코드', width: 150, align: 'center', isReadOnly: true },
+                    { binding: 'mat_name', header: '품목명', width: 250, align: 'left', isReadOnly: true },
+                ],
+                itemsSource: new wijmo.collections.CollectionView([]),
+                selectionChanged: (e) => {
+                    const selectedItem = _this.grid.selectedItems[0];
+                    if (selectedItem) {
+                        _this.searchMatLot(selectedItem.id);
+                    }
+                },
+            });
+
+
+            // Lot Grid 설정
+            this.lot_grid = new wijmo.grid.FlexGrid('#lot-grid', {
+                autoGenerateColumns: false,
+                selectionMode: wijmo.grid.SelectionMode.ListBox, // 다중 선택 가능
+                headersVisibility: wijmo.grid.HeadersVisibility.All,
+                isReadOnly: true,
+                columns: [
+                    { binding: 'lot_use', header: '투입여부', width: 80, align: 'center' },
+                    { binding: 'id', header: '번호', width: 70, align: 'left' },
+                    { binding: 'mat_name', header: '품목명', width: 100, align: 'left' },
+                    { binding: 'lot_number', header: '로트번호', width: 150, align: 'left' },
+                    { binding: 'storehouse_name', header: '창고', width: 150, align: 'left' },
+                    { binding: 'cur_stock', header: '재고량', width: 80, align: 'right', format: 'n0' },
+                    { binding: 'first_qty', header: '등록량', width: 80, align: 'right', format: 'n0' },
+                    { binding: 'effective_date', header: '유효일', width: 100, align: 'left' },
+                    { binding: 'create_date', header: '등록일', width: 100, align: 'left' },
+                ],
+                itemsSource: new wijmo.collections.CollectionView([]),
+            });
+
+            let selector = new wijmo.grid.selector.Selector(this.lot_grid, {
+                itemChecked: function () {
+
+                }
+            })
+
+            this.$btnMaterialSearch = $content.find('#btnMaterialSearch');
+            this.$cboMaterialType = $content.find('#cboMaterialType');
+            this.$cboMaterialGrp = $content.find('#cboMaterialGrp');
+            this.$keyword = $content.find('#keyword');
+            this.$chkBomComp = $content.find('#chkBomComp');
+            this.$btnLotSelect = $content.find('#btnLotSelect');
+            this.$btnLotMultiSelect = $content.find('#btnLotMultiSelect');
+            
+            AjaxUtil.fillSelectOptions(this.$cboMaterialType, 'consu_mat_type', 'all', false);
+            //AjaxUtil.fillSelectOptions(this.$cboMaterialGrp, 'material_group', 'all', false, 'semi', 'raw_mat', 'sub_mat');
+            AjaxUtil.fillSelectOptions(this.$cboMaterialGrp, 'material_group', 'all', false, 'semi,raw_mat,sub_mat');
+
+            //if (this.material_type != null) {
+            //    console.log('popup mat type1', this.material_type);
+            //    this.$cboMaterialType.val(this.material_type);
+            //}
+            //console.log('popup mat type2', this.material_type);
+            //this.$cboMaterialType.val('product');
+
+            $content.find('#cboMaterialType').change(function (e) {
+                if ($content.find('#cboMaterialType').val()) {
+                    AjaxUtil.fillSelectOptions(_this.$cboMaterialGrp, 'material_group', 'all', false, $content.find('#cboMaterialType').val());
+                } else {
+                    AjaxUtil.fillSelectOptions(_this.$cboMaterialGrp, 'material_group', 'all', false, 'semi,raw_mat,sub_mat');
+                }
+            });
+
+            this.$btnMaterialSearch.click(function (e) {
+                _this.searchDataBind();
+            });
+
+            this.$btnLotSelect.click(function (e) {
+                // 그리드에서 현재 선택된 item을 찾아서 호출한다.
+                let selectedItems = _this.lot_grid.selectedItems;
+                if (selectedItems.length === 0) {
+                    return false;
+                }
+
+                if (selectedItems.length > 1) {
+					Alert.alert('로트 투입','하나의 로트만 선택해주세요.')
+					return false;
+				}
+                _this.selectData(selectedItems);
+            });
+
+            this.$btnLotMultiSelect.click(function (e) {
+                // 그리드에서 현재 선택된 item을 찾아서 호출한다.
+                let selectedItems = _this.lot_grid.selectedItems;
+                if (selectedItems.length === 0) {
+                    return false;
+                }
+                
+                _this.selectData(selectedItems);
+                //_this.selectedItem = items[0];
+            });
+            
+            //닫기버튼을 아래 ID로 사용한다면 호출하는 화면에서 이벤트 처리 필요없음
+            $content.find('#btnClose').on('click', function () {
+                _this.close();
+            });
+
+            _this.searchDataBind();
+        }
+
+        close() {
+            this.modalContainer.close();
+        }
+    }
+</script>

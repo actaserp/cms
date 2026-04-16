@@ -1,0 +1,931 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+    <style>
+        .input-group > .input-group-prepend > .fit_box_t5_area {
+            width: 200px;
+        }
+
+        table.type01 {
+            border-collapse: collapse;
+            text-align: left;
+            line-height: 1.5;
+            margin: 20px 10px;
+        }
+
+        table.type01 th {
+            width: 150px;
+            padding: 10px;
+            font-weight: bold;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        table.type01 td {
+            text-align: left;
+            width: 650px;
+            padding: 10px;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>포면오염도 검사성적서
+
+                </h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>선행요건 일지</li>
+                <li>포면오염도 검사성적서</li>
+            </ul>
+        </div>
+        <input type="hidden" id="bhId" th:value="${bh_id}"/>
+        <input type="hidden" id="data_date" th:value="${data_date}"/>
+        <input type="hidden" id="search_cond" th:value="${searchcond}"/>
+        <input type="hidden" id="viewMode" th:value="${view_mode}"/>
+
+        <section class="section">
+            <div class="section-card-wrap">
+                <div class="col-5">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">일지명</label>
+                            </th>
+                            <td>
+                                <input type="text" id="title" name="title" value="" readonly/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="dataDate">일자</label>
+                            </th>
+                            <td>
+                                <input type="date" id="dataDate" name="dataDate" disabled/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="firstName">작성자</label>
+                            </th>
+                            <td>
+                                <input type="text" id="firstName" name="firstName" disabled/>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-6 col-lg-6 col-xl-6">
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+
+            <div class="title_box">
+                <div class="left_align">
+                    <label class="switch">
+                        <input type="checkbox" checked id="btnToggle"><span class="slider round"></span>
+                    </label>
+                    관리기준 보기/감추기
+                </div>
+            </div>
+
+            <div id="standardDIv">
+                <div class="row">
+                    <div class="col-12">
+                        <table class="type01">
+                            <tr>
+                                <th scope="row">검사 방법</th>
+                                <td colspan=3>작업대, 포장대, 충진대 등 작업장 내 사용 중인 작업도구 및 공정 설비 들을 Swab contact method를 이용하여
+                                    측정한다.
+                                    황색포도상구균 : 항목별로 적당한 면적을 면봉 및 거즈에 멸균식염 묻혀 표면을 닦아 일반 배지 또는 페트리필름에 배양시킨다.
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">항목</th>
+                                <td>일반세균</td>
+                                <td>대장균군</td>
+                                <td> 항색포도상구균</td>
+
+                            </tr>
+                            <tr>
+                                <th scope="row">기준 규격</th>
+                                <td>10³ cfu/10㎠이하</td>
+                                <td>음성</td>
+                                <td>음성</td>
+
+                            </tr>
+                            <tr>
+                                <th scope="row">검사주기</th>
+                                <td>1회/1개월</td>
+                                <td>기록관리</td>
+                                <td>표면오염도 검사성적서</td>
+
+                            </tr>
+                            <tr>
+                                <th scope="row">배양조건</th>
+                                <td colspan=2>▣ 일반세균 : 35±1℃, 48±2시간<br>
+                                    ▣ 대장균군 : 35±1℃, 24±2시간<br>
+                                    ▣ 대장균 : 35±1℃, 24~48시간<br>
+                                    ▣ 황색포도상구균 : 35~37℃, 48±3시간
+                                </td>
+                                <td>▣ 일반세균 : ℃, 0월 0일 0시 ~ 0월 0일 0시<br>
+                                    ▣ 대장균군 : 1℃, 0월 0일 0시 ~ 0월 0일 0시<br>
+                                    ▣ 대장균 : ℃, 0월 0일 0시 ~ 0월 0일 0시<br>
+                                    ▣ 황색포도상구균 : ℃, 0월 0일 0시 ~ 0월 0일 0시
+                                </td>
+
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-top" id="prodListGrid">
+                <div class="search-wrap">
+                    <h3>점검 목록</h3>
+                </div>
+                <div class="button-wrap">
+                    <button type="button" class="btn" id="btnDiaryPrint">일지출력</button>
+                    <button type="button" class="btn" id="btnAllItem">전체적합</button>
+                    <button type="button" class="btn" id="btnReqAppr">결재상신</button>
+                    <button type="button" class="btn" id="btnAppr" style="display:none;">승인</button>
+                    <button type="button" class="btn" id="btnReject" style="display:none;">반려</button>
+                    <button type="button" class="btn" id="btnSave">저장</button>
+                    <!--                    <button type="button" class="btn" id="btnDelete">삭제</button>-->
+                    <button type="button" class="btn" id="btnList">목록</button>
+                    <button type="button" class="btn" id="btnNew" name="btnNew"><i class="fas fa-plus"></i></button>
+                </div>
+            </div>
+            <div class="section-top">
+                <div class="search-wrap" style="justify-content: flex-start; align-items: flex-end;">
+                    <dl>
+                        <dt>
+                            <label for="location">
+                                구역명
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input class="form-control2 tac" type="text" id="location" name="location"
+                                       placeholder="직접입력해주세요"/>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            <label for="pickupDate1">
+                                채취일자
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="date" class="form-control2 tac" id="pickupDate1" name="pickupDate1"/>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            <label for="mast">
+                                검사마스터
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input class="form-control2 tac" type="text" id="mast" name="mast" value="포면오염도 검사성적서"/>
+                            </div>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            <div class="container-fluid" id="complainList">
+                <div id="check_item_result_grid" style="height: 300px;"></div>
+            </div>
+        </section>
+
+        <section>
+            <div class="grid_box" id="sub_grid">
+                <div class="title_box" id="button_box2">
+                    <div class="left_align">
+                        <button type="button" class="btn" id="btnDeviActionSave" style="display:none">저장
+                        </button>
+                    </div>
+                </div>
+                <div id="devi_action_grid" style="height: 300px;"></div>
+            </div>
+        </section>
+
+
+        <section>
+            <div class="table_box sub" id="detailBox">
+                <div class="row">
+                    <div class="col-12">
+                        <table>
+                            <tr>
+                                <th scope="row">종합판정</th>
+                                <td style="text-align: left">
+                                    <select class="form-control2 " id="judgment" name="judgment" disabled>
+                                        <option value="적합">적합</option>
+                                        <option value="부적합">부적합</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+    <script type="text/javascript">
+        class CheckResultDiaryPage {
+            constructor() {
+                this.grid = null;
+                this.uploader = null;
+                this.approveBoxUtil = null;
+                this.type = 1;
+                this.List = [];
+                this.resultGrid = null;
+                this.checkMasterName = '표면오염도 검사성적서'
+                this.baseUrl = '/api/precedence/surface_bacerial';
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                this.gparam = {
+                    bh_id: $('#bhId').val(),
+                    data_date: $('#data_date').val(),
+                    search_cond: $('#search_cond').val(),
+                    view_mode: $('#viewMode').val(),
+                };
+
+                $('#firstName').val(userinfo.username);
+                $('#title').val('표면오염도 검사성적서');
+                $("#dataDate").val($('#data_date').val());
+                $("mast").val('표면오염도 검사성적서');
+                $("#pickupDate").val(data_date);
+
+                let resultData = new wijmo.collections.CollectionView([]);
+                let deviData = new wijmo.collections.CollectionView([]);
+
+                // 점검결과 그리드 (resultGrid)
+                this.resultGrid = new wijmo.grid.FlexGrid('#check_item_result_grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    autoGenerateColumns: false,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    isReadOnly: false,
+                    itemsSource: resultData,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
+                            && s.columns[e.col].binding === 'Char2') {
+                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                        }
+                    },
+                    columns: [
+                        { binding: 'CharResult', header: '위치', width: 130, align: 'left' },
+                        { binding: 'Name', header: '검사항목', width: 160, align: 'right' },
+                        { binding: 'SpecText', header: '검사기준', width: 300, align: 'center' },
+                        {
+                            binding: 'Char1',
+                            header: '검사결과',
+                            width: 300,
+                            align: 'left',
+                            isReadOnly: false
+                        },
+                        {
+                            binding: 'Char2',
+                            header: '점검결과(입력)',
+                            width: 150,
+                            align: 'center',
+                            isReadOnly: false
+                        }
+                    ]
+                });
+
+                // 값 변경 감지 후 `makeSpecText()` 호출
+                resultData.collectionChanged.addHandler((sender, e) => {
+                    if (e.action === wijmo.collections.NotifyCollectionChangedAction.Change) {
+                        let changedItem = e.item;
+                        let rowIndex = resultData.items.indexOf(changedItem);
+
+                        if (changedItem.spec_type !== undefined) {
+                            _this.resultGrid.setCellData(rowIndex, 'low_spec', '');
+                            _this.resultGrid.setCellData(rowIndex, 'upper_spec', '');
+                            _this.resultGrid.setCellData(rowIndex, 'spec_text', '');
+                            _this.resultGrid.setCellData(rowIndex, 'eng_spec_text', '');
+                        }
+
+                        if (changedItem.Char1 !== undefined) {
+                            _this.makeSpecText({ item: changedItem });
+                        }
+
+                        if (changedItem.Char2 !== undefined) {
+                            let judgment = "적합";
+                            for (let i = 0; i < resultData.items.length; i++) {
+                                if (resultData.items[i].Char2 !== "O") {
+                                    judgment = "부적합";
+                                    break;
+                                }
+                            }
+                            $("#judgment").val(judgment);
+                        }
+                    }
+                });
+
+                // 조치내역 그리드 (deviGrid)
+                this.deviGrid = new wijmo.grid.FlexGrid('#devi_action_grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    autoGenerateColumns: false,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    isReadOnly: false,
+                    itemsSource: deviData,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
+                            && s.columns[e.col].binding === 'action_detail') {
+                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                        }
+                    },
+                    columns: [
+                        { binding: 'check_result_id', header: '번호', width: 80, align: 'right', visible: false },
+                        { binding: 'src_data_pk', header: '점검항목결과번호', width: 80, align: 'right', visible: false },
+                        { binding: 'confirm_detail', header: '발생구역', width: 150, align: 'center' },
+                        { binding: 'check_name', header: '검사항목', width: 100, align: 'left' },
+                        { binding: 'abnormal_detail', header: '이상발생내역', width: 200, align: 'left' },
+                        {
+                            binding: 'action_detail',
+                            header: '조치내역및결과',
+                            width: 300,
+                            align: 'left',
+                            isReadOnly: false
+                        },
+                        { binding: 'actor_name', header: '조치자', width: 80, align: 'left' },
+                        { binding: 'creater_name', header: '작성자', width: 80, align: 'left' },
+                        { binding: 'confirm_state', header: '확인', width: 80, align: 'left', visible: false }
+                    ]
+                });
+
+                // ✅ 조치내역에서 특정 셀 클릭 시 팝업 호출
+                this.deviGrid.cellEditEnded.addHandler((s, e) => {
+                    let col = s.columns[e.col];
+                    let item = s.rows[e.row].dataItem;
+
+                    if (col.binding === 'action_detail' && !$('#viewMode').val()) {
+                        _this.showDeviActionCodeSavePopup(item);
+                    }
+                });
+
+                _this.deviTabType = this.deviGrid;
+
+            }
+
+
+            makeSpecText(row) {
+                let _this = this;
+                let specText = '';
+                let specType = row.item.SpecType;
+                let result = '';
+
+                if (specType == 'low') {
+                    if (row.item.Char1) {
+                        specText = row.item.LowSpec;
+                        if (specText <= row.item.Char1) {
+                            result = "O";
+                        } else {
+                            result = "X";
+                        }
+                    } else {
+                        result = "";
+                    }
+                } else if (specType == 'upper') {
+                    if (row.item.Char1) {
+                        specText = row.item.UpperSpec;
+                        if (specText >= row.item.Char1) {
+                            result = "O";
+                        } else {
+                            result = "X";
+                        }
+                    } else {
+                        result = "";
+                    }
+                } else if (specType == 'range') {
+                    if (row.item.Char1) {
+                        specText = row.item.Char1;
+                        if (row.item.LowSpec <= specText && specText <= row.item.UpperSpec) {
+                            result = "O";
+                        } else {
+                            result = "X";
+                        }
+                    } else {
+                        result = "";
+                    }
+                }
+                let rowIndex = this.resultGrid.itemsSource.indexOf(row.item);
+                if (rowIndex > -1) {
+                    this.resultGrid.setCellData(rowIndex, 'Char2', result);
+                }
+            }
+
+
+            setResultTypeConfig(editorType) {
+                let config = {};
+                if (editorType === 'select') {
+                    config = {
+                        columnKeys: {
+                            optionValue: "val",
+                            optionText: "text"
+                        },
+                        options: [
+                            {val: "", text: ""},
+                            {val: "O", text: "O:적합"},
+                            {val: "X", text: "X:부적합"}
+                        ]
+                    };
+                }
+                return config;
+            }
+
+            checkAllItem() {
+                let _this = this;
+                this.resultGrid.collectionView.items.forEach(item => {
+                    if (item.result_type === 'OX')
+                        item.result1 = 'O';
+                });
+                _this.resultGrid.collectionView.refresh();
+            }
+
+            // 일지 조회
+            searchMainData() {
+
+                if ($("#bhId").val() === 0) {
+                    return;
+                }
+
+                let _this = this;
+                $('#btnDiaryPrint').hide();
+                $('#btnDelete').hide();
+
+                $('#firstName').val(userinfo.username);
+                $('#title').val('포면오염도 검사성적서');
+
+                let param = {
+                    //'action': 'read',
+                    'bhId': $('#bhId').val(),
+                    'data_date': $("#data_date").val()
+                };
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/ListRead', param);
+
+
+                if (result != null) {
+                    _this.headInfo = result.data.head_info;
+                    _this.diaryInfo = result.data.diary_info;
+                    _this.action_info = result.data.action_info;
+
+                    $("#pickupDate1").val(_this.diaryInfo[0].testdatetime);
+                    $("#dataDate").val(_this.diaryInfo[0].date1);
+                    $("#location").val(_this.diaryInfo[0].CharResult);
+
+                    _this.resultGrid.itemsSource.sourceCollection = _this.diaryInfo;
+                    _this.deviGrid.itemsSource.sourceCollection = _this.action_info
+
+
+                    _this.viewModeSetting(_this.headInfo)
+                }
+
+                // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+                _this.approveBoxUtil = new ApproveBoxUtil(0, _this.checkMasterName, $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+            }
+
+            searchItemList() {
+                let _this = this;
+
+                let param = {
+                    //'action': 'read',
+                    'bhId': $("#bhId").val(),
+                }
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/read', param);
+
+                _this.resultGrid.itemsSource.sourceCollection = result.data;
+
+            }
+
+            viewModeSetting(headInfo) {
+                // 데이터에 따른 버튼 설정
+                if ($('#viewMode').val().toLowerCase() === 'true') {
+                    //보기 모드일 경우 CRUD 버튼 숨김
+                    $('#btnDiaryPrint').hide();
+                    $('#btnReqAppr').hide();
+                    $('#btnSave').hide();
+                    $('#btnDelete').hide();
+                    $('#btnAllItem').hide();
+                    $("#btnNew").hide();
+                    if (headInfo.State === 'approval') {
+                        $('#btnDiaryPrint').show();
+                    }
+
+                    $('#title').attr('disabled', 'disabled');
+                    $('#dataDate').attr('disabled', 'disabled');
+                    $('#location').attr('disabled', 'disabled');
+                    $('#mast').attr('disabled', 'disabled');
+                    $('#pickupDate1').attr('disabled', 'disabled');
+
+
+                } else {
+                    // State : 작성, 미결재, 승인, 반려, 재상신
+                    $('#btnDelete').show();
+                    $('#btnDiaryPrint').hide();
+                    if (headInfo.State === 'process' || headInfo.State === 'reprocess') {
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        $('#btnAllItem').hide();
+                    } else if (headInfo.State === 'approval') {
+                        $('#btnDiaryPrint').show();
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        $('#btnAllItem').hide();
+                    }
+
+                    if (parseInt($('#bhId').val(), 10) > 0) {
+                        $('#dataDate').attr('disabled', 'disabled');
+                    } else {
+                        $('#btnDelete').hide();
+                    }
+                }
+            }
+
+            // 일지 출력
+            printDiary() {
+                let param = {
+                    'title': $('#title').val(),
+                    'bh_id': $('#bhId').val(),
+                };
+
+                let result = AjaxUtil.postSyncData(this.baseUrl + '/print', param, function () {
+                });
+                if (result.success) {
+                    CommonUtil.openWindow('/api/files/pdf_viewer?file_id=' + result.file_id)
+                } else {
+                    Alert.alert('', '일지 생성 중 오류가 발생했습니다. 관리자에게 문의하세요.');
+                }
+            }
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    $('#btnList').click();
+                });
+            }
+
+            //결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit';
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'data_date': $('#dataDate').val(),
+                };
+
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+
+            plusList() {
+                let _this = this;
+                $('#btnDiaryPrint').hide();
+                $('#btnDelete').hide();
+
+                $('#firstName').val(userinfo.username);
+                $('#title').val('표면오염도 검사성적서');
+
+                let param = {
+                    'bhId': $('#bhId').val(),
+                    'data_date': $("#data_date").val()
+                };
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/plusList', param);
+
+
+                if (result != null) {
+                    _this.headInfo = result.data.head_info;
+                    this.List = result.data.diary_info;
+                    let diLength = result.data.diary_info.length;
+                    for (let i = 0; i < diLength; i++) {
+                        this.List[i].CharResult = $("#location").val();
+
+                        let rowData = { ...this.List[i] }; // 기존 데이터를 복사하여 새로운 객체 생성
+                        let newItem = _this.resultGrid.itemsSource.addNew();
+
+                        Object.assign(newItem, rowData); // 복사한 데이터 적용
+                        _this.resultGrid.itemsSource.commitNew();
+                    }
+                    _this.viewModeSetting(_this.headInfo)
+                }
+                _this.approveBoxUtil = new ApproveBoxUtil(0, '공중낙하균검사', $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+            }
+
+
+            showDeviActionCodeSavePopup(item) {
+
+                // 점검내역 조치내역 팝업
+                let _this = this;
+                let popupPage = new PopupSelectUserCodePage({
+
+                    'title': '점검내역 선택',
+                    'gridValueLabel': '점검항목',
+                    'infoData': [
+                        {label: '이상발생내역', value: item.check_name},
+                    ],
+                    'parentCode': '표면오염도검사성적서', 'closeManual': true,
+                });
+                popupPage.show(function (data) {
+                    if (data && data.selected.Code === '직접입력') {
+                        item.action_detail = data.input;
+                    } else {
+                        item.action_detail = data.selected.Value;
+                    }
+                    popupPage.close();
+                    _this.deviTabType.repaint();
+                    if (item.action_detail) {
+                        _this.saveDeviAction();
+                    }
+
+                });
+            }
+
+
+            saveDeviAction() {
+                let _this = this;
+                //let url = '/api/common/devi_action?action=save_multi_devi_action';
+                let url = '/api/common/devi_action/save_dev_action';
+                let list = _this.deviGrid.collectionView.items;
+                if (!list) return;
+                let data = {
+                    id: list.id,
+                    source_pk: list.src_data_pk,
+                    source_table_name: 'surface_bacerial',
+                    happen_date: list.happen_date,
+                    abnormal_detail: list.abnormal_detail,
+                    action_detail: list.action_detail,
+                    confirm_detail: list.confirm_detail,
+                    Q: JSON.stringify(_this.deviTabType.getList()),
+                }
+
+
+                let fnSuccess = function () {
+                    Notify.success('저장되었습니다');
+                }
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+
+            //저장
+            save(isAppr) {
+                let _this = this;
+
+
+                if ($("#pickupDate1").val() === '') {
+                    Alert.alert('', '채취일자를 입력해주세요.');
+                    return;
+                }
+
+                let result = this.resultGrid.selecteditems;
+
+                let callback = function () {
+
+                    let data = {
+                        bhId: $('#bhId').val(),
+                        title: $('#title').val(),
+                        data_date: $('#dataDate').val(),
+                        fileId: $("#srchFileId").val(),
+                        'headInfo': JSON.stringify(_this.headInfo),
+                        'diaryInfo': JSON.stringify(result),
+                        pickupDate: $("#pickupDate1").val(),
+                    };
+
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                $("#bhId").val(resp.data.id);
+                                Notify.success('저장하였습니다.');
+                                $('#btnDelete').show();
+                                $('#dataDate').attr('disabled', 'disabled');
+                                _this.searchMainData();
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+
+                    if (isAppr) {
+                        let checkGrid1 = this.grid.selecteditems;
+                        let checkGrid2 = this.deviGrid.selecteditems;
+
+                        let result = checkGrid1.filter(function (e) {
+                            return e.result1 === "X";
+                        });
+
+
+                        if (result.length > 0) {
+                            if (checkGrid2.length === 0) {
+                                Alert.alert('결재상신', '조치내역을 입력해주세요.');
+                                return
+                            }
+                        }
+
+                        let result2 = checkGrid2.filter(function (e) {
+                            return e.action_detail === "" || e.action_detail == null;
+                        })
+
+                        if (result2.length > 0) {
+                            Alert.alert('결재상신', '조치내역을 입력해주세요.');
+                            return
+                        }
+                    }
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/save', data, fnSuccess);
+                }
+
+                /* if (resultNullCheck) {
+                     Alert.alert("", "점검결과를 모두 입력해주세요.");
+                     return;
+                 }*/
+                if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                } else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+
+            //삭제
+            delete() {
+                let _this = this;
+                Alert.confirm('', '삭제하시겠습니까?', function () {
+                    // 삭제 서비스 호출
+                    let param = {
+                        bh_id: $('#bhId').val(),
+                    }
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            Notify.success('삭제하였습니다.');
+                            $('#btnList').click();
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/delete', param, fnSuccess);
+                });
+            }
+
+            setUploader(id) {
+                let _this = this;
+
+                let uploader = new ax5FileUploadClass('image_upload1', $("#bhId").val(),
+                    {
+                        table_name: 'vehicle_management',
+                        attach_name: 'basic',
+                        accept_files: 'hwp,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,gif,mbp,png,txt,zip,pdf',
+                        multiple: true,
+                        max_count: 5,
+                        file_size: 100,
+                        upload_callback: function (param) {
+                            uploader.showLastImage('imgPhoto');
+                        },
+                        delete_callback: function (param) {
+                            $('#imgPhoto').attr('src', '');
+                        },
+                        file_click_callback: function (file_id) {
+                            uploader.showImage('imgPhoto', file_id);
+                        },
+                        can_write: true,
+                    });
+
+            };
+
+
+        }
+
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new CheckResultDiaryPage();
+
+            $('#btnToggle').click(function (e) {
+                $("#standardDIv").toggle(300);
+            });
+
+            $('#btnAllItem').click(function (e) {
+                page.checkAllItem();
+            });
+
+            // 일지 출력
+            $('#btnDiaryPrint').on('click', function () {
+                page.printDiary();
+            });
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            //$('#dataDate').val(CommonUtil.getYYYYMMDD());
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+
+            // 임시저장
+            $('#btnSave').on('click', function () {
+                page.save(false);
+            });
+
+            // 삭제
+            $('#btnDelete').on('click', function () {
+                page.delete();
+            });
+
+            // 목록
+            $('#btnList').on('click', function () {
+                if (page.gparam.appr_view) {
+                    location.href = encodeURI('/gui/' + page.gparam.appr_view + '?searchcond=' + page.gparam.search_cond);
+                } else {
+                    location.href = encodeURI('/gui/' + gui.gui_code + '?searchcond=' + page.gparam.search_cond);
+                }
+            });
+
+
+            $("#btnNew").on('click', function () {
+                if ($("#location").val() == "") {
+                    Alert.alert('', '구역명을 입력해주세요.');
+                    return
+                }
+                page.plusList();
+            });
+
+            page.searchMainData();
+
+
+        });
+    </script>
+</th:block>
+</html>

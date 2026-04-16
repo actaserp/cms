@@ -1,0 +1,253 @@
+<th:block th:fragment="popup_expense">
+    <script type="text/x-tmpl" id="popup_expenseSearchTemplate">
+
+        <div class="content_wrap popup">
+
+            <section class="section" style="padding-top: 10px;">
+
+                <div class="section-top">
+                    <div class="search-wrap" style="text-align: left;">
+                        <dl>
+                            <dt>
+                                <label for="srchCode">
+                                    비용 코드<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" id="srchCode" name="srchCode" style="width:160px;"/>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label for="srchName">
+                                    비용명<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" id='srchName' name="srchName" style="width:160px;"/>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="container-fluid">
+                        <div id="search-grid" style="height: 300px;"></div>
+                    </div>
+                </div>
+
+            </section>
+
+                <div class="popup-button">
+                    <button type="button" class="btn-popup" id="btnSelect" ><span data-commonCd="선택">선택</span></button>
+                    <button type="button" class="btn-popup" id="btn-search-close"><span data-commonCd="닫기">닫기</span></button>
+                </div>
+
+
+        </div>
+    </script>
+
+    <script type="text/javascript">
+
+        class PopExpenseComponent {
+            constructor() {
+
+                this.grid = null;
+                this.viewData = new wijmo.collections.CollectionView();
+                this.selectedItem = null;
+                this.callback = null;
+                this.modalContainer = new PopupDraggable('비용 항목 선택');
+                this.$btnSearch = null;
+                this.$btnSelect = null;
+                this.$srchName = null;
+                this.$srchCode = null;
+            }
+
+            searchDataBind() {
+                let _this = this;
+                let url = '/api/popup/search_expense';
+                let data = {
+                    'artcd': _this.$srchCode.val(),
+                    'crtnm': _this.$srchName.val(),
+                    'spjangcd': sessionStorage.getItem('spjangcd')
+                };
+
+                let result = AjaxUtil.getSyncData(url, data);
+                if (result) {
+                    _this.viewData.sourceCollection = result.data;
+                    setTimeout(() => {
+                        if (_this.grid && _this.grid.rows.length > 0) {
+                            _this.grid.select(0, 0); // 첫 번째 행, 첫 번째 열 선택
+                            _this.grid.focus(); // 그리드에 포커스
+                        }
+                    }, 0);
+                    setTimeout(() => {
+                        if (_this.grid.rows.length > 0) {
+                            let colIndex = _this.grid.columns.findIndex(col => col.binding === 'accountNumber');
+
+                            if (colIndex > -1) {
+                                _this.grid.select(0, colIndex);
+                                _this.grid.selection = new wijmo.grid.CellRange(0, colIndex);
+                                _this.grid.focus();
+                            }
+                        }
+                    }, 100);
+                }
+
+                //검색버튼을 누르고 초기화한다
+                this.selectedItem = null;
+            }
+
+            selectData(item) {
+                this._skipAutoFocus = false;
+
+                if (typeof this.callback !== 'undefined' && this.callback != null) {
+                    this._skipAutoFocus = false;
+                    this.callback(item);
+                }
+                this.close();
+            }
+
+            show(callback) {
+                let _this = this;
+
+                this.callback = callback;
+
+                let content = tmpl('popup_expenseSearchTemplate', {});
+                let $content = $(content);
+                this.modalContainer.open({ width: 800, height: 500, $content });
+
+                this.grid = new wijmo.grid.FlexGrid('#search-grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    keyActionEnter: wijmo.grid.KeyAction.None,
+                    columns: [
+                        { binding: 'gartnm', header: '그룹 명칭', width: 120, align: 'center' },
+                        { binding: 'artcd', header: '비용 코드', width: 120, align: 'center' },
+                        { binding: 'artnm', header: '비용 명칭', width: '*', align: 'center' }
+                    ],
+                    itemsSource: this.viewData,
+                });
+                this.grid.rowHeaders.columns.splice(0, 1);
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '비용 항목';
+
+                this.$btnSearch = $content.find('#btnSearch');
+                this.$srchCode = $content.find('#srchCode');
+                this.$srchName = $content.find('#srchName');
+                this.$btnSelect = $content.find('#btnSelect');
+
+
+                this.$btnSearch.click(function (e) {
+                    _this.searchDataBind();
+                });
+
+                _this.searchDataBind();
+
+                this.$btnSelect.click(function (e) {
+                    // 그리드에서 현재 선택된 item을 찾아서 호출한다.
+                    let items = _this.grid.selectedItems;
+                    if (items.length === 0) {
+                        return false;
+                    }
+                    _this.selectData(items[0]);
+                });
+
+
+                //닫기버튼을 아래 ID로 사용한다면 호출하는 화면에서 이벤트 처리 필요없음
+                $content.find('#btn-search-close').on('click', function () {
+                    _this.close();
+                });
+
+                //새로고침
+                // $('#btnTest').click(function (e) {
+                //     _this.grid.collectionView.refresh(); // Wijmo 그리드 새로고침
+                // });
+
+                this.grid.hostElement.addEventListener('dblclick', function (e) {
+                    let items = _this.grid.selectedItems;
+                    if (items.length === 0) {
+                        return false;
+                    }
+                    _this.selectData(items[0]); // btnCompSelect 클릭과 동일한 동작
+                });
+                this.grid.hostElement.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' || e.keyCode === 13) {
+                        setTimeout(() => {
+                            const selected = _this.grid.selectedItems;
+                            if (selected.length > 0) {
+                                _this.selectData(selected[0]);
+                            } else {
+                                console.log('선택된 행 없음');
+                            }
+                        }, 0); // 다음 이벤트 루프에서 실행
+                    }
+                });
+
+                this._escHandler = function (e) {
+                    if (e.key === 'Escape' || e.keyCode === 27) {
+                        _this.close();
+                    }
+                };
+                $(document).on('keydown.popupesc', this._escHandler);
+
+                // 모달 닫힐 때 포커스 복원
+                this.modalContainer.onClose = () => {
+                    // ESC 후 포커스 복원
+                    if (this.focusAfterClose && document.body.contains(this.focusAfterClose)) {
+                        setTimeout(() => {
+                            this.focusAfterClose.focus();
+                        }, 50);
+                    }
+                    // ESC 이벤트 제거
+                    $(document).off('keydown.popupesc', this._escHandler);
+                };
+
+                $(document).on('keydown', '#srchCode', function (e) {
+
+                    if (e.key === 'Enter' || e.keyCode === 13) {
+                        e.preventDefault();
+                        _this.searchDataBind();
+                    }
+                });
+
+                $(document).on('keydown', '#srchName', function (e) {
+
+                    if (e.key === 'Enter' || e.keyCode === 13) {
+                        e.preventDefault();
+                        _this.searchDataBind();
+                    }
+                });
+            }
+
+            close() {
+                this.modalContainer.close();
+
+                // 콜백 내부에서 포커스를 직접 줬으면 자동 포커스 생략
+                if (!this._skipAutoFocus && this.focusAfterClose && document.body.contains(this.focusAfterClose)) {
+                    setTimeout(() => {
+                        this.focusAfterClose.focus();
+                    }, 50);
+                }
+
+                $(document).off('keydown.popupesc', this._escHandler);
+            }
+        }
+
+    </script>

@@ -1,0 +1,272 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>용수검사성적서</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>일지 및 데이터</li>
+                <li>선행요건일지</li>
+                <li>용수검사성적서</li>
+            </ul>
+        </div>
+
+    <section class="section">
+        <div class="section-top">
+            <div class="search-wrap">
+                <dl>
+                    <dt>
+                        <label>일자</label>
+                    </dt>
+                    <dd>
+                        <ul class="date-box">
+                            <li>
+                                <input class="tac " type="date" id="srchStartDt" name="srchStartDt" />
+                                <label for="srchStartDt" class="hide">시작일</label>
+                            </li>
+                            <li>
+                                <input class="tac " type="date" id="srchEndDt" name="srchEndDt" />
+                                <label for="srchEndDt" class="hide">종료일</label>
+                            </li>
+                        </ul>
+                    </dd>
+                </dl>
+
+                <dl>
+                    <dt><span class="eq"></span></dt>
+                    <dd>
+                        <li>
+                            <a class="btn btn-delete" title="검색" id="btnSearch">
+                                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                검색
+                            </a>
+                        </li>
+                    </dd>
+                </dl>
+            </div>
+            <div class="button-wrap">
+                <dl>
+                    <dt></dt>
+                    <dd>
+                        <button type="button" class="btn-default" id="btnAdd">등록</button>
+                    </dd>
+                </dl>
+            </div>
+
+        </div>
+        <div class="h-600" data-ax5grid="check_result_grid"></div>
+    </section>
+</div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<script src="/js/grid.js?v=1000"></script>
+<th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+<th:block th:replace="/common/approve_box :: approve_box" ></th:block>
+
+<script type="text/javascript">
+
+    class CheckResultStatusPage {
+        constructor() {
+            this.grid = null;
+			this.url = '/api/precedence/water_test';
+            this.init();
+            
+            
+        }
+
+        init() {
+            let _this = this;
+
+            let config = {
+                target: $('[data-ax5grid="check_result_grid"]'),
+                sortable: true,
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 25,  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {                        
+                        _this.grid.select(this.dindex);
+                        _this.detail(this);
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'Title', label: '일지명', width: 350, align: 'center' },
+                    { key: 'StateName', label: '결재상태', width: 100, align: 'center' },
+                    {
+                        key: 'LineName', label: '결재현황', width: 550, align: 'left',
+                        formatter: function () {
+                            return CommonUtil.convertApprLineNameHtml(this.item.LineName, this.item.LineNameState);
+                        }
+                    },
+                    { key: 'DataDate', label: '등록일', width: 120, align: 'center'},
+                    {
+                        key: 'SearchYN', label: '조회', width: 80, align: 'center',
+                        formatter: function () {
+                            let html = '';
+                            if (this.item.SearchYN == 'Y') {
+                                html = '<button class="btn-default" style="width:100%; height:0.9em; font-size:1em; padding:0; margin:0">조회</button>'
+                            }
+                            return html;
+
+                        }
+                    },
+                    {
+                        key: 'EditYN', label: '수정', width: 80, align: 'center',
+                        formatter: function () {
+                            let html = '';
+                            if (this.item.EditYN == 'Y') {
+                                html = '<button class="btn-default" style="width:100%; height:0.9em; font-size:1em; padding:0; margin:0">수정</button>'
+                            }
+                            return html;
+
+                        }
+                    },
+                    {
+                        key: 'DeleteYN', label: '삭제', width: 80, align: 'center',
+                        formatter: function () {
+                            let html = '';
+                            if (this.item.DeleteYN == 'Y') {
+                                html = '<button class="btn-danger" style="width:100%; height:0.9em; font-size:1em; padding:0; margin:0">삭제</button>'
+                            }
+                            return html;
+
+                        }
+                    },
+                ]
+            };
+            this.grid = new ax5.ui.grid(config);
+            this.grid_config = config;        
+        }
+                             
+        searchMainData() {
+            let _this = this;
+            let param = {
+                'start_date': $('#srchStartDt').val(),
+                'end_date': $('#srchEndDt').val(),
+            };
+
+            let result = AjaxUtil.getSyncData(_this.url+'/read', param);    
+            if (result.data != null) {
+                let count = result.data.length;
+                _this.grid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: count,
+                        totalPages: 50,
+                    }
+                });
+            }
+        }
+        detail(data) {
+            let _this = this;
+            let detail_item = _this.grid.getList('selected')[0];
+            if (data.column.key == 'SearchYN'&& data.item.SearchYN == 'Y') {                                
+                location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + data.item.id + '&data_date=' + data.item.DataDate + '&view_mode=true';
+			} else if (data.column.key == 'EditYN'&& data.item.EditYN == 'Y') {				
+                location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + data.item.id + '&data_date=' + data.item.DataDate;
+			} else if (data.column.key == 'DeleteYN'&& data.item.DeleteYN == 'Y') {
+				Alert.confirm('', '삭제하시겠습니까?', function () {					
+					let param = {
+						bhId: data.item.id,
+					}
+					let fnSuccess = function (resp) {
+						if (resp.success) {
+							Notify.success('삭제하였습니다.');
+							_this.searchMainData();
+						} else {
+							Alert.alert('', resp.message);
+						}
+					};
+					AjaxUtil.postAsyncData(_this.url + '/delete', param, fnSuccess);
+				});
+			}
+        }
+
+		//  등록버튼 클릭 시
+        add() {
+	
+			var today = new Date();
+
+			var year = today.getFullYear();
+			var month = ('0' + (today.getMonth() + 1)).slice(-2);
+			var day = ('0' + today.getDate()).slice(-2);
+			
+			var dateString = year + '-' + month  + '-' + day;
+	
+	
+            location.href = '/gui/' + gui.gui_code + '/edit?bh_id=0' +'&data_date='+dateString;   
+		}
+          
+    }    
+
+    let page = null;
+    let popup = null;
+    let modalContainer = null;
+    var picker = new ax5.ui.picker();
+
+    $(document).ready(function (e) {
+        page = new CheckResultStatusPage();
+        
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),
+            direction: "top",
+            content: {
+                width: 206,  //130 270
+                margin: 10,
+                type: 'date',
+                config: {
+                    control: {
+                        left: '<i class="fa fa-chevron-left"></i>',
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-chevron-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            }           
+        });
+
+        $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-15));
+        $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+
+        //검색 기능
+        $('#btnSearch').click(function (e) {            
+            page.searchMainData();
+        });
+
+        $('#btnAdd').click(function (e) {
+            page.add();
+        });        
+
+        page.searchMainData();
+    });
+
+</script>
+</html>

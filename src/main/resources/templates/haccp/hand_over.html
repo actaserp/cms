@@ -1,0 +1,290 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>인수인계 현황</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP 관리</li>
+                <li>업무 인수인계서</li>
+            </ul>
+        </div>
+        <input type="hidden" id="searchCond" th:value="${searchcond}"/>
+
+        <section class="section">
+            <div class="section-top">
+                <form id="searchForm" autocomplete="off">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                일자
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <input type="date" id="srchStartDt" name="srchStartDt">
+                                        <label for="srchStartDt" class="hide">시작일</label>
+                                    </li>
+                                    <li>
+                                        <input type="date" id="srchEndDt" name="srchEndDt">
+                                        <label for="srchEndDt" class="hide">종료일</label>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label for="apprState">
+                                    결재상태
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="apprState" name="apprState">
+                                    </select>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </form>
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <a class="btn" title="등록" id="btnAdd">
+                                등록
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="document_grid" style="height: 740px;"></div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        class ReportPage {
+            constructor() {
+                this.grid = null;
+
+                this.baseUrl = '/api/haccp/hand_over';
+                this.table_name = 'hand_over';
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                this.gparam = {
+                    searchcond: $('#searchCond').val(),
+                };
+
+                this.grid = new wijmo.grid.FlexGrid('#document_grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    autoGenerateColumns: false, // 사용자 정의 컬럼 사용
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    isReadOnly: false, // 편집 가능 여부
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            const col = s.columns[e.col];
+                            const item = e.panel.rows[e.row].dataItem;
+
+                            // 결재현황 (LineName) 처리
+                            if (col.binding === 'LineName') {
+                                e.cell.innerHTML = CommonUtil.convertApprLineNameHtml(item.LineName, item.LineNameState);
+                            }
+
+                            // SearchYN 버튼 처리
+                            if (col.binding === 'SearchYN') {
+                                if (item.SearchYN === 'Y') {
+                                    e.cell.innerHTML = ''; // 기존 셀 콘텐츠 제거
+                                    const button = document.createElement('button');
+                                    button.className = 'btn-default';
+                                    button.style.cssText = 'width: 100%; height: 25px;';
+                                    button.textContent = '조회';
+                                    button.addEventListener('click', () => {
+                                        _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                        _this.detail({item, column: {key: 'SearchYN'}});
+                                    });
+                                    e.cell.appendChild(button);
+                                } else {
+                                    // 해당 셀을 빈 셀로 유지
+                                    e.cell.innerHTML = ''; // 셀 비우기
+                                }
+                            }
+
+                            // EditYN 버튼 처리
+                            if (col.binding === 'EditYN') {
+                                if (item.EditYN === 'Y') {
+                                    e.cell.innerHTML = '';
+                                    const button = document.createElement('button');
+                                    button.className = 'btn-default';
+                                    button.style.cssText = 'width: 100%; height: 25px;';
+                                    button.textContent = '수정';
+                                    button.addEventListener('click', () => {
+                                        _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                        _this.detail({item, column: {key: 'EditYN'}});
+                                    });
+                                    e.cell.appendChild(button);
+                                } else {
+                                    // 해당 셀을 빈 셀로 유지
+                                    e.cell.innerHTML = ''; // 셀 비우기
+                                }
+                            }
+
+                            // DeleteYN 버튼 처리
+                            if (col.binding === 'DeleteYN') {
+                                if (item.DeleteYN === 'Y') {
+                                    e.cell.innerHTML = '';
+                                    const button = document.createElement('button');
+                                    button.className = 'btn-danger';
+                                    button.style.cssText = 'width: 100%; height: 25px;';
+                                    button.textContent = '삭제';
+                                    button.addEventListener('click', () => {
+                                        _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                        _this.detail({item, column: {key: 'DeleteYN'}});
+                                    });
+                                    e.cell.appendChild(button);
+                                } else {
+                                    // 해당 셀을 빈 셀로 유지
+                                    e.cell.innerHTML = ''; // 셀 비우기
+                                }
+                            }
+                        }
+                    },
+                    columns: [
+                        // {binding: 'Title', header: '일지명', width: 350, isReadOnly: true, align: 'center'},
+                        {binding: 'DataDate', header: '일자', width: 150, isReadOnly: true, align: 'center'},
+                        {binding: 'StateName', header: '결재상태', width: 100, align: 'center', isReadOnly: true},
+                        {binding: 'LineName', header: '결재현황', width: 650, isReadOnly: true, align: 'left'},
+                        { binding: 'SearchYN', header: '조회', width: 80, align: 'center' },
+                        { binding: 'EditYN', header: '수정', width: 80, align: 'center' },
+                        { binding: 'DeleteYN', header: '삭제', width: 80, align: 'center' }
+                    ]
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '업무인수인계서 결재현황';
+            }
+
+            // 일지 상세
+            detail(data) {
+                let _this = this;
+                if (data.column.key === 'SearchYN' && data.item.SearchYN === 'Y') {
+                    location.href = encodeURI('/gui/' + gui.gui_code + '/edit?bh_id=' + data.item.id + '&data_date=' + data.item.DataDate + '&view_mode=true' + _this.createSearchCond('&'));
+                } else if (data.column.key === 'EditYN' && data.item.EditYN === 'Y') {
+                    location.href = encodeURI('/gui/' + gui.gui_code + '/edit?bh_id=' + data.item.id + '&data_date=' + data.item.DataDate + _this.createSearchCond('&'));
+                } else if (data.column.key === 'DeleteYN' && data.item.DeleteYN === 'Y') {
+                    Alert.confirm('', '삭제하시겠습니까?', function () {
+                        // 삭제 서비스 호출
+                        let param = {
+                            bh_id: data.item.id,
+                            table_name: _this.table_name,
+                            attach_name: 'basic',
+                        }
+                        let fnSuccess = function (resp) {
+                            if (resp.success) {
+                                Notify.success('삭제하였습니다.');
+                                _this.searchMainData();
+                            } else {
+                                Alert.alert('', resp.message);
+                            }
+                        };
+                        AjaxUtil.postAsyncData(_this.baseUrl + '/delete', param, fnSuccess);
+                    });
+                }
+            }
+
+            add() {
+                location.href = encodeURI('/gui/' + gui.gui_code + '/edit?bh_id=0' + '&data_date=' + CommonUtil.getYYYYMMDD() + this.createSearchCond('&'));
+            }
+
+            // 검색조건만들기
+            createSearchCond(t) {
+                return t + 'searchcond=' + $('#srchStartDt').val() + '|' + $('#srchEndDt').val() + '|' + $('#apprState').val();
+            }
+
+            // 검색조건설정
+            setSearchCond() {
+                let _this = this;
+                if (_this.gparam && _this.gparam.searchcond && _this.gparam.searchcond !== 'undefined') {
+                    let arr = _this.gparam.searchcond.split('|');
+                    $('#srchStartDt').val(arr[0]);
+                    $('#srchEndDt').val(arr[1]);
+                    $('#apprState').val(arr[2]);
+                }
+            }
+
+            // 일지 조회
+            searchMainData() {
+                let _this = this;
+                let param = {
+                    //'action': 'appr_stat',
+                    'start_date': $('#srchStartDt').val(),
+                    'end_date': $('#srchEndDt').val(),
+                    'appr_state': $('#apprState').val(),
+                }
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/appr_stat', param);
+
+                if (result != null) {
+                    let documentInfo = result.data;
+
+                    _this.grid.itemsSource = documentInfo;
+
+                    //_this.grid.setHeight(documentInfo.length * 33 + 100);
+                }
+            }
+
+        }
+
+        let page = null;
+
+
+        $(document).ready(function (e) {
+            page = new ReportPage();
+
+            AjaxUtil.fillSelectOptions($("#apprState"), "system_code", "all", '', "appr_status");
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-15));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            $('#btnAdd').on('click', function () {
+                page.add();
+            });
+
+            page.setSearchCond();
+            page.searchMainData();
+        });
+
+
+    </script>
+</th:block>
+</html>

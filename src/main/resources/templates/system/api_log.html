@@ -1,0 +1,262 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+
+
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>API 로그</h2>
+                <!--                <a title="북마크" class="bookmark toggle">-->
+                <!--                    내메뉴-->
+                <!--                </a>-->
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>시스템관리</li>
+                <li>API로그</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <form id="searchForm3" autocomplete="off">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                발생일
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <input class="tac date_from" type="date" id="srchStartDt"
+                                               name="srchStartDt"/>
+                                        <label for="srchStartDt" class="hide">시작일</label>
+                                    </li>
+                                    <li>
+                                        <input class="tac date_to" type="date" id="srchEndDt"
+                                               name="srchEndDt"/>
+                                        <label for="srchEndDt" class="hide">종료일</label>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+
+                        <!--<dl>
+                            <dt>
+                                <label for="type">
+                                    구분
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="type" name="type" style="border-radius: 5px 5px 5px 5px; width: 150px;">
+                                        <option value="">전체</option>
+                                        <option value="login">login</option>
+                                        <option value="logout">logout</option>
+                                    </select>
+                                </div>
+                            </dd>
+                        </dl>-->
+
+                        <dl>
+                            <dt>
+                                <label for="keyword">
+                                    API주소
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input class="form-control2" id="keyword" name="keyword"/>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+
+                    </div>
+                </form>
+
+            </div> <!--//section-top end -->
+            <div class="container-fluid">
+                <p id="selectedItem"></p>
+                <div id="theGrid" style="height: 680px; max-height: 680px;"></div>
+            </div>
+
+            <div class="btn-wrap">
+            </div>
+        </section>
+    </div> <!--//layout-contents end -->
+
+    <footer style="margin-top: 24px;">
+        <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+    </footer>
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+    <script type="text/javascript">
+
+        var theGrid;
+        var viewdata;
+
+        /*로그인로그 컬럼*/
+        var columns = [
+            {binding: 'endpoint', header: '호출주소(엔드포인트)', width: 300, align: 'center'},
+            {binding: 'avg_response_time_ms', header: '평균응답시간', width: 160, align: 'center'},
+            {binding: 'max_response_time_ms', header: '최대응답시간', width: 260, align: 'center'},
+            {binding: 'min_response_time_ms', header: '최소응답시간', width: 160, align: 'center'},
+            {binding: 'avg_call_cnt', header: '평균호출횟수', width: 160, align: 'center'},
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+
+        <!-- 초반 페이지 진입시 그리드 바인딩 끝-->
+        function init() {
+            let data2 = [];
+            let srchStartDt = $('#srchStartDt').val();
+            let srchEndDt = $('#srchEndDt').val();
+            let keyword = $('#keyword').val();
+            let type = $('#type').val();
+
+            $.ajax({
+                url: '/api/system/api-log/read',
+                type: 'GET',
+                data: {
+                    'srchStartDt': srchStartDt,
+                    'srchEndDt': srchEndDt,
+                    'keyword': keyword,
+                },
+                async: false,
+                success: function (data) {
+                    /*console.log('wijmo', data);*/
+                    data2 = data.data;
+                    // `addr` 필드를 변형하여 `value`만 추출
+                    data2.forEach(item => {
+                        if (item.addr && item.addr.value) {
+                            item.addr = item.addr.value;
+                        }
+                    });
+
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+                }
+            });
+
+            viewdata = new wijmo.collections.CollectionView(data2);
+            // 데이터 그리드에 바인딩
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+
+            theGrid.rowHeaders.columns.splice(0, 1);  //맨 앞에 헤더부분 없애기
+
+            /*  new FlexGridContextMenu(theGrid);*/
+        }
+
+        // 검색
+        $('#btnSearch').click(searchDataBind);
+
+        function searchDataBind() {
+
+            let srchStartDt = $('#srchStartDt').val();
+            let srchEndDt = $('#srchEndDt').val();
+            let keyword = $('#keyword').val();
+            let type = $('#type').val();
+
+            $.ajax({
+                url: '/api/system/api-log/read',
+                type: 'GET',
+                data: {
+                    'type': type,
+                    'srchStartDt': srchStartDt,
+                    'srchEndDt': srchEndDt,
+                    'keyword': keyword,
+                },
+                success: function (result) {
+
+                    if (result.success) {
+                        /*console.log("Result data:", result.data);*/
+                        grid_binding(result.data);
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+                }
+            });
+        }
+
+        function grid_binding(data) {
+
+            let formattedData = data.map(item => ({
+                row_number: item.row_number,
+                type: item.type,
+                addr: item.addr.value,
+                login_id: item.login_id,
+                name: item.name,
+                created: item.created,
+            }));
+
+            theGrid.columns.clear();
+            theGrid.autoGenerateColumns = false;
+
+            columns.forEach(colDef => {
+                let col = new wijmo.grid.Column(colDef);
+                theGrid.columns.push(col);
+            });
+
+            viewdata = new wijmo.collections.CollectionView(formattedData);
+
+            theGrid.itemsSource = viewdata;
+            theGrid.refresh();
+        }
+
+        $(document).ready(function (e) {
+
+            /*$('#keyword').on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    searchDataBind();
+                }
+            });*/
+
+            const today = new Date();
+            const formattedToday = today.toISOString().split('T')[0];
+
+            document.getElementById('srchStartDt').value = formattedToday;
+            document.getElementById('srchEndDt').value = formattedToday;
+
+        });
+    </script>
+</th:block>
+
+</html>

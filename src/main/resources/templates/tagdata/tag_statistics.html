@@ -1,0 +1,182 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .chart_border {
+            border: 1px solid blue;
+        }
+
+        .select2 {
+            margin-top: 13px;
+            height: 35px;
+        }
+
+        .select2-selection {
+            border: 1px solid rgb(208, 216, 221);
+        }
+    </style>
+</head>
+<!--
+       데이터는 tag_dat에서 조회하는데 데이터도 없고 insert 하는 프로세스 또한 없음
+       뭥가 이상s
+-->
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>데이터 통계</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>공정 데이터</li>
+                <li>데이터 통계</li>
+            </ul>
+        </div>
+        <section class="section">
+            <form id="searchForm">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>
+                                    시간<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="date" id="srchStartDt" style="width: 100px" name="srchStartDt"/>
+                                    <span class="slow_sign">~</span>
+                                    <input type="date" id="srchEndDt" style="width: 100px" name="srchEndDt"/>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>
+                                    태그 그룹<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <select class="form-control2" id="tagGroup" name="tagGroup">
+                                </select>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>
+                                    태그
+                                </label>
+                            </dt>
+                            <dd>
+                                <select class="form-control2" id="tag" name="tag"></select>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+
+                    </div>
+                </div>
+            </form>
+            <div class="container-fluid">
+                <div id="theGrid"></div>
+            </div>
+        </section>
+
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+    <script type="text/javascript">
+        class tagDataStatistics {
+            constructor() {
+                this.grid = null;
+                this.url = '/api/tagdata/tag_statistics';
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        {binding: 'tag_code', header: '태그', width: '*', align: 'left'},
+                        {binding: 'tag_name', header: '태그명', width: '*', align: 'left'},
+                        {binding: 'count_value', header: '데이터수', width: '*', align: 'right'},
+                        {binding: 'avg_value', header: '평균', width: '*', align: 'right'},
+                        {binding: 'min_value', header: '최소', width: '*', align: 'right'},
+                        {binding: 'max_value', header: '최대', width: '*', align: 'right'},
+                        {binding: 'std_value', header: '표준편차', width: '*', align: 'right'},
+                    ],
+                    itemsSource: this.viewData,
+                });
+
+                AjaxUtil.fillSelectOptions($('#tag'), 'tag', 'all', false);
+                AjaxUtil.fillSelectOptions($('#tagGroup'), 'tag_group', 'all', false);
+            }
+
+            searchMainData() {
+                let _this = this;
+
+                let srchStartDt = $('#srchStartDt').val();
+                let srchEndDt = $('#srchEndDt').val();
+                let tag_code = $('#tag').val();
+                let tag_group_pk = $('#tagGroup').val();
+
+                let url = this.url + '/read';
+                let data = {
+                    start_date: srchStartDt,
+                    end_date: srchEndDt,
+                    tag_code: tag_code,
+                    tag_group_pk: tag_group_pk,
+                };
+
+                AjaxUtil.getAsyncData(url, data, function (result) {
+                    //success
+                    _this.viewData.sourceCollection = result.data;
+                });
+            }
+
+        }
+
+
+        let page = null;
+
+        $(document.body).ready(function (e) {
+
+            page = new tagDataStatistics();
+
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+            // 검색
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            page.searchMainData();
+        });
+
+    </script>
+</th:block>
+</html>

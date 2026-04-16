@@ -1,0 +1,211 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .select2-container--open {
+            z-index: 9001;
+        }
+
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>CCP 이상발생내역</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>이상발생 및 조치/결재</li>
+                <li>CCP 이상발생내역</li>
+            </ul>
+        </div>
+        <form id="searchForm" autocomplete="off">
+            <section class="section">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>
+                                    발생일
+                                </label>
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <input type="date" id="srchStartDt" name="srchStartDt">
+                                        <label for="srchStartDt" class="hide">시작일</label>
+                                    </li>
+                                    <li>
+                                        <input type="date" id="srchEndDt" name="srchEndDt">
+                                        <label for="srchEndDt" class="hide">종료일</label>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>
+                                    업무
+                                </label>
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <select class="form-control2" id="cboHaccpProc" name="cboWork">
+                                        </select>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>
+                                    설비<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select class="form-control2" id="cboEquipment" name="cboEquipment">
+                                    </select>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <div id="theGrid" style="height: 700px;"></div>
+
+                </div>
+
+                <!--        <div class="grid_box">-->
+
+                <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
+                <!--        </div>-->
+            </section>
+        </form>
+
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <script type="text/javascript">
+        class DeviActionPage {
+            constructor() {
+                this.grid = null;
+                this.url = '/api/common/devi_action';
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+
+
+            }
+
+            init() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        {binding: 'haccpName', header: 'HACCP공정', width: '*', align: 'center'},
+                        {binding: 'equipName', header: '설비명', width: '*', align: 'center'},
+                        {binding: 'matCode', header: '제품코드', width: '*', align: 'center'},
+                        {binding: 'matName', header: '제품명', width: '*', align: 'center'},
+                        {binding: 'happenTime', header: '측정시간', width: '*', align: 'center'},
+                        {binding: 'abnormalDetail', header: '이탈사항', width: '*', align: 'center'},
+                        {binding: 'actionDetail', header: '조치내역', width: '*', align: 'center'},
+                        {binding: 'actorName', header: '조치자', width: '*', align: 'left'},
+                        {binding: 'writer', header: '확인자', width: '*', align: 'left'},
+                        {binding: 'description', header: '비고', width: '*', align: 'center'},
+
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+
+                        }
+                    },
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = 'CCP이상발생내역';
+
+
+            }
+
+            searchMainData() {
+                let _this = this;
+
+                let param = {
+                    'action': 'ccp_devi_action_list',
+                    'date_from': $('#srchStartDt').val(),
+                    'date_to': $('#srchEndDt').val(),
+                    'haccp_code': $('#cboHaccpProc').val(),
+                    'equip_id': $('#cboEquipment').val(),
+                };
+
+
+                let result = AjaxUtil.getSyncData(_this.url + '/ccp_devi_action_list', param);
+                if (result.data != null) {
+                    _this.viewData.sourceCollection = result.data;
+                }
+            }
+
+        }
+
+
+        let page = null;
+        let popup = null;
+        let modalContainer = null;
+
+        $(document.body).ready(function (e) {
+            page = new DeviActionPage();
+
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-15));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            AjaxUtil.fillSelectOptions($('#cboHaccpProc'), 'ccp_proc', 'all', null, null);
+            AjaxUtil.fillSelectOptions($('#cboEquipment'), 'equipment_ccp', 'all', null, null);
+
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            $('#cboHaccpProc').change(function (e) {
+                let procCode = $('#cboHaccpProc').val();
+                AjaxUtil.fillSelectOptions($('#cboEquipment'), 'equipment_ccp', 'all', '', procCode);
+
+            });
+
+            page.searchMainData();
+
+        });
+
+    </script>
+</th:block>
+</html>

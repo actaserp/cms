@@ -1,0 +1,904 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>출하 처리A</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>출하관리</li>
+                <li>출하처리A(수량)</li>
+            </ul>
+        </div>
+        <div style="display: flex; gap: 5px;">
+            <section class="section" style="flex: 1;">
+                <form id="searchForm" autocomplete="off">
+                    <div class="section-top">
+                        <div class="search-wrap">
+                            <dl>
+                                <dt>
+                                    <label>
+                                        출하일<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <input type="date" id="srchStartDt" name="srchStartDt"/>
+                                        <span class="slow_sign">~</span>
+                                        <input type="date" id="srchEndDt" name="srchEndDt"/>
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        업체
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <select class="form-control2" id="cboCompany" name="cboCompany">
+                                    </select>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        품목그룹
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <select class="" id="cboMatGroup" name="cboMatGroup">
+                                    </select>
+                                </dd>
+                            </dl>
+                        </div>
+                        <div class="search-wrap">
+                            <dl>
+                                <dt>
+                                    <label>
+                                        품목<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <select class="" id="cboMaterial" name="cboMaterial">
+                                    </select>
+                                </dd>
+                            </dl>
+
+                            <dl>
+                                <dt>
+                                    <label>
+                                        품목명<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <input type="text" class="" id="keyword" name="keyword"/>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        출하대기<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <input type="checkbox" id="chkNotShipped" name="chkNotShipped" value="Y" checked/>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>&nbsp;</dt>
+                                <dd>
+                                    <li>
+                                        <a class="btn btn-delete" title="검색" id="btnSearch">
+                                            <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                            검색
+                                        </a>
+                                    </li>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                    <!--<div class="section-top">
+                        <div class="search-wrap">
+
+
+                        </div>
+                    </div>-->
+                </form>
+                <!--            <div class="title_box">-->
+                <!--                <div class="left_align">-->
+                <!--                    <label class="switch">-->
+                <!--                        <input type="checkbox" checked id="btnListCollapse"><span class="slider round"></span>-->
+                <!--                    </label>-->
+                <!--                    출하 처리 대상 보기/감추기-->
+
+                <!--                </div>-->
+                <!--            </div>-->
+                <div class="container-fluid" id="divList">
+                    <div class="title_box">
+                        <span class="right_align rpt" data-labelCd="출하지시">출하지시</span>
+                        <button class="btn-default" style="width: 120px" id="btnBatchSave" data-labelCd="일괄 출하 처리">일괄 출하
+                            처리
+                        </button>
+                        <button class="btn-default" style="width: 120px" id="LoadSujuList" data-labelCd="수주 불러오기">수주
+                            불러오기
+                        </button>
+                    </div>
+                    <div class="container-fluid">
+                        <div id="theGrid"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section" style="flex: 1; min-width: 0;">
+
+                <div class="section-top">
+                    <div class="container-fluid">
+                        <div class="title_box buttons">
+                            <span class="right_align rpt" data-labelCd="출하">출하</span>
+                            <!--<button class="btn-default y_write_auth" id="btnSaveShip" data-labelCd="출하 처리">출하 처리</button>-->
+                        </div>
+                    </div>
+                </div>
+                <div class="container-fluid" style="height: 20vh;">
+                    <div id="theGrid2"></div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script type="text/x-tmpl" id="sujuTemplate">
+        <div class="content_wrap popup">
+    <form id="searchForm2" autocomplete="off">
+    <section class="section" style="padding-top: 10px;">
+
+        <div class="section-top">
+            <div class="search-wrap" style="text-align: left;">
+                <dl>
+                            <dt>
+                                <label>
+                                    수주일<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="date"id="srchStartDt2" name="srchStartDt"  />
+                                    <span class="slow_sign">~</span>
+                                    <input type="date" id="srchEndDt2" name="srchEndDt" />
+                                </div>
+                            </dd>
+                </dl>
+
+
+                <dl>
+                            <dt>
+                                <label>
+                                    업체<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <select class="" id="cboCompany2" name="cboCompany" >
+                                </select>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>
+                                    품목그룹
+                                </label>
+                            </dt>
+                            <dd>
+                                <select class="" id="cboMatGroup2" name="cboMatGroup" >
+                                </select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label>
+                                    품목<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <select class="" id="cboMaterial2" name="cboMaterial" >
+                                </select>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>
+                                    품목명<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <input type="text" style="width: 180px" class="" id="keyword2" name="keyword">
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>
+                                    미출하<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <input type="checkbox" id="chkNotShipped2" name="chkNotShipped" value="Y" checked />
+                            </dd>
+                        </dl>
+
+                <dl>
+                    <dt>&nbsp;</dt>
+                    <dd>
+                        <li>
+                            <a class="btn btn-delete" title="검색" id="btnSujuSearch">
+                                <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                검색
+                            </a>
+                        </li>
+                    </dd>
+                </dl>
+            </div>
+            <div class="container-fluid">
+                <div id="suju_grid" style="height: 400px;"></div>
+            </div>
+        </div>
+    </section>
+    </form>
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="btnCompSelect" ><span data-commonCd="출하목록반영">출하목록반영</span></button>
+            <button type="button" class="btn-popup" id="btn-search-close"><span data-commonCd="닫기">닫기</span></button>
+        </div>
+</div>
+    </script>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+    <th:block th:replace="/common/multiform_material :: multiform_material"></th:block>
+    <th:block th:replace="/common/multiform_company :: multiform_company"></th:block>
+    <script type="text/javascript">
+
+        let gUrl = '/api/shipment/shipment_do_a';
+        let $content;
+        let SelectItem = [];
+        let SelectItem_sujuGrid = [];
+        let deleteData = [];
+
+        let updateIndex;
+
+
+        class ShipmentProcessPage {
+            constructor() {
+                this.grid1 = null;
+                this.grid2 = null;
+                this.suju_grid = null;
+                this.tempShipmentList = [];
+
+                this.head_id = 0;
+                this.ship_state = '';
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+                this.viewData3 = new wijmo.collections.CollectionView();
+
+
+                this.$LoadSujuList = $('#LoadSujuList');
+
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+                this.grid1 = new wijmo.grid.FlexGrid('#theGrid', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowSorting: 'MultiColumn',
+                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
+                    isReadOnly: false,
+                    columns: [
+                        {binding: 'company_id', header: '판매처번호', width: '*', align: 'right', visible: false},
+                        {binding: 'company_name', header: '판매처', width: '*', align: 'left', isReadOnly: true},
+                        {binding: 'ship_date', header: '출하일', width: '*', align: 'center', isReadOnly: true},
+                        {binding: 'tot_order_qty', header: '총지시량', width: '*', align: 'right', isReadOnly: true},
+                        {binding: 'tot_ship_qty', header: '총출하량', width: '*', align: 'right', isReadOnly: true},
+                        {binding: 'state_name', header: '상태', width: '*', align: 'center', isReadOnly: true},
+                        {binding: 'description', header: '비고', width: '*', align: 'left', isReadOnly: true},
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                        }
+                    },
+
+                });
+                // 데이터 로드 후 초기 선택 상태 해제
+                this.grid1.loadedRows.addHandler(() => {
+                    setTimeout(() => {
+                        this.grid1.select(-1, -1); // 선택 상태 초기화
+                    }, 0); // 비동기로 처리하여 초기 선택 해제
+                });
+                let isInitialLoad = true; // 초기 상태 플래그
+
+                this.grid1.selectionChanged.addHandler((s, e) => {
+                    if (isInitialLoad) {
+                        isInitialLoad = false; // 초기 로드 이후 플래그 해제
+                        this.grid1.select(-1, -1); // 선택 상태 해제
+                        return;
+                    }
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+
+
+                        _this.head_id = selectedRowData.id;
+                        _this.ship_state = selectedRowData.state;
+                        _this.showShipMatList(_this.head_id);
+
+                    }
+                });
+                new FlexGridContextMenu(this.grid1);
+                this.grid1.downloadFileName = '출하지시';
+                let selector = new wijmo.grid.selector.Selector(this.grid1, {
+                    itemChecked: (e, ctx) => {
+                        SelectItem = this.grid1.rows.filter(r => r.isSelected);
+
+                    }
+                });
+
+
+                this.grid2 = new wijmo.grid.FlexGrid('#theGrid2', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowDelete: true,
+                    isReadOnly: true,
+                    columns: [
+                        {binding: 'ship_pk', header: 'pk', width: '*', align: 'left', visible: false},
+                        {binding: 'mat_grp_name', header: '제품그룹', width: '*', align: 'left'},
+                        {binding: 'mat_code', header: '제품코드', width: '*', align: 'center', isReadOnly: true},
+                        {binding: 'mat_name', header: '제품명', width: '*', align: 'left', isReadOnly: true},
+                        {binding: 'unit_name', header: '단위', width: '*', align: 'center', isReadOnly: true},
+                        {binding: 'order_qty', header: '지시량', width: '*', align: 'right', isReadOnly: true},
+                        {binding: 'ship_qty', header: '출하량', width: '*', align: 'right', isReadOnly: true},
+                        {binding: 'description', header: '비고', width: '*', align: 'left', isReadOnly: true},
+                        {
+                            binding: 'src_table_name',
+                            header: '소스',
+                            width: '*',
+                            align: 'left',
+                            isReadOnly: true,
+                            visible: false
+                        },
+                        {
+                            binding: 'src_data_pk',
+                            header: '소스pk',
+                            width: '*',
+                            align: 'left',
+                            isReadOnly: true,
+                            visible: false
+                        },
+
+                    ],
+                    itemsSource: this.viewData2,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                        }
+                    },
+
+                });
+                // 데이터 로드 후 초기 선택 상태 해제
+                this.grid2.loadedRows.addHandler(() => {
+                    setTimeout(() => {
+                        this.grid2.select(-1, -1); // 선택 상태 초기화
+                    }, 0); // 비동기로 처리하여 초기 선택 해제
+                });
+                let isInitialLoad2 = true; // 초기 상태 플래그
+
+                this.grid2.selectionChanged.addHandler((s, e) => {
+                    if (isInitialLoad2) {
+                        isInitialLoad2 = false; // 초기 로드 이후 플래그 해제
+                        return;
+                    }
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+
+//                        page.updateIndex = this.dindex;
+
+                    }
+                });
+                new FlexGridContextMenu(this.grid2);
+                this.grid2.downloadFileName = '출하';
+
+
+                this.$LoadSujuList.click(function () {
+                    let defaultData = {};
+                    _this.showSujuForm(defaultData);
+                })
+            }
+
+            showSujuForm(data) {
+
+                SelectItem_sujuGrid = [];
+
+                let _this = this;
+                let content = tmpl('sujuTemplate', data);
+                let $content = $(content);
+
+                let modalContainer = new PopupDraggable('수주리스트');
+                modalContainer.open({width: 1400, height: 600, $content});
+
+                let $btnPopSujuSave = $('#btnPopSujuSave');
+
+                $('#srchStartDt2').val(getNowDateMinus7());
+                $('#srchEndDt2').val(getNowDate());
+
+                $btnPopSujuSave.click(function (e) {
+
+                });
+
+
+                new CompanySelector('condCompanySelect', 'combobox', 'cboCompany2', 'sale', {
+                    null_option: 'all',
+                    selected_value: '',
+                    data_fill: true,
+                    condition1: ''
+                });
+
+                AjaxUtil.fillSelectOptions($('#cboMatGroup2'), 'material_group', 'all', '', 'product,semi,sangpum');
+                AjaxUtil.fillSelectOptions($('#cboMaterial2'), 'material', 'all', '', null);
+                $('#cboMatGroup2').change(function (e) {
+                    let mat_grp_pk = $('#cboMatGroup2').val();
+                    AjaxUtil.fillSelectOptions($('#cboMaterial2'), 'material', 'all', '', mat_grp_pk);
+                });
+
+                this.suju_grid = new wijmo.grid.FlexGrid('#suju_grid', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowSorting: 'MultiColumn',
+                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
+                    isReadOnly: false,
+                    columns: [
+                        {
+                            binding: 'suju_pk',
+                            header: '수주번호',
+                            width: '*',
+                            align: 'center',
+                            isReadOnly: true,
+                            visible: false
+                        },
+                        {binding: 'JumunNumber', header: '수주번호', width: '*', align: 'center', isReadOnly: true},
+                        {binding: 'JumunDate', header: '수주일', width: '*', align: 'center', isReadOnly: true},
+                        {binding: 'DueDate', header: '납기일', width: '*', align: 'center', isReadOnly: true},
+                        {binding: 'CompanyName', header: '판매처', width: '*', align: 'left', isReadOnly: true},
+                        {binding: 'mat_grp', header: '제품그룹', width: '*', align: 'left', isReadOnly: true},
+                        {binding: 'mat_code', header: '제품코드', width: '*', align: 'center', isReadOnly: true},
+                        {binding: 'mat_name', header: '제품명', width: '*', align: 'left', isReadOnly: true},
+                        {binding: 'unit_name', header: '단위', width: '*', align: 'center', isReadOnly: true},
+                        {binding: 'suju_qty', header: '수주량', width: '*', align: 'right', isReadOnly: true},
+                        {binding: 'cur_stock', header: '현재고', width: '*', align: 'right', isReadOnly: true},
+                        {binding: 'order_qty', header: '지시량', width: '*', align: 'right', isReadOnly: true},
+                        //{ binding: 'order_input_qty', header: '추가지시량', width: '*', align: 'right', isReadOnly: false },
+                        {
+                            binding: 'order_input_qty',
+                            header: '추가지시량',
+                            width: '*',
+                            align: 'right',
+                            isReadOnly: false, // 편집 가능
+                            editor: new wijmo.input.InputNumber(document.createElement('div'), {
+                                format: 'n0', // 정수 형식
+                                min: 0,       // 최소값 설정
+                                max: 99999,   // 최대값 설정
+                                step: 1       // 증가/감소 단위
+                            })
+                        },
+                        {binding: 'shipment_qty', header: '출하량', width: '*', align: 'right', isReadOnly: true},
+                        {binding: 'remark', header: '비고', width: '*', align: 'left', isReadOnly: true}
+                    ],
+                    itemsSource: this.viewData3,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            let col = s.columns[e.col];
+                            if (col.binding === 'order_input_qty') {
+                                e.cell.style.backgroundColor = '#ffd800'; // 배경색 노란색으로 설정
+                                e.cell.style.color = 'black';           // 글자색 설정 (가독성 고려)
+                            }
+                        }
+                    },
+
+                });
+                // 데이터 로드 후 초기 선택 상태 해제
+                this.suju_grid.beginningEdit.addHandler((s, e) => {
+                    let col = s.columns[e.col]; // 현재 편집 중인 컬럼
+                    let row = e.row;            // 현재 편집 중인 행
+
+                    // 편집 중인 컬럼이 'order_input_qty'인 경우
+                    if (col.binding === 'order_input_qty') {
+                        // suju_qty 열의 값을 가져옴
+                        let sujuQtyValue = s.getCellData(row, s.columns.getColumn('suju_qty').index, false);
+
+                        // 현재 편집 중인 셀에 suju_qty 값을 설정
+                        s.setCellData(row, col.index, sujuQtyValue);
+                    }
+                });
+
+                this.suju_grid.loadedRows.addHandler(() => {
+
+                    let isInitialLoad = true;
+
+                    this.suju_grid.selectionChanged.addHandler((s, e) => {
+                        if (isInitialLoad) {
+                            isInitialLoad = false; // 초기 로드 이후 플래그 해제
+                            this.suju_grid.select(-1, -1); // 선택 상태 해제
+                            return;
+                        }
+                    })
+                })
+
+                new FlexGridContextMenu(this.suju_grid);
+                this.suju_grid.downloadFileName = '수주리스트';
+                let selector = new wijmo.grid.selector.Selector(this.suju_grid, {
+                    itemChecked: (e, ctx) => {
+                        SelectItem_sujuGrid = this.suju_grid.rows.filter(r => r.isSelected);
+
+                    }
+                });
+
+                _this.searchMain_SujuList();
+
+                $('#btnSujuSearch').click(function (e) {
+                    _this.searchMain_SujuList();
+                })
+
+                const keyword = document.getElementById('keyword2');
+                keyword.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        _this.searchMain_SujuList();
+                    }
+                });
+
+                $('#btnCompSelect').click(function (e) {
+                    let selectedItems = SelectItem_sujuGrid;
+                    if (selectedItems.length === 0 || selectedItems === undefined) {
+                        Alert.alert('', '제품을 선택해 주세요.');
+                        return;
+                    }
+                    let comp_a = "";
+                    let return_a = 0;
+
+                    $.each(selectedItems, function (index, item) {
+                        if (comp_a && (comp_a !== item._data.Company_id)) {
+                            return_a = 1;
+                        } else {
+                            comp_a = item._data.Company_id;
+                        }
+                    });
+
+                    if (return_a == 1) {
+                        Alert.alert('', '하나 이상의 판매처가 있습니다.');
+                        return;
+                    }
+
+                    page.addShipMat();
+                });
+
+
+                //모달 닫기
+                $('#btn-search-close').click(function (e) {
+                    modalContainer.close();
+                })
+
+            }
+
+            addShipMat() {
+                let _this = this;
+                let comp_pk = null;
+                let comp_name = null;
+
+                let selectedItems = SelectItem_sujuGrid;
+                let bucket = [];
+
+                $.each(selectedItems, function (index, item) {
+                    comp_pk = item._data.Company_id;
+                    comp_name = item._data.CompanyName;
+
+                    //let row_idx = _this.getShipMatRow(item.mat_id);
+
+
+                    let order_input_qty = Number(item._data.order_input_qty);
+
+                    if (!order_input_qty) {
+                        Alert.alert('', '추가지시량을 입력해주세요.');
+                        return false;
+                    }
+                    if (order_input_qty < 0) {
+                        Alert.alert('', '추가지시량을 확인해주세요.');
+                        return false;
+                    }
+                    if (isNaN(order_input_qty))
+                        order_input_qty = 0;
+                    //return true;
+                    if (order_input_qty <= 0) {
+                        order_input_qty = 0;
+                        //return true;    // continue
+                    }
+
+                    let new_data = {};
+                    new_data['mat_id'] = item._data.mat_id;
+                    new_data['suju_pk'] = item._data.suju_pk;
+                    new_data['mat_grp'] = item._data.mat_grp;
+                    new_data['mat_code'] = item._data.mat_code;
+                    new_data['mat_name'] = item._data.mat_name;
+                    new_data['unit_name'] = item._data.unit_name;
+                    new_data['Company_id'] = item._data.Company_id;
+                    //let qty = item.suju_qty;
+                    //if (item.order_qty > 0)
+                    //    qty -= item.order_qty;
+                    new_data['order_qty'] = order_input_qty;
+                    bucket.push(new_data);
+
+
+                })
+                let data = {};
+                data['Company_id'] = bucket[0].Company_id.toString();
+                data['ShipDate'] = getNowDate();
+                data['Description'] = '';
+                data['TableName'] = 'suju';
+                data['Q'] = JSON.stringify(bucket);
+
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Notify.success('출하 지시 완료.');
+
+                        document.getElementById('btn-search-close').click();
+                        document.getElementById('btnSearch').click();
+
+                    } else {
+                        const message = res.message ?? '출하지시실패';
+                        Alert.alert('', message);
+                    }
+                }
+                AjaxUtil.postAsyncData('/api/shipment/shipment_order/save_shipment_order', data, fnSuccess);
+
+            }
+
+
+            //TODO: 기능체크
+            getShipMatRow(mat_pk) {
+                let _this = this;
+
+                for (let i = 0; i < _this.tempShipmentList.length; i++) {
+                    if (mat_pk == _this.tempShipmentList[i].mat_id)
+                        return i;
+                }
+
+                /*for(let i = 0; i < this.suju_grid.collectionView.items.length; i++){
+                    if(mat_pk == this.suju_grid.collectionView.items[i].mat_id)
+                        return i;
+                }
+                */
+
+                return -1;
+            }
+
+            searchMain() {
+
+                let not_ship = $('#chkNotShipped').is(':checked') ? 'Y' : 'N';
+
+                let data = FormUtil.extractForm($('#searchForm'));
+                data['action'] = 'order_list';
+                data['not_ship'] = not_ship;
+
+                let result = AjaxUtil.getSyncData(gUrl + "/order_list", data);
+                if (result.data != null) {
+                    this.viewData.sourceCollection = result.data;
+                }
+
+                this.grid2.itemsSource = new wijmo.collections.CollectionView([]);
+                return;
+
+            }
+
+            showShipMatList(head_id) {
+
+                if (page.grid1.selectedItems.length == 0) {
+                    Alert.alert('', '항목을 선택해 주세요.');
+                    return;
+                }
+
+                this.grid2.itemsSource = new wijmo.collections.CollectionView([]);
+
+                let data = {};
+                data['action'] = 'shipment_item_list';
+                data['head_id'] = head_id;
+                let result = AjaxUtil.getSyncData(gUrl + "/shipment_item_list", data);
+
+                if (result.data != null) {
+                    this.addNewRow(result.data);
+                }
+            }
+
+            addNewRow(new_data) {
+                let cv = this.grid2.collectionView;
+
+
+                new_data.forEach(item => {
+                    let newRow = {
+                        ship_pk: item['ship_pk'],
+                        mat_grp_name: item['mat_grp_name'],
+                        mat_code: item['mat_code'],
+                        mat_name: item['mat_name'],
+                        unit_name: item['unit_name'],
+                        order_qty: item['order_qty'],
+                        ship_qty: item['ship_qty'],
+                        description: item['description'],
+                        src_table_name: item['src_table_name'],
+                        src_data_pk: item['src_data_pk']
+                    };
+                    cv.addNew(newRow);
+                });
+
+            }
+
+            beforeSave() {
+                if (page.grid2.selectedItems.length == 0) {
+                    Alert.alert('', '출하 처리할 내용이 없습니다.');
+                    return;
+                }
+                return true;
+            }
+
+            saveShipData() {
+                let data = {};
+                let head_id = page.head_id;
+                data = {
+                    'head_id': head_id,
+                    'Q': JSON.stringify(page.grid2.collectionView.items)
+                }
+
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        page.searchMain();
+                        Notify.success("출하 처리 완료.");
+                    } else {
+                        Notify.success("출하 처리 실패.");
+                    }
+                }
+                AjaxUtil.postAsyncData(gUrl + "/save_shipdata_a", data, fnSuccess);
+
+            }
+
+            searchMain_SujuList() {
+                let not_ship = $('#chkNotShipped2').is(':checked') ? 'Y' : 'N';
+                let data = FormUtil.extractForm($('#searchForm2'));
+
+                data['action'] = 'suju_list';
+                data['not_ship'] = not_ship;
+                let result = AjaxUtil.getSyncData("/api/shipment/shipment_order/suju_list", data);
+
+                if (result.data != null) {
+                    this.viewData3.sourceCollection = result.data;
+                }
+
+                return;
+            }
+
+
+            saveBatchShipData() {
+                let _this = this;
+
+                let headList = [];
+
+                SelectItem.forEach(item => {
+                    headList.push(item._data);
+                })
+
+
+                if (headList.length === 0 || headList === undefined || headList === null) {
+                    Alert.alert('', '일괄 출하 처리할 항목을 선택해주세요.');
+                    return;
+                }
+
+                let data = {'shiphead_list': JSON.stringify(headList)};
+
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        page.searchMain();
+                        Notify.success("출하 처리 완료.");
+                    } else {
+                        Notify.success("출하 처리 실패.");
+                    }
+                }
+
+                Alert.confirm('', '일괄 출하 처리 하시겠습니까?',
+                    function () {
+                        AjaxUtil.postAsyncData(gUrl + "/batch_save", data, fnSuccess);
+                    },
+                    function () {
+                    }
+                );
+            }
+
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const keywordInput = document.getElementById("keyword");
+
+            keywordInput?.addEventListener("keydown", function (event) {
+                if (event.key === "Enter") {
+                    event.preventDefault(); // 기본 동작 방지
+                    page.searchMain();
+                }
+            });
+        });
+
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new ShipmentProcessPage();
+
+            AjaxUtil.fillSelectOptions($('#cboCompany'), 'company', 'all', '', 'sale');
+            AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', '', 'product,semi,sangpum');
+            AjaxUtil.fillSelectOptions($('#cboMaterial'), 'material', 'all', '', null);
+            $('#cboMatGroup').change(function (e) {
+                let mat_grp_pk = $('#cboMatGroup').val();
+                AjaxUtil.fillSelectOptions($('#cboMaterial'), 'material', 'all', '', mat_grp_pk);
+            });
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            $('#btnListCollapse').click(function (e) {
+                $('#divList').toggle(300);
+            });
+
+            // 검색
+            $('#btnSearch').click(function (e) {
+                page.searchMain();
+            });
+
+
+            $('#btnBatchSave').click(function (e) {
+                page.saveBatchShipData();
+            });
+
+
+            $('#btnSaveShip').click(function (e) {
+                if (page.beforeSave()) {
+                    Alert.confirm('', "출하 처리하시겠습니까?",
+                        function () {
+                            page.saveShipData();
+                        },
+                        function () {
+                        }
+                    );
+                }
+            });
+
+            $('#cboCompany').change(function () {
+                // 판매처 타이틀
+                $('#cboCompany').attr('title', $('#cboCompany option:checked').text());
+            });
+
+
+            page.searchMain();
+        })
+    </script>
+
+</th:block>
+</html>

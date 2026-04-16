@@ -1,0 +1,469 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>매입매출년마감</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>매입매출년마감</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label>연도</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboYear" name="cboYear"></select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label>구분</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="ioflag" name="ioflag">
+                                    <option value="0">매출</option>
+                                    <option value="1">매입</option>
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl id="searchComArea">
+                        <dt>
+                            거래처
+                        </dt>
+                        <dd>
+                            <input type="text" id="btnCompanySearch" name="btnCompanySearch" placeholder="입력 후 엔터를 눌러 검색하세요."/>
+                            <input type="hidden" id="cboCompanyHidden">
+                            <input type="hidden" id="cltflag" name="cltflag"/>
+                            <input type="hidden" id="spjangcdHidden">
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label>마감유무</label>
+                        </dt>
+                        <dd>
+                            <input type="checkbox" id="Allcheck">
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt><span class="eq"></span></dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+
+                </div>
+
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <button type="button" class="btn-excellt btn-default" id="btnMagam"
+                                    style="width: 115px; height: 36px;">마감
+                            </button>
+                        </li>
+
+                        <li>
+                            <button type="button" class="btn-delete btn-default" id="btnMagamCancel"
+                                    style="width: 115px; height: 36px; display: none;">마감취소
+                            </button>
+                        </li>
+
+                    </ul>
+                </div>
+            </div> <!--//section-top end -->
+            <div class="container-fluid">
+                <p id="selectedItem"></p>
+                <div id="yearamt-grid" style="height: 720px; max-height: 720px;"></div>
+            </div>
+        </section>
+    </div> <!--//layout-contents end -->
+
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/popup_company_employee_bank_card.html :: popup_company"></th:block>
+    <script type="text/javascript">
+        class YearamtPage {
+            constructor() {
+                this.grid = null;
+                this.viewData = new wijmo.collections.CollectionView();
+                this.baseUrl = '/api/definition/yearamt';
+                this.init();
+            }
+
+            init() {
+                const gridEl = '#yearamt-grid';
+                // FlexGrid
+                this.grid = new wijmo.grid.FlexGrid(gridEl, {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.All,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            const col = s.columns[e.col];
+                            const item = s.rows[e.row].dataItem;
+                            if (!item) return;
+
+                            if (col.binding === 'endyn') {
+                                const closed = (item.endyn === true || item.endyn === 'Y');
+                                e.cell.textContent = closed ? '마감' : '미마감';
+                                e.cell.style.textAlign = 'center';
+                            }
+                        }
+                    },
+                    columns: [
+                        {binding: 'id', header: '거래처ID', width: 100, align: 'center', isReadOnly: true, visible: false},
+                        {binding: 'cltflag', header: '거래처구분', width: 100, visible: false},
+                        {binding: 'company_name', header: '거래처명', width: 270, align: 'center', isReadOnly: true},
+                        {binding: 'ioflag_nm', header: '매출/매입구분', width: 120, align: 'center', isReadOnly: true},
+                        {binding: 'yyyymm_fmt', header: '마감년월', width: 130, align: 'center', isReadOnly: true},
+                        {binding: 'balance', header: '마감금액', width: 250, align: 'right'},
+                        {
+                            binding: 'endyn',
+                            header: '마감유무',
+                            width: 130,
+                            align: 'center',
+                            //dataType: 'Boolean',
+                            isReadOnly: true,
+                            cssClass: 'col-endyn-readonly'
+                        },
+                        {binding: '', header: '', width: "*", align: 'left'},
+                    ],
+                    itemsSource: this.viewData,
+                });
+
+                // 로드 직후 선택 해제
+                this.grid.loadedRows.addHandler(() => {
+                    setTimeout(() => this.grid.select(-1, -1), 0);
+                });
+
+                // Selector (체크박스) + 선택 변경 시 버튼 상태 갱신
+                const selector = new wijmo.grid.selector.Selector(this.grid, {
+                    itemChecked: () => this.updateActionButtons()
+                });
+
+                // 선택 변경 → 버튼 상태 갱신
+                let isInitialLoad = true;
+                this.grid.selectionChanged.addHandler((s, e) => {
+                    if (isInitialLoad) { isInitialLoad = false; return; }
+                    this.updateActionButtons();
+                });
+
+                // ContextMenu/다운로드 이름
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '매입매출년마감';
+
+            }
+
+            /** 현재 선택에 맞춰 마감/마감취소 버튼 표시 전환 */
+            updateActionButtons() {
+                const magamBtn  = document.getElementById('btnMagam');
+                const cancelBtn = document.getElementById('btnMagamCancel');
+
+                // 다중선택 고려: 선택된 행들
+                const selItems = this.grid.rows
+                    .filter(r => r.isSelected)
+                    .map(r => r.dataItem)
+                    .filter(Boolean);
+
+                if (selItems.length === 0) {
+                    // 선택 없음 → 기본: 마감 보이기, 취소 숨김
+                    if (magamBtn)  magamBtn.style.display  = '';
+                    if (cancelBtn) cancelBtn.style.display = 'none';
+                    return;
+                }
+
+                const hasOpen  = selItems.some(it => it.endyn !== true); // 미마감 포함?
+                const hasClose = selItems.some(it => it.endyn === true); // 마감 포함?
+
+                // 미마감이 하나라도 있으면 [마감] 노출
+                if (magamBtn)  magamBtn.style.display  = hasOpen ? '' : 'none';
+                // 마감건이 하나라도 있으면 [마감취소] 노출
+                if (cancelBtn) cancelBtn.style.display = hasClose ? '' : 'none';
+            }
+
+            /** 조회 */
+            searchMainData() {
+
+                const endynFilter = $('#Allcheck').is(':checked') ? 'Y' : 'N';
+
+                const param = {
+                    cboYear: $('#cboYear').val(),
+                    ioflag: $('#ioflag').val(),               // '0' or '1'
+                    endyn: endynFilter,
+                    searchId: $('#cboCompanyHidden').val(),
+                    searchname: $('#btnCompanySearch').val(),
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                };
+
+                const url = '/api/definition/yearamt';
+                const result = AjaxUtil.getSyncData(url + '/read', param);
+                if (!result || !result.data) {
+                    this.viewData.sourceCollection = [];
+                    this.applyEndynFilter();
+                    this.updateActionButtons();
+                    return;
+                }
+
+                const mapped = result.data.map(raw => {
+                    const endynBool = (raw.endyn === 'Y' || raw.endyn === true);
+                    const ioflagNm = (raw.ioflag === 0 || raw.ioflag === '0') ? '매출' : '매입';
+
+                    let yyyymmFmt = '';
+                    if (raw.yyyymm) {
+                        const y = String(raw.yyyymm);
+                        yyyymmFmt = y.length === 6 ? `${y.slice(0, 4)}-${y.slice(4, 6)}` : y;
+                    }
+
+                    return {
+                        ...raw,
+                        endyn: endynBool,
+                        ioflag_nm: ioflagNm,
+                        yyyymm_fmt: yyyymmFmt,
+                    };
+                });
+
+                this.viewData.sourceCollection = mapped;
+
+                // 선택/버튼 상태 초기화
+                if (this.grid) {
+                    this.grid.select(-1, -1);
+                }
+                $('#btnMagam').show();
+                $('#btnMagamCancel').hide();
+
+                // 버튼 상태 보정
+                this.updateActionButtons();
+            }
+
+            /** 마감유무(Y) 필터 */
+            applyEndynFilter() {
+                const onlyClosed = $('#Allcheck').is(':checked');
+                const cv = this.grid.collectionView;
+                cv.beginUpdate();
+                cv.filter = onlyClosed ? (item) => item.endyn === true : null;
+                cv.endUpdate();
+
+                // 행 필터 후 선택 초기화 및 버튼 보정
+                this.grid.select(-1, -1);
+                this.updateActionButtons();
+            }
+
+            /** 저장 공통 (type: 'magam' | 'magam_cancel') */
+            saveSelected(type) {
+                const $btns = $('#btnMagam, #btnMagamCancel');
+                if (!this.grid) return;
+
+                this.grid.finishEditing(true);
+
+                // 현재 선택된 행만
+                let selectedItems = this.grid.rows.filter(r => r.isSelected).map(r => r.dataItem);
+
+                if (!selectedItems.length) {
+                    Alert.alert('', '선택된 행이 없습니다.');
+                    return;
+                }
+
+                // 미마감만 마감 / 마감건만 취소
+                if (type === 'magam') {
+                    selectedItems = selectedItems.filter(it => it && it.endyn !== true);
+                    if (!selectedItems.length) {
+                        Alert.alert('', '선택 항목 중 미마감 데이터가 없습니다.');
+                        return;
+                    }
+                } else {
+                    selectedItems = selectedItems.filter(it => it && it.endyn === true);
+                    if (!selectedItems.length) {
+                        Alert.alert('', '선택 항목 중 마감된 데이터가 없습니다.');
+                        return;
+                    }
+                }
+
+                const year = String($('#cboYear').val() || '').trim();
+                const yyyymm =
+                    (year && /^\d{4}$/.test(year)) ? (year + '12')
+                        : (selectedItems[0]?.yyyymm ? String(selectedItems[0].yyyymm).slice(0, 6) : '');
+                if (!/^\d{6}$/.test(yyyymm)) {
+                    Alert.alert('오류', '마감년월(yyyymm)을 확인하세요.');
+                    return;
+                }
+
+                const spjangcd = (sessionStorage.getItem('spjangcd') || '').slice(0, 2);
+                const toNum = v => {
+                    if (v == null) return 0;
+                    const n = Number(String(v).replace(/,/g, ''));
+                    return Number.isFinite(n) ? n : 0;
+                };
+
+                const endyn = (type === 'magam') ? 'Y' : 'N';
+                const comboIoflag = ($('#ioflag').val() === '0') ? '0' : '1';
+
+                const list = selectedItems.map(it => {
+                    const itemIoflag =
+                        (it.ioflag === 0 || it.ioflag === '0') ? '0'
+                            : (it.ioflag === 1 || it.ioflag === '1') ? '1'
+                                : comboIoflag;
+
+                    return {
+                        ioflag: itemIoflag,
+                        yyyymm: yyyymm,
+                        cltcd: Number(it.id),
+                        yearamt: toNum(it.balance),
+                        endyn: endyn,
+                        spjangcd: spjangcd,
+                        vercode: it.vercode ?? ''
+                    };
+                });
+
+                const data = { list };
+                const url = (type === 'magam')
+                    ? `${this.baseUrl}/magam`
+                    : `${this.baseUrl}/magamCancel`;
+
+                $btns.prop('disabled', true);
+
+                AjaxUtil.postJsonData(
+                    url,
+                    data,
+                    (res) => {
+                        if (res?.success) {
+                            Alert.alert('', (type === 'magam') ? '마감되었습니다.' : '마감이 취소되었습니다.');
+                            this.searchMainData();
+                        } else {
+                            Alert.alert('오류', res?.message ?? '저장에 실패했습니다.');
+                        }
+                        $btns.prop('disabled', false);
+                    },
+                    (req, status, error) => {
+                        Alert.alert('오류', `요청 실패: ${status} ${error}`);
+                        $btns.prop('disabled', false);
+                    }
+                );
+            }
+        }
+
+        // 거래처 팝업
+        function companyPopupOpenCustom(intputId, hiddenid, hiddenflag) {
+            const value = document.getElementById(intputId).value;
+            let poppage = new PopCompComponentCustom(value);
+
+            let result = AjaxUtil.getSyncData('/api/popup/search_Comp_Custom', {
+                item2: value,
+                spjangcd: getSpjangcdFromSession()
+            });
+
+            let searchcallback = function (items) {
+                document.getElementById(intputId).focus();
+                document.getElementById(intputId).value = items.item2;
+                document.getElementById(hiddenid).value = items.id;
+                document.getElementById(hiddenflag).value = items.cltflag;
+            };
+            if (result && result.data.length === 1) {
+                searchcallback(result.data[0]);
+                return;
+            }
+            poppage.show(searchcallback, result.data);
+        }
+
+        let page = null;
+
+        $(document.body).ready(function () {
+            page = new YearamtPage();
+
+            AjaxUtil.fillSelectOptions($('#cboYear'), 'data_year', '', false, function () {
+                $('#cboYear').val($('#cboYear option:first').val());
+            });
+
+            // 최초 로드
+            page.searchMainData();
+
+            // 검색
+            $('#btnSearch').on('click', function () {
+                page.searchMainData();
+            });
+
+            // 거래처 팝업
+            $('#btnCompanySearch').on('click keydown', function (e) {
+                if (e.type === 'keydown' && (e.key === 'Enter' || e.keyCode === 13)) {
+                    e.preventDefault();
+                    companyPopupOpenCustom('btnCompanySearch', 'cboCompanyHidden', 'cltflag');
+                }
+            });
+
+            $('#btnCompanySearch').on('input', function () {
+                const val = $(this).val();
+                if (val === '') {
+                    $('#cboCompanyHidden').val('');
+                    $('#cltflag').val('');
+                }
+            });
+
+            // 마감/마감취소
+            $('#btnMagam').off('click').on('click', function (e) {
+                e.preventDefault();
+                Alert.confirm('', '선택된 미마감 건을 마감하시겠습니까?', function () {
+                    page.saveSelected('magam');
+                });
+            });
+
+            $('#btnMagamCancel').off('click').on('click', function (e) {
+                e.preventDefault();
+                Alert.confirm('', '선택된 마감 건을 취소하시겠습니까?', function () {
+                    page.saveSelected('magam_cancel');
+                });
+            });
+
+            $(document).on('click', '.btn-clear', function () {
+                const $input = $(this).siblings('input[type="text"]');
+                $input.val('');
+                $input.trigger('input');
+            });
+
+            $('#btnClear').on('click', function () {
+                document.getElementById('cboCompany').value = '';
+                document.getElementById('cboCompanyHidden').value = '';
+            });
+        });
+    </script>
+
+</th:block>
+
+</html>

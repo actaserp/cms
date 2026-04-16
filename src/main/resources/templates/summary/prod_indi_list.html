@@ -1,0 +1,220 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+<div class="layout-contents">
+
+    <div class="page-title-wrap">
+        <div class="left">
+            <h2>생산량 지표</h2>
+            <a title="북마크" class="bookmark toggle">
+                내 메뉴
+            </a>
+        </div>
+        <ul class="page-navi">
+            <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+            <li>KPI 성과 지표</li>
+            <li>생산량 지표</li>
+        </ul>
+    </div>
+
+
+    <section class="section">
+        <div class="section-top">
+            <div class="search-wrap">
+                <dl>
+                    <dt>
+                        <label for="cboYear">
+                            기준년도
+                        </label>
+                    </dt>
+                    <dd>
+                        <div class="srch-box">
+                            <select id="cboYear">
+                            </select>
+                        </div>
+                    </dd>
+                </dl>
+
+                <dl>
+                    <dt>&nbsp;</dt>
+                    <dd>
+                        <li>
+                            <a class="btn btn-delete" title="검색" id="btnSearch">
+                                <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                검색
+                            </a>
+                        </li>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+        <div class="container-fluid">
+            <div id="theGrid" style="height: 730px;"></div>
+        </div>
+    </section>
+</div>
+</th:block>
+<th:block layout:fragment="scripts">
+<script type="text/javascript">
+    class ProductionMonthPage {
+        constructor() {
+            this.grid = null;
+            this.viewData = new wijmo.collections.CollectionView();
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+
+            this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                allowSorting: wijmo.grid.AllowSorting.MultiColumn,
+                allowMerging: wijmo.grid.AllowMerging.Cells,  //셀 병합
+                autoGenerateColumns: false,
+                showMarquee: true,
+                isReadOnly: true,
+                frozenColumns: 5,
+                formatItem: (sender, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                    }
+                },
+
+                columns: [
+                    // { binding: 'mat_type_name', header: '품목유형', width: 100 ,allowMerging: true },
+                    { binding: 'mat_grp_name', header: '품목그룹', width: 120 ,allowMerging: true },
+                    // { binding: 'mat_code', header: '품목코드', width: 150 ,allowMerging: true },
+                    { binding: 'mat_name', header: '품목명', width: '*' , allowMerging: true },
+                    { binding: 'standard1', header: '규격', width: 100, allowMerging: false },
+                    { binding: 'unit_name', header: '단위', width: 100, allowMerging: false },
+                    { binding: 'gubn', header: '구분', width: 100, format: 'n0', align: 'right' },
+                    ...Array.from({ length: 12 }, (_, i) => ({
+                        binding: `mon_${i + 1}`,
+                        header: `${i + 1}월`,
+                        width: 80,
+                        align: 'right',
+                        allowSorting: false
+                    }))
+                ],
+                itemsSource: this.viewData, // 데이터를 설정할 배열
+            });
+            this.grid.itemFormatter = function (panel, row, col, cell) {
+                if (panel.cellType === wijmo.grid.CellType.Cell) {
+                    let colName = panel.columns[col].binding;
+                    let rowData = panel.rows[row]?.dataItem;
+                    const prevRowData = panel.rows[row - 1]?.dataItem;
+
+                    if (colName === 'gubn') {
+                        const val = panel.getCellData(row, col, true);
+                        const label = val === '1' ? '생산수량' : val === '2' ? '영업일수' : val === '3' ? '시간당생산량' : '';
+                        cell.textContent = label;
+                        cell.style.textAlign = 'center';
+                    }
+
+                    if (colName.startsWith('mon_') && rowData?.gubn) {
+                        let value = panel.getCellData(row, col, false);
+                        let gubn = rowData.gubn;
+
+                        if (typeof value === 'number') {
+                            cell.textContent = gubn === '3'
+                                ? wijmo.Globalize.format(value, 'n2')
+                                : wijmo.Globalize.format(value, 'n0');
+                        }
+
+                        cell.style.textAlign = 'right';
+                    }
+
+                    if (['mat_type_name', 'mat_grp_name', 'mat_code', 'unit_name', 'standard1'].includes(colName)) {
+                        cell.style.textAlign = 'center';          // 수평 가운데
+                        cell.style.verticalAlign = 'middle';      // 수직 가운데
+                        cell.style.display = 'flex';              // flex로 정렬
+                        cell.style.alignItems = 'center';         // 수직 정렬
+                        cell.style.justifyContent = 'center';     // 수평 정렬
+                    } else if (['mat_name']){
+                        cell.style.textAlign = 'left';
+                        cell.style.verticalAlign = 'middle';      // 수직 가운데
+                        cell.style.display = 'flex';              // flex로 정렬
+                        cell.style.alignItems = 'center';         // 수직 정렬
+                        cell.style.justifyContent = 'left';     // 수평 정렬
+                    }
+                }
+            };
+            new FlexGridContextMenu(this.grid);
+            this.grid.downloadFileName = '생산량 지표';
+            this.grid.mergeManager = new CustomMergeManager(this.grid);
+        }
+
+
+
+        searchMainData() {
+            let url = '/api/summary/indicator/prod_read'
+            let data = {
+				'cboYear' : $("#cboYear").val(),
+                'spjangcd' : sessionStorage.getItem('spjangcd')
+			}
+            const result = AjaxUtil.getSyncData(url, data);
+            console.log("result data : ", result.data);
+            if (result) {
+                this.grid.itemsSource = result.data;
+            }
+        }
+
+    }
+
+    let page = null;
+
+    $(document.body).ready(function (e) {
+        page = new ProductionMonthPage();
+
+        AjaxUtil.fillSelectOptions($('#cboYear'), 'data_year', '', false);
+
+        page.searchMainData();
+
+        // 검색
+        $('#btnSearch').click(function (e) {
+            page.searchMainData();
+        });
+    });
+
+    class CustomMergeManager extends wijmo.grid.MergeManager {
+        getMergedRange(panel, row, col, clip = true) {
+            if (panel.cellType !== wijmo.grid.CellType.Cell) {
+                return super.getMergedRange(panel, row, col, clip);
+            }
+
+            const colName = panel.columns[col].binding;
+            if (colName === 'standard1' || colName === 'unit_name') {
+                const matNameCol = panel.columns.getColumn('mat_name').index;
+                const val = panel.getCellData(row, col, false);
+                const matName = panel.getCellData(row, matNameCol, false);
+
+                let rng = new wijmo.grid.CellRange(row, col);
+
+                // 위로 병합
+                while (rng.row > 0) {
+                    let prevVal = panel.getCellData(rng.row - 1, col, false);
+                    let prevMatName = panel.getCellData(rng.row - 1, matNameCol, false);
+                    if (prevVal !== val || prevMatName !== matName) break;
+                    rng.row--;
+                }
+
+                // 아래로 병합
+                while (rng.row2 < panel.rows.length - 1) {
+                    let nextVal = panel.getCellData(rng.row2 + 1, col, false);
+                    let nextMatName = panel.getCellData(rng.row2 + 1, matNameCol, false);
+                    if (nextVal !== val || nextMatName !== matName) break;
+                    rng.row2++;
+                }
+
+                return rng.isSingleCell ? null : rng;
+            }
+
+            return super.getMergedRange(panel, row, col, clip);
+        }
+    }
+
+
+
+</script>
+</th:block>

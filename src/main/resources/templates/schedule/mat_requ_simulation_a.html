@@ -1,0 +1,339 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>소요량 시뮬레이션</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산 관리</li>
+                <li>소요량 시뮬레이션</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px">
+            <section class="section" style="width: 50%;">
+                <div class="section-top" style="justify-content: flex-start;">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                BOM 적용기준일
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <input type="date" id="srchStartDt" name="srchStartDt">
+                                        <label for="srchStartDt" class="hide">기준일</label>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="button-wrap" style=" margin-left: 20px">
+                        <ul>
+                            <li>
+                                <a class="btn btn-excell" title="등록" id="btnSearchItem">
+                                    제품 조회
+                                </a>
+                            </li>
+                            <li>
+                                <a class="btn btn-delete" title="삭제" id="btnExceptItem">
+                                    제품 제외
+                                </a>
+                            </li>
+                            <li>
+                                <a class="btn btn-excell" title="계산기" id="btnCalulation">
+                                    소요량 계산
+                                </a>
+                            </li>
+                            <li>
+                                <a class="btn btn-edit" title="수정" id="btnInitItem">
+                                    초기화
+                                </a>
+                            </li>
+                            <!--                            <li>-->
+                            <!--                                <a class="btn btn-delete" title="초기화" id="btnClear">-->
+                            <!--                                    소요량 초기화-->
+                            <!--                                </a>-->
+                            <!--                            </li>-->
+                        </ul>
+                    </div>
+                    <div class="button-wrap">
+                        <ul>
+                            <li>
+                                <span style="color: tomato">BOM 적용기준일은 반드시 BOM 적용시작일 이후여야만 검색이 됩니다.</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <div id="prod-grid"></div>
+                </div>
+            </section>
+            <div class="tab-wrap" style="width: 50%;">
+
+                <ul class="tab-links">
+                    <li><a href="#tab1">원부재료 소요량</a></li>
+                    <li><a href="#tab2">반제품 소요량</a></li>
+                </ul>
+                <div>
+                    <section class="tab-item" id="tab1" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                        </div>
+                        <div class="container-fluid">
+                            <div id="raw-grid"></div>
+                        </div>
+
+                    </section>
+                    <section class="tab-item" id="tab2" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                        </div>
+                        <div class="container-fluid">
+                            <div id="ban-grid"></div>
+                        </div>
+
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/popup_material_multi :: popup_material_multi"></th:block>
+    <!--<th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>-->
+    <script type="text/javascript">
+
+        class prodSuju {
+            constructor() {
+                this.grid1 = null;
+                this.grid2 = null;
+                this.grid3 = null;
+                this.baseUrl = '/api/schedule/simulation';
+                this.init();
+            }
+
+            init() {
+                this.grid1 = new wijmo.grid.FlexGrid('#prod-grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.All,
+                    showMarquee: true,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader &&
+                            s.columns[e.col].binding === 'quantity') {
+                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                        }
+                    },
+                    columns: [                  //컬럼 key 변경 필요
+                        {binding: 'prod_id', header: '제품번호', width: 100, align: 'right', visible: false},
+                        {binding: 'prod_group_name', header: '제품그룹', width: 150, align: 'center', isReadOnly: true},
+                        {binding: 'prod_code', header: '제품코드', width: 100, align: 'center', isReadOnly: true},
+                        {binding: 'product_name', header: '제품명', width: '*', align: 'left', isReadOnly: true},
+                        {binding: 'unit', header: '단위', width: 100, align: 'center', isReadOnly: true},
+                        {
+                            binding: 'quantity',
+                            header: '수량',
+                            width: 130,
+                            align: 'right',
+                            isReadOnly: false
+                        }
+
+                    ],
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                });
+                new FlexGridContextMenu(this.grid1);
+                this.grid1.downloadFileName = '작업 지시 목록';
+
+                // this.grid1.select(-1, -1);
+
+                let selector = new wijmo.grid.selector.Selector(this.grid1, {
+                    itemChecked: function () {
+
+                    }
+                })
+
+
+                this.grid2 = new wijmo.grid.FlexGrid('#raw-grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        //{ key: 'mat_pk', label: '<span style="color:orange">품목번호</span>', width: 100, align: 'right' },
+                        // {binding: 'mat_type_name', header: '품목구분', width: 100, align: 'center'},
+                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'center'},
+                        {binding: 'mat_name', header: '품목명', width: '*', align: 'left'},
+                        {binding: 'unit_name', header: '단위', width: 80, align: 'center'},
+                        {binding: 'requ_qty', header: '소요량', width: 80, align: 'right'},
+                        {binding: 'cur_stock', header: '현재고', width: 80, align: 'right'},
+                        {binding: 'available_stock', header: '가용재고', width: 80, align: 'right'},
+                    ]
+                });
+                new FlexGridContextMenu(this.grid2);
+                this.grid2.downloadFileName = '작업 지시 목록';
+
+                this.grid3 = new wijmo.grid.FlexGrid('#ban-grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        //{ key: 'mat_pk', label: '<span style="color:orange">품목번호</span>', width: 100, align: 'right' },
+                        // {binding: 'mat_type_name', header: '품목구분', width: 100, align: 'center'},
+                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'center'},
+                        {binding: 'mat_name', header: '품목명', width: '*', align: 'left'},
+                        {binding: 'unit_name', header: '단위', width: 80, align: 'center'},
+                        {binding: 'requ_qty', header: '소요량', width: 80, align: 'right'},
+                        {binding: 'cur_stock', header: '현재고', width: 80, align: 'right'},
+                        {binding: 'available_stock', header: '가용재고', width: 80, align: 'right'},
+                    ]
+                });
+                new FlexGridContextMenu(this.grid3);
+                this.grid3.downloadFileName = '작업 지시 목록';
+
+                let _this = this;
+
+                $('#btnSearchItem').click(function (e) {
+                    let searchcallback = function (items) {
+                        if (!Array.isArray(items)) {
+                            console.error("Items is not an array:", items);
+                            return;
+                        }
+
+                        let collectionView = _this.grid1.itemsSource;
+
+                        items.forEach(function (item) {
+                            collectionView.sourceCollection.push({
+                                prod_id: item.id,
+                                prod_group_name: item.group_name,
+                                prod_code: item.Code,
+                                product_name: item.Name,
+                                unit: item.unit_name,
+                                quantity: 1
+                            });
+                        });
+                        collectionView.refresh();
+                    };
+
+                    let poppage = new PopupMaterialPage();
+                    poppage.material_type = 'product';
+                    let $poppage = $(poppage);
+                    poppage.show(searchcallback);
+
+                });
+
+            }
+
+            showMatRequ() {
+                let ids = [];
+                let qtys = [];
+                let _this = this;
+                let data = FormUtil.extractForm($('#searchForm'));
+                data['srchStartDt'] = $('#srchStartDt').val();
+                //data['action'] = 'read';
+                data['ids'] = '';
+
+                if (this.grid1.selectedItems.length === 0) {
+                    Alert.alert('', "제품 선택해주세요");
+                    return;
+                }
+
+                $.each(this.grid1.selectedItems, function (index, item) {
+                    ids.push(item.prod_id);
+                    if (item.quantity < 1) {
+                        Alert.alert('', '수량을 확인해 주세요.');
+                    } else {
+                        qtys.push(item.quantity);
+                    }
+                });
+
+                ids = ids.join();
+                qtys = qtys.join();
+
+
+                data["ids"] = ids;
+                data["qtys"] = qtys;
+
+                let items = AjaxUtil.getSyncData(_this.baseUrl + '/read', data);
+                let result = items.data.raw_list;
+                if (result) {
+                    _this.grid2.itemsSource = result;
+                }
+                result = items.data.ban_list;
+                if (result) {
+                    _this.grid3.itemsSource = result;
+                }
+
+            }
+        }
+
+        let pageProdSuju = null;
+
+        $(document).ready(function (e) {
+            pageProdSuju = new prodSuju();
+
+            $('#divSimulationDate').ax5DatePicker({direction: 'top'});
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD());
+
+
+            $('#btnExceptItem').on('click', function () {
+                let selectedItems = pageProdSuju.grid1.selectedItems;
+
+                if (selectedItems.length === 0) {
+                    Alert.alert('', '삭제할 항목을 선택해주세요.');
+                    return;
+                }
+
+                let collectionView = pageProdSuju.grid1.itemsSource; // itemsSource 가져오기
+                selectedItems.forEach(item => {
+                    let index = collectionView.sourceCollection.indexOf(item); // 항목의 인덱스 찾기
+                    if (index > -1) {
+                        collectionView.sourceCollection.splice(index, 1); // 항목 삭제
+                    }
+                });
+
+                collectionView.refresh(); // 변경 사항 반영
+            });
+            $('#btnInitItem').on('click', function () {
+                pageProdSuju.grid1.itemsSource = new wijmo.collections.CollectionView([]);
+                pageProdSuju.grid2.itemsSource = new wijmo.collections.CollectionView([]);
+                pageProdSuju.grid3.itemsSource = new wijmo.collections.CollectionView([]);
+                //pageProdSuju.grid.selectAll();
+                //pageProdSuju.grid.deleteRow("selected");
+                //pageProdSuju.grid.init().repaint();
+            });
+
+            $('#btnClear').on('click', function () {
+
+            });
+
+            $('#btnCalulation').on('click', function () {
+                pageProdSuju.showMatRequ();
+            });
+
+
+        })
+    </script>
+</th:block>
+</html>

@@ -1,0 +1,126 @@
+{% extends "app/layout_page.html" %}
+{% block css %}
+{% endblock %}
+
+{% block content %}
+<div class="content_wrap popup">
+    <header>
+        <h4>확인 메시지</h4>
+        <div class="popup_close_box"><button class="btn_popup_close" id="modal-close" onclick="self.close()"><i class="fas fa-times"></i></button></div>
+    </header>
+    <section class="section">
+        <div class="table_box">
+            <form id="userForm" autocomplete="off">
+                {% csrf_token %}    <!-- 토큰 추가 -->
+                <span>선택한 품목을 아래 수량만큼 입고하시겠습니까?</span>
+            </form>
+        </div>
+    </section>
+    <section class="section">
+        <div class="grid_box" style="height:200px;">
+            <div style="position: relative; height:200px;" id="grid-parent">
+                <div data-ax5grid="materialInoutPopup-grid" style="height: 100%;">
+                </div>
+            </div>
+            <div class="table_info_box">
+
+            </div>
+        </div>
+    </section>
+    <section class="section">
+        <div class="popup_button_group" style="text-align: center !important;">
+            <button type="button" class="save" id="btn_save_user"><span data-labelCd="BUTTON.B0058" data-ori="확인"></span></button>
+            <button type="button" class="close" id="btn_cancle_user" style="float:none;"><span data-labelCd="BUTTON.B0059" data-ori="취소"></span></button>
+        </div>
+    </section>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script type="text/javascript">
+    var param = ax5.util.param(ax5.info.urlUtil().param);
+
+    class materialInoutPopup {
+        constructor() {
+            this.grid = null;
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="materialInoutPopup-grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 38  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.grid.select(this.dindex);
+                        //_this.showDetailStoreHouse(e.item.id);
+                    }
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [                  //컬럼 key 변경 필요
+                    { key: 'tag_code', label: '제품', width: 180, align: 'left' },
+                    { key: 'tag_name', label: '입고수량', width: 110, align: 'left' },
+                    { key: 'DisposalDate', label: '단위', width: 80, align: 'left' },
+                ]
+            };
+
+            this.grid = new ax5.ui.grid(config);
+
+            AjaxUtil.fillSelectOptions($('#users'), 'tag', 'all', false);     // 유저 모델 없음
+
+        }
+
+        exportExcel() {
+            var targetview = this.grid;
+            // 현재 html코드로 데이터 만들어 확장자만 xls로 변경해주고 있음
+            targetview.exportExcel('데이터통계.xls');
+        }
+
+        searchDataBind() {
+            let _this = this;                                       //조회조건 변경 필요
+            let keyword = $('#keyword').val();
+            let url = '/api/quality/equipment?keyword=' + keyword;  //url변경필요
+
+            $.getJSON(url, function (res) {
+                let recordsTotal = res.length;
+                _this.grid.setData({
+                    list: res,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+
+            }).fail(function (e) {
+                Notify.error(JSON.parse(e.responseText).message);
+            });
+        }
+    }
+
+    let page = null;
+
+    $(document.body).ready(function () {
+        page = new materialInoutPopup();
+        $('#modal-close, #btn_cancle_user').on('click', function () {
+            parent.modal.close();
+        });
+
+    });
+</script>
+{% endblock %}

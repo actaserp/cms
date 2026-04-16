@@ -1,0 +1,418 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+  <style>
+      .wj-header {
+          text-align: center !important;
+      }
+  </style>
+</head>
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <!-- Page Title -->
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>사용자그룹</h2>
+        <a title="북마크" class="bookmark toggle">
+          내메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>시스템관리</li>
+        <li>사용자그룹</li>
+      </ul>
+    </div>
+    <!-- Select -->
+    <div style="display: flex; gap: 5px;">
+      <section class="section" style="flex: 1; min-width: 0; ">
+        <div class="container-fluid">
+          <p id="selectedItem"></p>
+          <div id="theGrid" style="height: 560px;"></div>
+        </div>
+        <div class="btn-wrap">
+        </div>
+      </section>
+
+      <section class="section" style="flex: 1; min-width: 0; ">
+        <div class="section-top">
+          <div class="search-wrap">
+            <li>
+              <a class="btn btn-excell" title="신규등록" id="btnNew">
+                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                신규등록
+              </a>
+              <!--<button type="button" class="btn-default" id="btnNew" name="btnNew"><i
+                      class="fas fa-plus"></i></button>-->
+            </li>
+
+            <li>
+              <a class="btn btn-edit" id="btnSave" title="저장">
+                <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                저장
+              </a>
+              <!--<button type="button" class="btn-default y_write_auth" id="btnSave" style="float:none">
+                  <i class="fas fa-save"></i></button>-->
+            </li>
+
+            <li>
+              <a class="btn btn-delete" title="삭제" id="btnDel">
+                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                삭제
+              </a>
+              <!--<button type="button" class="btn-danger y_write_auth" id="btnDel" style="float:none"><i
+                      class="fas fa-trash"></i></button>-->
+            </li>
+
+          </div>
+        </div>
+        <div class="table-wrap" style="overflow-x: auto;">
+          <form id="usergroupForm">
+            <table class="write-table" >
+              <caption >등록테이블</caption>
+              <input type="hidden" id="id" name="id"/>
+              <tbody>
+              <tr>
+                <th>
+                  <label for="code">코드</label>
+                </th>
+                <td>
+                  <input type="text" id="code" name="code" style="width: 100%;">
+                </td>
+                <th>
+                  <label for="name">그룹명</label>
+                </th>
+                <td>
+                  <input type="text" id="name" name="name" style="width: 100%;">
+                </td>
+              </tr>
+              <tr>
+                <th>
+                  <label for="description">설명</label>
+                </th>
+                <td>
+                  <input type="text" id="description" name="description" style="width: 100%;">
+                </td>
+                <th>
+                  <label for="name">
+                    기본화면
+                  </label>
+                </th>
+                <td>
+                  <select class="mg-r5" id="gmenu" name="gmenu" style="width: 100%">
+                    <option></option>
+                  </select>
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div> <!--//layout-contents end -->
+
+  <footer style="margin-top: 24px;">
+    <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+  </footer>
+
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+  <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+  <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+  <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+  <script type="text/javascript">
+
+    var theGrid;
+    var viewdata;
+
+    let columns = [
+      {binding: 'id', header: 'id', width: 120, align: 'center', visible: false},
+      {binding: 'code', header: '코드', width: 120, align: 'center'},
+      {binding: 'name', header: '그룹명', width: 250, align: 'center',},
+      {binding: 'description', header: '설명', width: '*', align: 'center',},
+      {binding: 'gmenu', header: 'Dashboard', width: '*', align: 'center', visible: false},
+      {binding: 'gmenuname', header: 'Dashboard', width: '*', align: 'center'},
+      /*{binding: '', header: '', width: "*", align: 'left'},*/
+      //{ binding: 'created', label: '생성일', width: 150, align: 'center', sortable: false },
+    ];
+
+
+    document.readyState === 'complete' ? init() : window.onload = init;
+
+
+    function init() {
+      let data2 = [];
+
+      $.ajax({
+        url: '/api/system/usergroup/read',
+        type: 'GET',
+        async: false,
+        data: {'spjangcd': sessionStorage.getItem('spjangcd')},
+        success: function (data) {
+          data2 = data.data;
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          console.error('Error fetching log_count data:', textStatus, errorThrown);
+        }
+      })
+
+      viewdata = new wijmo.collections.CollectionView(data2);
+
+      theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+        autoGenerateColumns: false,
+        showMarquee: true,
+        columns: columns,
+        isReadOnly: true,
+        itemsSource: viewdata
+      });
+
+      theGrid.hostElement.addEventListener('dblclick', function (e) {
+        let selectedItem = theGrid.selectedItems[0];
+
+        /*console.log(selectedItem);*/
+
+        document.getElementById('id').value = selectedItem.id;
+        document.getElementById('code').value = selectedItem.code;
+        document.getElementById('description').value = selectedItem.description;
+        document.getElementById('name').value = selectedItem.name;
+        document.getElementById('gmenu').value = selectedItem.gmenu;
+
+        setButtonState();
+      });
+
+      theGrid.rowHeaders.columns.splice(0, 1);
+      /*  new FlexGridContextMenu(theGrid);*/
+
+    }
+
+    function setButtonState() {
+      let pk = $('#id').val();
+      $('#btnNew').prop('disabled', false);
+
+      if (pk) {
+        $('#btnDel').prop('disabled', false);
+        $('#btnSave').prop('disabled', false);
+
+        $('#usergroupForm #code').removeAttr('readonly');
+
+        $('#usergroupForm input').each(function () {
+          $(this).prop('disabled', false);
+        });
+
+        $('#usergroupForm textarea').each(function () {
+          $(this).prop('disabled', false);
+        });
+      } else {
+        $('#btnDel').prop('disabled', true);
+        $('#btnSave').prop('disabled', true);
+      }
+    }
+
+
+    function showDetailUserGroup(idx) {
+      let param = {'id': idx, "action": 'detail'};
+      let url = '/api/system/usergroup';
+      let result = AjaxUtil.getSyncData(url + '/detail', param);
+      if (result.success) {
+        FormUtil.BindDataForm(result.data, $('#usergroupForm'));
+        $('#description').text(result.data.description);
+
+        //if (result.disabled == false) {
+        //    $('#disabled').prop('checked', true);
+        //}
+      }
+
+      //page.setButtonDisable(false, false, false);
+      page.setButtonState();
+    }
+
+
+    function searchDataBind() {
+      $.ajax({
+        url: '/api/system/usergroup/read',
+        type: 'GET',
+        async: false,
+        success: function (result) {
+          if (result.success) {
+            grid_binding(result.data);
+          } else {
+            console.log("Error occurred");
+          }
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          console.error('Error fetching log_list data:', textStatus, errorThrown);
+
+        }
+      });
+
+      $('#id').val('');
+      $('#usergroupForm')[0].reset();
+      $('#description').text('');
+
+      $('#usergroupForm #code').attr('readonly', false);
+      $('#usergroupForm input').each(function () {
+        if (!$(this).is(':disabled')) {
+          $(this).attr('disabled', 'disabled');
+        }
+      });
+
+      $('#usergroupForm textarea').each(function () {
+        if (!$(this).is(':disabled')) {
+          $(this).attr('disabled', 'disabled');
+        }
+      });
+      /*setButtonState()*/
+    }
+
+    function grid_binding(data) {
+      if (!Array.isArray(data)) {
+        console.error('데이터가 배열 형식이 아닙니다:', data);
+        return;
+      }
+
+
+      let menulogData = data.map(item => ({
+        id: item.id,
+        code: item.code,
+        name: item.name,
+        description: item.description,
+        gmenu: item.gmenu
+      }));
+
+      if (typeof theGrid === 'undefined' || typeof viewdata === 'undefined') {
+        console.error('theGrid 또는 viewdata가 정의되지 않았습니다.');
+        return;
+      }
+
+      theGrid.columns.clear();
+      theGrid.autoGenerateColumns = false;
+
+      // columns 배열이 정의되어 있는지 확인
+      if (typeof columns === 'undefined' || !Array.isArray(columns)) {
+        console.error('columns 배열이 정의되지 않았습니다.');
+        return;
+      }
+
+      columns.forEach(columnDef => {
+        var col = new wijmo.grid.Column(columnDef);
+        theGrid.columns.push(col);
+      });
+
+      viewdata = new wijmo.collections.CollectionView(menulogData);
+
+      theGrid.itemsSource = viewdata;
+      theGrid.refresh();
+    }
+
+
+    function saveUserGroup() {
+
+      let url = '/api/system/usergroup/save';
+
+      //let data = $('#usergroupForm').serialize();
+      let data = FormUtil.extractForm($('#usergroupForm'));
+
+
+      // 필수입력 check routine
+      if (!data.code) {
+        Alert.alert('', '코드를 입력해주세요.');
+        return false;
+      } else if (!data.name) {
+        Alert.alert('', '그룹명을 입력해주세요.');
+        return false;
+      }
+
+      Alert.confirm('', '저장하시겠습니까?', function () {
+        let fnSuccess = function (result) {
+          if (result.success) {
+            Alert.alert('', '저장되었습니다');
+            searchDataBind(); // 저장 후 데이터 갱신
+          } else {
+            Alert.alert('저장 실패', result.message);
+            console.error('저장 실패:', result.message);
+          }
+        };
+
+        // 데이터 저장 요청
+        AjaxUtil.postAsyncData(url, data, fnSuccess);
+      });
+
+    }
+
+    function deleteUserGroup() {
+      let _this = this;
+      let url = '/api/system/usergroup/delete';
+      let id = $('#usergroupForm').find('#id').val();
+      let data = {id: id};
+
+      Alert.confirm('', '삭제하시겠습니까?', function () {
+        let fnSuccess = function (result) {
+          if (result.success) {
+            Alert.alert('', '삭제되었습니다');
+            searchDataBind(); // 저장 후 데이터 갱신
+          } else {
+            Alert.alert('삭제 실패', result.message);
+            console.error('저장 실패:', result.message);
+          }
+        };
+        // 데이터 저장 요청
+        AjaxUtil.postAsyncData(url, data, fnSuccess);
+      });
+
+      setButtonState();
+    }
+
+
+    $(document).ready(function (e) {
+
+      AjaxUtil.fillSelectOptions($('#gmenu'), 'menu_item', '', '');
+
+      $('#btn_search').click(function (ex) {
+        searchDataBind();
+      });
+
+
+      $('#btnNew').click(function (e) {
+
+        $('#id').val('');
+        $('#usergroupForm')[0].reset();
+        $('#description').text('');
+
+        $('#usergroupForm #code').attr('readonly', false);
+        $('#usergroupForm input').each(function () {
+          if ($(this).is(':disabled')) {
+            $(this).removeAttr('disabled');
+          }
+        });
+
+        $('#usergroupForm textarea').each(function () {
+          if ($(this).is(':disabled')) {
+            $(this).removeAttr('disabled');
+          }
+        });
+        //page.setButtonDisable(true, false, true);
+        setButtonState();
+        $('#btnSave').prop('disabled', false);
+
+
+        //$('#usergroupForm').reset();
+
+      });
+
+      $('#btnSave').click(function (e) {
+        saveUserGroup();
+      });
+
+      $('#btnDel').click(function (e) {
+        deleteUserGroup();
+      });
+
+    });
+
+
+  </script>
+</th:block>
+</html>

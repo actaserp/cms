@@ -1,0 +1,1258 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .radio-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .radio-wrap input[type="radio"] {
+            appearance: none;
+            -webkit-appearance: none; /* 사파리용 */
+            width: 16px;
+            height: 16px;
+
+            border-radius: 50%;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .radio-wrap input[type="radio"]::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 8px;
+            height: 8px;
+            background-color: #666;
+            border-radius: 50%;
+            opacity: 0;
+            transition: 0.2s;
+        }
+
+        .radio-wrap input[type="radio"]:checked::after {
+            opacity: 1;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="tab-wrap">
+            <ul class="tab-links">
+                <li>
+                    <a href="#tab1" title="요청등록" id="listTabLink">요청등록</a>
+                </li>
+                <li>
+                    <a href="#tab2" title="요청현황" id="inputTabLink">요청현황</a>
+                </li>
+            </ul>
+            <div class="tab-contents">
+                <section class="tab-item" id="tab1">
+                    <div class="section-top">
+                        <input type="hidden" id="id" name="id" readonly>
+<!--                        거래처 코드-->
+                        <input type="hidden" id="Code" name="Code" readonly>
+                        <!--첨부 파일 바인드 input-->
+                        <div class="search-wrap">
+                            <dl>
+                                <dt>
+                                    <label>
+                                        요청일자<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <input type="date" id="searchDate" name="searchDate"  />
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        사업자번호<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <input type="text" placeholder=""  id="spNum" name="spNum" readonly/>
+                                        <input type="hidden"  id="cboCompanyHidden" name="cboCompanyHidden"  />
+                                    </div>
+                                </dd>
+                            </dl>
+
+                            <dl>
+                                <dt>
+                                    <label>
+                                        요청자
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <input type="text" class="form-control2" id="reqPer" name="reqPer" />
+                                </dd>
+                            </dl>
+
+                            <dl>
+                                <dt>
+                                    <label>
+                                        연락처<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <input type="text" class="form-control2" id="telNum" name="telNum" />
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dd>
+                                    <li>
+                                        <a class="btn btn-delete" title="검색" id="btnClear">
+                                            <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                            신규 초기화
+                                        </a>
+                                        <a class="btn btn-delete" title="검색" id="btnSave">
+                                            <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                            저장
+                                        </a>
+                                        <a class="btn btn-delete" title="검색" id="btnDelete">
+                                            <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                            삭제
+                                        </a>
+                                    </li>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <dl style="width: 32%">
+                                <dt>
+                                    <label>
+                                        제목<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <input type="text" class="form-control2" id="title" name="title" style="width:100%"/>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        요청구분<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <select type="text" class="form-control2" id="reqType" name="reqType" >
+                                    </select>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        화면명<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <input type="text" class="form-control2" id="scrNum" name="scrNum" />
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        본사담당<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <input type="text" id="OurManager" name="OurManager" readonly>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                    <div class="" id="reqText">
+                        <div class="webEdit" id="webEdit"></div>
+                    </div>
+                    <div class="" id="fileBoxArea" style="display: flex; gap: 10px;">
+                        <input type="text" id="fileText" placeholder="파일 찾기">
+                        <input type="file" id="drawingFile" accept="application" style="display:none;" />
+                        <button type="button" class="btn-excellt" id="btnFile" name="btnFile"
+                                style="width: 100px; height: 36px;">
+                            파일선택
+                        </button>
+                    </div>
+                </section>
+<!--                요청현황 탭-->
+                <section class="tab-item" id="tab2">
+                    <div class="section-top">
+                        <div class="search-wrap">
+                            <dl>
+                                <dt>
+                                    <label>
+                                        조회일자<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <input type="date" id="searchfrdate2" name="searchfrdate2"  />
+                                        <span class="slow_sign">~</span>
+                                        <input type="date" id="searchtodate2" name="searchtodate2" />
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        업체명<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <input type="text" placeholder=""  id="cboCompany2" name="cboCompany2" readonly/>
+                                        <input type="hidden"  id="cboCompanyHidden2" name="cboCompanyHidden2"  />
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        요청자<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <input type="text" placeholder=""  id="reqPer2" name="reqPer2"/>
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        요청구분<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <select id="reqType2"></select>
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>
+                                    <label>
+                                        진행구분<span class="eq"></span>
+                                    </label>
+                                </dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <select id="recyn"></select>
+                                    </div>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt>&nbsp;</dt>
+                                <dd>
+                                    <li>
+                                        <a class="btn btn-delete" title="검색" id="btnSearch2">
+                                            <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                            검색
+                                        </a>
+                                    </li>
+                                </dd>
+                            </dl>
+
+                        </div>
+                    </div>
+                    <div>
+                        <div id="theGrid_reqList" style="height: 430px;"></div>
+                    </div>
+                    <div style="margin-top: 10px; display:flex; gap: 15px;">
+                        <dl style="width: 45%;">
+                            <dt>
+                                <label>
+                                    요청내용<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <textarea placeholder=""  id="reqtextf" name="reqtextf" readonly>
+
+                                    </textarea>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl style="width: 45%;">
+                            <dt>
+                                <label>
+                                    처리내용<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <textarea placeholder=""  id="reqtextf2" name="reqtextf2" readonly>
+
+                                    </textarea>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label>
+                                    완료일자<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input placeholder=""  id="enddate" name="enddate" readonly/>
+                                </div>
+                            </dd>
+                            <dt>
+                                <label>
+                                    <span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <button type="button" class="btn-excellt" id="download" name="download"
+                                        style="width: 100px; height: 36px;">
+                                    완료첨부
+                                </button>
+                            </dd>
+                        </dl>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+
+    </div>
+
+    <script type="text/x-tmpl" id="getCompTemplate">
+        <div class="content_wrap popup">
+        <div class="table-wrap">
+                <table class="write-table">
+                    <caption>주문등록 테이블</caption>
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="searchCode">업체코드</label>
+                            </th>
+                            <td style="width:50px;">
+                                <input id="searchCode" name="searchCode" type="text" style="width:180px;" />
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="searchName">거래처명</label>
+                            </th>
+                            <td style="width:50px;">
+                                 <input id="searchName" name="searchName" type="text"  style="width:180px;"/>
+                            </td>
+                            <td colspan="2" style="text-align: center;">
+                                <button type="button" class="btn-default" id="btnSubjectSearch" title="조회"><i class="fas fa-search"></i>검색</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="grid_box" style="margin-top: 10px;">
+                    <div id="comp-grid" style="height: 300px; max-height: 300px;"></div>
+                </div>
+        </div>
+
+        <div class="popup-button">
+          <button type="button" class="btn-popup" id="btnAccountSave"><span data-labelCd="선택">선택</span></button>
+          <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    </div>
+    </script>
+    <script type="text/x-tmpl" id="getUserTemplate">
+        <div class="content_wrap popup">
+        <div class="table-wrap">
+                <table class="write-table">
+                    <caption>사용자 검색 테이블</caption>
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="searchDepart">근무부서</label>
+                            </th>
+                            <td style="width:50px;">
+                                <select id="searchDepart" name="searchDepart" style="width:180px;"></select>
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="searchName">사원명</label>
+                            </th>
+                            <td style="width:50px;">
+                                 <input id="searchName" name="searchName" type="text"  style="width:180px;"/>
+                            </td>
+                            <td colspan="2" style="text-align: center;">
+                                <button type="button" class="btn-default" id="btnSubjectSearch" title="조회"><i class="fas fa-search"></i>검색</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="grid_box" style="margin-top: 10px;">
+                    <div id="user-grid" style="height: 300px; max-height: 300px;"></div>
+                </div>
+        </div>
+
+        <div class="popup-button">
+          <button type="button" class="btn-popup" id="btnAccountSave"><span data-labelCd="선택">선택</span></button>
+          <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    </div>
+    </script>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <th:block th:replace="/common/popup_account :: popup_account" />
+    <th:block th:replace="/common/popup_company :: popup_company"></th:block>
+    <th:block th:replace="/shipment/trade_stmt/trade_stmt_tmpl :: printTemplate"></th:block>
+    <!-- Toast UI Editor CSS -->
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+    <!-- Toast UI Editor JS -->
+    <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+
+    <script type="text/javascript">
+
+
+        let sales_type = [];
+        let LoadingFlag = false;
+        let editor;
+        class SalesList {
+            constructor() {
+                this.grid1 = null;
+                this.url = '/api/request';
+
+
+                this.viewData = new wijmo.collections.CollectionView();
+
+
+                $('#searchfrdate2').val(getNowDateMinus7());
+                $('#searchDate, #searchtodate2').val(getNowDate());
+                AjaxUtil.fillSelectOptions($('#reqType'), 'system_code', 'choose', false, 'asdv');
+                AjaxUtil.fillSelectOptions($('#reqType2'), 'system_code', 'all', false, 'asdv');
+                AjaxUtil.fillSelectOptions($('#recyn'), 'system_code', 'all', false, 'recyn');
+
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                const cv = _this.viewData
+
+                // 그룹화 제거 (필요시 주석 해제)
+                // cv.groupDescriptions.push(new wijmo.collections.PropertyGroupDescription('asdate', function (item, prop) {
+                //     return item[prop] ? item[prop].substring(0, 7) : ''; // '2025-04'
+                // }));
+
+                // 3. FlexGrid 생성
+                this.grid1 = new wijmo.grid.FlexGrid('#theGrid_reqList', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowSorting: 'MultiColumn',
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'id', header: 'ID', visible: false },
+                        { binding: 'asdate', header: '요청일자', align: 'center', width: 120 },
+                        { binding: 'cltnm', header: '업체명', align: 'left', width: 150 },
+                        { binding: 'usernm', header: '요청자', align: 'left', width: 120},
+                        { binding: 'retitle', header: '제목', align: 'left', width: '*' },
+                        { binding: 'asdv_nm', header: '요청구분', align: 'center', width: 120 },
+                        { binding: 'asmenu', header: '화면명', align: 'left', width: 150 },
+                        { binding: 'aspernm', header: '본사담당', align: 'left', width: 120 },
+                        { binding: 'recyn_nm', header: '진행구분', align: 'center', width: 120 },
+                        { binding: 'inputdate', header: '입력일자', align: 'center', width: 150 },
+                    ],
+                    itemsSource: cv,
+
+                });
+                this.grid1.rowHeaders.columns.splice(0, 1);
+                new FlexGridContextMenu(this.grid1);
+                this.grid1.downloadFileName = '유지보수_요청현황';
+
+                // 그룹 병합 설정 제거 (필요시 주석 해제)
+                // this.grid1.allowMerging = wijmo.grid.AllowMerging.All;
+                // this.grid1.columns[0].allowMerging = true;
+                // this.grid1.columns[1].allowMerging = true;
+
+                // 그리드 선택 이벤트 - 상세 정보 표시
+                this.grid1.selectionChanged.addHandler((s, e) => {
+                    const row = s.selection.row;
+                    if (row < 0) return;
+
+                    const item = s.rows[row].dataItem;
+                    if (!item) return;
+
+                    // ✅ HTML 태그 제거 (웹에디터 내용에서 순수 텍스트만 추출)
+                    const plainContent = (item.content || '').replace(/<[^>]+>/g, '');
+                    const plainRemark = (item.remark || '').replace(/<[^>]+>/g, '');
+
+                    // 요청현황 탭의 상세 정보 영역에 데이터 표시
+                    $('#reqtextf').val(plainContent);
+                    $('#reqtextf2').val(plainRemark);
+                    $('#enddate').val(item.endDate || item.enddate || '');
+                });
+
+                // 그리드 더블클릭 이벤트 - 상세 조회 및 수정
+                this.grid1.hostElement.addEventListener('dblclick', (e) => {
+                    const view = this.grid1;
+                    const selected = view.selectedItems;
+
+                    if (!selected || selected.length !== 1) {
+                        Alert.alert('', '선택된 데이터가 없습니다.');
+                        return;
+                    }
+
+                    const item = selected[0];
+                    this.loadRequestDetail(item);
+                });
+
+            }
+
+
+            searchMain(){
+                let _this = this;
+
+                let data = {
+                    searchfrdate: $('#searchfrdate2').val(),
+                    searchtodate: $('#searchtodate2').val(),
+                    searchCompCd: $('#cboCompanyHidden2').val(),
+                    reqType : $('#reqType2').val(),
+                    recyn : $('#recyn').val(),
+                    reqPer : $('#reqPer2').val(),
+                    spjangcd: getSpjangcdFromSession(),
+                }
+
+                let url = _this.url + '/search';
+                let fnsuccess = function (result) {
+                    if (result != null && result.data) {
+                        _this.viewData.sourceCollection = result.data;
+                    } else {
+                        _this.viewData.sourceCollection = [];
+                    }
+                };
+                AjaxUtil.getAsyncData(url, data, fnsuccess);
+            }
+
+            saveRequest() {
+                let _this = this;
+                const content = editor.getHTML();
+
+                let data = {
+                    id: $('#id').val() || '',
+                    reqDate: $('#searchDate').val(),
+                    spNum: $('#spNum').val(),
+                    cboCompanyHidden: $('#cboCompanyHidden').val(),
+                    reqPer: $('#reqPer').val(),
+                    telNum: $('#telNum').val(),
+                    title: $('#title').val(),
+                    reqType: $('#reqType').val(),
+                    scrNum: $('#scrNum').val(),
+                    Code: $('#Code').val(),
+                    OurManager: $('#OurManager').val(),
+                    content: content,
+                    spjangcd: getSpjangcdFromSession(),
+                };
+
+                let file = $('#drawingFile')[0].files[0];
+
+                if (file) {
+                    // ✅ AjaxUtil을 활용해 파일 업로드
+                    let formData = new FormData();
+                    formData.append('uploadFile', file);
+
+                    AjaxUtil.postFileAsyncData(
+                        '/api/request/uploadFile',
+                        formData,
+                        function (res) {
+                            if (res.success) {
+                                console.log("업로드 성공:", res.data);
+                                data.as_file = res.data;
+                                _this.saveRequestData(data);
+                            } else {
+                                Alert.alert('', '파일 업로드 실패: ' + res.message);
+                            }
+                        },
+                        function (req, status, error) {
+                            console.error('파일 업로드 실패:', req.responseText);
+                            Alert.alert('오류', '파일 업로드 중 오류가 발생했습니다 (' + req.status + ')');
+                        }
+                    );
+                } else {
+                    _this.saveRequestData(data);
+                }
+            }
+
+
+
+            saveRequestData(data) {
+                let _this = this;
+                // 필수값 설정
+                if($('#spNum')){
+
+                }
+                AjaxUtil.postJsonData(_this.url + '/save', data, function(res) {
+                    if (res.success) {
+                        Notify.success('저장(수정)되었습니다.');
+                        _this.clearForm();
+                        _this.searchMain();
+                    } else {
+                        Alert.alert('저장(수정) 실패', res.message || '관리자에게 문의하세요.');
+                    }
+                });
+            }
+
+            clearForm() {
+                // 🔹 폼 전체 클리어 (유지 대상 제외)
+                $('#id').val('');
+                $('#searchDate').val(getNowDate());
+                $('#title').val('');
+                $('#reqType').val('');
+                $('#scrNum').val('');
+                $('#fileText').val('');
+                $('#drawingFile').val('');
+                if (editor) editor.setHTML('');
+                // ✅ 파일 첨부 영역 완전 초기화
+                const $fileBox = $('#fileBoxArea');
+                $fileBox.html(`
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="fileText" placeholder="파일 찾기" readonly style="flex: 1;" />
+                        <input type="file" id="drawingFile" accept="application" style="display:none;" />
+                        <button
+                            type="button"
+                            class="btn-excellt"
+                            id="btnFile"
+                            name="btnFile"
+                            style="width: 100px; height: 36px; cursor:pointer;"
+                        >
+                            파일선택
+                        </button>
+                    </div>
+                `);
+
+                // ✅ 파일 선택 시 파일명 표시 이벤트 다시 연결
+                $(document).off('change.drawingFile').on('change.drawingFile', '#drawingFile', function() {
+                    const fileObj = this.files[0];
+                    if (!fileObj) return;
+                    $('#fileText').val(fileObj.name);
+                });
+                // 🔹 유지할 필드: 세션 기반 / 자동 바인딩된 정보
+                // 그대로 둠:
+                // #spNum
+                // #reqPer
+                // #cboCompany2
+                // #cboCompanyHidden / #cboCompanyHidden2
+                // #Code / #OurManager
+            }
+
+            loadRequestDetail(item) {
+                let _this = this;
+                if (!item || !item.id) return;
+
+                let params = {
+                    id: item.id,
+                    action: 'detail'
+                };
+
+                AjaxUtil.getAsyncData(_this.url + '/detail', params, function(result) {
+                    if (result && result.data) {
+                        const data = result.data;
+
+                        // ✅ 기본정보 바인딩
+                        $('#id').val(data.id || '');
+                        $('#searchDate').val(data.reqDate || getNowDate());
+                        $('#spNum').val(data.userid || '');
+                        $('#cboCompanyHidden').val(data.Code || '');
+                        $('#reqPer').val(data.reqper || '');
+                        $('#telNum').val(data.TelNumber || '');
+                        $('#title').val(data.title || '');
+                        $('#reqType').val(data.reqtype || '');
+                        $('#scrNum').val(data.scrnum || '');
+                        $('#Code').val(data.Code || '');
+                        $('#OurManager').val(data.ourmanager || '');
+                        $('#spjangcd').val(data.spjangcd || '');
+
+                        // ✅ 에디터 내용 복원
+                        if (editor) {
+                            editor.setHTML(data.content || '');
+                        }
+
+                        // ✅ 탭 전환 (요청등록 탭으로 이동)
+                        $('#listTabLink').trigger('click');
+
+                        // ✅ 탭 전환 완료 후 파일 표시/수정 가능 영역 구성
+                        setTimeout(() => {
+                            const $fileBox = $('#fileBoxArea'); // 확실한 선택자
+
+                            if (data.as_file && data.as_file.trim() !== '') {
+                                const fileName = data.as_file;
+
+                                // 기존 첨부 + 다운로드 + 파일변경 모두 가능하도록 구성
+                                $fileBox.html(`
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <input
+                                            type="text"
+                                            id="fileText"
+                                            value="첨부파일 존재"
+                                            readonly
+                                            style="flex: 1; color:#333;"
+                                        />
+                                        <input type="file" id="drawingFile" accept="application" style="display:none;" />
+                                        <button
+                                            type="button"
+                                            class="btn-excellt"
+                                            id="btnDownload"
+                                            name="btnDownload"
+                                            style="width: 110px; height: 36px; cursor: pointer;"
+                                            data-filename="${fileName}"
+                                        >
+                                            다운로드
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn-excellt"
+                                            id="btnFile"
+                                            name="btnFile"
+                                            style="width: 100px; height: 36px; cursor:pointer;"
+                                        >
+                                            파일선택
+                                        </button>
+                                    </div>
+                                `);
+
+                                // 다운로드 이벤트 등록
+                                $('#btnDownload').on('click', function() {
+                                    const file = $(this).data('filename');
+                                    if (file) {
+                                        window.open('/api/request/downFile?fileName=' + encodeURIComponent(file), '_blank');
+                                    }
+                                });
+
+                                // 파일명 표시 (파일 변경 시)
+                                $(document).off('change.drawingFile').on('change.drawingFile', '#drawingFile', function() {
+                                    const fileObj = this.files[0];
+                                    if (!fileObj) return;
+                                    $('#fileText').val(fileObj.name);
+                                });
+
+                            } else {
+                                // 파일이 없을 때 기본 입력창 복원
+                                $fileBox.html(`
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <input type="text" id="fileText" placeholder="파일 찾기" readonly style="flex: 1;" />
+                                        <input type="file" id="drawingFile" accept="application" style="display:none;" />
+                                        <button
+                                            type="button"
+                                            class="btn-excellt"
+                                            id="btnFile"
+                                            name="btnFile"
+                                            style="width: 100px; height: 36px; cursor:pointer;"
+                                        >
+                                            파일선택
+                                        </button>
+                                    </div>
+                                `);
+
+                                // 파일명 표시 (파일 선택 시)
+                                $(document).off('change.drawingFile').on('change.drawingFile', '#drawingFile', function() {
+                                    const fileObj = this.files[0];
+                                    if (!fileObj) return;
+                                    $('#fileText').val(fileObj.name);
+                                });
+                            }
+                        }, 200); // 탭 렌더 완료 후 실행
+                    }
+                });
+            }
+
+            showGetComp(type) {
+                let _this = this;
+                if(type !== 'OurManager') {
+                    let viewdata4;
+                    let theGrid4;
+                    let selectedItem = null;
+
+                    let content = tmpl('getCompTemplate', {});
+                    let $content = $(content);
+
+                    let popContainer = new PopupDraggable('거래처조회');
+                    popContainer.open({width: 800, height: 500, $content});
+
+                    let $searchName = $content.find('#searchName');
+                    let $searchCode = $content.find('#searchCode');
+                    let $btnSearch = $content.find('#btnSubjectSearch');
+
+
+                    // 사번 조회 함수
+                    function fetchPersonList() {
+                        let searchCode = $searchCode.val();
+                        let searchName = $searchName.val();
+
+                        $.ajax({
+                            url: '/api/request/getComp',
+                            type: 'GET',
+                            data: {
+                                searchCode: searchCode,
+                                searchName: searchName,
+                                spjangcd: sessionStorage.getItem('spjangcd')
+                            },
+                            async: false,
+                            success: function (res) {
+                                let data2 = res.data || [];
+
+                                viewdata4 = new wijmo.collections.CollectionView(data2);
+
+                                if (theGrid4) {
+                                    theGrid4.itemsSource = viewdata4;
+                                }
+                            },
+                            error: function (jqXHR, textStatus, errorThrown) {
+                                console.error('Error fetching person data:', textStatus, errorThrown);
+                            }
+                        });
+                    }
+
+                    // 그리드 먼저 생성
+                    theGrid4 = new wijmo.grid.FlexGrid('#comp-grid', {
+                        autoGenerateColumns: false,
+                        showMarquee: true,
+                        columns: [
+                            {binding: 'Code', header: '업체코드', width: 100, align: 'center'},
+                            {binding: 'BusinessNumber', header: '사업자번호', width: 150, align: 'center'},
+                            {binding: 'Name', header: '거래처명', width: '*', align: 'center'},
+                            {binding: 'OurManager', header: '담당자명', width: 150, align: 'center'},
+                        ],
+                        isReadOnly: true,
+                        itemsSource: null
+                    });
+
+                    theGrid4.rowHeaders.columns.splice(0, 1);
+
+
+                    fetchPersonList();
+
+
+                    $btnSearch.click(() => {
+                        fetchPersonList();
+                    });
+
+
+                    $searchCode.add($searchName).on('keydown', function (e) {
+                        if (e.keyCode === 13) {
+                            fetchPersonList();
+                        }
+                    });
+
+                    theGrid4.selectionChanged.addHandler((s, e) => {
+                        selectedItem = s.collectionView.currentItem;
+                    });
+
+                    $content.find('#btnAccountSave').click(() => {
+                        if (selectedItem) {
+                            if (type === 'spNum') {
+                                console.log('selectedItem : ', selectedItem)
+                                $('#spNum').val(selectedItem.BusinessNumber);
+                                $('#cboCompanyHidden').val(selectedItem.Code);
+                                popContainer.close();
+                            } else {
+                                console.log('selectedItem : ', selectedItem)
+                                $('#cboCompany2').val(selectedItem.Name);
+                                $('#cboCompanyHidden2').val(selectedItem.Code);
+                                popContainer.close();
+                            }
+                        }/* else {
+                            Alert.alert('', '사번을 선택해주세요.');
+                        }*/
+                    });
+
+                    theGrid4.hostElement.addEventListener('dblclick', function (e) {
+                        let items = theGrid4.selectedItems;
+                        if (items.length === 0) {
+                            return false;
+                        }
+                        const selectedItem = items[0];
+                        if (type === 'spNum') {
+                            console.log('selectedItem : ', selectedItem)
+                            $('#spNum').val(selectedItem.BusinessNumber);
+                            $('#cboCompanyHidden').val(selectedItem.Code);
+                            popContainer.close();
+                        } else {
+                            console.log('selectedItem : ', selectedItem)
+                            $('#cboCompany2').val(selectedItem.Name);
+                            $('#cboCompanyHidden2').val(selectedItem.Code);
+                            popContainer.close();
+                        }
+                        popContainer.close();
+                    });
+                }
+                else{
+                    let viewdata5;
+                    let theGrid5;
+                    let selectedItem = null;
+
+                    let content = tmpl('getUserTemplate', {});
+                    let $content = $(content);
+
+                    let popContainer = new PopupDraggable('담당자조회');
+                    popContainer.open({width: 800, height: 500, $content});
+
+                    let $searchName = $content.find('#searchName');
+                    let $searchCode = $content.find('#searchDepart');
+                    let $btnSearch = $content.find('#btnSubjectSearch');
+                    AjaxUtil.fillSelectOptions($('#searchDepart'), 'depart', 'all', false);
+
+
+                    // 조회 함수
+                    function fetchPersonList() {
+                        let searchCode = $searchCode.val();
+                        let searchName = $searchName.val();
+
+                        $.ajax({
+                            url: '/api/request/getUser',
+                            type: 'GET',
+                            data: {
+                                searchCode: searchCode,
+                                searchName: searchName,
+                                spjangcd: sessionStorage.getItem('spjangcd')
+                            },
+                            async: false,
+                            success: function (res) {
+                                let data2 = res.data || [];
+
+                                viewdata5 = new wijmo.collections.CollectionView(data2);
+
+                                if (theGrid5) {
+                                    theGrid5.itemsSource = viewdata5;
+                                }
+                            },
+                            error: function (jqXHR, textStatus, errorThrown) {
+                                console.error('Error fetching person data:', textStatus, errorThrown);
+                            }
+                        });
+                    }
+
+                    // 그리드 먼저 생성
+                    theGrid5 = new wijmo.grid.FlexGrid('#user-grid', {
+                        autoGenerateColumns: false,
+                        showMarquee: true,
+                        columns: [
+                            {binding: 'depName', header: '부서명', width: 150, align: 'center'},
+                            {binding: 'Name', header: '사원명', width: '*', align: 'center'},
+                        ],
+                        isReadOnly: true,
+                        itemsSource: null
+                    });
+
+                    theGrid5.rowHeaders.columns.splice(0, 1);
+
+
+                    fetchPersonList();
+
+
+                    $btnSearch.click(() => {
+                        fetchPersonList();
+                    });
+
+
+                    $searchCode.add($searchName).on('keydown', function (e) {
+                        if (e.keyCode === 13) {
+                            fetchPersonList();
+                        }
+                    });
+
+                    theGrid5.selectionChanged.addHandler((s, e) => {
+                        selectedItem = s.collectionView.currentItem;
+                    });
+
+                    $content.find('#btnAccountSave').click(() => {
+                        if (selectedItem) {
+                            console.log('selectedItem : ', selectedItem)
+                            $('#OurManager').val(selectedItem.Name);
+                            popContainer.close();
+                        }/* else {
+                            Alert.alert('', '사번을 선택해주세요.');
+                        }*/
+                    });
+
+                    theGrid5.hostElement.addEventListener('dblclick', function (e) {
+                        let items = theGrid5.selectedItems;
+                        if (items.length === 0) {
+                            return false;
+                        }
+                        const selectedItem = items[0];
+                        console.log('selectedItem : ', selectedItem)
+                        $('#OurManager').val(selectedItem.Name);
+                        popContainer.close();
+                    });
+                }
+            }
+        }
+
+        let page = null;
+
+
+        $(document).ready(function (e) {
+            page = new SalesList();
+
+            // ✅ 세션에서 로그인 정보 불러오기
+            const userId = sessionStorage.getItem('userid');     // 사업자번호
+            const userName = sessionStorage.getItem('username'); // 업체명
+
+            // ✅ 기본 표시
+            if (userId) {
+                $('#spNum').val(userId); // 사업자번호만 표시 (hidden에는 안 넣음)
+            }
+            if (userName) {
+                $('#reqPer').val(userName);
+                $('#cboCompany2').val(userName);
+            }
+
+            // ✅ 회사 ID 조회 후 반영 및 조회 실행
+            if (userId) {
+                $.ajax({
+                    url: '/api/request/searchUser',
+                    type: 'GET',
+                    data: { compid: userId },
+                    success: function (res) {
+                        if (res && res.data) {
+                            const c = res.data;
+                            $('#cboCompanyHidden').val(c.Code);
+                            $('#cboCompanyHidden2').val(c.Code);
+                            $('#telNum').val(c.TelNumber || '');
+                            $('#Code').val(c.Code || '');
+                            $('#OurManager').val(c.OurManager || '');
+                        }
+                        page.searchMain();
+                    }
+                });
+            }
+
+
+            // 유저정보 확인 후 거래처직원 아닐경우 업체검색필터 readonly 제거
+            $.ajax({
+                url: '/api/request/userInfo',
+                type: 'GET',
+                data: { userId: userId },
+                success: function (res) {
+                    if (!res || !res.data.UserGroup_id) {
+                        console.warn("⚠️ userGroup 정보 없음");
+                        return;
+                    }
+
+                    // 🚫 거래처가 아닐 경우 → readonly 속성 해제(사업자번호, 요청자, 본사담당)
+                    if (res.data.UserGroup_id !== 10) {
+                        $("#spNum, #cboCompany2, #OurManager").prop("readonly", false);
+                        // 거래처가 아닐경우 사업자번호,요청자 등 clear
+                        $("#spNum").val(''); // 사업자번호
+                        $("#cboCompanyHidden").val(''); // 업체코드
+                        $("#reqPer").val(''); // 요청자
+                        $("#cboCompany2").val(''); // 요청현황 업체명
+                        $("#cboCompanyHidden2").val(''); // 요청현황 업체코드
+                    } else {
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error("🚨 사용자 정보 조회 실패:", status, error);
+                }
+            });
+
+            // $('#cboCompany').click(function(){
+            //     companyPopupOpen('cboCompany', 'cboCompanyHidden');
+            // });
+            // $('#cboCompany2').click(function(){
+            //     companyPopupOpen('cboCompany2', 'cboCompanyHidden2');
+            // });
+
+            // 조회 버튼 (요청현황 탭)
+            $('#btnSearch2').click(function(){
+                page.searchMain();
+            });
+
+            // 저장 버튼
+            $('#btnSave').on('click', function() {
+                // 필수 필드 검증
+                if (!$('#searchDate').val()) {
+                    Alert.alert('', '요청일자를 입력하세요.');
+                    return;
+                }
+                if (!$('#title').val()) {
+                    Alert.alert('', '제목을 입력하세요.');
+                    return;
+                }
+                if (!$('#spNum').val()) {
+                    Alert.alert('', '거래처를 선택하세요');
+                    return;
+                }
+                if (!$('#reqPer').val()) {
+                    Alert.alert('', '요청자를 입력하세요.');
+                    return;
+                }
+
+                Alert.confirm('', '저장하시겠습니까?', function() {
+                    page.saveRequest();
+                });
+            });
+
+            // 신규 버튼
+            $('#btnClear').on('click', function() {
+                Alert.confirm('', '새로 작성하시겠습니까?', function() {
+                    page.clearForm();
+                });
+            });
+
+            // 파일선택 버튼 클릭 시, 파일 선택창 실행
+            $(document).on('click', '#btnFile, #fileText', function() {
+                $('#drawingFile').click();
+            });
+
+            // ✅ Toast UI Editor 생성
+            editor = new toastui.Editor({
+                el: document.querySelector('#webEdit'),  // 에디터 붙일 요소
+                height: '500px',                         // 높이
+                initialEditType: 'wysiwyg',              // 'markdown' 도 가능
+                previewStyle: 'vertical',                // 미리보기 스타일
+                initialValue: '',                        // 초기 내용
+                placeholder: '요청 내용을 입력하세요...',
+                toolbarItems: [                             // 툴바 설정
+                    ['heading', 'bold', 'italic', 'strike'],
+                    ['hr', 'quote'],
+                    ['ul', 'ol', 'task', 'indent', 'outdent'],
+                    ['table', 'link'],
+                    ['code', 'codeblock']
+                ],
+                hooks: {
+                    // ✅ 이미지 업로드(드래그 or 붙여넣기) 시도 차단
+                    addImageBlobHook: (blob, callback) => {
+                        Alert.alert('','하단의 첨부파일 선택을 이용해 주십시오');
+                        return false; // ❗ 이 리턴으로 업로드를 중단시킴
+                    }
+                }
+            });
+
+            if (parent && parent.$) {
+                parent.$('#navbarBarMenu2 .open_menu').trigger('click');
+            }
+
+            // 요청등록 - 사업자번호 input 클릭시 업체 검색 팝업 활성화
+            $('#spNum').click(function (e) {
+                if ($(this).prop('readonly')) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation(); // 다른 click 이벤트도 차단
+                    return false;
+                }
+
+                page.showGetComp('spNum');
+            });
+
+            // 요청현황 업체명 input 클릭시 업체 검색 팝업 활성화
+            $('#cboCompany2').click(function (e) {
+                if ($(this).prop('readonly')) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation(); // 다른 click 이벤트도 차단
+                    return false;
+                }
+
+                page.showGetComp('cboCompany2');
+            });
+
+            // 본사담당 input 클릭시 업체 검색 팝업 활성화
+            $('#OurManager').click(function (e) {
+                if ($(this).prop('readonly')) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation(); // 다른 click 이벤트도 차단
+                    return false;
+                }
+
+                page.showGetComp('OurManager');
+            });
+
+        })
+
+        // 파일첨부 저장 로직
+        $('#drawingFile').on('change', function() {
+            const file = this.files[0];
+            // 파일이 선택되지 않은 경우
+            if (!file) return;
+
+            // 파일명 표시
+            document.getElementById('fileText').value = file.name;
+        });
+
+        // 파일 선택 시 파일명 표시 (위임 방식)
+        $(document).on('change', '#drawingFile', function() {
+            const file = this.files[0];
+            if (!file) return;
+            $('#fileText').val(file.name);
+        });
+
+        // 삭제 버튼 클릭 이벤트
+        $(document).on('click', '#btnDelete', function() {
+            const id = $('#id').val(); // 현재 선택된 요청 ID
+
+            if (!id) {
+                Alert.alert('', '삭제할 데이터를 먼저 선택하세요.');
+                return;
+            }
+
+            Alert.confirm('삭제 확인', '선택한 요청사항을 삭제하시겠습니까?', function() {
+                let data = { id: id };
+
+                // ✅ AjaxUtil 사용 → CSRF 자동 처리됨
+                AjaxUtil.postAsyncData('/api/request/delete', data, function(res) {
+                    if (res && res.success) {
+                        Notify.success('요청사항이 삭제되었습니다.');
+
+                        // ✅ 폼 초기화 (입력폼 내용 모두 비우기)
+                        $('#id').val('');
+                        $('#searchDate').val(getNowDate());
+                        $('#title').val('');
+                        $('#reqType').val('');
+                        $('#scrNum').val('');
+                        $('#fileText').val('');
+                        $('#drawingFile').val('');
+                        if (editor) editor.setHTML('');
+
+                        // ✅ 목록 새로고침
+                        if (page && typeof page.searchMain === 'function') {
+                            page.searchMain();
+                        }
+
+                        // ✅ 탭을 “요청현황”으로 자동 전환
+                        $('#inputTabLink').trigger('click');
+                    } else {
+                        Alert.alert('삭제 실패', res.message || '요청사항 삭제 중 오류가 발생했습니다.');
+                    }
+                });
+            });
+        });
+
+        // 완료첨부 다운로드 버튼
+        $(document).on('click', '#download', function () {
+            const grid = wijmo.Control.getControl('#theGrid_reqList');
+            const selectedItem = grid.selectedItems[0];
+
+            if (!selectedItem) {
+                Alert.alert('', '다운로드할 행을 선택하세요.');
+                return;
+            }
+
+            const fileName = selectedItem.fix_file; // ✅ 조회 결과에서 직접 가져옴
+
+            if (!fileName || fileName.trim() === '') {
+                Alert.alert('', '완료 첨부 파일이 없습니다.');
+                return;
+            }
+
+            window.open('/api/request_current/downFile?fileName=' + encodeURIComponent(fileName), '_blank');
+        });
+
+
+
+    </script>
+
+</th:block>
+</html>

@@ -1,0 +1,153 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+    <style>
+        .greenText span {
+            color: #66DA26;
+        }
+
+        .redText span {
+            color: #FF0000;
+        }
+
+        .grayText span {
+            color: #8C8C8C;
+        }
+
+        .blueText span {
+            color: #4374D9;
+        }
+
+        .yellowText span {
+            color: #FFE400;
+        }
+
+        [data-ax5grid] [data-ax5grid-container="root"] [data-ax5grid-container="body"] [data-ax5grid-panel] table tr td [data-ax5grid-cellHolder] {
+            font-size: 14px;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>수주 진행 현황</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>대시보드</li>
+                <li>수주 진행 현황</li>
+            </ul>
+        </div>
+        <div class="tab-wrap" style="height: 100%;">
+            <div class="tab-contents" style="height: 100%;">
+                <!-- Section -->
+                <div class="row" style="margin-bottom: 0; height: 100%;">
+                    <section class="wp100" style="margin-right: 10px; border-radius:15px; display: flex; flex-direction: column; height: 100%;">
+                        <div class="title-wrap">
+                            <h3>수주현황</h3>
+                        </div>
+                        <div class="content-wrap" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+                            <p class="card-text">금년 수주액 크기순으로 10개 표시합니다.</p>
+
+                            <div style="flex: 3; min-height: 0;">
+                                <div id="suju-grid" class="wj-flexgrid" style="height: 100%;"></div>
+                            </div>
+
+                            <div style="flex: 2; margin-top: 10px;">
+                                <canvas id="suju-chart" class="chart-canvas" style="width: 100%; height: 100%;"></canvas>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</th:block>
+<th:block layout:fragment="scripts">
+    <script th:src="@{/resource/apexcharts/apexcharts.3.26.min.js}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="text/javascript">
+        class CustomOrderPage {
+            constructor() {
+                this.init();
+                this.setData();
+            }
+
+            init() {
+                this.initGrids();
+                this.initCharts();
+            }
+
+            initGrids() {
+                this.sujuGrid = new wijmo.grid.FlexGrid('#suju-grid', {
+                    autoGenerateColumns: false,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    isReadOnly: true,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        { header: '제품그룹', binding: 'prod_grp', width: 200, align: 'center' },
+                        { header: '품목구분', binding: 'mat_type_name', width: 200, align: 'center' },
+                        { header: '품목코드', binding: 'prod_code', width: 200, align: 'center' },
+                        { header: '제품', binding: 'prod', width: 500, align: 'center' },
+                        { header: '수주액', binding: 'sujup', width: '*', align: 'right', format: 'n0' }
+                    ]
+                });
+            }
+
+            initCharts() {
+                this.sujuChart = new Chart(document.getElementById('suju-chart'), {
+                    type: 'bar',
+                    data: { labels: [], datasets: [{ label: '수주액', data: [], backgroundColor: '#36A2EB' }] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { ticks: { autoSkip: false } },
+                            y: { title: { display: true, text: '₩' } }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function (tooltipItem) {
+                                        return tooltipItem.raw.toLocaleString() + " 원";
+                                    }
+                                }
+                            },
+                            legend: { display: false }
+                        }
+                    }
+                });
+            }
+
+            setData(_pageNo) {
+                let sujuData = AjaxUtil.getSyncData('/api/dashboard/custom_order');
+                this.sujuGrid.itemsSource = sujuData.data;
+                this.updateChart(this.sujuChart, sujuData.data, 'prod', 'sujup');
+            }
+
+            updateChart(chart, data, labelKey, valueKey) {
+                let labels = data.map(item => item[labelKey]);
+                let values = data.map(item => item[valueKey]);
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = values;
+                chart.update();
+            }
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new CustomOrderPage();
+        });
+    </script>
+</th:block>
+</html>

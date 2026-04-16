@@ -1,0 +1,612 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+<div class="content_wrap">
+    <section>
+
+        <div class="title_box ">
+            <div class="left_align">
+                <h3 data-labelCd="설비 정비 내역">설비 정비 내역</h3>
+            </div>
+
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>
+        </div>
+
+        <div class="table_box search">
+            <form id="searchForm" autocomplete="off">
+                <div class="row">
+
+                    <div class="col-12 col-lg-4">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_sm" data-labelCd="등록일">등록일</span>
+                            </div>
+                            <div data-ax5picker="multi" id="srchDt">
+                                <div class="input-group-append">
+                                    <input class="tac " type="text" id="srchStartDt" name="srchStartDt" />
+                                    <span class="input-group-text fs-xl">
+                                        <i class="fas fa-calendar-alt calendar_color"></i>
+                                    </span>
+                                    <span class="slow_sign">~</span>
+                                    <input class="tac " type="text" id="srchEndDt" name="srchEndDt" />
+                                    <span class="input-group-text fs-xl">
+                                        <i class="fas fa-calendar-alt calendar_color"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-3 col-lg-2">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_sm" data-labelCd="설비명">설비명</span>
+                            </div>
+                            <select class="form-control2" id="cboEquipment" name="cboEquipment"></select>
+
+                        </div>
+                    </div>
+                    <div class="col-1">
+                        <button type="button" class="btn-default" id="btnMainSearch" title="조회"><i class="fas fa-search"></i></button>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section>
+        <div class="grid_box">
+            <div class="title_box">
+                <span class="right_align rpt" data-labelCd="설비 정보 이력">설비 정보 이력</span>
+                <button type="button" class="btn-default" id="btnExcel"><i class="fas fa-file-excel"></i></button>
+                <button type="button" class="btn-default" id="btnGridSetting" style="visibility:hidden"><i class="fas fa-cog"></i> Setting</button>
+            </div>
+            <div class="h-300" data-ax5grid="equipment-maint-grid"></div>
+        </div>
+    </section>
+
+    <section>
+        <div class="title_box mb-2">
+            <span class="right_align rpt" data-labelCd="상세 정보">상세 정보</span>
+            <button type="button" class="btn-default" id="btnNew" name="btnNew"><i class="fas fa-plus"></i></button>
+            <button type="button" class="btn-danger y_write_auth" id="btnDel" disabled><i class="fas fa-trash"></i></button>
+            <button type="button" class="btn-default y_write_auth" id="btnSave" disabled><i class="fas fa-save"></i></button>
+        </div>
+
+        <form id="editForm">
+            <div class="table_box sub" id="maintInfo">
+                <div class="row">
+                    <input type="hidden" id="id" name="id" value="" />
+
+                    <div class="col-6 col-md-3 col-lg-3">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="*설비">*설비</span>
+                            </div>
+                            <select class="form-control2" id="equipment_id" name="equipment_id" disabled></select>
+
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-3 col-lg-3">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="*정비구분">*정비구분</span>
+                            </div>
+                            <select class="form-control2" id="maint_type" name="maint_type" disabled>
+                                <option value="prevention" data-labelCd="예방정비">예방정비</option>
+                                <option value="failure" data-labelCd="고장정비">고장정비</option>
+                            </select>
+
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-3 col-lg-3">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="정비 수행자">정비 수행자</span>
+                            </div>
+                            <input class="form-control2" type="text" id="service_name" name="service_name" disabled>
+
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-3 col-lg-3">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="비용">비용</span>
+                            </div>
+                            <input class="form-control2" type="number" id="maint_cost" name="maint_cost" disabled>
+                        </div>
+                    </div>
+
+                    <div class="col-3 ">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="정비 시작일">정비 시작일 </span>
+                            </div>
+                            <input class="form-control2 tac" type="text" id="maint_start_date" name="maint_start_date" disabled>
+                            <span class="input-group-text fs-xl">
+                                <i class="fas fa-calendar-alt calendar_color"></i>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="col-3 ">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="정비 시작시간">정비 시작시간 </span>
+                            </div>
+                            <input class="form-control2 tac" type="text" id="maint_start_time" name="maint_start_time" disabled>
+                        </div>
+                    </div>
+
+                    <div class="col-3 ">
+                        <div class="input-group" id="srchDt4">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="정비 종료일">정비 종료일</span>
+                            </div>
+                            <input class="form-control2 tac" type="text" id="maint_end_date" name="maint_end_date" disabled>
+                            <span class="input-group-text fs-xl">
+                                <i class="fas fa-calendar-alt calendar_color"></i>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="col-3 ">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="정비 종료시간">정비 종료시간</span>
+                            </div>
+                            <input class="form-control2 tac" type="text" id="maint_end_time" name="maint_end_time" disabled>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7_area" data-labelCd="정비 내역">정비 내역</span>
+                            </div>
+                            <textarea class="form-control2" id="description" name="description" disabled></textarea>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="title_box mb-2">
+                    <span class="right_align rpt" data-labelCd="고장 정보">고장 정보</span>
+                </div>
+            </div>
+            <div class="table_box sub" id="failureInfo">
+
+                <div class="row">
+
+                    <div class="col-3">
+                        <div class="input-group" id="srchDt3">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="고장 시작일">고장 시작일</span>
+                            </div>
+                            <input class="form-control2 tac" type="text" id="fail_start_date" name="fail_start_date" disabled>
+                            <span class="input-group-text fs-xl">
+                                <i class="fas fa-calendar-alt calendar_color"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-2">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="고장 시작시간">고장 시작시간</span>
+                            </div>
+                            <input class="form-control2 tac" type="text" id="fail_start_time" name="fail_start_time" disabled>
+                        </div>
+                    </div>
+
+                    <div class="col-3">
+                        <div class="input-group" id="srchDt4">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="고장 종료일">고장 종료일</span>
+                            </div>
+                            <input class="form-control2 tac" type="text" id="fail_end_date" name="fail_end_date" disabled>
+                            <span class="input-group-text fs-xl">
+                                <i class="fas fa-calendar-alt calendar_color"></i>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="col-2">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="고장 종료시간">고장 종료시간</span>
+                            </div>
+                            <input class="form-control2 tac" type="text" id="fail_end_time" name="fail_end_time" disabled>
+                        </div>
+                    </div>
+
+                    <div class="col-2 ">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="고장시간(분)">고장시간(분)</span>
+                            </div>
+                            <input class="form-control2" type="number" id="fail_hr" name="fail_hr" disabled>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7_area" data-labelCd="고장 내역">고장 내역</span>
+                            </div>
+                            <textarea class="form-control2" id="fail_description" name="fail_description" disabled></textarea>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </form>
+    </section>
+</div>
+</th:block>
+<th:block layout:fragment="scripts">
+<th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+<script type="text/javascript">
+    let gUrl = '/api/maintenance/equipment_maint'
+    class EquipMaintPage {
+        constructor() {
+            this.grid = null;
+            this.init();
+
+            this.maintId = null;
+        }
+
+        init() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="equipment-maint-grid"]'),
+                sortable: false,
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 38  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.grid.select(this.dindex);
+                        _this.maintId = e.item.id;
+                        _this.showDetail(e.item.id);
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'equipment_group_name', label: '설비그룹', width: 100, align: 'left' },
+                    { key: 'equipment_code', label: '설비코드', width: 100, align: 'center' },
+                    { key: 'equipment_name', label: '설비명', width: 100, align: 'left' },
+                    { key: 'data_date', label: '등록일', width: 100, align: 'center' },
+                    { key: 'maint_type', label: '구분', width: 100, align: 'center' },
+                    { key: 'fail_start_date', label: '고장시작일', width: 100, align: 'center' },
+                    { key: 'fail_end_date', label: '고장종료일', width: 100, align: 'center' },
+                    { key: 'fail_description', label: '고장내역', width: 150, align: 'left' },
+                    { key: 'maint_start_date', label: '정비시작일', width: 100, align: 'center' },
+                    { key: 'maint_end_date', label: '정비종료일', width: 100, align: 'center' },
+                    { key: 'description', label: '정비내역', width: 150, align: 'left' },
+                    { key: 'maint_cost', label: '비용', width: 80, align: 'right', formatter: 'money' },
+                ],
+            };
+
+            this.grid = new ax5.ui.grid(config);
+            this.grid_config = config;
+
+            AjaxUtil.fillSelectOptions($('#cboEquipment'), 'equipment', 'all', false);
+            AjaxUtil.fillSelectOptions($('#equipment_id'), 'equipment', 'choose', false);
+
+            $('#fail_start_date, #fail_start_time, #fail_end_date, #fail_end_time').change(function () {
+                let failStartDate = $('#fail_start_date').val();
+                let failStartTime = $('#fail_start_time').val();
+                let failEndDate = $('#fail_end_date').val();
+                let failEndTime = $('#fail_end_time').val();
+
+                if (failStartDate && failStartTime && failEndDate && failEndTime) {
+                    let failStartDateTime = Date.parse(failStartDate + ' ' + failStartTime);
+                    let failEndDateTime = Date.parse(failEndDate + ' ' + failEndTime);
+
+                    if (failStartDateTime <= failEndDateTime) {
+                        let diff = Math.floor((failEndDateTime - failStartDateTime) / 1000 / 60);
+                        $('#fail_hr').val(diff);
+                    } else {
+                        $('#fail_hr').val('');
+                    }
+                } else {
+                    $('#fail_hr').val('');
+                }
+            });
+        }
+
+        initForm() {
+            let _this = this;
+
+            this.maintId = null;
+            $('#editForm').find('#id').val('');
+            $('#editForm')[0].reset();
+
+            $('#editForm').find('input, select, textarea').prop('disabled', true);
+        }
+
+        setButtonState() {
+            if (this.maintId) {
+                $('#btnSave').prop('disabled', false);
+                $('#btnDel').prop('disabled', false);
+            } else {
+                $('#btnSave').prop('disabled', true);
+                $('#btnDel').prop('disabled', true);
+            }
+        }
+
+        setMaintDateTime() {
+            $('#maint_start_date').val(CommonUtil.getYYYYMMDD());
+            $('#maint_end_date').val(CommonUtil.getYYYYMMDD());
+            $('#maint_start_time').val('00:00');
+            $('#maint_end_time').val('00:00');
+        }
+
+        setFailureDateTime() {
+            $('#fail_start_date').val(CommonUtil.getYYYYMMDD());
+            $('#fail_end_date').val(CommonUtil.getYYYYMMDD());
+            $('#fail_start_time').val('00:00');
+            $('#fail_end_time').val('00:00');
+        }
+
+        searchMainData() {
+            let _this = this;
+            let param = FormUtil.extractForm($('#searchForm'));
+            param["action"] = "read";
+
+            let result = AjaxUtil.getSyncData(gUrl + '/read', param);
+
+            if (result.data != null) {
+                let recordsTotal = result.data.length;
+                _this.grid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            }
+        }
+
+        showDetail(id) {
+            let _this = this;
+
+            let param = { 'id': id, "action": 'detail' };
+
+            let result = AjaxUtil.getSyncData(gUrl + '/detail', param);
+            if (result.data) {
+                FormUtil.BindDataForm(result.data, $('#editForm'));
+                if (result.data.maint_type == 'prevention') {
+                    $('#editForm').find('#failureInfo').find('input, textarea').val('');
+                    $('#editForm').find('#failureInfo').find('input, textarea').prop('disabled', true);
+                }
+                this.setButtonState();
+            }
+        }
+
+        saveInfo() {
+            let _this = this;
+
+            let data = FormUtil.extractForm($('#editForm'));
+            if (!data.equipment_id) {
+                Alert.alert('', '설비를 선택해주세요.');
+                return;
+            }
+
+            if (!data.maint_start_date || !data.maint_start_time) {
+                Alert.alert('', '정비 시작일과 정비 시작시간을 \n 입력해주세요.');
+                return;
+            }
+
+            if (data.maint_start_date && data.maint_start_time && data.maint_end_date && data.maint_end_time) {
+                let startDateTime = Date.parse(data.maint_start_date + ' ' + data.maint_start_time);
+                let endDateTime = Date.parse(data.maint_end_date + ' ' + data.maint_end_time);
+
+                if (startDateTime > endDateTime) {
+                    Alert.alert('', '정비일을 확인해주세요.');
+                    return;
+                }
+            }
+
+            if (data.maint_type == 'failure') {
+                if (!data.fail_start_date || !data.fail_start_time) {
+                    Alert.alert('', '고장 시작일과 고장 시작시간을 \n 입력해주세요.');
+                    return;
+                }
+
+                if (data.fail_start_date && data.fail_start_time && data.fail_end_date && data.fail_end_time) {
+                    let failStartDateTime = Date.parse(data.fail_start_date + ' ' + data.fail_start_time);
+                    let failEndDateTime = Date.parse(data.fail_end_date + ' ' + data.fail_end_time);
+
+                    if (failStartDateTime > failEndDateTime) {
+                        Alert.alert('', '고장일을 확인해주세요.');
+                        return;
+                    }
+                }
+            }
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Notify.success('저장되었습니다.');
+                    _this.searchMainData();
+                    _this.initForm();
+                    _this.setButtonState();
+                } else {
+                    Alert.alert('', res.message);
+                }
+            }
+			if (data.maint_type == 'failure') {
+            	AjaxUtil.postAsyncData(gUrl + '/saveF', data, fnSuccess);	
+			} else {
+				AjaxUtil.postAsyncData(gUrl + '/saveP', data, fnSuccess);	
+			}
+        }
+
+        delInfo(id) {
+            let _this = this;
+
+            let data = { id: id };
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Notify.success('삭제되었습니다');
+                    _this.searchMainData();
+                    _this.initForm();
+                    _this.setButtonState();
+                } else {
+                    Alert.alert('', res.message);
+                }
+            };
+
+            AjaxUtil.postAsyncData(gUrl + '/delete', data, fnSuccess);
+        }
+
+        exportExcel() {
+            var targetView = this.grid;
+            targetView.exportExcel('설비정비내역.xls');
+        }
+    }
+
+    let page = null;
+
+    $(document).ready(function (e) {
+        page = new EquipMaintPage();
+
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),
+            direction: "top",
+            locale: {
+                format: 'YYYY-MM-DD'
+            },
+            content: {
+                width: 214,  // 130, //270,
+                margin: 10,
+                type: 'date',
+
+                config: {
+                    control: {
+                        left: '<i class="fa fa-arrow-left"></i>',   //fa-chevron-left
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-arrow-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            },
+            btns: {}
+        });
+
+        $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+        $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+        $('#maint_start_date').ax5DatePicker({ direction: 'top' });
+        $('#maint_end_date').ax5DatePicker({ direction: 'top' });
+        $('#fail_start_date').ax5DatePicker({ direction: 'bottom' });
+        $('#fail_end_date').ax5DatePicker({ direction: 'bottom' });
+
+        // timepicker
+        $('#maint_start_time').timepicker({
+            show2400: true,
+            timeFormat: 'H:i'
+        });
+
+        $('#maint_end_time').timepicker({
+            show2400: true,
+            timeFormat: 'H:i'
+        });
+
+        $('#fail_start_time').timepicker({
+            show2400: true,
+            timeFormat: 'H:i'
+        });
+
+        $('#fail_end_time').timepicker({
+            show2400: true,
+            timeFormat: 'H:i'
+        });
+
+        $('#maint_type').change(function () {
+            if ($('#maint_type').val() == 'failure') {
+                $('#editForm').find('#failureInfo').find('input, textarea').prop('disabled', false);
+                page.setFailureDateTime();
+            } else {
+                $('#editForm').find('#failureInfo').find('input, textarea').val('');
+                $('#editForm').find('#failureInfo').find('input, textarea').prop('disabled', true);
+            }
+        });
+
+        $('#btnExcel').click(function (e) {
+            page.exportExcel();
+        });
+
+        // 검색 버튼
+        $('#btnMainSearch').click(function (e) {
+            page.searchMainData();
+            page.initForm();
+            page.setButtonState();
+        });
+
+        $('#btnNew').click(function (e) {
+            page.initForm();
+            $('#btnSave').prop('disabled', false);
+            $('#btnDel').prop('disabled', true);
+            $('#editForm').find('#maintInfo').find('input, select, textarea').prop('disabled', false);
+            page.setMaintDateTime();
+        });
+
+        $('#btnSave').click(function (e) {
+            page.saveInfo();
+        });
+
+        $('#btnDel').click(function (e) {
+            let id = $('#editForm').find('#id').val()
+
+            Alert.confirm('',
+                '삭제하시겠습니까?',
+                function () { page.delInfo(id); },
+                function () { }
+            );
+        });
+
+        //그리드 컬럼 설정
+        page.popColSetting = new popColSetting();
+        let columns = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'grid', page.grid);
+
+        if (userinfo.group_code == 'admin') {
+            $('#btnGridSetting').css('visibility', 'visible');
+        }
+
+        $('#btnGridSetting').click(function (e) {
+            let _this = this;
+            let fix_cols = page.grid_config.frozenColumnIndex;
+            page.popColSetting.show(gui.gui_code, gui.template_key, 'grid', page.grid_config.columns, page.grid, { 'order_fix': false, 'fix_cols': fix_cols });
+        });
+
+        page.searchMainData();
+
+    });
+</script>
+</th:block>
+</html>

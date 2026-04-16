@@ -1,0 +1,702 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .select2-dropdown {
+            z-index: 10060 !important;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>LOT 재고 조정</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>재고관리</li>
+                <li>LOT 재고 조정</li>
+            </ul>
+        </div>
+        <div style="display: flex; gap: 5px;">
+            <section class="section">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label for="cboMaterialType">
+                                    품목유형
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select class="form-control2" id="cboMaterialType" name="cboMaterialType"></select>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label for="cboMaterialGroup">
+                                    품목그룹
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select class="form-control2" id="cboMaterialGroup"
+                                            name="cboMaterialGroup"></select>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label for="cboCompany">
+                                    업체
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select class="form-control2" id="cboCompany" name="cboCompany"></select>
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label for="keyword">
+                                    품명/코드/LOT
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input class="form-control2" id="keyword" name="keyword"/>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <div id="material-grid"></div>
+                </div>
+            </section>
+            <section class="section">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label for="cboStoreHouse">
+                                    창고
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select class="form-control2" id="cboStoreHouse" name="cboStoreHouse"></select>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <button class="btn" title="LOT 상세검색" id="btnLotSearch">
+                                    LOT 상세검색
+                                </button>
+                            </dd>
+                        </dl>
+                    </div>
+
+                </div>
+                <div class="container-fluid">
+                    <div id="mat-lot-grid"></div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+
+    <script type="text/x-tmpl" id="addLotTemplate">
+        <div class="content_wrap popup" >
+
+            <section>
+                <div class="table_box">
+                    <form id="LotForm">
+                        <div class="table_box sub">
+                            <input type="hidden" id='id' name='id' />
+                            <input type="hidden" id='mg_id' name='mg_id' value="{%=o.mg_id%}" />
+                            <div class="row">
+
+                                <div class="col-12" >
+                                    <div class="input-group" >
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_md" data-labelCd="품목">품목</span>
+                                        </div>
+                                        <select class="form-control2" id="mat_id" name="mat_id" />
+                                    </div>
+                                </div>
+
+                                <div class="col-12" >
+                                    <div class="input-group" >
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_md" data-labelCd="창고">창고</span>
+                                        </div>
+                                        <select class="form-control2" id="StoreHouse_id" name="StoreHouse_id" />
+                                    </div>
+                                </div>
+
+                                <div class="col-6" >
+                                    <div class="input-group" >
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_md" data-labelCd="전체수량">전체수량</span>
+                                        </div>
+                                        <input class="form-control2 " type="text" id="totalQty" name="totalQty" />
+                                    </div>
+                                </div>
+
+                                <div class="col-6" >
+                                    <div class="input-group" >
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_md" data-labelCd="박스당수량">박스당수량</span>
+                                        </div>
+                                        <input class="form-control2 " type="text" id="boxQty" name="boxQty"/>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="grid_box">
+                    <div class="h-300" data-ax5grid="add-lot-grid"></div>
+                </div>
+            </section>
+            <section class="popupcontent" >
+                <div class="align_left">
+                    <button type="button" class="btn-popup" id="btnPopSaveNewLot" ><span data-labelCd="저장">저장</span></button>
+                    <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+                </div>
+            </section>
+
+        </div>
+    </script>
+
+    <script type="text/x-tmpl" id="searchLotAdd">
+        <div class="content_wrap popup" >
+            <div class="table-wrap">
+                <form id="stockForm">
+                    <table class="write-table">
+                        <input type="hidden" id='id' name='id' />
+                        <tbody>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="mat_id">품목</label>
+                                </th>
+                                <td>
+                                    <select class="form-control2" id="mat_id" name="mat_id" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="StoreHouse_id">창고</label>
+                                </th>
+                                <td>
+                                    <select class="form-control2" id="StoreHouse_id" name="StoreHouse_id" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="mat_name">제품</label>
+                                </th>
+                                <td>
+                                    <input style="width:200px;" type="text" id="LotNumber" name="LotNumber" />
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+            <div class="container-fluid">
+                <div id="search-lot-grid" style="height: 200px;"></div>
+            </div>
+
+            <div class="popup-button">
+                <button type="button" class="btn-popup" id="btnPopSaveLotAdjust" ><span data-labelCd="저장">저장</span></button>
+                <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/javascript">
+
+        class LotAdjustmentPage {
+            constructor() {
+                this.grid = null;
+                this.grid2 = null;
+                this.baseUrl = '/api/inventory/lot_stock_take';
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#material-grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    allowSorting: true,
+                    isReadOnly: true,
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'mat_type', header: '품목유형', width: 100, align: 'center'},
+                        {binding: 'mat_grp', header: '품목그룹', width: 130, align: 'center'},
+                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'center'},
+                        {binding: 'mat_name', header: '품목명', width: 450, align: 'left'},
+                        {binding: 'cur_stock', header: '총재고', width: 100, align: 'right', format: 'n0'},
+                        {binding: 'unit_name', header: '단위', width: 100, align: 'center'}
+                    ],
+                    selectionChanged: (s, e) => {
+                        const selectedItem = s.selectedItems[0];
+                        if (selectedItem) {
+                            _this.showMatLotList(selectedItem.mat_id);
+                        }
+                    }
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '품목 정보';
+
+                this.grid2 = new wijmo.grid.FlexGrid('#mat-lot-grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    allowSorting: true,
+                    isReadOnly: false,
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                    formatItem: (s, e) => {
+                        // 헤더 스타일 적용
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
+                            && s.columns[e.col].binding === 'real_stock'
+                            || s.columns[e.col].binding === 'gap_description') {
+                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                        }
+
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            const col = s.columns[e.col];
+                            const item = e.panel.rows[e.row].dataItem;
+
+                            if (col.binding === 'btn_save') {
+                                e.cell.textContent = ''; // 기존 내용 제거
+                                // 저장 버튼 추가
+                                const button = document.createElement('button');
+                                button.className = 'btn-default grid_save_button';
+                                button.style.width = '100%';
+                                button.style.height = '25px';
+                                button.textContent = '저장';
+
+                                // 버튼 클릭 이벤트 처리
+                                button.onclick = () => {
+                                    let selectedItem = _this.grid2.selectedItems[0];
+                                    console.log('selectedItem', selectedItem);
+
+                                    if (selectedItem.gap === '' || selectedItem.gap == null) {
+                                        Alert.alert('LOT재고조정', '차이가 입력되어야 합니다.');
+                                        return;
+                                    }
+                                    Alert.confirm('LOT재고조정', '저장하시겠습니까?', () => {
+                                        this.saveLotAdjust(selectedItem); // 저장 로직 호출
+                                    });
+                                };
+
+                                e.cell.appendChild(button);
+                            }
+                            // 'last_take_date' 컬럼 처리
+                            if (col.binding === 'last_take_date') {
+                                e.cell.textContent =
+                                    item.state === 'taked'
+                                        ? `${item.last_take_date} 확인대기`
+                                        : item.last_take_date || ''; // 값이 없을 경우 빈칸 처리
+                            }
+                        }
+                    },
+                    cellEditEnded: (s, e) => { // cellEditEnding -> cellEditEnded
+                        const column = s.columns[e.col];
+                        const item = s.rows[e.row].dataItem;
+
+                        if (column.binding === 'real_stock') {
+                            if (item.real_stock != null && item.CurrentStock != null) {
+                                item.gap = item.real_stock - item.CurrentStock;
+                            }
+                        }
+                    },
+                    columns: [
+                        {binding: 'storehouse_name', header: '창고', width: 120, align: 'left', isReadOnly: true},
+                        {binding: 'LotNumber', header: 'Lot', width: 170, align: 'center', isReadOnly: true},
+                        {binding: 'CurrentStock', header: '재고', width: 100, align: 'right', isReadOnly: true},
+                        {binding: 'real_stock', header: '실사재고', width: 100, align: 'right', isReadOnly: false},
+                        {binding: 'gap', header: '차이', width: 80, align: 'right', isReadOnly: true},
+                        {binding: 'gap_description', header: '차이설명', width: 200, align: 'left', isReadOnly: false},
+                        {binding: 'btn_save', header: '저장', width: 80, align: 'center', isReadOnly: true},
+                        {binding: 'last_take_date', header: '최종실사일', width: 200, align: 'center', isReadOnly: true}
+                    ]
+                });
+                new FlexGridContextMenu(this.grid2);
+                this.grid2.downloadFileName = 'LOT 정보';
+            }
+
+            showAddLot() {
+                let _this = this;
+                let items = _this.grid.getList('selected');
+                let item = items[0];
+                if (items.length == 0) {
+                    Alert.alert('', '선택된 품목이 없습니다.', function () {
+                    });
+                    return;
+                }
+                let content = tmpl('addLotTemplate', item);
+                let $content = $(content);
+
+                let modalContainer = new PopupDraggable('LOT발행');
+                modalContainer.open({width: 600, height: 500, $content});
+
+                AjaxUtil.fillSelectOptions($content.find('#mat_id'), 'material', 'choose', false, '');
+                AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', false, '');
+                FormUtil.BindDataForm(item, $content.find('#LotForm'));
+
+                let config = {
+                    target: $content.find('[data-ax5grid="add-lot-grid"]'),
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: true, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: true, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 30  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                    },
+                    page: {
+                        display: true,
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        {key: 'LotNumber', label: '박스라벨', width: 200, align: 'center'},
+                        {
+                            key: 'Qty', label: '<span class="editable_clr">수량</span>', width: 60, align: 'right',
+                            formatter: 'money',
+                            editor: {
+                                type: 'number',
+                            }
+                        },
+                        {
+                            key: 'Description',
+                            label: '<span class="editable_clr">수량세부</span>',
+                            width: 150,
+                            align: 'left',
+                            editor: {
+                                type: 'text',
+                            }
+                        },
+                    ]
+                };
+                this.addLotGrid = new ax5.ui.grid(config);
+
+                // 전체수량, 박스수량 입력시 박스 계산
+                $content.find('#boxQty').change(function () {
+                    _this.addLotGrid.setData([])
+                    let totalQty = $content.find('#totalQty').val();
+                    let boxQty = $content.find('#boxQty').val();
+                    let packCount = Math.ceil(totalQty / boxQty);
+                    let remainQty = Number(totalQty);
+                    // 그리드에 addRow
+                    for (let i = 0; i < packCount; i++) {
+                        let qty = boxQty;
+                        if (remainQty < qty) {
+                            qty = remainQty;
+                        }
+                        let r = {
+                            Qty: qty
+                        }
+                        _this.addLotGrid.addRow(r);
+                        remainQty = remainQty - qty;
+                    }
+                });
+
+                //btn save 여기서 로트 발행 해주기 mat_lot
+                $content.find('#btnPopSaveNewLot').click(function () {
+                    let LotItems = _this.addLotGrid.getList(); // 로트 추가하기 위한 그리드
+                    let totalQty = parseInt($content.find('#totalQty').val()); // 전체수량
+                    let boxQty = 0;
+                    for (let idx = 0; idx < LotItems.length; idx++) {
+                        boxQty += parseInt(LotItems[idx].Qty);
+                    }
+                    if (LotItems.length == 0) {
+                        Alert.alert('', '저장할 LOT가 없습니다.', function () {
+                        })
+                        return;
+                    }
+                    if (totalQty !== boxQty) {
+                        Alert.alert('', '전체수량과 수량을 확인해주세요.', function () {
+                        })
+                        return;
+                    }
+                    if (($('#StoreHouse_id').val() == null) || ($('#StoreHouse_id').val() == '')) {
+                        Alert.alert('', '창고를 선택하세요.');
+                        return;
+                    }
+                    let param = {
+                        Material_id: $content.find('#mat_id').val(),
+                        Storehouse_id: $content.find('#StoreHouse_id').val(),
+                        Mat_group_id: $content.find('#mg_id').val(),
+                        Q: JSON.stringify(LotItems)
+                    }
+                    let url = this.baseUrl + "/lot_split_save";
+                    let fnsuccess = function (res) {
+                        if (!res.success) {
+                            Alert.alert('', res.message);
+                            return;
+                        } else {
+                            Notify.success('저장되었습니다');
+                            _this.showMatLotList(item.mat_id);
+                            modalContainer.modal.close();
+                        }
+                    };
+
+                    AjaxUtil.postAsyncData(url, param, fnsuccess);
+                })
+            }
+
+            // Lot 상세검색 팝업
+            showLotSearchPopup() {
+                let _this = this;
+                let items = this.grid.selectedItems;
+                if (items.length === 0) {
+                    Alert.alert('', '품목을 선택해주세요.');
+                    return;
+                }
+
+                let item = items[0];
+                let content = tmpl('searchLotAdd', {});
+                let $content = $(content);
+                let modalContainer = new PopupDraggable('LOT검색 및 추가');
+                modalContainer.open({width: 850, height: 450, $content});
+
+                AjaxUtil.fillSelectOptions($content.find('#mat_id'), 'material', 'choose', false, '');
+                AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', false, '');
+                FormUtil.BindDataForm(item, $('#stockForm'));
+
+                this.searchLotGrid = new wijmo.grid.FlexGrid('#search-lot-grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                    formatItem: (s, e) => {
+
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+
+                        // 이동량 열 헤더 스타일 적용
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
+                            && s.columns[e.col].binding === 'real_stock'
+                            || s.columns[e.col].binding === 'gap_description') {
+                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                        }
+
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            const col = s.columns[e.col];
+                            const item = e.panel.rows[e.row].dataItem;
+
+                            // 'last_take_date' 컬럼 처리
+                            if (col.binding === 'last_take_date') {
+                                e.cell.textContent =
+                                    item.state === 'taked'
+                                        ? `${item.last_take_date} 확인대기`
+                                        : item.last_take_date || ''; // 값이 없을 경우 빈칸 처리
+                            }
+                        }
+                    },
+                    columns: [
+                        {binding: 'storehouse_name', header: '창고', width: 100, align: 'center', isReadOnly: true},
+                        {binding: 'LotNumber', header: 'Lot', width: 150, align: 'center', isReadOnly: true},
+                        {binding: 'CurrentStock', header: '재고', width: 50, align: 'center', isReadOnly: true},
+                        {binding: 'real_stock', header: '실사재고', width: 100, align: 'right', isReadOnly: false},
+                        {binding: 'gap', header: '차이', width: 70, align: 'right', isReadOnly: true},
+                        {binding: 'gap_description', header: '차이설명', width: 200, align: 'left', isReadOnly: false},
+                        {binding: 'last_take_date', header: '최종실사일', width: 200, align: 'center', isReadOnly: true}
+                    ]
+                });
+
+                $content.find('#btnSearch').click(function () {
+                    _this.searchLotList();
+                });
+
+                $content.find('#LotNumber').on('keypress', function (e) {
+                    if (e.keyCode === 13) {
+                        _this.searchLotList(this.searchLotGrid);
+                    }
+                })
+
+                // Lot 상세검색 팝업
+                $content.find('#btnPopSaveLotAdjust').click(function () {
+                    let items = _this.searchLotGrid.selectedItems[0];
+                    let item = items[0];
+                    if (items.length === 0) {
+                        Alert.alert('', '저장할 품목이 없습니다.');
+                        return;
+                    }
+                    if (item.gap == null) {
+                        Alert.alert('', '차이가 입력되어야 합니다.');
+                        return;
+                    }
+
+                    let url = _this.baseUrl + "/save_lot_adjust";
+                    let result = AjaxUtil.postSyncData(url, item);
+                    if (result != null) {
+                        Notify.success('저장되었습니다');
+                        _this.searchLotList();
+                        //modalContainer.modal.close();
+                    } else {
+                        Alert.alert('', result.message);
+                        return;
+                    }
+                });
+
+            }
+
+            // Lot검색 popup에서 검색
+            searchLotList() {
+                let _this = this;
+                let data = {
+                    'mat_id': $('#mat_id').val(),
+                    'storehouse_id': $('#StoreHouse_id').val(),
+                    'lot_number': $('#LotNumber').val(),
+                };
+                let url = this.baseUrl + "/search_lot";
+                let result = AjaxUtil.getSyncData(url, data);
+                if (result.success) {
+                    _this.searchLotGrid.itemsSource.sourceCollection = result.data;
+                }
+            }
+
+            searchMainData() {
+                let _this = this;
+                let data = {
+                    'mat_type': $('#cboMaterialType').val(),
+                    'mat_grp': $('#cboMaterialGroup').val(),
+                    'keyword': $('#keyword').val(),
+                    'company_id': $('#cboCompany').val()
+                };
+
+                let url = this.baseUrl + "/read"
+                let result = AjaxUtil.getSyncData(url, data);
+                if (result.success) {
+                    _this.grid.itemsSource.sourceCollection = result.data;
+                }
+                _this.grid2.itemsSource.sourceCollection = [];
+            }
+
+            showMatLotList(mat_id) {
+                let _this = this;
+                let storehouse_id = $('#cboStoreHouse').val();
+                let data = {
+                    'material_id': mat_id,
+                    'storehouse_id': storehouse_id
+                }
+
+                let url = this.baseUrl + "/mat_lot_list";
+                let result = AjaxUtil.getSyncData(url, data)
+                if (result.success) {
+                    _this.grid2.itemsSource.sourceCollection = result.data;
+                }
+            }
+
+            saveLotAdjust(item) {
+                let _this = this;
+                let url = this.baseUrl + "/save_lot_adjust";
+                let result = AjaxUtil.postSyncData(url, item);
+                if (result.success) {
+                    Alert.alert('LOT재고조정', '저장했습니다.');
+
+                    //_this.grid2.setValue(data.dindex, item.last_take_date, result.data.TakeTime);
+                    //_this.showMatLotList(item.mat_id);
+                }
+            }
+
+        }
+
+        $(document).ready(function (e) {
+            let page = new LotAdjustmentPage();
+            AjaxUtil.fillSelectOptions($('#cboMaterialType'), 'system_code', 'all', false, 'mat_type');
+            AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false);
+            AjaxUtil.fillSelectOptions($('#cboStoreHouse'), 'store_house', 'all', false);
+            $('#cboMaterialType').on('change', function (e) {
+                let mat_type = $('#cboMaterialType').val();
+                AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false, mat_type);
+            });
+
+            // 업체 콤보박스
+            AjaxUtil.fillSelectOptions($('#cboCompany'), 'company', 'all', false);
+
+
+            // 검색
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            //LOT검색
+            $('#btnLotSearch').click(function (e) {
+                page.showLotSearchPopup();
+            })
+            //LOT추가
+            $('#bntLotAdd').click(function (e) {
+                page.showAddLot();
+            })
+
+            $('#cboStoreHouse').change(function (e) {
+                //page.searchMainData(); mat_lot 의 창고로 검색해야함
+                let mat_id = page.grid.getList('selected')[0].mat_id
+                page.showMatLotList(mat_id);
+            });
+
+            $('#keyword').keypress(function (e) {
+                if (e.keyCode == 13)
+                    page.searchMainData();
+            });
+
+
+            page.searchMainData();
+
+        })
+    </script>
+</th:block>
+</html>

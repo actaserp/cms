@@ -1,0 +1,187 @@
+<th:block th:fragment="upload_one_image_box">
+<script type="text/x-tmpl" id="uploadImageTemplate">
+    <input type="file" class="btn-default" style="display:none;" id ="{%=o.btnAddFile%}" form="uploadfile" value="파일선택" >
+    <div style="text-align: center; margin-bottom: 5px;">
+        <button class="btn" id ="{%=o.btnUpload%}" form="uploadfile" > 파일선택...</button>
+        <button class="btn" id ="{%=o.btnRemoveFile%}" form="uploadfile" > 파일삭제</button>
+    </div>
+    <div>
+        <input type="hidden" id="{%=o.attachFileId%}" name="{%=o.attachFileId%}" form="uploadfile">
+    <div>
+                                    
+    <img id="{%=o.imgPhoto%}" src="" width="{%=o.image_width%}" height="{%=o.image_height%}" />
+</script>
+<script type="text/x-tmpl" id="uploadFormTemplate">
+    <form id="uploadfile" method="POST" enctype="multipart/form-data" action="/api/files/upload" onsubmit="return false;">
+        <input type="text" id="DataPk" name="DataPk" />
+    </form>
+</script>
+
+<script type="text/javascript">
+    class UploadOneImage {
+        constructor(seq, option) {
+            this.table_name = option.table_name;
+            this.data_pk = option.data_pk;
+            this.attach_name = option.attach_name;
+            this.file_index = option.file_index;
+            this.upload_div_id = option.upload_div_id;
+            this.upload_form_id = option.upload_form_id;
+            this.callback = option.callback;
+            //this.file_id = option.file_id;
+
+            seq = String(seq);
+
+            this.btnAddFile = 'btnAddFile' + seq;
+            this.btnUpload = 'btnUpload' + seq;
+            this.btnRemoveFile = 'btnRemoveFile' + seq;
+            this.attachFileId = 'attachFileId' + seq;
+            this.imgPhoto = 'imgPhoto' + seq;
+
+            let data = {
+                //attach_name: attach_name,
+                btnAddFile: this.btnAddFile,
+                btnUpload: this.btnUpload,
+                btnRemoveFile: this.btnRemoveFile,
+                attachFileId: this.attachFileId,
+                imgPhoto: this.imgPhoto,
+                image_width: option.image_width,
+                image_height: option.image_height,
+            };
+            let html = tmpl('uploadImageTemplate', data);
+            $('#' + option.upload_div_id).html(html);
+
+            this.set_file_id(option.file_id);
+
+            this.init();
+        }
+        init() {
+            let _this = this;
+
+            if (_this.file_id) {
+                
+                _this.drawImage();
+
+                //let imgSrc = imageUri();
+
+                //$('#' + _this.imgPhoto).attr('src', imgSrc);
+
+            }
+
+            $('#' + _this.btnAddFile).change(function (e) {
+                let this_button = $(this);
+
+                //let attach_name = this_button.data('attach');
+                let fileList = this_button[0].files[0];
+
+                //let $form = $('#uploadfile');
+                //let data = FormUtil.extractForm($form);
+                let url = '/api/files/upload?tableName=' + _this.table_name;
+                url += '&others=' + _this.table_name;
+                url += '&attachName=' + _this.attach_name;
+                url += '&fileIndex=' + _this.file_index;
+                url += '&accepts=' + '.gif,jpg,png';
+                url += '&fileSize=' + fileList.size;
+                url += '&addfileext=' + 'png';
+                url += '&type = ' + '';
+                url += '&thumbnailYN=' + 'N';
+
+                let data = new FormData();
+                data.append('uploadfile', fileList);
+                data.append('DataPk', _this.data_pk);
+                data.append('onlyOne', 1);  // true
+
+                data['file'] = fileList;
+
+                let result = AjaxUtil.postFileSyncData(url, data);
+                if (result && result.success == true) {
+                    Notify.success('파일이 저장되었습니다.');
+
+                    _this.set_file_id(result.fileId);
+                    //let file_id = result.fileId;
+                    
+                    //_this.file_id = file_id;
+                    //$('#' + _this.attachFileId).val(file_id)
+                    //let file_id = $('#attachFileId' + no).val();
+
+                    _this.drawImage();
+                    _this.callback();
+                    //let imgSrc = imageUri(_this.attach_name, file_id);
+                    //$('#' + _this.imgPhoto).attr('src', '');
+                    //$('#' + _this.imgPhoto).attr('src', imgSrc);
+                }
+
+            });
+
+            $('#' + _this.btnUpload).on('click', function () {
+                $("#" + _this.btnAddFile).click();
+            });
+
+            $('#' + _this.btnRemoveFile).on('click', function () {
+                //let file_id = $('#' + _this.attachFileId).val();
+
+                Alert.confirm('',
+                    '파일을 삭제하시겠습니까?',
+                    function () {
+                        let data = {};
+                        data['fileId'] = _this.file_id;
+                        data['tableName'] = _this.table_name;
+                        //data['physicFileName'] = _this.attach_name;
+
+                        //let fileIndex = 0;
+                        let result = AjaxUtil.postSyncData('/api/common/attach_file/deleteFile', data);
+                        if (result && result.success == true) {
+                            Notify.success('파일이 삭제되었습니다.');
+                            //$('#' + _this.attachFileId).val('')
+                            //$('#' + _this.imgPhoto).attr('src', '');
+                            $('#' + _this.btnAddFile).val('');
+                            _this.set_file_id('');
+                            _this.drawImage();
+                            _this.callback();
+                        }
+                    }, function () { }
+                );
+
+            });
+
+        }
+
+        //file_id() {
+        //    //return $('#' + this.attachFileId).val();
+        //    return _this.file_id;
+
+        //}
+        set_file_id(file_id) {
+            let _this = this;
+            _this.file_id = file_id;
+            $('#' + this.attachFileId).val(file_id);
+        }
+        drawImage() {
+            let _this = this;
+            if (_this.file_id == '')
+                $('#' + _this.imgPhoto).attr('src', '');
+            else {
+                let imgSrc = _this.imageUri();
+                $('#' + _this.imgPhoto).attr('src', imgSrc);
+            }
+        }
+        imageUri() {
+            let _this = this;
+            if (_this.file_id) {
+                //let tableName = _this.table_name;
+                //let url = '/api/files/download?TableName=' + tableName + '&AttachName=' + attachName + '&file_id=' + fileId;
+                let t = new Date()
+                let url = '/api/files/download?file_id=' + _this.file_id + '&t=' + t;
+                return url;
+            }
+            else
+                return '';
+        }
+        printFormDiv() {
+            let $form_div = $('#' + this.upload_form_id);
+            if ($form_div.html() != '')
+                return;
+            let html = tmpl('uploadFormTemplate', {});
+            $form_div.html(html);
+        }
+    }    
+</script>

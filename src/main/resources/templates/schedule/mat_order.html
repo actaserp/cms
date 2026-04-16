@@ -1,0 +1,575 @@
+<html layout:decorate="~{layout_page}">
+<head>
+<style>
+    .select2-container--open {
+      z-index: 9001;
+    }
+
+</style>
+</head>
+
+<th:block layout:fragment="content">
+<div class="content_wrap">
+
+    <section class="section">
+
+        <div class="title_box ">
+            <div class="left_align">
+                <h3 data-labelCd="자재 발주">자재 발주</h3>
+            </div>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>        
+        </div>
+
+        <div class="table_box search">
+            <form id="searchForm" autocomplete="off">
+                <div class="row">
+
+                    <div class="col-6 col-lg-2 col-xl-1 mt-6">
+                        <input type="checkbox" id="chkSearchDate" value="Y" />
+                        요청일로 검색
+                    </div>
+
+                    <div class="col-11 col-lg-4" >
+                        <div class="input-group" >
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_sm" data-labelCd="요청일">요청일</span>
+                            </div> 
+                            <div data-ax5picker="multi" id="srchDt">
+                                <div class="input-group-append">
+                                    <input class="tac " type="text" id="srchStartDt" name="srchStartDt" />
+                                    <span class="input-group-text fs-xl">
+                                        <i class="fas fa-calendar-alt calendar_color" ></i>
+                                    </span>
+                                    <span class="slow_sign">~</span>
+                                    <input class="tac " type="text" id="srchEndDt" name="srchEndDt" />
+                                    <span class="input-group-text fs-xl">
+                                        <i class="fas fa-calendar-alt calendar_color"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-3 col-xl-2" >
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="품목그룹">품목그룹</span>
+                            </div>
+                                <select class="form-control2" id="cboMatGrp" name="cboMatGrp" ></select>
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-3 col-xl-2">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="품목">품목</span>
+                            </div>
+                            <select class="form-control2" id="cboMaterial" name="cboMaterial"></select>
+                        </div>
+                    </div>
+
+                    <div class="col-1" >
+                        <button type="button" class="btn-default" id="btnMainSearch" title="조회"><i class="fas fa-search"></i></button>
+                    </div> 
+
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section >
+        <div class="grid_box">
+            <div class="title_box">
+                <span class="right_align rpt" data-labelCd="자재 발주 요청">자재 발주 요청</span>
+                <div class="left_align">
+                    <button type="button" class="btn-default y_write_auth" id="btnMakeOrder"><span data-labelCd="발주등록">발주등록</span></button>
+                    <button type="button" class="btn-danger y_write_auth" id="btnManualOrder"><span data-labelCd="긴급발주">긴급발주</span></button>
+                    <button type="button" class="btn-default" id="btnExcel" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                    <button type="button" class="btn-default" id="btnGridSetting" style="visibility:hidden"><i class="fas fa-cog"></i> Setting</button>
+                </div>
+            </div>
+
+            <div class="h-630" data-ax5grid="material-order-grid" >
+            </div>
+        </div>
+    </section>
+
+</div>
+
+
+<script type="text/x-tmpl" id="requestCreateTemplate">
+<div class="content_wrap popup" >
+    <!--<header>
+        <h4 id="popTitle">긴급발주 등록</h4>
+        <div class="popup_close_box"><button class="btn_popup_close" id="modal-close"><i class="fas fa-times"></i></button></div>
+    </header>-->
+
+    <section >
+    <div class="table_box">
+        <form id="requestForm">
+        <div class="table_box sub">
+            <div class="row">
+
+                <div class="col-12" >
+                    <div class="input-group" >
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_md" data-labelCd="품목그룹">품목그룹</span>
+                        </div>
+                        <select class="form-control2" id="MaterialGroup_id" name="MaterialGroup_id" />
+                    </div>
+                </div>
+
+                <div class="col-12" >
+                    <div class="input-group" >
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_md" data-labelCd="품목">품목</span>
+                        </div>
+                        <select class="form-control2" id="mat_pk" name="mat_pk" />
+                    </div>
+                </div>
+
+                <div class="col-12" >
+                    <div class="input-group" >
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_md" data-labelCd="구매처">구매처</span>
+                        </div>
+                        <select class="form-control2" id="Company_id" name="Company_id" />
+                    </div>
+                </div>
+
+                <div class="col-6" >
+                    <div class="input-group" >
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_md" data-labelCd="단가">단가</span>
+                        </div>
+                        <input class="form-control2 tar" type="text" id="UnitPrice" name="UnitPrice" value="0" readonly="readonly"/>
+                    </div>
+                </div>
+
+                <div class="col-6" >
+                    <div class="input-group" >
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_md" data-labelCd="발주량">발주량</span>
+                        </div>
+                        <input class="form-control2" type="text" id="AddQty" name="AddQty" />
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="input-group" >
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_md" data-labelCd="단위발주량">단위발주량</span>
+                        </div>
+                        <input class="form-control2" type="text" id="PackingUnitQty" name="PackingUnitQty"/>
+                    </div>
+                </div>	
+                <div class="col-12">
+                    <div class="input-group" data-ax5picker="basic" id="srchDt2">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_md" data-labelCd="입고예정일">입고예정일</span>
+                        </div>
+                        <input class="form-control2 tac" type="text" id="InputPlanDate" name="InputPlanDate">
+                        <span class="input-group-text fs-xl"><i class="fas fa-calendar-alt calendar_color" ></i></span>
+                    </div>
+                </div>	
+            </div>
+        </div>
+        </form>
+    </div>
+    </section>
+    <section class="popupcontent" >
+        <div class="align_left">
+            <button type="button" class="btn-popup y_write_auth" id="btnOrderSave" ><span data-labelCd="저장">저장</span></button>
+            <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    </section>
+
+</div>
+</script>   
+</th:block>
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+
+<script type="text/javascript">
+
+    class PageMaterialOrder {
+        constructor() {
+
+            this.url = '/api/schedule/mat_request';
+
+            this.companyMap = {};
+            this.comp_list = [];
+            this.grid = null;
+            this.dicCompanyMatPrices = {};
+            this.inoutType = AjaxUtil.getSelectDataWithNull('company', false, 'purchase');
+            this.modalContainer = new PopupDraggable('긴급 발주 등록');
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+            let res = this.inoutType;
+            let config = {
+                target: $('[data-ax5grid="material-order-grid"]'),
+                frozenColumnIndex: 4, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: true, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: true, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 38  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        //_this.grid.select(this.dindex);
+                        if (e.column.key == 'Company_id') {
+                            let mat_pk = e.item.mat_pk;
+                            let rows = _this.setGridCompCombo(mat_pk);
+                            e.column.editor.config.options = rows;
+                        }
+                        else if (e.column.key == 'AddQty') {
+
+                        }
+                    },
+                    onDataChanged: function () {
+                        let c_this = this;
+                        if (this.list.length > 0 && this.key === 'Company_id') {
+                            let item = this.item;
+                            let result = _this.getUnitPrice(item.mat_pk, item.Company_id)
+                            if (result.data != null) {
+                                item.UnitPrice = result.data.unit_price;
+                                _this.grid.repaint();
+                            }
+                            else {
+                                // 이리 들어오는 경우는 현재 없다.
+                                item.UnitPrice = result.mat_unit_price;
+                                _this.grid.repaint();
+                            }
+                        }
+                    }
+                },
+                page: {
+                    display: true,
+                    statusDisplay: true
+                },
+                columns: [
+                    { key: 'State', label: '상태', width: 100, align: 'center' },
+                    { key: 'mat_grp_name', label: '품목그룹', width: 80, align: 'left' },
+                    { key: 'mat_code', label: '품목코드', width: 80, align: 'center' },
+                    { key: 'mat_name', label: '품목명', width: 200, align: 'left' },
+                    { key: 'UnitName', label: '단위', width: 80, align: 'center' },
+                    { key: 'AvailableStock', label: '가용재고', width: 80, align: 'right', formatter:'money', },
+                    { key: 'SafetyStock', label: '안전재고', width: 80, align: 'right', formatter:'money', },
+                    { key: 'RequestQty', label: '발주요청량', width: 100, align: 'right', formatter:'money', },
+                    { key: 'PackingUnitName', label: '포장', width: 80, align: 'center' },
+                    { key: 'PackingUnitQty', label: '포장량', width: 80, align: 'right', formatter:'money', },
+                    { key: 'PackOrderReqQty', label: '발주요청량(포장)', width: 130, align: 'right', formatter:'money', styleClass: 'grid-cell-yellow' },
+                    { key: 'MinOrder', label: '최소발주량', width: 100, align: 'right', formatter:'money', },
+                    { key: 'MaxOrder', label: '최대발주량', width: 100, align: 'right', formatter:'money', },
+                    { key: 'LotSize', label: '발주단위', width: 80, align: 'right' },
+                    { key: 'OrderQty', label: '기발주량', width: 100, align: 'right', formatter:'money', styleClass: 'grid-cell-yellow' },
+                    {
+                        key: 'AddQty', label: '<span class="editable_clr">발주량<span>', width: 90, align: 'right',
+                        formatter:'money',
+                        editor: { type: 'number' }
+                        , styleClass: function () {
+                            var data = this.item.AddQty;
+                            return (data > 0) ? 'grid-cell-blue' : 'grid-cell-white';
+                        }
+                    },
+                    {
+                        key: 'Company_id',  label: '<span class="editable_clr">구매처<span>',  width: 150, align: 'left',  
+                        formatter: function () {
+                            return page.companyMap[this.value];
+                        },
+                        editor: {
+                            type: 'select',
+                            config: {
+                                columnKeys: {
+                                    optionValue: 'comp_pk',
+                                    optionText: 'comp_name'
+                                },
+                                //options: res
+                                options: [],
+                            }
+                        }
+                    },
+                    { key: 'UnitPrice', label: '평균단가', width: 100, align: 'right', formatter:'money',  },
+                    { key: 'LeadTime', label: '리드타임(일)', width: 120, align: 'right' },
+                    {
+                        key: 'InputPlanDate', label: '입고예정일', width: 100, align: 'center',
+                        editor: {
+                            type: 'date',
+                            //config: {
+                            //    content: {
+                            //        config: {
+                            //            mode: 'month', // year, month, day
+                            //            selectMode: 'day' // year, month, day
+                            //        }
+                            //    }
+                            //}
+                        }
+                    },
+                    { key: 'RequestDate', label: '요청량확정일', width: 100, align: 'center' },
+                ]
+            };
+
+            this.grid = new ax5.ui.grid(config);
+            this.grid_config = config;
+
+            // 검색
+            $('#btnMainSearch').click(function (e) {
+                _this.searchMainData();
+            });
+
+            // 발주등록
+            $('#btnMakeOrder').on('click', function () {
+                let data = _this.grid.getList().filter(x => x.AddQty > 0 && x.Company_id > 0);
+                let fnsuccess = function (result) {
+                    Notify.success('저장되었습니다'); // Notification
+                    _this.searchMainData();
+                    _this.modalContainer.modal.close();
+                };
+                _this.saveOrder(data, false, fnsuccess);
+            });
+
+            //긴급발주
+            $('#btnManualOrder').on('click', function () {
+                _this.showRequestEdit();
+            });
+        }
+
+        setGridCompCombo(mat_pk) {
+            // 이미 존재하는것은 리턴함
+            let key = 'mat_' + mat_pk;
+            if (this.dicCompanyMatPrices.hasOwnProperty(key)) {
+                return this.dicCompanyMatPrices[key];
+            }
+
+            let param = {
+                mat_pk: mat_pk,
+            };
+            let result = AjaxUtil.getSyncData(this.url + '/company_by_mat', param);
+            // 새로 읽은 것은 할당함
+            if (result.data != null) {
+                // comp_pk, comp_name, unit_price
+                this.dicCompanyMatPrices[key] = result.data;
+            }
+            return result.data;
+        }
+
+        getUnitPrice(mat_pk, Company_id) {
+
+            let param = {
+                //'action': 'unit_price',
+                'mat_pk': mat_pk,
+                'comp_pk': Company_id
+            };
+
+            let result = AjaxUtil.getSyncData(this.url + '/unit_price', param);
+            return result;
+        }
+
+        searchMainData() {
+            
+            let _this = this;
+
+            let chkDate = $('#chkSearchDate').is(':checked') ? 'Y' : 'N';
+            let param = FormUtil.extractForm($('#searchForm'));
+			
+            param['chkSearchDate'] = chkDate;
+			
+            let result = AjaxUtil.getSyncData(this.url + '/read', param);
+            if (result.data != null) {
+                _this.grid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: result.data.length,
+                    }
+                });
+
+            }
+        }
+
+        saveOrder(data, isManual, successCallback) {
+            if (data.length == 0) {
+                Alert.alert('', '발주대상 데이터가 없습니다. 추가발주량과 구매처 입력이 되어 있는지 확인해 주세요.');
+                return;
+            }
+
+            let url = '/api/schedule/mat_order/order_save';
+            let p = {
+                mo: JSON.stringify(data),
+                status: 'registered'
+            };
+
+            let msg = '발주 등록하시겠습니까?';
+            if (isManual) {
+                msg = '긴급 발주 등록하시겠습니까?';
+            }
+            Alert.confirm('', msg, function () {
+                let fnSuccess = function (result) {
+                    successCallback(result);
+                };
+                AjaxUtil.postAsyncData(url, p, fnSuccess);
+            });
+        }
+
+        showRequestEdit() {
+            let _this = this;
+            let content = tmpl('requestCreateTemplate', {});
+            let $content = $(content);
+
+            this.modalContainer.open({ width: 450, height: 300, $content });
+
+            let $form = $content.find('#requestForm');
+            let $MaterialGroup = $content.find('#MaterialGroup_id');
+            let $Material = $content.find('#mat_pk');
+            let $Company = $content.find('#Company_id');
+            let $UnitPrice = $content.find('#UnitPrice');
+            let $InputPlanDate = $content.find('#InputPlanDate');
+
+            AjaxUtil.fillSelectOptions($MaterialGroup, 'material_group', 'choose', false);
+            //AjaxUtil.fillSelectOptions($Material, 'material', 'choose', false);
+            AjaxUtil.fillSelectOptions($Company, 'company', 'choose', false, 'purchase');
+            //$Company.select2();
+            //$Material.select2();
+
+            $('#srchDt2').ax5DatePicker({ direction: 'top' });
+            $InputPlanDate.val(CommonUtil.getYYYYMMDD(1));
+
+            $MaterialGroup.change(function () {
+                let mat_grp_pk = $MaterialGroup.val();
+                AjaxUtil.fillSelectOptions($Material, 'material', 'choose', false, mat_grp_pk);
+                 //$Material.select2();
+            });
+
+            // 긴급발주 팝업에서 품목 변경시
+            $Material.change(function () {
+                if ($Material.val()) {
+                    let param = {
+                        'mat_pk': $Material.val(),
+                        'comp_pk': $Company.val()
+                    };
+                    let result = AjaxUtil.getAsyncData(_this.url + "/company_by_mat", param, function (result) {
+                        if (result.data != null) {
+                            $Company.empty();
+                            $Company.append($('<option>', { value: '', text: '선택' }));
+                            $.each(result.data, function (index, row) {
+                                let option = $('<option>', { value: row['comp_pk'], text: row['comp_name'] });
+                                $Company.append(option);
+                            });
+                        }
+                    });
+                }
+            });
+
+            // 긴급발주 팝업에서 구매처 변경시
+            $Company.change(function () {
+                if ($Material.val() && $Company.val()) {
+                    let param = {
+                        //'action': 'unit_price',
+                        'mat_pk': $Material.val(),
+                        'comp_pk': $Company.val()
+                    };
+                    let result = AjaxUtil.getAsyncData(_this.url + "/unit_price", param, function (result) {
+                        if (result.data != null) {
+                            $UnitPrice.val(result.data.unit_price);
+                        }
+                    });
+                }
+            });
+
+            // 긴급발주 저장
+            $content.find('#btnOrderSave').on('click', function () {
+
+                let check = true;
+                $form.serializeArray().forEach(function (val, idx) {
+                    if (val.name != 'id' && !val.value) {
+                        check = false;
+                    }
+                });
+
+                if (!check) {
+                    Alert.alert('', '미입력 값을 확인하세요.');
+                    return;
+                }
+
+                let fnsuccess = function (result) {
+                    Notify.success('저장되었습니다'); // Notification
+                    _this.searchMainData();
+                    _this.modalContainer.modal.close();
+                };
+
+                let data = [FormUtil.extractForm($form)];
+                _this.saveOrder(data, true, fnsuccess);
+                
+            });
+        }
+
+        // 엑셀 다운로드
+        exportExcel() {
+            var targetview = this.grid;
+            targetview.exportExcel('자재발주.xls');
+        }
+    }
+
+    let page = null;
+
+    $(document).ready(function (e) {
+        page = new PageMaterialOrder();
+
+        picker.bind({ // ok 버튼 제거
+            target: $('[data-ax5picker="multi"]'),
+            btns: {
+            }
+        });
+
+        page.comp_list = AjaxUtil.getSelectData('company');
+        $.each(page.comp_list, function (index, item) {
+            page.companyMap[item.value] = item.text;
+        });
+
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+        $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+        $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+        AjaxUtil.fillSelectOptions($('#cboMatGrp'), 'material_group', 'all', false);
+         AjaxUtil.fillSelectOptions($('#cboMaterial'), 'material', 'all', false, null);
+                        
+        $('#cboMatGrp').on('change', function (e) {
+            let mat_grp_pk = $('#cboMatGrp').val();
+            AjaxUtil.fillSelectOptions($('#cboMaterial'), 'material', 'all', false, mat_grp_pk);
+        });
+
+        // 엑셀 다운로드
+        $('#btnExcel').on('click', function () {
+            page.exportExcel();
+        });	
+
+        //그리드 컬럼설정
+        page.popColSetting = new popColSetting();
+        let columns1 = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'grid',  page.grid);
+		
+        if (userinfo.group_code == 'admin') {
+            $('#btnGridSetting').css('visibility','visible');  
+        }		
+	
+        $('#btnGridSetting').click(function (e) {
+            let _this = this;
+            let fix_cols = page.grid_config.frozenColumnIndex;
+            page.popColSetting.show(gui.gui_code, gui.template_key, 'grid', page.grid_config.columns, page.grid, { 'order_fix':false,  'fix_cols' : fix_cols });
+        });	
+
+        page.searchMainData();
+
+    });
+</script>
+</th:block>
+</html>

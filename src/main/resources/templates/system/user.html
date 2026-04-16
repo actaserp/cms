@@ -1,0 +1,1365 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+         #getPersonId {
+             color: white !important;
+         }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>사용자 관리</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>시스템관리</li>
+                <li>사용자관리</li>
+            </ul>
+        </div>
+        <div style="display: flex; gap: 5px;">
+        <section class="section" style="flex: 0 0 40%;">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label>사용자그룹</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select class="form-control2" id="cboUserGroup" name="cboUserGroup"
+                                        style="border-radius: 5px 5px 5px 5px; width: 120px;"></select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="txtName">
+                                이름
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input class="form-control2" id="txtName" name="txtName" style="width: 120px;"/>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="username">
+                                ID
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input class="form-control2" id="username" name="username" style="width: 120px;"/>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            <label>부서</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select class="form-control2" id="txtDepart" name="txtDepart"
+                                        style="border-radius: 5px 5px 5px 5px; width: 120px;"></select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt><span class="eq"></span></dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch" style="width: 30px">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘" style="margin-right:2px;">
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+            </div> <!--//section-top end -->
+            <div class="container-fluid">
+                <p id="selectedItem"></p>
+                <div id="theGrid" style=""></div>
+            </div>
+            <div class="btn-wrap">
+            </div>
+        </section>
+
+
+        <div class="tab-wrap" style="flex: 0 0 60%; min-width: 0;">
+            <ul class="tab-links">
+                <li><a href="#tab_basic">기본정보</a></li>
+                <li><a href="#tab_user_grp">사용자 그룹</a></li>
+            </ul>
+            <div>
+                <section class="tab-item" id="tab_basic" style="border-top-left-radius: 0;">
+                    <div class="section-top">
+                        <div class="button-wrap">
+                            <ul>
+                                <li>
+                                    <!-- <a class="btn btn-excell" title="신규등록" id="btnNew">
+                                         <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                         신규등록
+                                     </a>-->
+                                    <!-- <button type="button" class="btn btn-excel" id="btnNew" name="btnNew" title="신규">
+                                         <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                         신규</button>-->
+                                    <button type="button" class="btn-excell btn-default" id="btnNew" name="btnNew" title="신규"
+                                            style="height: 36px; width:115px;">
+                                        <i class="fas fa-plus"></i> 신규등록
+                                    </button>
+                                </li>
+
+                                <li>
+                                    <!-- <li>
+                                 <a class="btn btn-edit" id="btnSave" title="저장">
+                                     <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                                     저장
+                                 </a>
+                             </li>-->
+                                    <!-- <button type="button" class="btn btn-edit" id="btnSave" title="저장">
+                                         <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">저장
+                                     </button>-->
+                                    <button type="button" class="btn-edit btn-default" id="btnSave" title="저장"
+                                            style="height: 36px; width:115px;">
+                                        <i class="fas fa-save"></i></button>
+                                </li>
+
+                                <li>
+                                    <!--  <a class="btn btn-delete" title="삭제" id="btnDel">
+                                    <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                    삭제
+                                </a>-->
+                                    <!--<button type="button" class="btn btn-delete" id="btnDel" title="삭제">
+                                        <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                        삭제
+                                    </button>-->
+
+                                    <button type="button" class="btn-delete btn-danger" id="btnDel" title="삭제"
+                                            style="height: 36px; width:115px;">
+                                        <i class="fas fa-trash"></i>삭제
+                                    </button>
+                                </li>
+                                <li>
+                                    <!-- <a class="btn btn-delete" title="검색" id="btnPassSetting"  data-popup="popup1"
+                                   onclick="showPopup()">
+                                    패스워드 설정
+                                </a>-->
+                                    <!-- <button type="button" class="btn btn-delete" id="btnPassSetting" data-popup="popup1"><i
+                                             class="fas fa-cog"></i> 패스워드 설정
+                                     </button>-->
+                                    <button type="button" class="btn-delete btn-default" id="btnPassSetting"
+                                            style="height: 36px; width:115px;">
+                                        <i class="fas fa-cog"></i> 패스워드 설정
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="btn-delete btn-default" id="btnSearchComp"
+                                            style="height: 36px; width:115px;">
+                                        거래처 검색
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="table-wrap" style=" overflow-x: auto;">
+                            <form id="userForm">
+                                <table class="write-table"
+                                       style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                                    <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+                                    <input type="hidden" id="id" name="id"/>
+                                    <tbody>
+                                    <tr>
+                                        <th>
+                                            <label for="login_id">ID</label>
+                                        </th>
+                                        <td>
+                                            <input type="text" id="login_id" name="login_id" style="width: 100%;">
+                                        </td>
+
+                                        <th>
+                                            <label for="personid">사번</label>
+                                        </th>
+                                        <td colspan="3">
+                                            <input type="text" id="person_code" name="person_code" style="width: 35%;" readonly>
+                                            <input type="hidden" id="personid" name="personid" style="width: 35%;" readonly>
+                                            <input type="text" id="personname" name="personname" style="width: 35%;" readonly>
+                                            <a class="btn btn-navy" title="자료가져오기" id="getPersonId">사번찾기</a>
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <label for="Name">이름</label>
+                                        </th>
+                                        <td>
+                                            <input type="text" id="Name" name="Name" style="width: 100%;">
+                                        </td>
+                                        <th>
+                                            <label for="Name">전화번호</label>
+                                        </th>
+                                        <td>
+                                            <input type="text" id="tel" name="tel" class="phone-format" style="width: 100%;">
+                                        </td>
+
+                                        <th>
+                                            <label for="email">Email</label>
+                                        </th>
+                                        <td>
+                                            <input type="text" style="width: 100%;" id="email" name="email">
+                                        </td>
+
+
+                                    </tr>
+
+                                    <tr>
+                                        <th>
+                                            <label for="UserGroup_id">사용자그룹</label>
+                                        </th>
+                                        <td>
+                                            <select style="width: 100%;" id="UserGroup_id" name="UserGroup_id"></select>
+                                        </td>
+                                        <th>
+                                            <label for="is_active">활성화 여부</label>
+                                        </th>
+                                        <td style=" vertical-align: middle;">
+                                            <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                                                <input type="checkbox" id="is_active">
+                                            </div>
+                                        </td>
+                                        <th>
+                                            <label for="Factory_id">소속 공장</label>
+                                        </th>
+                                        <td>
+                                            <select style="width: 100%;" id="Factory_id" name="Factory_id"></select>
+                                        </td>
+
+
+
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <label for="Depart_id">부서</label>
+                                        </th>
+                                        <td>
+                                            <select style="width: 100%;" id="Depart_id" name="Depart_id"></select>
+                                        </td>
+                                        <th>
+                                            <label for="lang_code">언어</label>
+                                        </th>
+                                        <td>
+                                            <select style="width: 100%;" id="lang_code" name="lang_code"></select>
+                                        </td>
+<!--                                        <th><label for="spjangcd">사업장</label></th>-->
+<!--                                        <td>-->
+<!--                                            <select style="width: 100%;" id="spjangcd" name="spjangcd"></select>-->
+<!--                                        </td>-->
+
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="tab-item" id="tab_user_grp" style="border-top-left-radius: 0;">
+                    <input type="hidden" id="user_pk"/>
+                    <div class="section-top">
+                        <div class="button-wrap">
+                            <ul>
+                                <li>
+                                    <button type="button" class="btn-excell btn-default" id="btnUserGroupSave" title="저장"
+                                            style="height: 36px; width:115px;">
+                                        <i class="fas fa-save"></i></button>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="container-fluid">
+                            <p id="selectedItem"></p>
+                            <div id="user_group_grid" style=""></div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+        </div>
+    </div> <!--//layout-contents end -->
+    <footer style="margin-top: 24px;">
+        <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+    </footer>
+
+
+    <script type="text/x-tmpl" id="passwordTemplate">
+        <div class="content_wrap popup">
+        <!--<header>
+            <h4 id="popTitle">패스워드 설정</h4>
+            <div class="popup_close_box"><button class="btn_popup_close" id="modal-close"><i class="fas fa-times"></i></button></div>
+        </header>-->
+
+        <section class="pt-2">
+            <form id="passwordForm">
+                <div class="table_box sub">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="input-group">
+                                <span class="text_left" style="line-height: 1.3">영어 대,소문자, 숫자, 특수문자를 모두 포함한 8~20 자리 사이의 패스워드를 입력해주세요.</span>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t7" data-labelCd="패스워드">패스워드</span>
+                                </div>
+                                 <input class="form-control2 " type="password" id="pass1" name="pass1" value=''  />
+                            </div>
+                        </div>
+                        <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t7" data-labelCd="패스워드 확인">패스워드 확인</span>
+                            </div>
+                             <input class="form-control2 " type="password" id="pass2" name="pass2" value=''  />
+                        </div>
+                    </div>
+
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <section class="popupcontent" >
+            <div class="popup_button_group">
+                <button type="button" class="btn-default" id="btnPassSave" ><span data-labelCd="저장">저장</span></button>
+                <button type="button" class="btn-default" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+            </div>
+        </section>
+
+        </div>
+    </script>
+
+
+    <script type="text/x-tmpl" id="getPersonTemplate">
+        <div class="content_wrap popup">
+            <!--<header>
+                <h4 id="popTitle">
+                {% if (o.id!='') { %}
+                  BOM 수정({%=o.Name%})
+                  {% } else { %}
+                  BOM 등록
+                  {% } %}
+                </h4>
+                <div class="popup_close_box"><button class="btn_popup_close" id="modal-close-x"><i class="fas fa-times"></i></button></div>
+            </header>-->
+
+        <div class="table-wrap">
+                <table class="write-table">
+                    <caption>주문등록 테이블</caption>
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="searchCode">사번</label>
+                            </th>
+                            <td style="width:50px;">
+                                <input id="searchCode" name="searchCode" type="text" style="width:180px;" />
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="searchName">사원명</label>
+                            </th>
+                            <td style="width:50px;">
+                                 <input id="searchName" name="searchName" type="text"  style="width:180px;"/>
+                            </td>
+                            <td colspan="2" style="text-align: center;">
+                                <button type="button" class="btn-default" id="btnSubjectSearch" title="조회"><i class="fas fa-search"></i>검색</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="grid_box" style="margin-top: 10px;">
+                    <div id="person-grid" style="height: 300px; max-height: 300px;"></div>
+                </div>
+        </div>
+
+        <div class="popup-button">
+          <button type="button" class="btn-popup" id="btnAccountSave"><span data-labelCd="선택">선택</span></button>
+          <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+</div>
+    </script>
+
+    <script type="text/x-tmpl" id="getCompTemplate">
+        <div class="content_wrap popup">
+        <div class="table-wrap">
+                <table class="write-table">
+                    <caption>업체 검색 테이블</caption>
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="searchCode">업체코드</label>
+                            </th>
+                            <td style="width:50px;">
+                                <input id="searchCode" name="searchCode" type="text" style="width:180px;" />
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="searchName">거래처명</label>
+                            </th>
+                            <td style="width:50px;">
+                                 <input id="searchName" name="searchName" type="text"  style="width:180px;"/>
+                            </td>
+                            <td colspan="2" style="text-align: center;">
+                                <button type="button" class="btn-default" id="btnSubjectSearch" title="조회"><i class="fas fa-search"></i>검색</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="grid_box" style="margin-top: 10px;">
+                    <div id="comp-grid" style="height: 300px; max-height: 300px;"></div>
+                </div>
+        </div>
+
+        <div class="popup-button">
+          <button type="button" class="btn-popup" id="btnAccountSave"><span data-labelCd="선택">선택</span></button>
+          <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    </div>
+    </script>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+<!--  연락처 및 사업번호 등 포맷 js파일  -->
+    <script th:src="@{/js/InputFormat.js}"></script>
+    <script type="text/javascript">
+        attachTelFormatterAll('.phone-format'); // 연락처 포맷 메서드
+        attachBizNumberFormatterAll('.biz-number'); // 사업자번호 포맷 메서드
+        
+        var theGrid;
+        var viewdata;
+        var theGrid2;
+        var viewdata2;
+        let csrfToken = $("[name=_csrf]").val();
+
+        let columns = [
+            {binding: 'id', header: 'id', width: 100, align: 'center', visible: false},
+            {binding: 'login_id', header: 'ID', width: 120, align: 'center'},
+            {binding: 'personcode', header: '사번', width: 100, align: 'center'},
+            {binding: 'first_name', header: '이름', width: 140, align: 'center'},
+            {binding: 'tel', header: '전화번호', width: 180, align: 'center'},
+            {binding: 'email', header: '이메일', width: 200, align: 'center'},
+            {binding: 'group_name', header: '사용자그룹', width: 120, align: 'center'},
+            {binding: 'factory_name', header: '소속공장', width: 150, align: 'center'},
+            {binding: 'dept_name', header: '부서', width: 150, align: 'center'},
+            {binding: 'lang_code', header: '언어', width: 100, align: 'center'},
+            {
+                binding: 'is_active',
+                header: '활성화',
+                width: 100,
+                align: 'center',
+                format: 'g', // 일반 문자열로 처리
+                dataMap: new wijmo.grid.DataMap([
+                    {key: true, value: 'true'},
+                    {key: false, value: 'false'}
+                ], 'key', 'value') // true/false 값을 매핑
+            },
+            {binding: 'date_joined', header: '생성일', width: '*', align: 'center'},
+        ];
+        /*header: '<span class="editable_clr">소속 여부</span>',*/
+
+        let columns2 = [
+            {binding: 'grp_name', header: '사용자 그룹명', width: 150, align: 'left'},
+            {
+                binding: 'grp_check',
+                header: '소속 여부',
+                width: 150,
+                align: 'center',
+                dataMap: new wijmo.grid.DataMap([
+                    {key: 'Y', value: 'Y'},
+                    {key: 'N', value: 'N'}
+                ], 'key', 'value'),
+            },
+            {binding: '', header: '', width: "*", align: 'left'},
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            /*'/api/system/user';*/
+
+            let data2 = [];
+            let group = $('#cboUserGroup').val();
+            let keyword = $('#txtName').val();
+            let depart_id = $('#txtDepart').val();
+            let username = $('#username').val();
+
+            $.ajax({
+                url: '/api/system/user/read',
+                type: 'GET',
+                data: {
+                    'group': group,
+                    'keyword': keyword,
+                    'depart_id': depart_id,
+                    'username': username,
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                },
+                async: false,
+                success: function (data) {
+                    data2 = data.data;
+
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_count data:', textStatus, errorThrown);
+                }
+            })
+
+            viewdata = new wijmo.collections.CollectionView(data2);
+
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+
+            theGrid.hostElement.addEventListener('dblclick', function (e) {
+                let selectedItem = theGrid.selectedItems[0];
+                /*console.log('확인', selectedItem);*/
+
+                document.getElementById('id').value = selectedItem.id;
+                document.getElementById('login_id').value = selectedItem.login_id;
+                document.getElementById('Name').value = selectedItem.first_name;
+                document.getElementById('email').value = selectedItem.email;
+                document.getElementById('tel').value = selectedItem.tel;
+                document.getElementById('Depart_id').value = selectedItem.dept_name;
+                document.getElementById('person_code').value = selectedItem.personcode;
+                document.getElementById('personid').value = selectedItem.personid;
+                document.getElementById('personname').value = selectedItem.first_name;
+                document.getElementById('is_active').checked = selectedItem.is_active === true; // 체크박스 상태 설정
+
+
+                function setSelectValue(selectId, valueToMatch) {
+                    let selectElement = document.getElementById(selectId);
+                    if (selectElement) {
+                        for (let option of selectElement.options) {
+                            option.selected = option.text === valueToMatch;
+                        }
+                    }
+                }
+
+                if (selectedItem.group_name) {
+                    setSelectValue('UserGroup_id', selectedItem.group_name);
+                } else {
+                    setSelectValue('UserGroup_id', '사용자');
+                }
+                setSelectValue('Factory_id', selectedItem.factory_name);
+                setSelectValue('Depart_id', selectedItem.dept_name);
+                setSelectValue('lang_code', selectedItem.login_id);
+
+                function setSelectValueByValue(selectId, valueToMatch) {
+                    let selectElement = document.getElementById(selectId);
+                    if (selectElement) {
+                        for (let option of selectElement.options) {
+                            option.selected = option.value === valueToMatch;
+                        }
+                    }
+                }
+
+                if (selectedItem.spjangcd) {
+                    setSelectValueByValue('spjangcd', selectedItem.spjangcd);
+                }
+
+
+                setButtonState();
+                user_group_grid(selectedItem.id);
+            });
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+            user_group_grid();
+            // getspjangcd();
+        }
+
+
+        function setButtonState() {
+            let pk = $('#id').val();
+            $('#btnNew').prop('disabled', false);
+            $('#btnSave').prop('disabled', false);
+            if (pk) {
+                $('#btnDel').prop('disabled', false);
+                $('#btnPassSetting').prop('disabled', false);
+            } else {
+                $('#btnDel').prop('disabled', true);
+                $('#btnPassSetting').prop('disabled', true);
+            }
+        }
+
+
+        function showDetailUser(idx) {
+            let _this = this;
+            let param = {'id': idx, "action": 'detail'};
+            let result = AjaxUtil.getSyncData(_this.baseUrl + '/detail', param);
+            if (result.data != null) {
+                FormUtil.BindDataForm(result.data, $('#userForm'));
+
+                $('#description').text(result.data.description);
+
+                if (result.data.is_active == true) {
+                    $('#is_active').prop('checked', true);
+                }
+            }
+
+            setButtonState();
+        }
+
+        function searchDataBind() {
+            let group = $('#cboUserGroup').val();
+            let keyword = $('#txtName').val();
+            let depart_id = $('#txtDepart').val();
+            let username = $('#username').val();
+            $.ajax({
+                url: '/api/system/user/read',
+                type: 'GET',
+                data: {
+                    'group': group,
+                    'keyword': keyword,
+                    'depart_id': depart_id,
+                    'username': username,
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                },
+                async: false,
+                success: function (result) {
+                    if (result.success) {
+                        grid_binding(result.data);
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+
+                }
+            });
+
+            $('#userForm')[0].reset();
+            $('#userForm').find('#id').val('');
+
+            $('#detail_box').find('input, select').each(function () {
+                if (!$(this).is(':disabled')) {
+                    $(this).attr('disabled', 'disabled');
+                }
+            });
+
+            setButtonState();
+        }
+
+        function grid_binding(data) {
+            if (!Array.isArray(data)) {
+                console.error('데이터가 배열 형식이 아닙니다:', data);
+                return;
+            }
+
+            let menulogData = data.map(item => ({
+                id: item.id,
+                login_id: item.login_id,
+                personid: item.personid,
+                first_name: item.first_name,
+                group_name: item.group_name,
+                email: item.email,
+                tel: item.tel,
+                factory_name: item.factory_name,
+                dept_name: item.dept_name,
+                lang_code: item.lang_code,
+                is_active: item.is_active,
+                date_joined: item.date_joined,
+            }));
+
+            if (typeof theGrid === 'undefined' || typeof viewdata === 'undefined') {
+                console.error('theGrid 또는 viewdata가 정의되지 않았습니다.');
+                return;
+            }
+
+            theGrid.columns.clear();
+            theGrid.autoGenerateColumns = false;
+            // columns 배열이 정의되어 있는지 확인
+            if (typeof columns === 'undefined' || !Array.isArray(columns)) {
+                console.error('columns 배열이 정의되지 않았습니다.');
+                return;
+            }
+            columns.forEach(columnDef => {
+                var col = new wijmo.grid.Column(columnDef);
+                theGrid.columns.push(col);
+            });
+
+            viewdata = new wijmo.collections.CollectionView(menulogData);
+
+            theGrid.itemsSource = viewdata;
+            theGrid.refresh();
+        }
+
+
+        function saveUser() {
+            let url = '/api/system/user/save';
+            //데이터입력체크루틴 누락
+            let data = FormUtil.extractForm($('#userForm'));
+
+            data.is_active = $('#is_active').is(':checked');
+            // let spjangcd = $('#spjangcd').val();
+            // if (!spjangcd) {
+            //     Alert.alert('', '사업장을 선택해주세요.');
+            //     return;
+            // }
+            // data.spjangcd = spjangcd;
+
+
+            if (!data.login_id) {
+                Alert.alert('', '사번을 입력해 주세요');
+                return;
+            } else if (!data.Name) {
+                Alert.alert('', '이름을 입력해 주세요');
+                return;
+            }/*else if(!data.UserGroup_id){
+                Alert.alert('','사용자그룹을 선택해 주세요');
+                return;
+            }*/
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Alert.alert('', '저장되었습니다.');
+                    searchDataBind();
+                } else if (!res.success) {
+                    Alert.alert('', res.message);
+                }
+            };
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        function deleteUser() {
+            let url = '/api/system/user';
+            let id = $('#userForm').find('#id').val();
+            let data = {id: id};
+            let fnsuccess = function (res) {
+                if (res.success) {
+                    Alert.alert('', '삭제되었습니다');
+                    searchDataBind();
+                } else {
+                    Alert.alert('', res.message);
+                }
+            };
+            AjaxUtil.postAsyncData(url + '/delete', data, fnsuccess);
+        }
+
+        function validatePassword(pw, options) {
+// default options (allows any password)
+            var o = {
+                lower: 0,
+                upper: 0,
+                alpha: 0, /* lower + upper */
+                numeric: 0,
+                special: 0,
+                length: [0, Infinity],
+                custom: [ /* regexes and/or functions */],
+                badWords: [],
+                badSequenceLength: 0,
+                noQwertySequences: false,
+                noSequential: false
+            };
+
+            for (var property in options)
+                o[property] = options[property];
+
+            var re = {
+                    lower: /[a-z]/g,
+                    upper: /[A-Z]/g,
+                    alpha: /[A-Z]/gi,
+                    numeric: /[0-9]/g,
+                    special: /[\W_]/g
+                },
+                rule, i;
+
+// enforce min/max length
+            if (pw.length < o.length[0] || pw.length > o.length[1])
+                return false;
+
+// enforce lower/upper/alpha/numeric/special rules
+            for (rule in re) {
+                if ((pw.match(re[rule]) || []).length < o[rule])
+                    return false;
+            }
+
+// enforce word ban (case insensitive)
+            for (i = 0; i < o.badWords.length; i++) {
+                if (pw.toLowerCase().indexOf(o.badWords[i].toLowerCase()) > -1)
+                    return false;
+            }
+
+// enforce the no sequential, identical characters rule
+            if (o.noSequential && /([\S\s])\1/.test(pw))
+                return false;
+
+// enforce alphanumeric/qwerty sequence ban rules
+            if (o.badSequenceLength) {
+                var lower = "abcdefghijklmnopqrstuvwxyz",
+                    upper = lower.toUpperCase(),
+                    numbers = "0123456789",
+                    qwerty = "qwertyuiopasdfghjklzxcvbnm",
+                    start = o.badSequenceLength - 1,
+                    seq = "_" + pw.slice(0, start);
+                for (i = start; i < pw.length; i++) {
+                    seq = seq.slice(1) + pw.charAt(i);
+                    if (
+                        lower.indexOf(seq) > -1 ||
+                        upper.indexOf(seq) > -1 ||
+                        numbers.indexOf(seq) > -1 ||
+                        (o.noQwertySequences && qwerty.indexOf(seq) > -1)
+                    ) {
+                        return false;
+                    }
+                }
+            }
+// enforce custom regex/function rules
+            for (i = 0; i < o.custom.length; i++) {
+                rule = o.custom[i];
+                if (rule instanceof RegExp) {
+                    if (!rule.test(pw))
+                        return false;
+                } else if (rule instanceof Function) {
+                    if (!rule(pw))
+                        return false;
+                }
+            }
+
+// great success!
+            return true;
+        }
+
+        function showPassSetting(id) {
+            let _this = this;
+
+            let content = tmpl('passwordTemplate', {id: id});
+            let $content = $(content);
+
+            let popContainer = new PopupDraggable('패스워드 설정');
+            popContainer.open({width: 635, height: 240, $content});
+
+            let $pass1 = $content.find('#pass1');
+            let $pass2 = $content.find('#pass2');
+            $content.find('#btnPassSave').click(function (e) {
+                let p1 = $pass1.val();
+                let p2 = $pass2.val();
+//패스워드 복잡도 체크 필요
+                let passOption = {
+                    length: [8, 20],
+                    lower: 1,
+                    upper: 1,
+                    numeric: 1,
+                    special: 1,
+                    badWords: [],
+                    badSequenceLength: 0
+                };
+
+                let pwd = $('#loginPwd').val();
+//let validationResult = _this.validatePassword(p1, passOption);
+//if (!validationResult) {
+//    Alert.alert('', '패스워드 정책위반');
+//    return;
+//}
+                if (p1 != p2) {
+                    Alert.alert('', "패스워드가 일치하지 않습니다.");
+                } else {
+                    let data = {id: id, pass1: p1, pass2: p2};
+                    let fncallback = function (res) {
+                        if (res.success) {
+                            Notify.success("저장되었습니다.");
+                            popContainer.close();
+                        } else {
+                            Alert.alert('', res.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData('/api/system/user/passSetting', data, fncallback);
+                }
+            });
+
+        } /*error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_count data:', textStatus, errorThrown);
+                }*/
+        /* userGroupGrid.list.forEach(function (item, idx) {
+               if (item.grp_check == 'Y') {
+
+               }
+           })*/
+
+        function user_group_grid(user_id) {
+            if (!user_id) return;
+            let data2 = [];
+
+            $.ajax({
+                url: '/api/system/user/user_grp_list',
+                type: 'GET',
+                data: {
+                    'id': user_id
+                },
+                async: false,
+                success: function (data) {
+                    /*console.log(data);*/
+                    data2 = data.data.map(item => ({
+                        ...item,
+                        grp_check: item.grp_check ?? 'N'  // null 또는 undefined일 경우 'N'으로 설정
+                    }));
+                },
+
+            })
+
+            if (theGrid2) {
+                theGrid2.dispose();  // 기존 그리드를 제거합니다.
+            }
+
+            viewdata2 = new wijmo.collections.CollectionView(data2);
+
+            theGrid2 = new wijmo.grid.FlexGrid('#user_group_grid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns2,
+                isReadOnly: false,
+                itemsSource: viewdata2
+            });
+
+            // Grid 생성 후 formatItem 이벤트로 헤더에 HTML 적용
+            theGrid2.formatItem.addHandler((s, e) => {
+                if (e.panel === s.columnHeaders) {
+                    let col = s.columns[e.col];
+                    if (col.binding === 'grp_check') {
+                        e.cell.innerHTML = '<span class="editable_clr">소속 여부</span>';
+                    }
+                }
+            });
+
+            // 체크박스 값을 'Y' 또는 'N'으로 저장
+            theGrid2.cellEditEnding.addHandler((s, e) => {
+                let col = s.columns[e.col];
+                if (col.binding === 'grp_check') {
+                    let item = s.rows[e.row].dataItem;
+                    item.grp_check = e.panel.getCellData(e.row, e.col) ? 'Y' : 'N';
+                }
+            });
+
+            theGrid2.rowHeaders.columns.splice(0, 1);
+        }
+
+
+        function saveUserGroup(user_id) {
+            let _this = this;
+            let url = '/api/system/user/save_user_grp';
+
+            let param = {
+                Q: JSON.stringify(theGrid2.itemsSource.items), // 현재 그리드 데이터 가져오기
+                id: user_id
+            };
+
+
+            Alert.confirm('', '저장하시겠습니까?', function () {
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('', '저장되었습니다.');
+                        searchDataBind();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                }
+                AjaxUtil.postAsyncData(url, param, fnSuccess, 'application/json');
+            });
+        }
+
+
+
+        function showGetPerson() {
+            let _this = this;
+            let viewdata4;
+            let theGrid4;
+            let selectedItem = null;
+
+            let content = tmpl('getPersonTemplate', {});
+            let $content = $(content);
+
+            let popContainer = new PopupDraggable('사번찾기');
+            popContainer.open({ width: 800, height: 500, $content });
+
+            let $searchName = $content.find('#searchName');
+            let $searchCode = $content.find('#searchCode');
+            let $btnSearch = $content.find('#btnSubjectSearch');
+
+            // 사번 조회 함수
+            function fetchPersonList() {
+                let searchCode = $searchCode.val();
+                let searchName = $searchName.val();
+
+                $.ajax({
+                    url: '/api/system/user/getPerson',
+                    type: 'GET',
+                    data: {
+                        searchCode: searchCode,
+                        searchName: searchName,
+                        spjangcd: sessionStorage.getItem('spjangcd'),
+                    },
+                    async: false,
+                    success: function (res) {
+                        let data2 = res.data || [];
+
+                        viewdata4 = new wijmo.collections.CollectionView(data2);
+
+                        if (theGrid4) {
+                            theGrid4.itemsSource = viewdata4;
+                        }
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        console.error('Error fetching person data:', textStatus, errorThrown);
+                    }
+                });
+            }
+
+            // 그리드 먼저 생성
+            theGrid4 = new wijmo.grid.FlexGrid('#person-grid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: [
+                    { binding: 'code', header: '사번', width: 100, align: 'center' },
+                    { binding: 'name', header: '이름', width: 150, align: 'center' },
+                    { binding: 'dept_name', header: '부서', width: 150, align: 'center' },
+                    { binding: 'dept_id', header: '부서id', width: 150, align: 'center', visible:false},
+                    { binding: '', header: '', width: '*', align: 'center' },
+                ],
+                isReadOnly: true,
+                itemsSource: null
+            });
+
+            theGrid4.rowHeaders.columns.splice(0, 1);
+
+
+            fetchPersonList();
+
+
+            $btnSearch.click(() => {
+                fetchPersonList();
+            });
+
+
+            $searchCode.add($searchName).on('keydown', function (e) {
+                if (e.keyCode === 13) {
+                    fetchPersonList();
+                }
+            });
+
+            theGrid4.selectionChanged.addHandler((s, e) => {
+                selectedItem = s.collectionView.currentItem;
+            });
+
+            $content.find('#btnAccountSave').click(() => {
+                if (selectedItem) {
+                    $('#personid').val(selectedItem.id);
+                    $('#Depart_id').val(selectedItem.dept_id);
+                    $('#personname').val(selectedItem.name);
+                    popContainer.close();
+                } else {
+                    Alert.alert('', '사번을 선택해주세요.');
+                }
+            });
+
+            theGrid4.hostElement.addEventListener('dblclick', function (e) {
+                let items = theGrid4.selectedItems;
+                if (items.length === 0) {
+                    return false;
+                }
+                const selectedItem = items[0];
+                console.log('person info : ', selectedItem);
+                $('#person_code').val(selectedItem.code);
+                $('#personid').val(selectedItem.id);
+                $('#Depart_id').val(selectedItem.dept_id);
+                $('#personname').val(selectedItem.name);
+                popContainer.close();
+            });
+
+        }
+
+        function getspjangcd() {
+
+            $.ajax({
+                url: '/api/system/user/getspjangcd',
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                success: function (response) {
+                    let select = $('#spjangcd');
+                    select.empty(); // 기존 옵션 제거
+
+                    // 선택 안 했을 때 기본 안내 옵션 추가 (선택사항)
+                    select.append('<option value="">-- 선택하세요 --</option>');
+
+                    // 받아온 데이터로 옵션 추가
+                    response.data.forEach(function(item) {
+                        let option = $('<option></option>')
+                            .val(item.spjangcd)
+                            .text(item.spjangnm);
+                        select.append(option);
+                    });
+                },
+                error: function (error) {
+                    Alert.alert('', '에러가 발생하였습니다.');
+                }
+            });
+        }
+
+        /*this.close();*/
+
+        //let items = [];
+        // $.each(_this.userGroupGrid.list, function (idx, item) {
+
+        //    items.push({ grp_id: item.grp_id, 'grp_check': item.grp_check });
+        //});
+
+        $(document).ready(function (e) {
+            setButtonState();
+            AjaxUtil.fillSelectOptions($('#cboUserGroup'), 'user_group', 'all', false);
+            AjaxUtil.fillSelectOptions($('#lang_code'), 'system_code', '', false, 'lang_code');
+            AjaxUtil.fillSelectOptions($('#UserGroup_id'), 'user_group', '', false);
+            AjaxUtil.fillSelectOptions($('#Factory_id'), 'factory', '', false);
+            AjaxUtil.fillSelectOptions($('#Depart_id'), 'depart', 'choose', false);
+
+
+            AjaxUtil.fillSelectOptions($('#txtDepart'), 'depart', 'all', '');
+
+            $('#btnSearch').click(function (ex) {
+                searchDataBind();
+            });
+
+            $('#cboUserGroup').change(function (ex) {
+                searchDataBind();
+            });
+
+            $('#btnNew').click(function (e) {
+
+                $('#userForm')[0].reset();
+                $('#description').text('');
+                $('#userForm').find('#id').val('');
+
+
+                $('#userForm #code').attr('readonly', false);
+                $('#userForm input, select').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                $('#userForm textarea').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+//page.setButtonDisable(true, false, true);
+                setButtonState();
+
+
+//$('#userForm').reset();
+
+            });
+
+            $('#btnSave').click(function (e) {
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        saveUser()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $('#btnDel').click(function (e) {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        deleteUser()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $('.tab_links .tab').click(function (e) {
+                let target = e.currentTarget.name;
+                let user_pk = $('#user_pk').val();
+
+                if (!user_pk) {
+                    return;
+                }
+
+                let pk = page.grid.getList('selected')[0].id;
+
+                if (target == 'tab_user_grp') {
+                    setTimeout(function () {
+                        showUserGroup(pk);
+                        userGroupGrid.align();
+                    }, 500);
+                }
+            })
+
+//패스워드 설정
+            $('#btnPassSetting').click(function (e) {
+                let id = $('#userForm').find('#id').val();
+                showPassSetting(id);
+            });
+            // 거래처 검색 버튼 클릭 이벤트(팝업 활성화)
+            $('#btnSearchComp').click(function (e) {
+                showGetComp();
+            });
+
+            $('#btnUserGroupSave').click(function (e) {
+                /*let pk = page.grid.getList('selected')[0].id;*/
+                let pk = $('#userForm').find('#id').val();
+
+                if (!pk) {
+                    Alert.alert('', '정보를 선택해 주세요.');
+                    return false;
+                }
+                saveUserGroup(pk)
+            });
+
+            $('#getPersonId').click(function (e) {
+                showGetPerson();
+            });
+
+        });
+
+        function showGetComp() {
+            let _this = this;
+            let viewdata4;
+            let theGrid4;
+            let selectedItem = null;
+
+            let content = tmpl('getCompTemplate', {});
+            let $content = $(content);
+
+            let popContainer = new PopupDraggable('거래처조회');
+            popContainer.open({ width: 800, height: 500, $content });
+
+            let $searchName = $content.find('#searchName');
+            let $searchCode = $content.find('#searchCode');
+            let $btnSearch = $content.find('#btnSubjectSearch');
+
+
+            // 사번 조회 함수
+            function fetchPersonList() {
+                let searchCode = $searchCode.val();
+                let searchName = $searchName.val();
+
+                $.ajax({
+                    url: '/api/request/getComp',
+                    type: 'GET',
+                    data: {
+                        searchCode: searchCode,
+                        searchName: searchName,
+                        spjangcd: sessionStorage.getItem('spjangcd')
+                    },
+                    async: false,
+                    success: function (res) {
+                        let data2 = res.data || [];
+
+                        viewdata4 = new wijmo.collections.CollectionView(data2);
+
+                        if (theGrid4) {
+                            theGrid4.itemsSource = viewdata4;
+                        }
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        console.error('Error fetching person data:', textStatus, errorThrown);
+                    }
+                });
+            }
+
+            // 그리드 먼저 생성
+            theGrid4 = new wijmo.grid.FlexGrid('#comp-grid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: [
+                    { binding: 'Code', header: '업체코드', width: 100, align: 'center' },
+                    { binding: 'BusinessNumber', header: '사업자번호', width: 150, align: 'center' },
+                    { binding: 'Name', header: '거래처명', width: '*', align: 'center' },
+                    { binding: 'OurManager', header: '담당자명', width: 150, align: 'center' },
+                ],
+                isReadOnly: true,
+                itemsSource: null
+            });
+
+            theGrid4.rowHeaders.columns.splice(0, 1);
+
+
+            fetchPersonList();
+
+
+            $btnSearch.click(() => {
+                fetchPersonList();
+            });
+
+
+            $searchCode.add($searchName).on('keydown', function (e) {
+                if (e.keyCode === 13) {
+                    fetchPersonList();
+                }
+            });
+
+            theGrid4.selectionChanged.addHandler((s, e) => {
+                selectedItem = s.collectionView.currentItem;
+            });
+
+            $content.find('#btnAccountSave').click(() => {
+                if (selectedItem) {
+                    console.log('selectedItem : ', selectedItem)
+                    $('#cboCompany2').val(selectedItem.Name);
+                    $('#cboCompanyHidden2').val(selectedItem.Code);
+                    popContainer.close();
+                }/* else {
+                        Alert.alert('', '사번을 선택해주세요.');
+                    }*/
+            });
+
+            theGrid4.hostElement.addEventListener('dblclick', function (e) {
+                let items = theGrid4.selectedItems;
+                if (items.length === 0) {
+                    return false;
+                }
+                const selectedItem = items[0];
+                if (selectedItem) {
+                    $('#login_id').val(selectedItem.BusinessNumber); // 로그인 아이디 바인드
+                    $('#Name').val(selectedItem.Name); // 이름
+                    $('#tel').val(selectedItem.TelNumber); // 전화번호
+                    $('#email').val(selectedItem.Email); // 이메일
+                    $('#UserGroup_id').val('10'); // 사용자그룹 거래처 바인드
+                    popContainer.close();
+                }
+                popContainer.close();
+            });
+
+        }
+
+    </script>
+</th:block>
+</html>

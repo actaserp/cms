@@ -1,0 +1,679 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wx210{
+            width: 210px !important;
+        }
+        .wx190{
+            width: 150px !important;
+        }
+
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>HACCP 공정정보</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP 기준정보</li>
+                <li>HACCP 공정정보</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label>
+                                항목명<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" class="form-control2" id="txtKeyword" name="keyword" />
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+
+
+                </div>
+            </div>
+            <div id="theGrid" style="height: 300px;"></div>
+
+        </section>
+
+        <section>
+            <div class="grid_box">
+
+                <div class="tab-wrap">
+
+                    <ul class="tab-links">
+                        <li><a href="#tabJobRes" style="border-radius: 0">기본정보</a></li>
+                        <li><a href="#tabSemi" style="border-radius: 0">HACCP 공정별 항목</a></li>
+                    </ul>
+                    <div>
+
+                        <section class="tab-item" id="tabJobRes" style="border-top-left-radius: 0;">
+                            <div class="title_box mb-2" style="margin-top: 0">
+                                <button type="button" class="btn-default" id="btnNew" name="btnNew"><i class="fas fa-plus"></i></button>
+                                <button type="button" class="btn-default" id="btnSave" style="float:none"><i class="fas fa-save"></i></button>
+                                <button type="button" class="btn-danger" id="btnDel" style="float:none; width: 124px; height: 48px;"><i class="fas fa-trash"></i></button>
+                            </div>
+                            <form id="itemForm" class="form-group" style="width: 100%;">
+                                <input type="hidden" id="hp_id" name="hp_id" />
+                                <div class="section-top">
+                                    <div class="table-wrap">
+                                        <input type="hidden" id="id" name="id" />
+                                        <table class="write-table">
+                                            <caption>작업 지시 테이블</caption>
+                                            <tbody>
+                                            <tr>
+                                                <th style="text-align: center">
+                                                    <label>HACCP공정구분</label>
+                                                </th>
+                                                <td>
+                                                    <select class="wx210" type="text" id="ProcessKind" name="ProcessKind" disabled ></select>
+                                                </td>
+                                                <th style="text-align: center">
+                                                    <label>HACCP 공정코드</label>
+                                                </th>
+                                                <td>
+                                                    <input class="wx210" type="text" id="haccp_process_code" name="haccp_process_code" disabled required />
+                                                </td>
+                                                <th style="text-align: center">
+                                                    <label>HACCP 공정명</label>
+                                                </th>
+                                                <td>
+                                                    <input class="wx210" type="text" id="haccp_process_name" name="haccp_process_name" disabled required />
+                                                </td>
+                                                <th style="text-align: center">
+                                                    <label>공정</label>
+                                                </th>
+                                                <td>
+                                                    <select class="wx210" type="text" id="cboProcessItems" name="processItems" multiple="multiple" disabled  ></select>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th style="text-align: center">
+                                                    <label>한계기준</label>
+                                                </th>
+                                                <td colspan="7">
+                                                    <textarea class="form-control2" id="Standard" name="Standard" disabled></textarea>
+
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th style="text-align: center">
+                                                    <label>모니터링방법</label>
+                                                </th>
+                                                <td colspan="7">
+                                                    <textarea class="form-control2" id="MonitoringMethod" name="MonitoringMethod" disabled></textarea>
+                                                </td>
+
+                                            </tr>
+                                            <tr>
+                                                <th style="text-align: center">
+                                                    <label>개선조치방법</label>
+                                                </th>
+                                                <td colspan="7">
+                                                    <textarea class="form-control2" id="ActionMethod" name="ActionMethod" disabled></textarea>
+                                                </td>
+
+                                            </tr>
+                                            <tr>
+                                                <th style="text-align: center">
+                                                    <label>점검주기</label>
+                                                </th>
+                                                <td colspan="7">
+                                                    <textarea class="form-control2" id="TestCycle" name="TestCycle" disabled></textarea>
+                                                </td>
+
+                                            </tr>
+                                            <tr>
+                                                <th style="text-align: center">
+                                                    <label>비고</label>
+                                                </th>
+                                                <td colspan="7">
+                                                    <textarea class="form-control2" id="Description" name="Description" disabled></textarea>
+                                                </td>
+
+                                            </tr>
+                                            </tbody>
+                                        </table>
+
+                                    </div>
+                                </div>
+                            </form>
+                        </section>
+                        <!-- ㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁ -->
+
+                        <section class="tab-item" id="tabSemi" style="border-top-left-radius: 0;">
+                            <div class="tab_con_box">
+                                <div class="tab_box">
+                                    <div class="tab">
+
+                                        <div class="title_box">
+                                            <span class="left_align" style="line-height: 3" data-labelCd="HACCP 항목">HACCP 항목</span>&nbsp;&nbsp;
+                                            <select class="s-150" id="cboHaccpItem" name="item_id" style="height: 48px;"></select>
+                                            <button type="button" class="btn-default" id="btnAddItem"><i class="fas fa-plus"></i></button>
+                                            <button type="button" class="btn-cancel" id="btnDeleteItem"  style="float:none; width: 124px; height: 48px;"><i class="fas fa-trash"></i></button>
+                                            <button type="button" class="btn-default" id="btnSaveItem" style="float:none"><i class="fas fa-save"></i></button>
+                                            <button type="button" class="btn-default" id="imgUp"><i class="fas fa-arrow-up"></i></button>
+                                            <button type="button" class="btn-default" id="imgDown"><i class="fas fa-arrow-down"></i></button>
+
+                                        </div>
+                                        <div class="h-230" id="theGrid2"></div>
+
+
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                        </form>
+
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+
+    <script type="text/javascript">
+
+        class HaccpProcessPage {
+
+            constructor() {
+                this.url = '/api/haccp/haccp_process';
+                this.grid = null;
+                this.procMatGrid = null;
+                this.$cboProcessItems = $('#cboProcessItems');
+
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+
+
+                this.init();
+                this.initProcessItem();
+
+            }
+
+            init() {
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+
+                        { binding: 'ProcessKindName', header: 'HACCP 공정구분', width: '*'},
+                        { binding: 'haccp_process_code', header: 'HACCP 공정코드', width: '*' },
+                        { binding: 'haccp_process_name', header: 'HACCP 공정명', width: '*'},
+                        { binding: 'process_name', header: '공정', width: '*'},
+                        { binding: 'Description', header: '비고', width: '*',},
+                        { binding: '_created', header: '생성일', width: '*', align: 'center',},
+
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                        }
+                    },
+                });
+
+                this.grid.selectionChanged.addHandler((s, e) => {
+
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+
+                        _this.showHaccpProcessDetail(selectedRowData.hp_id);
+
+                        console.log(`선택된 행 인덱스: ${selectedRowIndex}`);
+                        console.log('선택된 행 데이터:', selectedRowData);
+
+                    }
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = 'CCP 공정정보';
+
+                this.$btnNew = $('#btnNew');
+                this.$btnDel = $('#btnDel');
+                this.$btnSave = $('#btnSave');
+                this.$itemForm = $('#itemForm');
+
+                $('#btnSearch').click(function (ex) {
+                    _this.searchDataBind();
+                });
+
+                this.$btnNew.click(function (e) {
+                    _this.resetForm();
+                    _this.$btnDel.attr('disabled', 'disabled');
+                    _this.$btnSave.removeAttr('disabled');
+                });
+
+                this.$btnSave.click(function (e) {
+                    Alert.confirm('항목저장', '저장 하시겠습니까?', function () {
+                        _this.saveHaccpProcess();
+                    });
+                });
+
+                this.$btnDel.click(function (e) {
+                    Alert.confirm('항목삭제', '삭제 하시겠습니까?', function () {
+                        _this.deleteHaccpProcess();
+                    });
+                });
+
+                AjaxUtil.fillSelectOptions(this.$cboProcessItems, 'process', null, null);
+                this.$cboProcessItems.select2({
+                    tags: true,
+                    placeholder: '관련 공정을 추가해 주세요.'
+                });
+
+                let $ProcessKind = $('#ProcessKind');
+                AjaxUtil.fillSelectOptions($ProcessKind, 'system_code', 'choose', null, 'haccp_process_kind');
+
+            }
+
+            deleteHaccpProcess() {
+                let _this = this;
+                let selectedItems = _this.grid.selectedItems;
+                if (selectedItems.length == 0) {
+                    _this.procMatGrid.itemsSource = []; //TODO: checking
+                    return;
+                }
+
+                let hp_id = selectedItems[0].hp_id;
+                let url = this.url + '/delete_haccp_process';
+                let data = { hp_id: hp_id };
+                let fnsuccess = function (result) {
+                    if (result.success) {
+                        Notify.success('삭제되었습니다.');
+                        _this.searchDataBind();
+                    }
+                    else {
+                        Notify.error(result.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+            // process 상세보기
+            showHaccpProcessDetail(hp_id) {
+                let _this = this;
+                let param = { 'hp_id': hp_id };
+                let fnsuccess = function (result) {
+                    if (result.data != null) {
+                        let processItems = result.data.processItems;
+                        FormUtil.BindDataForm(result.data, _this.$itemForm);
+
+
+                        let tmpArr = [];
+
+                        $.each(processItems, function(idx, item){
+                            tmpArr.push(item.value);
+                        });
+
+
+                        _this.$cboProcessItems.val(tmpArr);
+                        _this.$cboProcessItems.select2();
+                    }
+                }
+                AjaxUtil.getAsyncData(this.url + '/detail_haccp_process', param, fnsuccess);
+
+                this.$btnDel.removeAttr('disabled');
+                this.$btnSave.removeAttr('disabled');
+
+                this.showHaccpItems();
+            }
+
+            resetForm() {
+                this.$itemForm.find('#hp_id').val('');
+                this.$itemForm[0].reset();
+                this.$itemForm.find('input, textarea, select').each(function () {
+                    $(this).removeAttr('disabled');
+                });
+            }
+
+            saveHaccpProcess() {
+                let _this = this;
+                let url = this.url + "/save_haccp_process";
+                let data = FormUtil.extractForm(this.$itemForm);
+
+                data['processItems'] = JSON.stringify(this.$cboProcessItems.val());
+
+                let fnsuccess = function (res) {
+                    if (res.success) {
+                        Notify.success('저장되었습니다.');
+                        _this.searchDataBind();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+            // HACCP 공정별 항목 설정
+            initProcessItem() {
+                //haccp-proc-mat-grid
+                let _this = this;
+
+                this.procMatGrid = new wijmo.grid.FlexGrid('#theGrid2', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        { binding: 'haccp_process_name', header: 'HACCP 공정명', width: '*' },
+                        { binding: 'item_name', header: 'HACCP 항목명', width: '*'},
+                        { binding: '_order', header: '순서', width: '*', align: 'center'},
+                        { binding: '_created', header: '생성일', width: '*', align: 'center' },
+                        { binding: 'hpi_id', header: 'hpi_id', width: '*', align: 'center', visible: false },
+                        { binding: 'hp_id', header: 'hp_id', width: '*', align: 'center', visible: false },
+                        { binding: 'item_id', header: 'item_id', width: '*', align: 'center', visible: false },
+                    ],
+                    itemsSource: this.viewData2,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                        }
+                    },
+                });
+
+                new FlexGridContextMenu(this.procMatGrid);
+                this.procMatGrid.downloadFileName = 'HACCP 공정별 항목';
+
+                this.$cboHaccpItem = $('#cboHaccpItem');
+                let $btnAddItem = $('#btnAddItem');
+                let $btnDeleteItem = $('#btnDeleteItem');
+                let $btnSaveItem = $('#btnSaveItem');
+
+                AjaxUtil.fillSelectOptions(this.$cboHaccpItem, 'haccp_item', 'choose', false);
+
+                // 추가버튼 클릭
+                $btnAddItem.click(function (e) {
+                    _this.addHaccpItem();
+                });
+
+                // 삭제버튼 클릭
+                $btnDeleteItem.click(function (e) {
+                    let items = _this.procMatGrid.selectedItems;
+                    if (items.length == 0) {
+                        Alert.alert('HACCP항목삭제', '선택된 HACCP 항목이 없습니다.', function () { });
+                        return;
+                    }
+                    _this.deleteHaccpItem(items);
+                });
+
+                // 저장을 눌러야 전체 반영되는 구조이다. 기존 저장된것을 삭제하고 현재 보여주는 기준으로 다시 저장한다.
+                $btnSaveItem.click(function () {
+                    Alert.confirm('HACCP 항목저장', '저장하시겠습니까?', function () {
+                        _this.saveHaccpItems();
+                    });
+                });
+                // 검사항목지정> 순서변경
+                $("#imgUp").click(function (e) {
+                    _this.changeGridOrder(_this.procMatGrid, "U");
+                });
+
+                $("#imgDown").click(function (e) {
+                    _this.changeGridOrder(_this.procMatGrid, "D");
+                });
+            }
+
+            //TODO: checking
+            changeGridOrder(g, direction) {
+
+                let _this = this;
+                /*if (g.selectedItems("selected").length == 0) {
+                    Alert.alert('', '순서를 변경할 제품을 선택하세요.');
+                    return;
+                }*/
+                let cv =  g.collectionView;
+                let selectedRowIndex = g.selection.row;
+
+                if (selectedRowIndex < 0) {
+                    Alert.alert('', '순서를 변경할 제품을 선택하세요.');
+                    return;
+                }
+
+                if (direction === "U") {
+
+
+                    if(selectedRowIndex === 0) return;
+
+                    let sourceList = cv.sourceCollection; // 데이터 리스트 가져오기
+
+                    let temp = sourceList[selectedRowIndex - 1]; // 위의 행과 교환
+                    sourceList[selectedRowIndex - 1] = sourceList[selectedRowIndex];
+                    sourceList[selectedRowIndex] = temp;
+
+                    cv.sourceCollection = [...sourceList];
+                    cv.refresh();
+                    _this.procMatGrid.select(selectedRowIndex - 1, 0);
+
+                } else {
+                    //console.log('select', g.selection)
+                    let sourceList = cv.sourceCollection;
+
+                    if(selectedRowIndex >= sourceList.length - 1) return;
+
+
+                    let temp  = sourceList[selectedRowIndex + 1];
+                    sourceList[selectedRowIndex + 1] = sourceList[selectedRowIndex];
+                    sourceList[selectedRowIndex] = temp;
+
+                    cv.sourceCollection = [...sourceList];
+                    cv.refresh();
+                    _this.procMatGrid.select(selectedRowIndex + 1, 0);
+                    /* let selected = g.getList("selected");
+                     selected.reverse();
+                     $.each(selected, function (index, self_item) {
+
+                         let self_index = self_item.__index;
+                         let under_index = self_index + 1;
+                         if (g.list.length <= under_index) {
+                             Alert.alert('', "마지막 제품이 선택되었습니다.");
+                             return;
+                         }
+                         let under_item = g.list[under_index];
+
+                         under_item.__index = self_index;
+                         self_item.__index = under_index;
+
+                         g.updateRow(self_item, under_index);
+                         g.updateRow(under_item, self_index);
+                         g.select(self_item, { __selected__: true });
+                         g.select(under_item, { __selected__: false });
+                         g.repaint();
+                     });*/
+
+                }
+
+            }
+            //TODO: checking
+            addHaccpItem() {
+                let _this = this;
+                let selectedItems = _this.grid.selectedItems;
+                if (selectedItems.length == 0) {
+                    Alert.alert('HACCP항목추가', '선택된 HACCP 공정이 없습니다.', function () { });
+                    return;
+                }
+
+                let processItem = selectedItems[0];
+                let item_id = this.$cboHaccpItem.val();
+                if (item_id == "") {
+                    Alert.alert('항목추가', '선택된 HACCP 항목이 없습니다.');
+                    return;
+                }
+
+                let haccppItems = _this.procMatGrid.selectedItems;
+                let exists = false;
+                $.each(haccppItems, function (idx, hItem) {
+                    if (item_id == hItem.item_id) {
+                        Alert.alert('HACCP항목추가', '중복된 항목입니다.', function () { });
+                        exists = true;
+                    }
+                });
+
+                // 중복이면 리턴
+                if (exists) {
+                    return;
+                }
+
+                let item_name = this.$cboHaccpItem.find('option:checked').text();
+                //let row = { hpi_id: -1, pid: processItem.pid, haccp_process_name: processItem.haccp_process_name, item_name: item_name, item_id: item_id };
+                let row = { hpi_id: -1, hp_id: processItem.hp_id, haccp_process_name: processItem.haccp_process_name, item_name: item_name, item_id: parseInt(item_id) };
+                this.addNewRow(_this.procMatGrid.collectionView, row);
+            }
+
+            addNewRow(cv, data){
+                cv.addNew(data);
+                cv.commitNew();
+
+            }
+
+            showHaccpItems() {
+                let _this = this;
+                let selectedItems = _this.grid.selectedItems;
+                if (selectedItems.length == 0) {
+                    //TODO: checking
+                    _this.procMatGrid.itemsSource = [];
+                    return;
+                }
+                let hp_id = selectedItems[0].hp_id;
+                let data = { hp_id: hp_id };
+                let fnsuccess = function (result) {
+                    _this.procMatGrid.itemsSource = result.data;
+                };
+
+                AjaxUtil.getAsyncData(_this.url + '/haccp_item_list', data, fnsuccess);
+            }
+
+            //TODO: checking
+            deleteHaccpItem(items) {
+                let _this = this;
+
+                //let hpi_id = items[0].hpi_id;
+                //let pid = items[0].pid;
+                // 그리드에서만 삭제하고 저장버튼을 눌러야 반영된다.
+                _this.deleteRow(_this.procMatGrid);
+                //    _this.procMatGrid.deleteRow("selected");
+            }
+
+            deleteRow(grid) {
+                let cv = grid.collectionView;
+
+                let selectedItems = grid.selectedItems; // 선택된 데이터 가져오기
+
+                if (selectedItems.length > 0) {
+                    selectedItems.forEach(item => {
+                        cv.remove(item); // 데이터 삭제
+                    });
+
+                    cv.refresh(); // UI 업데이트
+                }
+            }
+
+//TODO: checking
+
+            saveHaccpItems() {
+                let _this = this;
+                let selectedItems = _this.grid.selectedItems;
+                if (selectedItems.length == 0) {
+                    return;
+                }
+
+                let checked = true;
+                let items = _this.procMatGrid.collectionView.items;
+                if (items.length == 0) {
+                    let message = '항목이 없습니다. 기존에 존재하는 항목이 있다면 삭제됩니다.<br> 계속 하시겠습니까?'
+                    Alert.confirm('HACCP항목저장', message, function () { checked = true; }, function () { checked = false; });
+                }
+
+                if (checked == false) {
+                    return;
+                }
+
+                let strItems = JSON.stringify(items);
+                let data = {
+                    hp_id: selectedItems[0].hp_id,
+                    Q: strItems
+                };
+
+                let fnsuccess = function (result) {
+                    if (result.success) {
+                        Notify.success('저장되었습니다.');
+                        _this.showHaccpItems();
+                    } else {
+                        Notify.error('오류가 발생했습니다.');
+                    }
+                };
+                let url = _this.url + "/save_haccp_item";
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+            searchDataBind() {
+                let _this = this;
+                let keyword = $('#txtKeyword').val();
+                let param = { keyword: keyword };
+
+                let result = AjaxUtil.getSyncData(this.url + '/read', param);
+
+                if (result.data != null) {
+                    let recordsTotal = result.data.length;
+                    _this.grid.itemsSource = result.data;
+                }
+
+                this.procMatGrid.itemsSource = [];
+                this.resetForm();
+
+                this.$btnNew.removeAttr('disabled');
+                this.$btnDel.attr('disabled', 'disabled');
+                this.$btnSave.attr('disabled', 'disabled');
+            }
+
+        }
+        $(document).ready(function (e) {
+            let page = new HaccpProcessPage();
+
+            let searchVal = document.getElementById('txtKeyword');
+            searchVal.addEventListener('keyup', event => submitTextarea(event, () => page.searchDataBind()))
+
+
+            page.searchDataBind();
+        })
+    </script>
+
+</th:block>
+</html>

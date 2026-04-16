@@ -1,0 +1,703 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>입출고 및 재고 점검표</h2>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>선행요건일지</li>
+                <li>입출고 및 재고 점검표</li>
+            </ul>
+        </div>
+        <input type="hidden" id="bhId" th:value="${bh_id}"/>
+        <input type="hidden" id="viewMode" th:value="${view_mode}"/>
+        <input type="hidden" id="apprView" th:value="${appr_view}"/>
+        <input type="hidden" id="createrName" th:value="${creater_name}"/>
+        <section class="section" style="padding-bottom: 0;">
+            <div class="section-card-wrap">
+                <div class="col-5">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">점검명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="title" name="title"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="check_date">점검일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="date" id="check_date" name="check_date">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="creater_name">작성자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="creater_name" name="creater_name"
+                                       disabled/>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-6">
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+        </section>
+        <section class="section">
+            <form id="searchForm" autocomplete="off">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                입출일
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <input type="date" id="srchStartDt" name="srchStartDt">
+                                        <label for="srchStartDt" class="hide">시작일</label>
+                                    </li>
+                                    <li>
+                                        <input type="date" id="srchEndDt" name="srchEndDt">
+                                        <label for="srchEndDt" class="hide">종료일</label>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label for="cboHouse">
+                                    창고
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="cboHouse" name="cboHouse">
+                                    </select>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="button-wrap">
+                        <button type="button" class="btn" id="btnReqAppr">결재상신</button>
+                        <button type="button" class="btn" id="btnAppr" style="display:none;">승인</button>
+                        <button type="button" class="btn" id="btnReject" style="display:none;">반려</button>
+                        <button type="button" class="btn" id="btnSave">저장</button>
+                        <button type="button" class="btn" id="btnList">목록</button>
+                        <button type="button" class="btn" id="btnAllItem">전체적합</button>
+                    </div>
+                </div>
+            </form>
+            <div id="mat_inout_stock">
+                <div class="container-fluid">
+                    <div id="mat_inout_item_grid" style="height: 270px;"></div>
+                </div>
+            </div>
+        </section>
+        <section class="section">
+
+            <div class="section-top">
+                <div class="button-wrap" id="sub_grid">
+                    <ul>
+                        <li>
+                            <button type="button" class="btn" id="btnDeviActionSave" style="display:none">저장</button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="devi_action_grid" style="height: 170px;"></div>
+            </div>
+        </section>
+    </div>
+
+    <script type="text/x-tmpl" id="imagePopup">
+
+        <div class="content_wrap modal-content popup">
+                <section class="pt-2">
+                   <div class="table_box sub" >
+                        <div class ="row">
+                            <div class="col-12">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text fit_box_t5" data-labelCd="점검항목명">점검항목명</span>
+                                    </div>
+                                    <input class="form-control2 tac" type="text" id="pop_item_name" disabled="disabled" />
+                                </div>
+                            </div>
+                            </div>
+                            <div class="col-12 mx-auto" id="image_upload1"></div>
+                    </div>
+                </section>
+                <section>
+                    <div class="align_left popup_button_group bottom">
+                        <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+                    </div>
+                </section>
+        </div>
+    </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/upload_one_image_box.html :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code.html :: popup_select_user_code"></th:block>
+    <script type="text/javascript">
+        class MatInoutStockPageDiaryPage {
+            constructor() {
+                this.grid = null;
+                this.approveBoxUtil = null;
+                this.appr_view = null;
+                this.baseUrl = '/api/haccp/mat_inout_stock';
+                this.checkMaster = '입출고 및 재고 점검표'
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+                let viewMode = $('#viewMode').val();
+
+                this.view_mode = viewMode=="true"? true:false;
+
+                this.resultGrid = new wijmo.grid.FlexGrid('#mat_inout_item_grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    frozenColumns: 0,
+                    frozenRows: 0,
+                    allowSorting: false,
+                    isReadOnly: true,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        // 헤더 스타일 적용
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
+                            && s.columns[e.col].binding === 'result1') {
+                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                        }
+                    },
+                    columns: [
+                        {binding: 'mio_pk', header: '입고번호', width: 100, align: 'right'},
+                        {binding: 'inout', header: '입출', width: 60, align: 'left'},
+                        {binding: 'inout_type', header: '구분', width: 100, align: 'left'},
+                        {binding: 'material_type', header: '품목유형', width: 80, align: 'left'},
+                        {binding: 'material_code', header: '품목코드', width: 120, align: 'right'},
+                        {binding: 'material_name', header: '품목명', width: 300, align: 'left'},
+                        {binding: 'unit_name', header: '단위', width: 60, align: 'left'},
+                        {binding: 'InoutDate', header: '입출일', width: 120, align: 'left'},
+                        {binding: 'InoutTime', header: '시간', width: 50, align: 'right'},
+                        {binding: 'InputQty', header: '입고량', width: 70, align: 'right'},
+                        {binding: 'OutputQty', header: '출고량', width: 70, align: 'right'},
+                        {binding: 'Description', header: '비고', width: 250, align: 'left'},
+                        {binding: 'HouseStock', header: '창고재고', width: 90, align: 'right'},
+                        {binding: 'result1', header: '판정', width: 50, align: 'center'}
+                    ],
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                });
+                this.resultGrid.formatItem.addHandler((s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        const col = s.columns[e.col];
+                        const item = s.rows[e.row]?.dataItem;
+
+                        // Judge 셀 처리
+                        if (col.binding === 'result1' && item) {
+                            e.cell.textContent = item.result1 ; // 데이터 값 렌더링
+                            e.cell.style.cursor = 'pointer'; // 클릭 가능한 커서 스타일
+
+                            // 기존 클릭 이벤트 제거
+                            e.cell.removeEventListener('click', e.cell.__clickHandler);
+
+                            // 새로운 클릭 이벤트 추가
+                            e.cell.__clickHandler = () => {
+                                if (!_this.view_mode) { // 읽기 전용이 아닐 경우에만 동작
+                                    const currentValue = item.result1; // 현재 값
+                                    const newValue = currentValue === 'O' ? 'X' : 'O'; // 값 토글
+                                    item.result1 = newValue; // 데이터 업데이트
+
+                                    // 셀 값 즉시 업데이트
+                                    e.cell.textContent = newValue;
+
+                                }
+                            };
+
+                            // 클릭 이벤트 등록
+                            e.cell.addEventListener('click', e.cell.__clickHandler);
+                        }
+                    }
+                });
+                _this.tabType = this.resultGrid;
+
+                document.getElementById('btnAllItem').addEventListener('click', () => {
+                    _this.tabType.itemsSource.items.forEach(item => {
+                        item.result1 = 'O';
+                    });
+                    _this.tabType.refresh();
+                });
+
+                this.deviResultGrid = new wijmo.grid.FlexGrid('#devi_action_grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    frozenColumns: 0,
+                    frozenRows: 0,
+                    allowSorting: false,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        // 헤더 스타일 적용
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
+                            && s.columns[e.col].binding === 'action_detail') {
+                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                        }
+                    },
+                    columns: [
+                        {binding: 'mio_pk', header: '입고번호', width: 100, align: 'center', isReadOnly: true},
+                        {binding: 'abnormal_detail', header: '이탈발생품목', width: 300, align: 'left', isReadOnly: true},
+                        {binding: 'confirm_detail', header: '이상발생내용', width: 300, align: 'left', isReadOnly: false},
+                        {binding: 'action_detail', header: '조치내역및결과', width: 250, align: 'left', isReadOnly: false},
+                        {binding: 'actor_name', header: '조치자', width: 80, align: 'left', isReadOnly: true},
+                        {binding: 'creater_name', header: '작성자', width: 80, align: 'left', isReadOnly: true}
+                    ],
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                });
+                this.deviResultGrid.hostElement.addEventListener('click', (e) => {
+                    let ht = this.deviResultGrid.hitTest(e);
+                    if (ht.cellType === wijmo.grid.CellType.Cell) {
+                        let item = this.deviResultGrid.rows[ht.row].dataItem;
+                        if (this.deviResultGrid.columns[ht.col].binding === 'action_detail' && !_this.view_mode) {
+                            _this.showDeviActionCodeSavePopup(item);
+                        }
+                        if (!_this.view_mode) {
+
+                        }
+                    }
+                });
+
+                _this.deviTabType = this.deviResultGrid;
+
+                $('#title').val('입출고 및 재고 점검표');
+                //view mode
+                if ($('#viewMode').val().toLowerCase() == 'true') {
+                    $('#title').attr('disabled', 'disabled');
+                    $('#check_date').attr('disabled', 'disabled');
+                    $('#btnSave').hide();
+                    $('#btnAllItem').hide();
+                    $('#searchArea').hide();
+                    $('#btnDeviActionSave').hide();
+                    $('#btnReqAppr').hide();
+                }
+            }
+
+            // 일지 리스트
+            searchMainData(val) {
+                let _this = this;
+
+                if ($('#bhId').val() > 0 && val) {
+                    let param = {
+                        'action': 'result_list',
+                        'bh_id': $('#bhId').val(),
+                    }
+
+                    let result = AjaxUtil.getSyncData(_this.baseUrl + '/result_list', param);
+                    if (result.data != null) {
+                        _this.item_result = result.data.item_result;
+                        _this.item_devi_result = result.data.item_devi_result;
+                        _this.mst_info = result.data.mst_info;
+
+                        $('#check_date').val(_this.mst_info.DataDate);
+                        $('#title').val(_this.mst_info.title);
+
+                        $('#searchForm').find('#srchStartDt').val(_this.mst_info.startDt);
+                        $('#searchForm').find('#srchEndDt').val(_this.mst_info.endDt);
+                        $('#searchForm').find('#cboHouse').val(_this.mst_info.housePk)
+
+                        _this.resultGrid.itemsSource.sourceCollection = _this.item_result; // 데이터 설정
+                        _this.resultGrid.refresh(); // 그리드 새로고침
+
+                        _this.deviResultGrid.itemsSource.sourceCollection = _this.item_devi_result; // 데이터 설정
+                        _this.deviResultGrid.refresh(); // 그리드 새로고침
+
+                    }
+                } else {
+                    _this.searchItemList();
+                }
+
+                if ($('#bhId').val() > 0) {
+                    if ($('#viewMode').val().toLowerCase() !== 'true') {
+                        $('#btnDeviActionSave').show();
+                    }
+
+                }
+
+
+                _this.approveBoxUtil = new ApproveBoxUtil(0, _this.checkMaster, $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+
+            }
+
+            // 일지 리스트
+            searchItemList(check_result_id) {
+                let _this = this;
+
+                let srchStartDt = $('#searchForm').find("#srchStartDt").val();
+                let srchEndDt = $('#searchForm').find("#srchEndDt").val();
+                let house_pk = $('#searchForm').find('#cboHouse').val();
+
+                let param = {
+                    'action': 'read',
+                    'srchStartDt': srchStartDt,
+                    'srchEndDt': srchEndDt,
+                    'house_pk': house_pk,
+                }
+
+                let grid_result = AjaxUtil.getSyncData('/api/inventory/material_inout/read', param);
+
+                grid_result.data.forEach(function (item, idx) {
+                    item.result1 = null;
+                })
+
+                _this.resultGrid.itemsSource.sourceCollection = grid_result.data; // 데이터 설정
+                _this.resultGrid.collectionView.refresh(); // 그리드 새로고침
+
+                _this.deviResultGrid.itemsSource.sourceCollection = []; // 빈 배열로 설정
+                _this.deviResultGrid.collectionView.refresh();
+            }
+
+            save(isAppr) {
+                let _this = this;
+                let callback = null;
+
+                let srchStartDt = $('#searchForm').find("#srchStartDt").val();
+                let srchEndDt = $('#searchForm').find("#srchEndDt").val();
+                let house_pk = $('#searchForm').find('#cboHouse').val();
+
+                callback = function () {
+
+                    let Q = [];
+                    let data = null
+
+                    if ($('#bhId').val() > 0) {
+                        Q = _this.item_result;
+
+
+                        data = {
+                            bh_id: $('#bhId').val(),
+                            check_date: $('#check_date').val(),
+                            title: $('#title').val(),
+                            Q: JSON.stringify(Q),
+                            srchStartDt: srchStartDt,
+                            srchEndDt: srchEndDt,
+                            house_pk: house_pk,
+
+                        }
+                    } else {
+                        let matInoutStockResult = {
+                            'tabList': _this.resultGrid.itemsSource.sourceCollection,
+                        }
+
+
+                        Q = [
+                            matInoutStockResult
+                        ];
+
+
+                        data = {
+                            check_date: $('#check_date').val(),
+                            title: $('#title').val(),
+                            Q: JSON.stringify(Q),
+                            srchStartDt: srchStartDt,
+                            srchEndDt: srchEndDt,
+                            house_pk: house_pk,
+                        }
+                    }
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            $('#bhId').val(resp.data.id);
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                Notify.success('저장하였습니다.');
+                                $('#btnDelete').show();
+                                _this.searchMainData(true);
+
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    }
+                    let action = $('#bhId').val() > 0 ? '/save' : '/insert'
+
+
+                    if (isAppr) {
+                        let checkGrid1 = _this.resultGrid.selectedItems;
+                        let checkGrid2 = _this.deviResultGrid.selectedItems;
+
+                        let result = checkGrid1.filter(function (e) {
+                            return e.result1 === "X";
+                        })
+
+                        if (result.length > 0) {
+                            if (checkGrid2.length === 0) {
+                                Alert.alert('결재상신', '조치내역을 입력해주세요.');
+                                return
+                            }
+                        }
+
+                        let result2 = checkGrid2.filter(function (e) {
+                            return e.action_detail === "" || e.action_detail == null;
+                        })
+
+                        if (result2.length > 0) {
+                            Alert.alert('결재상신', '조치내역을 입력해주세요.');
+                            return
+                        }
+                    }
+
+                    AjaxUtil.postAsyncData(_this.baseUrl + action, data, fnSuccess);
+                }
+
+                if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                } else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    $('#btnList').click();
+                });
+            }
+
+            // 결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit'
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'data_date': $('#check_date').val(),
+                };
+
+                /**
+                 * 결재선 : 푸드/박원준 , 푸드/고형석
+                 * */
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+
+            showDeviActionCodeSavePopup(item) {
+
+                // 점검내역 조치내역 팝업
+                let _this = this;
+                let tempResult = _this.deviResultGrid.selectedItems[0];
+                let popupPage = new PopupSelectUserCodePage({
+
+                    'title': '점검내역 선택',
+                    'gridValueLabel': '점검항목',
+                    'infoData': [
+                        {label: '이상발생내역', value: item.check_name},
+                    ],
+                    'parentCode': '입출고 및 재고 점검표', 'closeManual': true,
+                });
+                popupPage.show(function (data) {
+                    if (data && data.selected.Code === '직접입력') {
+                        item.action_detail = data.input;
+                    } else {
+                        item.action_detail = data.selected.Value;
+                    }
+                    popupPage.close();
+                    _this.deviTabType.refresh();
+                    //  if (item.action_detail) {
+                    //	_this.saveDeviAction();
+                    // }
+                });
+            }
+
+            saveDeviAction() {
+                let _this = this;
+                let url = '/api/common/devi_action/save_multi_devi_action';
+                let happen_date = $('#check_date').val();
+                let data = {
+                    table_name: 'mat_inout_stock_result',
+                    happen_date: happen_date,
+                    Q: JSON.stringify(_this.deviTabType.selectedItems),
+                };
+                let fnSuccess = function () {
+                    Notify.success('저장되었습니다');
+                }
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+
+            // 이미지 팝업
+            setImagePopup(data) {
+                let _this = this;
+
+                let content = tmpl('imagePopup', data);
+                let $content = $(content);
+                let modalContainer;
+
+                if (data && data.file_id) {
+                    modalContainer = new PopupDraggable('점검항목 이미지');
+                    modalContainer.open({width: 500, height: 350, $content});
+                }
+
+                let fncCallback = function () {
+                };
+                _this.upload = new UploadOneImage(1, {
+                    table_name: 'check_item',
+                    data_pk: data.checkItem_id,
+                    attach_name: 'check_item_image',
+                    file_id: data.file_id,
+                    upload_form_id: 'upload_form1',
+                    upload_div_id: 'image_upload1',
+                    image_width: '100%',
+                    image_height: 'auto',
+                    callback: fncCallback,
+                });
+
+                _this.upload.printFormDiv();
+                $('#pop_item_name').val(data.item_name);
+                $('#btnUpload1').hide();
+                $('#btnRemoveFile1').hide();
+                $('#attachFileId1').hide();
+            }
+
+        }
+
+        $(document).ready(function (e) {
+
+            this.appr_view = $('#apprView').val()
+
+            let creater = $('#createrName').val()
+
+            $('#creater_name').val(creater)
+
+            page = new MatInoutStockPageDiaryPage();
+
+            $('#check_date').val(CommonUtil.getYYYYMMDD());
+
+            $('#searchForm').find('#srchDate').ax5DatePicker({direction: 'top'});
+            $('#searchForm').find('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+            $('#searchForm').find('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            AjaxUtil.fillSelectOptions($('#searchForm').find('#cboHouse'), 'store_house', 'all');
+            // 목록
+            $('#btnList').on('click', function () {
+                if (this.appr_view) {
+                    location.href = '/gui/' + this.appr_view
+                } else {
+                    location.href = '/gui/' + gui.gui_code
+                }
+
+            });
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+            $('#btnDeviActionSave').click(function (e) {
+                page.saveDeviAction();
+            });
+            // 신규저장
+            $('#btnSave').on('click', function () {
+                page.save(false);
+            });
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+
+            page.searchMainData(true);
+        });
+    </script>
+
+    <style>
+        .background-yellow {
+            background: #ffd800
+        }
+
+        .background-skyblue {
+            background: #00e0ff
+        }
+
+        .background-white {
+            background: #ffffff
+        }
+
+        table.type01 {
+            border-collapse: collapse;
+            text-align: left;
+            line-height: 1.5;
+            margin: 20px 10px;
+        }
+
+        table.type01 th {
+            width: 150px;
+            padding: 10px;
+            font-weight: bold;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        table.type01 td {
+            width: 650px;
+            padding: 10px;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+        }
+    </style>
+</th:block>
+</html>

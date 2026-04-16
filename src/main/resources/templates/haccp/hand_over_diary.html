@@ -1,0 +1,488 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .work-table td  {
+            text-align: left;
+        }
+
+        .work-table input[type="text"],
+        .work-table input[type="number"],
+        .work-table input[type="date"],
+        .work-table input[type="time"] {
+            width: 180px;
+        }
+
+        .work-table input[type="text"]:disabled,
+        .work-table input[type="number"]:disabled,
+        .work-table input[type="date"]:disabled,
+        .work-table input[type="time"]:disabled,
+        .work-table textarea:disabled {
+            width: 180px;
+            background-color: #EDEFF5 !important;
+        }
+
+        .work-table textarea:disabled {
+            width: 100%;
+            background-color: #EDEFF5 !important;
+        }
+
+        .work-table select, select:disabled {
+            width: 180px;
+        }
+
+        .work-table select:disabled {
+            width: 180px;
+            background-color: #EDEFF5 !important;
+        }
+
+    </style>
+
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <input type="hidden" id="bhId" th:value="${bh_id}"/>
+        <input type="hidden" id="data_date" th:value="${data_date}"/>
+        <input type="hidden" id="searchCond" th:value="${searchcond}"/>
+        <input type="hidden" id="viewMode" th:value="${view_mode}"/>
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>인수인계 현황</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP 관리</li>
+                <li>업무 인수인계서</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-card-wrap" style="margin-bottom: 0;">
+                <div class="col-5">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">일지명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="title" name="title" value=""/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="dataDate">일자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="date" id="dataDate" name="dataDate"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="firstName">작성자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="firstName" name="firstName" disabled/>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-6">
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+        </section>
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <h3>인수인계 목록</h3>
+                </div>
+                <div class="button-wrap">
+                    <button type="button" class="btn" id="btnDiaryPrint">일지출력</button>
+                    <button type="button" class="btn" id="btnReqAppr">결재상신</button>
+                    <button type="button" class="btn" id="btnAppr" style="display:none;">승인</button>
+                    <button type="button" class="btn" id="btnReject" style="display:none;">반려</button>
+                    <button type="button" class="btn" id="btnSave">저장</button>
+                    <button type="button" class="btn" id="btnDelete">삭제</button>
+                    <button type="button" class="btn" id="btnList">목록</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <input id="id" type="hidden" name="id" value="" />
+                <table class="work-table">
+                    <caption>작업 지시 테이블</caption>
+                    <colgroup>
+                        <col style="width: 10%;">
+                        <col style="width: 15%;">
+                        <col style="width: 10%;">
+                        <col style="width: 15%;">
+                        <col style="width: 10%;">
+                        <col style="width: 15%;">
+                        <col style="width: 10%;">
+                        <col style="width: 15%;">
+                    </colgroup>
+                    <tbody>
+                    <tr>
+                        <th><label for="StartDate">시작일</label></th>
+                        <td><input type="date" id="StartDate" name="StartDate" /></td>
+                        <th><label for="EndDate">종료일</label></th>
+                        <td><input type="date" id="EndDate" name="EndDate" /></td>
+                        <th><label for="ReasonCode">인계사유</label></th>
+                        <td colspan="3">
+                            <select type="text" id="ReasonCode" name="ReasonCode" ></select>
+                            <input type="text" id="Reason" name="Reason"/>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="FromName">인계자</label></th>
+                        <td><input type="text" id="FromName" name="FromName" /></td>
+                        <th><label for="FromTel">연락처</label></th>
+                        <td><input type="text" id="FromTel" name="FromTel" /></td>
+                        <th><label for="ToName">인수자</label></th>
+                        <td><input type="text" id="ToName" name="ToName" /></td>
+                        <th><label for="ToTel">연락처</label></th>
+                        <td><input type="text" id="ToTel" name="ToTel" /></td>
+                    </tr>
+                    <tr>
+                        <th><label for="description">인수인계 내용</label></th>
+                        <td colspan="7"><textarea id="Description" name="Description"></textarea></td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div class="grid_box col-12" id="file_upload_idv"></div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <script type="text/javascript">
+        class ReportDiaryPage {
+            constructor() {
+                this.grid = null;
+                this.uploader = null;
+                this.approveBoxUtil = null;
+                this.baseUrl = '/api/haccp/hand_over';
+                this.table_name = 'hand_over';
+                this.task_code = '업무인수인계서'
+                this.gparam = {
+                    bh_id: $('#bhId').val(),
+                    data_date: $('#data_date').val(),
+                    search_cond: $('#search_cond').val(),
+                    view_mode: $('#viewMode').val(),
+                };
+            }
+
+            searchMainData() {
+                let _this = this;
+                $('#btnDiaryPrint').hide();
+                $('#btnDelete').hide();
+
+                $('#firstName').val(userinfo.username);
+                $('#title').val(_this.checkMasterName);
+
+                let param = {
+                    //'action': 'read_in',
+                    'bh_id': $('#bhId').val(),
+                    'data_date': $('#dataDate').val(),
+                }
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/read_in', param);
+
+                if (result != null) {
+                    let headInfo = result.data.head_info;
+                    let diaryInfo = result.data.diary_info;
+
+                    $('#title').val(headInfo.Title);
+                    $('#dataDate').val(headInfo.DataDate);
+                    $('#firstName').val(headInfo.FirstName);
+
+                    _this.viewModeSetting(headInfo, diaryInfo);
+
+                    // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+                    _this.approveBoxUtil = new ApproveBoxUtil(0, _this.task_code, $('#bhId').val(), 'bundle_head', false, false);
+                    _this.approveBoxUtil.print($('#viewMode').val());
+                    if (_this.approveBoxUtil.isApprUser()) {
+                        // 결재자의 경우 버튼 처리
+                        $('#btnAppr').show();
+                        $('#btnReject').show();
+                    }
+                }
+            }
+
+            viewModeSetting(headInfo, diaryInfo) {
+                let _this = this;
+                // 데이터에 따른 버튼 설정
+                if (diaryInfo != null) {
+                    $('#StartDate').val(diaryInfo.start_date);
+                    $('#EndDate').val(diaryInfo.end_date);
+                    $('#Reason').val(diaryInfo.reason);
+                    $('#FromName').val(diaryInfo.from_name);
+                    $('#FromTel').val(diaryInfo.from_tel);
+                    $('#ToName').val(diaryInfo.to_name);
+                    $('#ToTel').val(diaryInfo.to_tel);
+                    $('#Description').val(diaryInfo.description);
+                }
+                if ($('#viewMode').val().toLowerCase() === 'true') {
+                    //조회 모드일 경우 CRUD 버튼 숨김
+                    $('#btnDiaryPrint').hide();
+                    $('#btnReqAppr').hide();
+                    $('#btnSave').hide();
+                    $('#btnDelete').hide();
+                    if (headInfo.State === 'approval') {
+                        $('#btnDiaryPrint').show();
+                    }
+
+                    $('#title').attr('disabled', 'disabled');
+                    $('#dataDate').attr('disabled', 'disabled');
+                    $('#StartDate').attr('disabled', 'disabled');
+                    $('#EndDate').attr('disabled', 'disabled');
+                    $('#ReasonCode').hide();
+                    $('#Reason').attr('disabled', 'disabled');
+                    $('#FromName').attr('disabled', 'disabled');
+                    $('#FromTel').attr('disabled', 'disabled');
+                    $('#ToName').attr('disabled', 'disabled');
+                    $('#ToTel').attr('disabled', 'disabled');
+                    $('#Description').attr('disabled', 'disabled');
+
+                    _this.setUploader($('#bhId').val(), false);
+
+                } else {
+                    // State : 작성, 미결재, 승인, 반려, 재상신
+                    // 수정, 등록 모드
+                    $('#btnDelete').show();
+                    $('#btnDiaryPrint').hide();
+                    if (headInfo.State === 'process' || headInfo.State === 'reprocess') {
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                    } else if (headInfo.State === 'approval') {
+                        $('#btnDiaryPrint').show();
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                    }
+
+                    if (diaryInfo != null)
+                        _this.setUploader($('#bhId').val(), true);
+                    else
+                        _this.setUploader(0, true);
+
+                    if (parseInt($('#bhId').val(), 10) > 0) {
+                        $('#dataDate').attr('disabled', 'disabled');
+                    } else {
+                        $('#btnDelete').hide();
+                    }
+                }
+            }
+
+            //파일 업로더
+            setUploader(id, viewFlag) {
+                let _this = this;
+                let uploader = new ax5FileUploadClass('file_upload_idv', id,
+                    {
+                        table_name: _this.table_name,
+                        attach_name: 'basic',
+                        accept_files: 'hwp,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,gif,mbp,png,txt,zip,pdf',
+                        multiple: true,
+                        max_count: 5,
+                        file_size: 100,
+                        upload_callback: function (param) {
+                            //uploader.showLastImage('imgPhoto');
+                        },
+                        delete_callback: function (param) {
+                            //$('#imgPhoto').attr('src', '');
+                        },
+                        file_click_callback: function (file_id) {
+                            //uploader.showImage('imgPhoto', file_id);
+                        },
+                        can_write: viewFlag,
+                    });
+            }
+
+            // 일지 출력
+            printDiary() {
+                Alert.alert('', '기능 준비중입니다.');
+            }
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    $('#btnList').click();
+                });
+            }
+
+            //결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit';
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'data_date': $('#dataDate').val(),
+                };
+
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+            //저장
+            save(isAppr) {
+                let _this = this;
+                let callback = function () {
+                    let data = {
+                        bh_id: $('#bhId').val(),
+                        title: $('#title').val(),
+                        data_date: $('#dataDate').val(),
+                        StartDate: $('#StartDate').val(),
+                        EndDate: $('#EndDate').val(),
+                        Reason: $('#Reason').val(),
+                        FromName: $('#FromName').val(),
+                        FromTel: $('#FromTel').val(),
+                        ToName: $('#ToName').val(),
+                        ToTel: $('#ToTel').val(),
+                        Description: $('#Description').val(),
+                        fileId: $("#srchFileId").val(),
+                    }
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            $('#bhId').val(resp.data);
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                Notify.success('저장하였습니다.');
+                                $('#btnDelete').show();
+                                $('#dataDate').attr('disabled', 'disabled');
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/save', data, fnSuccess);
+                }
+
+                if ($('#StartDate').val() === '') {
+                    Alert.alert('', '시작일을 입력해주세요.');
+                    return false;
+                }
+                if ($('#EndDate').val() === '') {
+                    Alert.alert('', '종료일을 입력해주세요.');
+                    return false;
+                }
+                if ($('#FromName').val() === '') {
+                    Alert.alert('', '인계자를 입력해주세요.');
+                    return false;
+                }
+                if ($('#ToName').val() === '') {
+                    Alert.alert('', '인수자를 입력해주세요.');
+                    return false;
+                }
+
+                if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                } else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+
+            //삭제
+            delete() {
+                let _this = this;
+                Alert.confirm('', '삭제하시겠습니까?', function () {
+                    // 삭제 서비스 호출
+                    let param = {
+                        bh_id: $('#bhId').val(),
+                        table_name: _this.table_name,
+                        attach_name: 'basic'
+                    }
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            Notify.success('삭제하였습니다.');
+                            $('#btnList').click();
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/delete', param, fnSuccess);
+                });
+            }
+
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new ReportDiaryPage();
+
+            $('#dataDate').val(page.gparam.data_date);
+
+            AjaxUtil.fillSelectOptions($('#ReasonCode'), 'user_code', 'choose', '', 'hand_over_reason');
+
+            $('#ReasonCode').on('change', function () {
+                let Reason = $('#ReasonCode option:selected').text();
+                $('#Reason').val(Reason);
+            });
+
+            // 일지 출력
+            $('#btnDiaryPrint').on('click', function () {
+                page.printDiary();
+            });
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+
+            // 임시저장
+            $('#btnSave').on('click', function () {
+                page.save(false);
+            });
+
+            // 삭제
+            $('#btnDelete').on('click', function () {
+                page.delete();
+            });
+
+            // 목록
+            $('#btnList').on('click', function () {
+                if (page.gparam.appr_view) {
+                    location.href = '/gui/' + page.gparam.appr_view + '?searchcond=' + page.gparam.searchcond;
+                } else {
+                    location.href = '/gui/' + gui.gui_code + '?searchcond=' + page.gparam.searchcond;
+                }
+            });
+
+            page.searchMainData();
+
+        });
+
+    </script>
+</th:block>
+</html>

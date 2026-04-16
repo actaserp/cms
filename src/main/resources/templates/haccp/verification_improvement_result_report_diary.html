@@ -1,0 +1,588 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .work-table td  {
+            text-align: left;
+        }
+
+        .work-table input[type="text"],
+        .work-table input[type="number"],
+        .work-table input[type="date"],
+        .work-table input[type="time"] {
+            width: 180px;
+        }
+
+        .work-table input[type="text"]:disabled,
+        .work-table input[type="number"]:disabled,
+        .work-table input[type="date"]:disabled,
+        .work-table input[type="time"]:disabled,
+        .work-table textarea:disabled {
+            width: 180px;
+            background-color: #EDEFF5 !important;
+        }
+
+        .work-table textarea:disabled {
+            width: 100%;
+            background-color: #EDEFF5 !important;
+        }
+
+
+        .work-table select:disabled {
+
+            background-color: #EDEFF5 !important;
+        }
+
+    </style>
+
+</head>
+<th:block layout:fragment="content">
+    <div class="content_wrap" id="tab_week">
+        <input type="hidden" id="bhId" th:value="${bh_id}" />
+        <input type="hidden" id="viewMode" th:value="${view_mode}" />
+        <input type="hidden" id="apprView" th:value="${appr_view}" />
+        <input type="hidden" id="checkMasterId" th:value="${check_master_id}" />
+        <input type="hidden" id="createrName" th:value="${creater_name}" />
+
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>검증 개선조치 결과보고서</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP 관리</li>
+                <li>업무 인수인계서</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-card-wrap" style="margin-bottom: 0;">
+                <div class="col-5">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">점검명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="title" name="title" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="check_date">점검일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="check_date" name="check_date" readonly>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="cboCheck">일지종류</label>
+                            </th>
+                            <td>
+                                <select class="form-control2" id="cboCheck" name="cboCheck"></select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="creater_name">작성자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="creater_name" name="creater_name" disabled />
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-6">
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+
+            <div class="title_box" style="margin-top: 10px">
+                <span class="right_align rpt" data-labelCd="관리기준">관리기준</span>
+                <div class="left_align">
+                    <label class="switch">
+                        <input type="checkbox" checked id="btnToggle"><span class="slider round"></span>
+                    </label>
+                    관리기준 보기/감추기
+                </div>
+            </div>
+            <div id="standardDIv">
+                <div class="row">
+                    <div class="col-12">
+                        <table class="type01" colspan="2">
+                            <tr>
+                                <th scope="row">관리기준</th>
+                                <td>관리기준</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">결재주기</th>
+                                <td id="checkCycle">1회</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">판정결과</th>
+                                <td>적합(O), 부적합(X)</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <h3>일지목록</h3>
+                </div>
+                <div class="button-wrap">
+                    <button type="button" class="btn" id="btnReqAppr">결재상신</button>
+                    <button type="button" class="btn" id="btnAppr" style="display:none;">승인</button>
+                    <button type="button" class="btn" id="btnReject" style="display:none;">반려</button>
+                    <button type="button" class="btn" id="btnSave">저장</button>
+                    <button type="button" class="btn" id="btnList">목록</button>
+                </div>
+
+            </div>
+            <div>
+                <div>
+                    <dl>
+                        <dt>
+                            <label>
+                                점검자
+                            </label>
+                        </dt>
+                        <dd>
+                            <input class="form-control2" type="text" id="check_name" name="check_name" disabled>
+                            <button type="button" class="btn" id="popBtnExcel" style="display:none">프린트</button>
+                            <button type="button" class="btn" id="btnAllItem">전체적합</button>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+
+                        </dd>
+                    </dl>
+                </div>
+                <div class="container-fluid">
+                    <div id="check_item_week_grid" style="height: 700px;"></div>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="section">
+            <div class="table-wrap">
+                <table class="work-table">
+                    <caption>작업 지시 테이블</caption>
+                    <tbody>
+                    <tr>
+                        <th><label for="description">특이사항</label></th>
+                        <td colspan="7">
+                            <textarea class="form-control2 tal" id="description" name="description"></textarea>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script type="text/x-tmpl" id="imagePopup">
+
+        <div class="content_wrap modal-content popup">
+                <section class="pt-2">
+                   <div class="table_box sub" >
+                        <div class ="row">
+                            <div class="col-12">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text fit_box_t5" data-labelCd="점검항목명">점검항목명</span>
+                                    </div>
+                                    <input class="form-control2 tac" type="text" id="pop_item_name" disabled="disabled" />
+                                </div>
+                            </div>
+                            </div>
+                            <div class="col-12 mx-auto" id="image_upload1"></div>
+                    </div>
+                </section>
+                <section>
+                    <div class="align_left popup_button_group bottom">
+                        <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+                    </div>
+                </section>
+        </div>
+    </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <th:block th:replace="/common/approve_box :: approve_box" ></th:block>
+    <th:block th:replace="/common/upload_one_image_box.html :: upload_one_image_box" ></th:block>
+    <th:block th:replace="/common/popup_select_user_code.html :: popup_select_user_code" ></th:block>
+    <script type="text/javascript">
+        class CheckResultDiaryPage {
+            constructor() {
+                this.grid = null;
+                this.approveBoxUtil = null;
+                this.appr_view = null;
+
+                this.baseUrl = '/api/haccp/verification_improvement_result_report';
+                this.check_class_code = '검증 개선조치 결과보고서';
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+            }
+            //TODO: 그리드 입력되게
+            init() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#check_item_week_grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false,
+                    columns: [
+
+                        { binding: 'group1', header: '구분', width: 130, align: 'left', isReadOnly: false },
+                        { binding: 'index_order', header: '순번', width: 50, align: 'center', isReadOnly: false },
+                        { binding: 'group2', header: '구분2', width: 130, align: 'left', visible: false, isReadOnly: false },
+                        { binding: 'group3', header: '구분3', width: 130, align: 'left', visible: false, isReadOnly: false },
+                        { binding: 'item_name', header: '점검항목명', width: 450, align: 'left', isReadOnly: false },
+                        { binding: 'result1', header: '점검결과 (더블클릭)', width: '*', align: 'center'},
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '일지목록';
+
+                //this.resultGrid = new ax5.ui.grid(resultConfig);
+                //_this.tabType = this.resultGrid;
+
+                //전체적합 버튼 ?? 이거는 뭐하는 기능인지 모르겠음, 원래 안됨
+                $('#tab_week').find('#btnAllItem').click(function (e) {
+                    _this.tabType.list.forEach(function (item, idx) {
+                        if (item.result_type == 'OX')
+                            item.result1 = 'O';
+                    });
+                    _this.tabType.repaint();
+                });
+                $('#title').val('검증 개선조치 결과보고서');
+                if ($('#viewMode').val().toLowerCase() == 'true') {
+                    $('#title').attr('disabled', 'disabled');
+                    $('#check_date').attr('disabled', 'disabled');
+                    $('#cboCheck').attr('disabled', 'disabled');
+                    $('#btnSave').hide();
+                    $('#tab_week').find('#btnAllItem').hide();
+                    $('#tab_week').find('#description').attr('disabled', 'disabled');
+                    $('#tab_week').find('#btnDeviActionSave').hide();
+                    $('#btnReqAppr').hide();
+                }
+            }
+
+            //일지 리스트
+            searchMainData() {
+                let _this = this;
+
+                if ($('#bhId').val() > 0) {
+                    let param = {
+                        'action': 'result_list',
+                        'bh_id': $('#bhId').val(),
+                    }
+
+                    let result = AjaxUtil.getSyncData(_this.baseUrl + '/result_list', param);
+                    if (result.data != null) {
+                        _this.week_result = result.data.week_result;
+                        _this.mst_info = result.data.mst_info;
+
+                        $('#cboCheck').val(_this.mst_info.check_master_id);
+                        $('#check_date').val(_this.mst_info.DataDate);
+                        $('#checkCycle').text(_this.mst_info.checkCycle);
+
+
+                        $('#tab_week').find('#description').val(_this.week_result.description);
+                        $('#tab_week').find('#check_name').val(_this.week_result.CheckerName);
+
+
+                        _this.viewData.sourceCollection = _this.week_result.item_result;
+
+                    }
+                } else {
+                    _this.searchItemList();
+                }
+
+                if ($('#bhId').val() > 0) {
+                    if ($('#viewMode').val().toLowerCase() != 'true') {
+                        $('#tab_week').find('#btnDeviActionSave').show();
+                    }
+
+                    $('#cboCheck').attr('disabled', 'disabled');
+                }
+
+
+                _this.approveBoxUtil = new ApproveBoxUtil(0, _this.check_class_code, $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+
+            }
+
+            // 일지 리스트
+            searchItemList(check_result_id) {
+                let _this = this;
+
+                let param = {
+                    'action': 'read',
+                    'check_master_id': $('#cboCheck').val(),
+                    'check_date': $('#check_date').val()
+                }
+                let grid_result = AjaxUtil.getSyncData('/api/check/check_item/read', param);
+
+
+                grid_result.data.forEach(function (item, idx) {
+                    item.result1 = null;
+                })
+
+                // 주간
+                _this.viewData.sourceCollection = grid_result.data;
+            }
+
+            save(isAppr) {
+                let _this = this;
+                let callback = null;
+
+                callback = function () {
+
+                    let Q = [];
+                    let data = null
+
+                    if ($('#bhId').val() > 0) {
+                        _this.week_result.description = $('#tab_week').find('#description').val();
+                        _this.week_result.check_name = $('#tab_week').find('#check_name').val();
+                        Q = [
+                            _this.week_result,
+                        ]
+
+                        data = {
+                            bh_id: $('#bhId').val(),
+                            check_date: $('#check_date').val(),
+                            title: $('#title').val(),
+                            Q: JSON.stringify(Q)
+
+                        }
+                    } else {
+                        let weekResult = {
+                            'description': $('#tab_week').find('#description').val(),
+                            'tabList': _this.grid.collectionView.items,
+                            'check_name': $('#tab_week').find('#check_name').val(),
+                        }
+
+
+                        Q = [
+                            weekResult
+                        ];
+
+
+                        data = {
+                            check_date: $('#check_date').val(),
+                            check_master_id: $('#cboCheck').val(),
+                            title: $('#title').val(),
+                            Q: JSON.stringify(Q)
+                        }
+                    }
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            $('#bhId').val(resp.data.id);
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                Notify.success('저장하였습니다.');
+                                $('#btnDelete').show();
+                                _this.searchMainData();
+
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    }
+                    let action = $('#bhId').val() > 0 ? '/save' : '/insert'
+
+                    AjaxUtil.postAsyncData(_this.baseUrl + action, data, fnSuccess);
+                }
+
+                if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                } else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    $('#btnList').click();
+                });
+            }
+
+            // 결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit'
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'data_date': $('#check_date').val(),
+                    'char1': 'week'
+                };
+
+                /**
+                 * 결재선 : 푸드/박원준 , 푸드/고형석
+                 * */
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+            // 이미지 팝업
+            setImagePopup(data) {
+                let _this = this;
+
+                let content = tmpl('imagePopup', data);
+                let $content = $(content);
+                let modalContainer;
+
+                if (data && data.file_id) {
+                    modalContainer = new PopupDraggable('점검항목 이미지');
+                    modalContainer.open({width: 500, height: 350, $content});
+                }
+
+                let fncCallback = function () {
+                };
+                _this.upload = new UploadOneImage(1, {
+                    table_name: 'check_item',
+                    data_pk: data.checkItem_id,
+                    attach_name: 'check_item_image',
+                    file_id: data.file_id,
+                    upload_form_id: 'upload_form1',
+                    upload_div_id: 'image_upload1',
+                    image_width: '100%',
+                    image_height: 'auto',
+                    callback: fncCallback,
+                });
+
+                _this.upload.printFormDiv();
+                $('#pop_item_name').val(data.item_name);
+                $('#btnUpload1').hide();
+                $('#btnRemoveFile1').hide();
+                $('#attachFileId1').hide();
+            }
+        }
+
+        $(document).ready(function (e) {
+            this.appr_view = $('#apprView').val()
+
+            let creater = $('#createrName').val()
+
+            $('#creater_name').val(creater)
+
+            page = new CheckResultDiaryPage();
+
+            //부모에서 넘어온 파라미터 셋팅
+            AjaxUtil.fillSelectOptions($('#cboCheck'), 'check_master', null, $('#checkMasterId').val(), page.check_class_code);
+
+            $('#check_date').val(CommonUtil.getYYYYMMDD());
+
+            // 그리드 토글
+            $('#btnToggle').click(function (e) {
+                $("#standardDIv").toggle(300);
+            });
+
+            // 목록
+            $('#btnList').on('click', function () {
+                if (this.appr_view) {
+                    location.href = '/gui/' + this.appr_view
+                } else {
+                    location.href = '/gui/' + gui.gui_code
+                }
+            });
+
+            // 신규저장
+            $('#btnSave').on('click', function () {
+                page.save(false);
+            });
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+            // 점검일지
+            $('#cboCheck').change(function () {
+                page.searchMainData();
+
+            });
+
+            page.searchMainData();
+        });
+    </script>
+
+    <style>
+
+        table.type01 {
+            border-collapse: collapse;
+            text-align: left;
+            line-height: 1.5;
+            margin: 20px 10px;
+        }
+
+        table.type01 th {
+            width: 150px;
+            padding: 10px;
+            font-weight: bold;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        table.type01 td {
+            width: 650px;
+            padding: 10px;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+        }
+    </style>
+</th:block>
+</html>

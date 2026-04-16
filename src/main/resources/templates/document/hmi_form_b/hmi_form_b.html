@@ -1,0 +1,197 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+<div class="content_wrap">
+    <section>
+        <div class="title_box ">
+            <div class="left_align">
+                <h3 data-labelCd="HMI 양식">HMI 양식</h3>
+            </div>
+            <small2>B</small2>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>        
+        </div>
+
+        <div class="table_box search">
+            <form id="searchForm" >
+                <div class="row">
+
+                    <div class="col-6 col-md-3 col-xl-2" >
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="양식명">양식명</span>
+                            </div>
+                            <input class="form-control2" type="text" id="keyword" name="keyword">
+                        </div>
+                    </div>
+
+                    <div class="col-1" >
+                        <button type="button" class="btn-default" id="btnSearch" title="조회"><i class="fas fa-search"></i></button>
+                    </div> 
+
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section>
+        <div class="grid_box">
+            <div class="title_box">
+                <span class="right_align rpt" data-labelCd="HMI 양식">HMI 양식</span>
+                <button type="button" class="btn-default" id="btnNew" title="신규"><i class="fas fa-plus"></i></button>
+                <button type="button" class="btn-danger" id="btnDel" title="삭제"><i class="fas fa-trash"></i></button>
+                <button type="button" class="btn-default" id="btnEdit" title="수정"><i class="fas fa-edit"></i></button>
+                <button type="button" class="btn-default" id="btnViewer" title="뷰어"><i class="fas fa-eye"></i></button>
+                <button type="button" class="btn-default" id="btnExcel" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                <!--<button type="button" class="btn-default" id="btnGridSetting" style="visibility:hidden"><i class="fas fa-cog"></i> Setting</button>-->
+            </div>
+            <div class="h-600" data-ax5grid="hmi-form-grid" ></div>
+        </div>
+    </section>
+</div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+<script type="text/javascript">
+    class HmiPage {
+        constructor() {
+            this.grid = null;
+            this.init(); 
+            this.selectedPk = null;
+            this.baseUrl = '/api/support/hmi_b';
+        }
+
+        init() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="hmi-form-grid"]'),
+                sortable: true,
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 38  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.grid.select(this.dindex);
+                        _this.selectedPk = e.item.id;
+                        _this.setButtonState();
+                    }
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+               columns: [
+                    { key: 'form_name', label: '양식명', align: 'left', width: 250 },
+                    { key: 'description', label: '설명', align: 'left', sortable: false, width: 800 },
+                    { key: 'created_date', label: '등록일', align: 'center', width: 200 },
+                ]
+            };
+
+            this.grid = new ax5.ui.grid(config);
+        }
+
+        // 버튼 활성화 설정
+        setButtonState() {
+            let _this = this;
+
+            if (this.selectedPk) {
+                $('#btnEdit').removeAttr('disabled');
+                $('#btnViewer').removeAttr('disabled');
+                $('#btnDel').removeAttr('disabled');
+            } else {
+                $('#btnEdit').attr('disabled', 'disabled');
+                $('#btnViewer').attr('disabled', 'disabled');
+                $('#btnDel').attr('disabled', 'disabled');
+            }
+        }
+
+        // HMI양식 목록 조회
+        searchMainData() {
+            let _this = this;
+            let param = {
+                'keyword': $('#keyword').val()
+            }
+
+            let result = AjaxUtil.getSyncData(this.baseUrl + '/read', param);
+            if (result != null) {
+                let recordsTotal = result.data.length;
+                this.grid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            }
+
+            this.setButtonState();
+        }
+
+        // 편집 페이지로 전환
+        showHmiEditPage(_action) {
+            var pk = '';
+
+            if (_action != 'new') {
+                pk = this.grid.getList('selected')[0].id;
+            }
+
+            let url = '';
+            if (_action == 'viewer') {
+				url = '/gui/' + gui.gui_code + '/detail?action=' + _action + '&pk=' + pk;
+            } else {
+				url = '/gui/' + gui.gui_code + '/edit?action=' + _action + '&pk=' + pk;
+            }
+            location.href = url;
+        }
+    }
+
+    let page = null;
+
+    $(document.body).ready(function (e) {
+        page = new HmiPage();
+        page.searchMainData();
+
+        // 검색버튼
+        $('#btnSearch').click(function (e) {
+            page.searchMainData();
+        });
+
+        // 신규버튼
+        $('#btnNew').click(function (e) {
+            page.showHmiEditPage('new');
+        });
+
+        // 뷰어버튼
+        $('#btnViewer').click(function (e) {
+            page.showHmiEditPage('viewer');
+        });
+
+        // 수정버튼
+        $('#btnEdit').click(function (e) {
+            page.showHmiEditPage('edit');
+        });
+
+        // 삭제버튼
+        $('#btnDel').click(function (e) {
+            page.showHmiEditPage('delete');
+        });
+
+        // 엑셀 다운로드
+        $('#btnExcel').click(function (e) {
+            page.grid.exportExcel('HMI양식정보.xls');
+        });
+
+    });
+
+</script>
+</th:block>
+</html>

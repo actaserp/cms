@@ -1,0 +1,191 @@
+<th:block th:fragment="popup_acccd">
+  <script type="text/x-tmpl" id="popup_AccountCodeSelect">
+
+    <div class="content_wrap popup">
+
+        <section class="section" style="padding-top: 10px;">
+            <div class="section-top">
+                <div class="search-wrap" style="text-align: left;">
+                    <dl>
+                        <dt>
+                            <label for="acccd">
+                                계정코드<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" id="acccd" name="acccd" style="width:160px;" placeholder="계정코드"/>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            <label for="accnm">
+                                계정명<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input class="form-control2" type="text" id="accnm" name="accnm" style="width:240px;" placeholder="계정명"/>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnCompSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+                <div class="container-fluid">
+                    <div id="AccountGrid" style="height: 300px;"></div>
+                </div>
+            </div>
+
+        </section>
+
+
+            <div class="popup-button">
+                <button type="button" class="btn-popup" id="btnCompSelect" ><span data-commonCd="선택">선택</span></button>
+                <button type="button" class="btn-popup" id="btn-search-close"><span data-commonCd="닫기">닫기</span></button>
+            </div>
+
+
+    </div>
+  </script>
+
+  <script type="text/javascript">
+
+    class PopAccountCodeComponent {
+      constructor() {
+
+        this.grid = null;
+        this.viewData = new wijmo.collections.CollectionView();
+        this.selectedItem = null;
+        this.callback = null;
+        this.modalContainer = new PopupDraggable('계좌 선택');
+        this.$btnCompSearch = null;
+        this.$btnCompSelect = null;
+        this.$acccd = null;
+        this.$accnm = null;
+
+      }
+
+      searchDataBind() {
+        let _this = this;
+        let url = '/api/popup/search_AccountCode';
+        let data = {
+          'acccd': _this.$acccd.val(),
+          'accnm': _this.$accnm.val(),
+        };
+
+        let result = AjaxUtil.getSyncData(url, data);
+
+        if (result && Array.isArray(result.data)) {
+          _this.viewData.sourceCollection = result.data;
+        } else {
+          _this.viewData.sourceCollection = [];
+        }
+
+        this.selectedItem = null;
+      }
+
+      selectData(item) {
+        if (typeof this.callback !== 'undefined' && this.callback != null) {
+          this.callback(item);
+        }
+        this.close();
+      }
+
+      show(callback) {
+        let _this = this;
+
+        this.callback = callback;
+
+        let content = tmpl('popup_AccountCodeSelect', {});
+        let $content = $(content);
+        this.modalContainer.open({ width: 800, height: 500, $content });
+
+        this.grid = new wijmo.grid.FlexGrid('#AccountGrid', {
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          columns: [
+            { binding: 'acccd', header: '계정코드', width: '*', align: 'center' },
+            { binding: 'accnm', header: '계정코드명', width: '*', align: 'center' },
+          ],
+          itemsSource: this.viewData,
+        });
+        this.grid.rowHeaders.columns.splice(0, 1);
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '계정코드 리스트';
+
+        this.$btnCompSearch = $content.find('#btnCompSearch');
+        this.$acccd = $content.find('#acccd');
+        this.$accnm = $content.find('#accnm');
+        this.$btnCompSelect = $content.find('#btnCompSelect');
+
+        // 엔터키로 검색
+        this.$acccd.on('keypress', function (e) {
+          if (e.keyCode === 13) {
+            _this.searchDataBind();
+          }
+        });
+
+        this.$accnm.on('keypress', function (e) {
+          if (e.keyCode === 13) {
+            _this.searchDataBind();
+          }
+        });
+
+
+        this.$btnCompSearch.click(function (e) {
+          _this.searchDataBind();
+        });
+
+        $('#btnCompSearch').click();
+
+
+        this.$btnCompSelect.click(function (e) {
+          // 그리드에서 현재 선택된 item을 찾아서 호출한다.
+          let items = _this.grid.selectedItems;
+          if (items.length === 0) {
+            return false;
+          }
+          _this.selectData(items[0]);
+        });
+
+
+        //닫기버튼을 아래 ID로 사용한다면 호출하는 화면에서 이벤트 처리 필요없음
+        $content.find('#btn-search-close').on('click', function () {
+          _this.close();
+        });
+
+        //새로고침
+        // $('#btnTest').click(function (e) {
+        //     _this.grid.collectionView.refresh(); // Wijmo 그리드 새로고침
+        // });
+
+        this.grid.hostElement.addEventListener('dblclick', function (e) {
+          let items = _this.grid.selectedItems;
+          if (items.length === 0) {
+            return false;
+          }
+          _this.selectData(items[0]); // btnCompSelect 클릭과 동일한 동작
+        });
+      }
+
+      close() {
+        this.modalContainer.close();
+      }
+    }
+
+  </script>

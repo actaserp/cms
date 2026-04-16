@@ -1,0 +1,523 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .select2-container--open {
+            z-index: 9001;
+        }
+
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>비가동 내역</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>설비 관리</li>
+                <li>비가동 내역</li>
+            </ul>
+        </div>
+        <form id="searchForm" autocomplete="off">
+            <section class="section">
+                <div class="section-top">
+                    <div class="search-wrap">
+
+                        <dl>
+                            <dt>
+                                <label>
+                                    비가동일
+                                </label>
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <input type="date" id="srchStartDt" name="srchStartDt">
+                                        <label for="srchStartDt" class="hide">시작일</label>
+                                    </li>
+                                    <li>
+                                        <input type="date" id="srchEndDt" name="srchEndDt">
+                                        <label for="srchEndDt" class="hide">종료일</label>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>
+                                    설비명<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="cboEquipment" name="cboEquipment">
+
+                                    </select>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+
+                    </div>
+                    <div class="button-wrap">
+                        <ul>
+                            <li>
+                                <a class="btn btn-excell" title="신규" id="btnAdd">
+                                    <img th:src="@{/images/icon/ico-plus.svg}" alt="신규 아이콘">
+                                    신규
+                                </a>
+                            </li>
+                            <li>
+                                <a class="btn btn-delete" title="삭제" id="btnDel">
+                                    <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                    삭제
+                                </a>
+                            </li>
+                            <li>
+                                <a class="btn btn-edit" title="저장" id="btnEdit">
+                                    <img th:src="@{/images/icon/ico-edit.svg}" alt="저장 아이콘">
+                                    수정
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <div id="theGrid" style="height: 700px;"></div>
+
+                </div>
+
+                <!--        <div class="grid_box">-->
+
+                <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
+                <!--        </div>-->
+            </section>
+        </form>
+
+    </div>
+
+
+    <script type="text/x-tmpl" id="addDataPopup">
+        <div class="content_wrap popup" id="div_excel_upload">
+        <form id="equipmentStopForm">
+            <div class="table-wrap">
+                <table class="write-table">
+                    <input type="hidden" id="id" name="id" value="">
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="start_date">시작일</label>
+                            </th>
+                            <td>
+                                <input type="date" id="start_date" name="start_date">
+                            </td>
+                            <th style="text-align: center">
+                                <label for="DueDate">시작시간</label>
+                            </th>
+                            <td>
+                                <input type="text" id="StartTime" name="StartTime">
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="end_date">종료일</label>
+                            </th>
+                            <td>
+                                <input type="date" id="end_date" name="end_date">
+                            </td>
+                            <th style="text-align: center">
+                                <label for="EndTime">종료시간</label>
+                            </th>
+                            <td>
+                                <input type="text" id="EndTime" name="EndTime">
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="end_date">설비</label>
+                            </th>
+                            <td>
+                               <select id="Equipment_id" name="Equipment_id" ></select>
+                            </td>
+                            <th style="text-align: center">
+                                <label for="RunState">비가동유형</label>
+                            </th>
+                            <td>
+                                <select id="StopCause_id" name="StopCause_id" ></select>
+                            </td>
+                        </tr>
+
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="description">비고</label>
+                            </th>
+                            <td colspan="3">
+                                <textarea id="Description" name="Description"></textarea>
+                                <input type="hidden" id="RunState" name="RunState" value="stop"/>
+                            </td>
+                        </tr>
+
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="popup-button">
+
+                    <button type="button" class="btn-popup y_write_auth" id="btnSave">저장</button>
+                    <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+
+            </div>
+            </form>
+
+        </div>
+    </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <script type="text/javascript">
+        class mainPage {
+            constructor() {
+                this.grid = null;
+                this.baseUrl = '/api/production/equipment_run_chart';
+                 this.options = null;
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+
+
+            }
+
+            init() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+                        {binding: 'Name', header: '설비', width: '*', align : 'left'},
+                        {binding: 'start_date', header: '시작일자', width: '*', align: 'center'},
+                        {binding: 'StartTime', header: '시작시간', width: '*', align: 'left'},
+                        {binding: 'end_date', header: '종료일자', width: '*', align: 'center'},
+                        {binding: 'EndTime', header: '종료시간', width: '*', align: 'center'},
+                        {binding: 'GapTime', header: '소요시간(분)', width: '*', align: 'center'},
+                        {binding: 'StopCauseName', header: '비가동유형', width: '*', align: 'center'},
+                        {binding: 'Description', header: '비고', width: '*', align: 'left'},
+                    ],
+                    itemsSource: this.viewData,
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '비가동 내역';
+                this.grid.hostElement.addEventListener('dblclick', (e) => {
+                    let hitTest = this.grid.hitTest(e);
+                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                        let row = hitTest.row;
+                        let item = this.grid.rows[row].dataItem;
+                        console.log('zz', item.id);
+
+
+                        //$("#stop_cause_name").val(item.stop_cause_name);
+                        //$("#description").val(item.description);
+                    }
+                });
+                AjaxUtil.fillSelectOptions($('#cboEquipment'), 'equipment', 'all', false);
+
+            }
+
+            searchMainData() {
+                let _this = this;
+                let srchStartDt = $('#srchStartDt').val();
+                let srchEndDt = $('#srchEndDt').val();
+                let cboEquipment = $('#cboEquipment').val();
+                let url = '/api/production/equipment_stop_history';
+                let param = {
+                    'action' : 'read',
+                    'date_from' : srchStartDt,
+                    'date_to' : srchEndDt,
+                    'equipment' : cboEquipment,
+                };
+
+                let result = AjaxUtil.getSyncData(url + '/read', param);
+                if (result.data != null) {
+                    _this.viewData.sourceCollection = result.data;
+                }
+            }
+
+            showDataBind() {
+                let id = this.grid.selectedItems.length > 0 ? this.grid.selectedItems[0].id : null;
+                //let $form = $('#equipmentStopForm');
+                //let id = $form.find('#id').val();
+                if (id) {
+                    page.addDataBind(id, true);
+                }
+                else {
+                    Alert.alert('', '비가동 내역을 선택하세요.');
+                }
+            }
+
+            editDataBind() {
+                let id = this.grid.selectedItems.length > 0 ? this.grid.selectedItems[0].id : null;
+                //let $form = $('#equipmentStopForm');
+                //let id = $form.find('#id').val();
+                if (id) {
+                    page.addDataBind(id, false);
+                }
+                else {
+                    Alert.alert('', '비가동 내역을 선택하세요.');
+                }
+            }
+
+            delDataBind() {
+                let id = this.grid.selectedItems.length > 0 ? this.grid.selectedItems[0].id : null;
+                //let $form = $('#equipmentStopForm');
+                //let id = $form.find('#id').val();
+                if (!id) {
+                    return;
+                }
+
+                let url = '/api/production/equipment_stop_history/delData';
+
+                let param = {
+                    id : id,
+                };
+
+                let fnSuccess = function (res) {
+                    if (!res.success) {
+                        Alert.alert('', res.message);
+                    } else {
+                        Notify.success('삭제되었습니다');
+                        page.searchMainData();
+                    }
+                };
+
+                Alert.confirm('', '해당내역을 삭제하시겠습니까?',
+                    function () {
+                        AjaxUtil.postAsyncData(url, param, fnSuccess);
+                    },
+                    function () { }
+                )
+
+            }
+
+            addDataBind(id, chkDisabled) {
+                let _this = this;
+                let content = tmpl('addDataPopup', {});
+                let $content = $(content);
+                let form = $('#equipmentStopForm');
+
+                modalContainer = new PopupDraggable('비가동 내역');
+                modalContainer.open({ width: 980, height: 490, $content });
+                $('#srchDtPopup').ax5DatePicker({ direction: 'top' });
+                popup = new equipmentStopPopup();
+
+                let $Equipment_id = $content.find('#Equipment_id');
+                let $StopCause_id = $content.find('#StopCause_id');
+
+                AjaxUtil.fillSelectOptions($Equipment_id, 'equipment', 'choose',  false);
+                AjaxUtil.fillSelectOptions($StopCause_id, 'stop_cause', 'choose', false);
+                $content.find('#Equipment_id').change(function () {
+                    let equip_pk = $Equipment_id.val();
+                    if (equip_pk) {
+                        AjaxUtil.fillSelectOptions($StopCause_id, 'stop_cause', 'choose', '', 'equipment', equip_pk);
+                    }
+                });
+
+                if (chkDisabled) {
+                    $content.find('input, select, textarea, #btnSave').prop('disabled', chkDisabled);
+                    $content.find('.input-group-addon').hide();
+                }
+                if (!chkDisabled) {
+                    $content.find('input, select, textarea').prop('disabled', chkDisabled);
+                }
+
+                $('#srchStartDtPopup').ax5DatePicker({ direction: 'top' });
+                $('#srchEndDtPopup').ax5DatePicker({ direction: 'top' });
+
+                $content.find('#start_date').val(CommonUtil.getYYYYMMDD());
+                $content.find('#end_date').val(CommonUtil.getYYYYMMDD());
+
+                $content.find('#StartTime').timepicker({
+                    show2400: true,
+                    timeFormat: 'H:i',
+                }).val('09:00');
+                $content.find('#EndTime').timepicker({
+                    show2400: true,
+                    timeFormat: 'H:i'
+                }).val('18:00');
+
+                $content.find('#btnSave').on('click', function () {
+                    popup.saveData(form, modalContainer.modal);
+                });
+
+                if (id) {
+                    $content.find('#id').val(id);
+                    popup.fillData(id);
+                }
+            }
+
+        }
+
+        class equipmentStopPopup {
+            constructor() {
+                this.grid = null;
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+            }
+
+            fillData(id) {
+                let url = '/api/production/equipment_stop_history';
+                let param = {
+                    action: 'detail',
+                    id: id,
+                };
+
+                let result = AjaxUtil.getSyncData(url + '/detail', param);
+                if (result.data != null) {
+                    $("#start_date").val(result.data.start_date);
+                    $("#end_date").val(result.data.end_date);
+                    $('#Equipment_id').val(result.data.Equipment_id);
+                    $('#Equipment_id').trigger('change');
+                    $('#StartTime').val(result.data.StartTime);
+                    $('#EndTime').val(result.data.EndTime);
+                    $('#Description').val(result.data.Description);
+                    $('#StopCause_id').val(result.data.StopCause_id);
+                }
+            }
+
+            saveData(form, modal) {
+                let _this = this;
+
+                let url = '/api/production/equipment_stop_history/addData';
+                let data = FormUtil.extractForm($('#equipmentStopForm'));
+
+                // valid chcek
+                if (!data.start_date || !data.end_date || !data.StartTime || !data.EndTime) {
+                    Alert.alert('', '일자와 시간을 입력해주세요.');
+                    return;
+                } else if (!data.Equipment_id) {
+                    Alert.alert('', '설비를 선택해주세요.');
+                    return;
+                } else if (!data.RunState) {
+                    Alert.alert('', '상태를 선택해주세요.');
+                    return;
+                }
+
+                // 비가동 유형 필수 선택?
+                //if (data.RunState == 'X') {
+                //    if (!data.StopCause_id) {
+                //        Alert.alert('', '비가동유형을 선택해주세요.');
+                //        return;
+                //    }
+                //}
+
+                let startDateTime = Date.parse(data.start_date + ' ' + data.StartTime);
+                let endDateTime = Date.parse(data.end_date + ' ' + data.EndTime);
+
+                if (startDateTime > endDateTime) {
+                    Alert.alert('', '시작/종료일을 확인해주세요.');
+                    return;
+                }
+
+                let result = AjaxUtil.postSyncData(url, data);
+                if (result.data != null) {
+                    Notify.success('저장되었습니다');
+                    page.searchMainData();
+                    modal.close();
+                }
+            }
+        }
+
+
+        let page = null;
+        let popup = null;
+        let modalContainer = null;
+
+        $(document.body).ready(function (e) {
+            page = new mainPage();
+            picker.bind({
+                target: $('[data-ax5picker="multi"]'),
+                direction: "top",
+                locale: {
+                    format: 'YYYY-MM-DD'
+                },
+                content: {
+                    width:  214,  // 130, //270,
+                    margin: 10,
+                    type: 'date',
+
+                    config: {
+                        control: {
+                            left: '<i class="fa fa-arrow-left"></i>',   //fa-chevron-left
+                            yearTmpl: '%s',
+                            monthTmpl: '%s',
+                            right: '<i class="fa fa-arrow-right"></i>'
+                        },
+                        lang: {
+                            yearTmpl: "%s년",
+                            months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                            dayTmpl: "%s"
+                        }
+                    }
+                },
+                btns: {
+                    /*ok: {
+                        label: "조회", theme: "default", onClick: function () {
+                            this.self.close();
+                            page.searchDataBind();
+
+
+                        }
+                    }*/
+                },
+                onStateChanged: function () {
+
+                }
+            });
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-1));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            // 검색
+            $('#btnSearch').click(function (e) { page.searchMainData(); });
+            // 추가
+            $('#btnAdd').click(function (e) { page.addDataBind(); });
+            // 보기
+            $('#btnShow').click(function (e) { page.showDataBind(); });
+            // 변경
+            $('#btnEdit').click(function (e) { page.editDataBind(); });
+            // 삭제
+            $('#btnDel').click(function (e) { page.delDataBind(); });
+
+            page.searchMainData();
+
+        });
+
+    </script>
+</th:block>
+</html>

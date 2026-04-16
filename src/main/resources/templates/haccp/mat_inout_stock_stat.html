@@ -1,0 +1,249 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>입출고 및 재고 점검표</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>선행요건일지</li>
+                <li>입출고 및 재고 점검표</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <form id="searchForm">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                일자
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <input type="date" id="srchStartDt" name="srchStartDt">
+                                        <label for="srchStartDt" class="hide">시작일</label>
+                                    </li>
+                                    <li>
+                                        <input type="date" id="srchEndDt" name="srchEndDt">
+                                        <label for="srchEndDt" class="hide">종료일</label>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </form>
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <a class="btn" title="등록" id="btnAdd">
+                                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                등록
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="mat_inout_stock_grid" style="height: 730px;"></div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+
+<th:block layout:fragment="scripts">
+<script type="text/javascript" src="/js/grid.js?ver=22080801"></script>
+<th:block th:replace="/common/approve_box :: approve_box" ></th:block>
+
+<script type="text/javascript">
+
+    class MatInoutStockPage {
+        constructor() {
+            this.grid = null;
+			this.url = '/api/haccp/mat_inout_stock';
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+
+            this.grid = new wijmo.grid.FlexGrid('#mat_inout_stock_grid', {
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                autoGenerateColumns: false, // 사용자 정의 컬럼 사용
+                headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                isReadOnly: false, // 편집 가능 여부
+                itemsSource: new wijmo.collections.CollectionView([]),
+                formatItem: (s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                    }
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        const col = s.columns[e.col];
+                        const item = e.panel.rows[e.row].dataItem;
+
+                        // 결재현황 (LineName) 처리
+                        if (col.binding === 'LineName') {
+                            e.cell.innerHTML = CommonUtil.convertApprLineNameHtml(item.LineName, item.LineNameState);
+                        }
+
+                        // SearchYN 버튼 처리
+                        if (col.binding === 'SearchYN') {
+                            if (item.SearchYN === 'Y') {
+                                e.cell.innerHTML = ''; // 기존 셀 콘텐츠 제거
+                                const button = document.createElement('button');
+                                button.className = 'btn-default';
+                                button.style.cssText = 'width: 100%; height: 25px;';
+                                button.textContent = '조회';
+                                button.addEventListener('click', () => {
+                                    _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                    _this.detail({item, column: {key: 'SearchYN'}});
+                                });
+                                e.cell.appendChild(button);
+                            } else {
+                                // 해당 셀을 빈 셀로 유지
+                                e.cell.innerHTML = ''; // 셀 비우기
+                            }
+                        }
+
+                        // EditYN 버튼 처리
+                        if (col.binding === 'EditYN') {
+                            if (item.EditYN === 'Y') {
+                                e.cell.innerHTML = '';
+                                const button = document.createElement('button');
+                                button.className = 'btn-default';
+                                button.style.cssText = 'width: 100%; height: 25px;';
+                                button.textContent = '수정';
+                                button.addEventListener('click', () => {
+                                    _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                    _this.detail({item, column: {key: 'EditYN'}});
+                                });
+                                e.cell.appendChild(button);
+                            } else {
+                                // 해당 셀을 빈 셀로 유지
+                                e.cell.innerHTML = ''; // 셀 비우기
+                            }
+                        }
+
+                        // DeleteYN 버튼 처리
+                        if (col.binding === 'DeleteYN') {
+                            if (item.DeleteYN === 'Y') {
+                                e.cell.innerHTML = '';
+                                const button = document.createElement('button');
+                                button.className = 'btn-danger';
+                                button.style.cssText = 'width: 100%; height: 25px;';
+                                button.textContent = '삭제';
+                                button.addEventListener('click', () => {
+                                    _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                    _this.detail({item, column: {key: 'DeleteYN'}});
+                                });
+                                e.cell.appendChild(button);
+                            } else {
+                                // 해당 셀을 빈 셀로 유지
+                                e.cell.innerHTML = ''; // 셀 비우기
+                            }
+                        }
+                    }
+                },
+                columns: [
+                    {binding: 'Title', header: '일지명', width: 350, isReadOnly: true, align: 'center'},
+                    {binding: 'StateName', header: '결재상태', width: 100, align: 'center', isReadOnly: true},
+                    {binding: 'LineName', header: '결재현황', width: 650, isReadOnly: true, align: 'left'},
+                    {binding: 'DataDate', header: '일자', width: 150, isReadOnly: true, align: 'center'},
+                    { binding: 'SearchYN', header: '조회', width: 80, align: 'center' },
+                    { binding: 'EditYN', header: '수정', width: 80, align: 'center' },
+                    { binding: 'DeleteYN', header: '삭제', width: 80, align: 'center' }
+                ]
+            });
+            new FlexGridContextMenu(this.grid);
+            this.grid.downloadFileName = '입출고 및 재고 점검표';
+
+        }
+                             
+        searchMainData() {
+            let _this = this;
+            let param = {
+                'action': 'read',
+                'start_date': $('#srchStartDt').val(),
+                'end_date': $('#srchEndDt').val(),
+            };
+
+            let result = AjaxUtil.getSyncData(_this.url + '/read_list', param);            
+            if (result.data != null) {
+                this.grid.itemsSource = result.data;
+            }
+        }
+        detail(data) {
+            let _this = this;
+            let detail_item = _this.grid.selectedItems[0];
+            if (data.column.key === 'SearchYN') {
+                location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + data.item.id + '&data_date=' + data.item.DataDate + '&view_mode=true&creater_name=' + detail_item.creater_name;
+			} else if (data.column.key === 'EditYN') {
+                location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + data.item.id + '&data_date=' + data.item.DataDate +  '&creater_name=' + detail_item.creater_name;
+			} else if (data.column.key === 'DeleteYN') {
+				Alert.confirm('', '삭제하시겠습니까?', function () {					
+					let param = {
+						bh_id: data.item.id,
+					}
+					let fnSuccess = function (resp) {
+						if (resp.success) {
+							Notify.success('삭제하였습니다.');
+							_this.searchMainData();
+						} else {
+							Alert.alert('', resp.message);
+						}
+					};
+					AjaxUtil.postAsyncData(_this.url + '/mst_delete', param, fnSuccess);
+				});
+			}
+        }
+
+		//  등록버튼 클릭 시
+        add() {
+            location.href = '/gui/' + gui.gui_code + '/edit?bh_id=0'        
+		}
+          
+    }    
+
+    let page = null;
+    let popup = null;
+    let modalContainer = null;
+
+    $(document).ready(function (e) {
+        page = new MatInoutStockPage();
+
+        $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-15));
+        $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+        //검색 기능
+        $('#btnSearch').click(function (e) {            
+            page.searchMainData();
+        });
+
+        $('#btnAdd').click(function (e) {
+            page.add();
+        });        
+
+        page.searchMainData();
+    });
+
+</script>
+</th:block>
+</html>

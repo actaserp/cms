@@ -1,0 +1,1916 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+    <style>
+        .button-list {
+            display: flex;
+            justify-content: flex-end; /* 버튼들을 오른쪽으로 정렬 */
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            gap: 10px; /* 버튼 간 간격 조정 */
+        }
+
+        .button-list li {
+            margin: 0;
+            padding: 0;
+        }
+
+        .button-wrap {
+            margin-left: auto; /* 버튼들을 오른쪽 끝으로 */
+        }
+
+        .button-wrap ul {
+            display: flex;
+            gap: 10px; /* 버튼 간격 */
+            padding: 0;
+            margin: 0;
+            list-style: none;
+        }
+
+        #getPersonId {
+            color: white !important;
+        }
+
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>거래처 정보</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>거래처정보</li>
+            </ul>
+        </div>
+        <div style="display: flex; gap: 5px">
+            <section class="section" style="width: 50%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>업체구분</label>
+                            </dt>
+                            <dd>
+                                <select class="form-control2" id="cboCompanyType" name="cboCompanyType"></select>
+                            </dd>
+                        </dl>
+                        <!--<dl>
+                            <dt>
+                                <label>분류</label>
+                            </dt>
+                            <dd>
+                                <select class="form-control2" id="cboGroupName" name="cboGroupName"></select>
+                            </dd>
+                        </dl>-->
+                        <dl>
+                            <dt>
+                                <label>업체명</label>
+                            </dt>
+                            <dd>
+                                <input type="text" class="form-control2" id="txtCompany" name="txtCompany">
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <!--<div class="grid_box">
+                    <div class="h-350" data-ax5grid="company-grid"></div>
+                </div>-->
+                <div class="container-fluid">
+                    <div id="theGrid"></div>
+                </div>
+            </section>
+
+            <section style="width: 50%;">
+                <div class="tab-wrap">
+                    <ul class="tab-links">
+                        <li><a href="#tabs_basic_tab" id="tabs_basic">기본정보</a></li>
+                        <li><a href="#tabs_manage_tab" id="tabs_manage">관리정보</a></li>
+                        <li><a href="#tabs_price_tab" id="tabs_unitcost">품목단가</a></li>
+                        <div class="button-wrap button-list">
+                            <ul>
+                                <li>
+                                    <button type="button" class="btn-excellt btn-default " id="btnNew" name="btnNew"
+                                            style="width: 115px; height: 36px;">
+                                        <i class="fas fa-plus"></i>신규등록
+                                    </button>
+                                </li>
+
+                                <li>
+                                    <button type="button" class="btn-delete btn-danger" id="btnDelete"
+                                            style="width: 115px; height: 36px;">
+                                        <i class="fas fa-trash"></i>삭제
+                                    </button>
+                                </li>
+
+                                <li>
+                                    <button disabled type="button" class="btn-excellt btn-defaul" id="btnSave"
+                                            style="width: 115px; height: 36px;">
+                                        <i class="fas fa-save"></i>저장
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </ul>
+                    <div>
+                        <section class="tab-item" id="tabs_basic_tab" style="border-top-left-radius: 0;">
+                            <div>
+                                <form id="basicForm">
+                                    <table class="write-table">
+                                        <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+                                        <input type="hidden" id="id" name="id" readonly>
+                                        <tbody>
+                                        <tr>
+                                            <th>
+                                                <label for="company_type"><span class="eq">*</span>업체구분</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <select id="company_type" name="company_type"
+                                                        style="width: 100%;"></select>
+                                            </td>
+
+                                            <th>
+                                                <label for="comp_code"><span class="eq">*</span>업체코드</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" style="width: 100%;" id="comp_code"
+                                                       name="comp_code">
+                                            </td>
+
+
+                                        </tr>
+
+                                        <tr>
+                                            <th>
+                                                <label for="name"><span class="eq">*</span>업체명</label>
+                                            </th>
+                                            <td  colspan="2">
+                                                <input type="text" id="name" name="name"
+                                                       style="width: 100%;">
+                                            </td>
+
+                                            <th>
+                                                <label for="eng_name">영문명</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" style="width: 100%;" id="eng_name"
+                                                       name="eng_name">
+                                            </td>
+
+                                        </tr>
+                                        <tr>
+                                            <th>
+                                                <label for="ceo_name">대표자</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" style="width: 100%;" id="ceo_name"
+                                                       name="ceo_name">
+                                            </td>
+
+                                            <th>
+                                                <label for="business_number"><span class="eq">*</span>사업자번호</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" style="width: 100%;" id="business_number" class="biz-number"
+                                                       name="business_number" maxlength="15" oninput="formatNumber(this)">
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                            <th>
+                                                <label for="business_type">업태</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" style="width: 100%;" id="business_type"
+                                                       name="business_type">
+                                            </td>
+
+                                            <th>
+                                                <label for="business_item">종목</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" id="business_item" name="business_item"
+                                                       style="width: 100%;">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>
+                                                <label for="comp_code2">법인번호</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" style="width: 100%;" id="comp_code2"
+                                                       name="comp_code2">
+                                            </td>
+
+                                            <th>
+                                                <label for="tel_number">연락처</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" id="tel_number" name="tel_number" class="phone-format"
+                                                       style="width: 100%;">
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                            <th>
+                                                <label for="fax_number">팩스</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" id="fax_number" name="fax_number"
+                                                       style="width: 100%;">
+                                            </td>
+
+                                            <th>
+                                                <label for="email">이메일</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" style="width: 100%;" id="email"
+                                                       name="email">
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <th>
+                                                <label for="zip_code">우편번호</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" style="width: 100%;" id="zip_code"
+                                                       name="zip_code" onclick="sample4_execDaumPostcode()" placeholder="우편번호">
+                                            </td>
+                                            <th>
+                                                <label for="homepage">홈페이지</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" style="width: 100%;" id="homepage"
+                                                       name="homepage">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>
+                                                <label for="address">주소</label>
+                                            </th>
+                                            <td colspan="4">
+                                                <input type="text" style="width: 100%;" id="address"
+                                                       name="address" >
+                                                <input type="hidden" id="placeAddress" placeholder="지번주소">
+                                                <span id="guide" style="color:#999;display:none"></span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>
+                                                <label for="CorporateNumber">법인번호</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" id="CorporateNumber" name="CorporateNumber"
+                                                       style="width: 100%;">
+                                            </td>
+                                            <th>
+                                                <label for="PrintTradingName">인쇄거래처명</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="text" style="width: 100%;" id="PrintTradingName"
+                                                       name="PrintTradingName">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>
+                                                <label for="IsPersonal">개인사업자여부</label>
+                                            </th>
+                                            <td style="text-align: center;" colspan="2">
+                                                <input type="checkbox" id="IsPersonal" name="IsPersonal" value="1" style="display: block; margin: auto; height: 26px; width: 26px;">
+                                            </td>
+                                            <th>
+                                                <label for="relyn">거래중지여부</label>
+                                            </th>
+                                            <td style="text-align: center;">
+                                                <input type="checkbox" id="relyn" name="relyn" value="1" style="display: block; margin: auto; height: 26px; width: 26px;">
+                                            </td>
+                                        </tr>
+                                       <tr>
+                                           <th>
+                                                <label for="description">설명</label>
+                                            </th>
+                                            <td colspan="4">
+                                                <input type="text" id="description" name="description"
+                                                       style="width: 100%;">
+                                              <!--<textarea id="description" name="description"></textarea>-->
+                                            </td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </form>
+                            </div>
+                        </section>
+
+
+                        <!--section 2-->
+                        <section class="tab-item" id="tabs_manage_tab" style="border-top-left-radius: 0;">
+                            <div>
+                                <form id="manageForm">
+                                    <table class="write-table">
+                                        <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+                                        <col class="wp12">
+                                        <col class="wp20">
+                                        <col class="wp15">
+                                        <col class="wp18">
+                                        <tbody>
+                                        <tr>
+                                            <th>
+                                                <label for="our_manager">자사담당자</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="our_manager" name="our_manager"
+                                                       style="width: 56%;">
+                                                <a class="btn btn-navy" title="자료가져오기" id="getPersonId">직원등록</a>
+                                            </td>
+
+                                            <th>
+                                                <label for="sales_manager">영업담당자</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="sales_manager" name="sales_manager"
+                                                       style="width: 100%;">
+                                            </td>
+
+
+                                        </tr>
+
+                                        <tr>
+                                            <th>
+                                                <label for="sales_manager_phone">영업담당자<br>연락처</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" style="width: 100%;" id="sales_manager_phone" class="phone-format"
+                                                       name="sales_manager_phone">
+                                            </td>
+                                            <th>
+                                                <label for="account_manager">계산서담당자</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" style="width: 100%;" id="account_manager"
+                                                       name="account_manager">
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                            <th>
+                                                <label for="account_manager_phone">계산서담당자<br>연락처</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="account_manager_phone" name="account_manager_phone" class="phone-format"
+                                                       style="width: 100%;">
+                                            </td>
+
+                                            <th>
+                                                <label for="invoiceEmail">계산서담당자<br>이메일</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="invoiceEmail" name="invoiceEmail"
+                                                       style="width: 100%;">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>
+                                                <label for="first_trading_day">거래개시일</label>
+                                            </th>
+                                            <td>
+                                                <input type="date" style="width: 100%; min-width: 100%;" id="first_trading_day"
+                                                       name="first_trading_day">
+                                            </td>
+
+                                            <th>
+                                                <label for="purchase_sales_deadline">매입매출마감일</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" style="width: 100%;" id="purchase_sales_deadline"
+                                                       name="purchase_sales_deadline">
+                                            </td>
+
+
+                                        </tr>
+
+                                        <tr>
+                                            <th>
+                                                <label for="last_trading_day">최종거래일</label>
+                                            </th>
+                                            <td>
+                                                <input type="date" id="last_trading_day" name="last_trading_day"
+                                                       style="width: 100%; min-width: 100%;">
+                                            </td>
+                                            <th>
+                                                <label for="tranding_bank">거래은행</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" style="width: 100%;" id="tranding_bank"
+                                                       name="tranding_bank">
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                            <th>
+                                                <label for="account_holder">예금주</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="account_holder" name="account_holder"
+                                                       style="width: 100%;">
+                                            </td>
+
+                                            <th>
+                                                <label for="account_number">계좌번호</label>
+                                            </th>
+                                            <td>
+                                                <input type="text" id="account_number" name="account_number"
+                                                       style="width: 100%;">
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <th>
+                                                <label for="receivable_amount">미수금액</label>
+                                            </th>
+                                            <td>
+                                                <input type="number" style="width: 100%;" id="receivable_amount"
+                                                       name="receivable_amount" disabled>
+                                            </td>
+
+                                            <th>
+                                                <label for="unpaid_amount">미지급금액</label>
+                                            </th>
+                                            <td>
+                                                <input type="number" style="width: 100%;" id="unpaid_amount"
+                                                       name="unpaid_amount" disabled>
+                                            </td>
+
+                                        </tr>
+                                        <tr>
+                                            <th>
+                                                <label for="payment_condition">대금결제조건</label>
+                                            </th>
+                                            <td colspan="3">
+                                                <input type="text" style="width: 100%;" id="payment_condition"
+                                                       name="payment_condition">
+                                            </td>
+                                        </tr>
+                                        <tr>
+
+                                            <th>
+                                                <label for="manage_remark">관리비고</label>
+                                            </th>
+                                            <td colspan="3">
+                                                <input type="text" style="width: 100%;" id="manage_remark"
+                                                       name="manage_remark">
+                                            </td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </form>
+                            </div>
+                        </section>
+
+                        <!--section3-->
+
+                        <section class="tab-item" id="tabs_price_tab" style="border-top-left-radius: 0;">
+                            <div class="section-top">
+                                <div class="search-wrap">
+                                </div>
+                                <div class="button-wrap">
+                                    <!--<small2>*단가정보는 왼쪽 버튼을 통해 별도로 저장됩니다. 기존 이력을 남기려면 단가등록/변경 버튼을 누르시고 이력을 남기지 않으시려면 단가 수정 버튼을
+                                        누르십시오.
+                                    </small2>-->
+                                    <ul class="button-list">
+                                        <li>
+                                            <button type="button" class="btn-default" id="btnPriceHistory" style="width: 115px; height: 36px;"><span
+                                                    data-labelCd="히스토리조회">히스토리조회</span></button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="btn-default" id="btnNewPrice" style="width: 115px; height: 36px;"><span
+                                                    data-labelCd="신규">신규</span>
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="btn-default y_write_auth" id="btnSavePrice" style="width: 115px; height: 36px;"><span
+                                                    data-labelCd="단가등록/변경">단가등록/변경</span></button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="btn-danger y_write_auth" id="btnDeletePrice" style="width: 115px; height: 36px;"><span
+                                                    data-labelCd="단가삭제">단가삭제</span></button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="btn-default y_write_auth" id="btnUpdatePrice" style="width: 115px; height: 36px;"><span
+                                                    data-labelCd="단가수정">단가수정</span></button>
+                                        </li>
+                                    </ul>
+
+                                </div>
+                            </div>
+
+
+                            <div class="">
+                                <div class="section">
+                                    <form id="priceForm">
+                                        <table class="write-table">
+                                            <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+                                            <input type="text" id="price_id" name="price_id" hidden/>
+                                            <tbody>
+                                            <tr>
+                                                <th>
+                                                    <label for="name">구분</label>
+                                                </th>
+                                                <td>
+                                                    <select id="type" name="type" class="wp100">
+                                                        <option value="01">매입</option>
+                                                        <option value="02">매출</option>
+
+                                                    </select>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th>
+                                                    <label for="name">품목그룹</label>
+                                                </th>
+                                                <td>
+                                                    <select id="MaterialGroup_id" name="MaterialGroup_id" class="wp100"></select>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th>
+                                                    <label for="Material_id">품목명</label>
+                                                </th>
+                                                <td>
+                                                    <select id="Material_id" name="Material_id" class="wp100"></select>
+                                                </td>
+                                            </tr>
+
+                                            <tr>
+                                                <th>
+                                                    <label for="eng_name">변경단가</label>
+                                                </th>
+                                                <td>
+                                                    <input type="number" id="UnitPrice" name="UnitPrice" class="wp100">
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th>
+                                                    <label for="comp_code">적용시작일</label>
+                                                </th>
+                                                <td>
+                                                    <input type="date" id="ApplyStartDate" name="ApplyStartDate" class="wp100">
+                                                </td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </form>
+                                </div>
+                            </div>
+                            <div class="container-fluid" style="margin-top: 5px">
+                                <p id="selectedItem"></p>
+                                <div id="price_grid" style=""></div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script type="text/x-tmpl" id="CompanyTemplate">
+        <div class="content_wrap popup">
+            <!--<header>
+                <h4 id="popTitle">
+                {% if (o.id!='') { %}
+                  BOM 수정({%=o.Name%})
+                  {% } else { %}
+                  BOM 등록
+                  {% } %}
+                </h4>
+                <div class="popup_close_box"><button class="btn_popup_close" id="modal-close-x"><i class="fas fa-times"></i></button></div>
+            </header>-->
+
+            <div class="grid_box" style="margin-top: 10px;">
+                <div id="price-history-grid" style="height: 400px; max-height: 400px;"></div>
+           </div>
+
+        <div class="popup-button">
+          <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    </div>
+    </script>
+
+
+
+    <script type="text/x-tmpl" id="getPersonTemplate">
+        <div class="content_wrap popup">
+            <!--<header>
+                <h4 id="popTitle">
+                {% if (o.id!='') { %}
+                  BOM 수정({%=o.Name%})
+                  {% } else { %}
+                  BOM 등록
+                  {% } %}
+                </h4>
+                <div class="popup_close_box"><button class="btn_popup_close" id="modal-close-x"><i class="fas fa-times"></i></button></div>
+            </header>-->
+
+        <div class="table-wrap">
+                <table class="write-table">
+                    <caption>주문등록 테이블</caption>
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="searchCode">사번</label>
+                            </th>
+                            <td style="width:50px;">
+                                <input id="searchCode" name="searchCode" type="text" style="width:180px;" />
+                            </td>
+
+                            <th style="text-align: center">
+                                <label for="searchName">사원명</label>
+                            </th>
+                            <td style="width:50px;">
+                                 <input id="searchName" name="searchName" type="text"  style="width:180px;"/>
+                            </td>
+                            <td colspan="2" style="text-align: center;">
+                                <button type="button" class="btn-default" id="btnSubjectSearch" title="조회"><i class="fas fa-search"></i>검색</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="grid_box" style="margin-top: 10px;">
+                    <div id="person-grid" style="height: 300px; max-height: 300px;"></div>
+                </div>
+        </div>
+
+        <div class="popup-button">
+          <button type="button" class="btn-popup" id="btnAccountSave"><span data-labelCd="선택">선택</span></button>
+          <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+</div>
+    </script>
+
+
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+<!-- input format 파일 불러오기 (연락처, 팩스, 우편번호 등 포맷 추가)-->
+    <script th:src="@{/js/InputFormat.js}"></script>
+    <script type="text/javascript">
+        attachTelFormatterAll('.phone-format'); // 연락처 포맷 메서드
+        attachBizNumberFormatterAll('.biz-number'); // 사업자번호 포맷 메서드
+        let optionMap = {};
+
+        class CompanyPage {
+            constructor() {
+                this.grid1 = null;
+                this.price_grid = null;
+                this.optionVals = {};
+                this.url = '/api/definition/company'
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+                this.viewData4 = new wijmo.collections.CollectionView();
+                //this.setCboItem();
+                this.init();
+            }
+
+
+            init() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    frozenColumns: 3,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'comp_code', header: '업체코드', width: 90, align: 'center',},
+                        {binding: 'name', header: '업체명', width: 130, align: 'left'},
+                        {binding: 'company_type_name', header: '업체구분', width: 90, align: 'center',},
+                        {binding: 'business_number', header: '사업자번호', width: 150, align: 'left',},
+                        {binding: 'ceo_name', header: '대표자', width: 150, align: 'left',},
+                        {binding: 'tel_number', header: '연락처', width: 150, align: 'left',},
+                        {binding: 'email', header: '이메일', width: 150, align: 'left',},
+                        {binding: 'zip_code', header: '우편번호', width: 150, align: 'left',},
+                        {binding: 'address', header: '주소', width: 300, align: 'left',},
+                        {binding: 'relyn', header: '거래중지여부', width: 150, align: 'center',},
+                        {binding: 'our_manager', header: '자사담당자', width: 150, align: 'left',},
+                        {binding: 'tranding_bank', header: '거래은행', width: 150, align: 'left',},
+                        {binding: 'account_holder', header: '예금주', width: 150, align: 'left',},
+                        {binding: 'account_number', header: '계좌번호', width: 200, align: 'left',},
+                        {binding: 'comp_code2', header: '법인번호', width: 150, align: 'center',},
+                        {binding: 'eng_name', header: '업체영문명', width: 120, align: 'left',},
+                        {binding: 'group_name', header: '분류', width: 150, align: 'left',},
+                        {binding: 'fax_number', header: '팩스', width: 150, align: 'left',},
+                        {binding: 'business_type', header: '업태', width: 150, align: 'left',},
+                        {binding: 'business_item', header: '종목', width: 150, align: 'left',},
+                        {binding: 'purchase_sales_deadline', header: '매입매출마감일', width: 150, align: 'center',},
+                        {binding: 'last_trading_day', header: '최종거래일', width: 150, align: 'center',},
+                        {binding: 'sales_manager', header: '영업담당자', width: 150, align: 'left',},
+                        {binding: 'sales_manager_phone', header: '영업담당자 연락처', width: 150, align: 'left',},
+                        {binding: 'account_manager', header: '경리담당자', width: 150, align: 'left',},
+                        {binding: 'account_manager_phone', header: '경리담당자 연락처', width: 150, align: 'left',},
+                        {binding: 'credit_limit_amount', header: '예신한도금액', width: 150, align: 'right',},
+                        {binding: 'payment_condition', header: '대금결제조건', width: 150, align: 'left',},
+                        {binding: 'description', header: '비고', width: 150, align: 'left',},
+                    ],
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+
+                });
+
+
+                this.grid.formatItem.addHandler((s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        let col = s.columns[e.col];
+                        let item = s.rows[e.row].dataItem;
+
+                        if (col.binding === "business_number" && item.business_number) {
+                            e.cell.textContent = formatBusinessNumber(item.business_number);
+                        }
+
+                        if (col.binding === "comp_code2" && item.comp_code2) {
+                            // 법인번호 형식 변환 (앞 6자리-뒤 7자리)
+                            let cc2 = item.comp_code2.replace(/(\d{6})(\d{7})/, "$1-$2");
+                            e.cell.textContent = cc2;
+                        }
+
+                        // 거래중지여부 (1 → 'Y', 0 또는 null → 'N')
+                        if (col.binding === "relyn") {
+                            e.cell.textContent = (item.relyn === 1 || item.relyn === '1') ? 'Y' : 'N';
+                        }
+                    }
+                });
+
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '업체 정보';
+
+                // 데이터 로드 후 초기 선택 상태 해제
+                this.grid.loadedRows.addHandler(() => {
+                    setTimeout(() => {
+                        this.grid.select(-1, -1); // 선택 상태 초기화
+                    }, 0); // 비동기로 처리하여 초기 선택 해제
+                });
+                this.grid.hostElement.addEventListener('dblclick', (e) => {
+                    let hitTest = this.grid.hitTest(e);
+                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                        let row = hitTest.row;
+                        let selectedItem = this.grid.rows[row].dataItem;
+
+                        // 상세 정보 보기
+                        _this.showDetail(selectedItem.id);
+
+                        // 가격 리스트 및 사업자번호 입력
+                        _this.showPriceList(selectedItem.id);
+                        setBusinessNumberToInput(selectedItem.business_number);
+
+                        // 입력폼 초기화, 버튼 상태 세팅
+                        $('#priceForm')[0].reset();
+                        page.setPriceButtonState();
+
+                        // company_type_name에 따른 select값 변경
+                        if (selectedItem.company_type_name === "매출처") {
+                            $("#type").val("02").change();
+                        } else if (selectedItem.company_type_name === "매입처") {
+                            $("#type").val("01").change();
+                        }
+                    }
+                });
+                function setBusinessNumberToInput(businessNumber) {
+                    const input = document.getElementById("business_number");
+                    input.value = businessNumber;
+                    formatNumber(input); // 포맷 적용
+                }
+
+
+                /*let config1 = {
+                    target: $('[data-ax5grid="company-grid"]'),
+                    /!*sortable: true,*!/
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: true, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 38  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            _this.grid1.select(this.dindex);
+                            _this.showDetail(e.item.id);
+                            _this.price_grid.setData([]);
+                            $('#priceForm')[0].reset();
+                            page.setPriceButtonState();
+
+                            if (_this.current_tab == 'tabs_unitcost') {
+                                let comp_id = $('#basicForm').find('#id').val();
+                                _this.showPriceList(comp_id);
+                            }
+                        }
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        {key: 'comp_code', label: '업체코드', width: 100, align: 'center',},
+                        {key: 'name', label: '업체명', width: 150, align: 'left'},
+                        {key: 'eng_name', label: '업체영문명', width: 100, align: 'left',},
+                        {key: 'comp_code2', label: '코드2', width: 100, align: 'center',},
+                        {key: 'company_type_name', label: '업체구분', width: 150, align: 'center',},
+                        {key: 'group_name', label: '분류', width: 150, align: 'left',},
+                        {key: 'business_number', label: '사업자번호', width: 150, align: 'left',},
+                        {key: 'description', label: '비고', width: 150, align: 'left',},
+                        {key: 'ceo_name', label: '대표자', width: 150, align: 'left',},
+                        {key: 'zip_code', label: '우편번호', width: 150, align: 'left',},
+                        {key: 'address', label: '주소', width: 150, align: 'left',},
+                        {key: 'tel_number', label: '연락처', width: 150, align: 'left',},
+                        {key: 'fax_number', label: '팩스', width: 150, align: 'left',},
+                        {key: 'business_type', label: '업태', width: 150, align: 'left',},
+                        {key: 'business_item', label: '종목', width: 150, align: 'left',},
+                        {key: 'email', label: '이메일', width: 150, align: 'left',},
+                        {key: 'purchase_sales_deadline', label: '매입매출마감일', width: 150, align: 'center',},
+                        {key: 'last_trading_day', label: '최종거래일', width: 150, align: 'center',},
+                        {key: 'our_manager', label: '자사담당자', width: 150, align: 'left',},
+                        {key: 'sales_manager', label: '영업담당자', width: 150, align: 'left',},
+                        {key: 'sales_manager_phone', label: '영업담당자 연락처', width: 150, align: 'left',},
+                        {key: 'account_manager', label: '경리담당자', width: 150, align: 'left',},
+                        {key: 'account_manager_phone', label: '경리담당자 연락처', width: 150, align: 'left',},
+                        {key: 'tranding_bank', label: '거래은행', width: 150, align: 'left',},
+                        {key: 'account_holder', label: '예금주', width: 150, align: 'left',},
+                        {key: 'account_number', label: '계좌번호', width: 150, align: 'left',},
+                        {key: 'credit_limit_amount', label: '예신한도금액', width: 150, align: 'right',},
+                        {key: 'payment_condition', label: '대금결제조건', width: 150, align: 'left',},
+                    ]
+                };*/
+
+
+                this.price_grid = new wijmo.grid.FlexGrid('#price_grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        // change_date 컬럼의 값을 변환
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            let col = sender.columns[e.col];
+                            if (col.binding === 'change_date') {
+                                let value = sender.getCellData(e.row, e.col, false);
+                                if (value) {
+                                    let date = new Date(value);
+                                    let hours = date.getHours();
+                                    let minutes = date.getMinutes().toString().padStart(2, '0');
+                                    let period = hours >= 12 ? '오후' : '오전';
+                                    hours = hours % 12 || 12; // 12시간제 변환
+                                    let formattedDate = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${period}${hours}:${minutes}`;
+                                    e.cell.textContent = formattedDate;
+                                }
+                            }
+                        }
+                    },
+                    columns: [
+                        {binding: 'mat_type_name', header: '품목유형', width: 100, align: 'center',},
+                        {binding: 'mat_grp_name', header: '품목그룹', width: 100, align: 'center',},
+                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'center',},
+                        {binding: 'mat_name', header: '품목명', width: 150, align: 'center',},
+                        {binding: 'unit_name', header: '단위', width: 80, align: 'center',},
+                        {binding: 'type', header: '구분', width: 120, align: 'center',},
+                        {binding: 'unit_price', header: '단가', width: 120, align: 'right',},
+                        {binding: 'former_unit_price', header: '이전단가', width: 120, align: 'right',},
+                        {binding: 'apply_start_date', header: '적용시작일', width: 120, align: 'center',},
+                        {binding: 'apply_end_date', header: '적용종료일', width: 120, align: 'center',},
+                        {binding: 'changer_name', header: '변경자', width: 120, align: 'center',},
+                        {binding: 'change_date', header: '변경일', width: 200, align: 'center',},
+                    ],
+                    itemsSource: this.viewData2, // 데이터를 설정할 배열
+                });
+
+
+                this.price_grid.hostElement.addEventListener('dblclick', (e) => {
+                    let hitTest = this.price_grid.hitTest(e);
+                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                        let row = hitTest.row;
+                        let selectedItem = this.price_grid.rows[row].dataItem;
+                        /*console.log(selectedItem);*/
+                        /*_this.showPriceDetail(selectedItem.mcu_id);*/
+                        _this.showPriceDetail(selectedItem.mcu_id);
+
+                    }
+                });
+
+                this.price_grid.formatItem.addHandler((s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        let col = s.columns[e.col];
+                        let item = s.rows[e.row].dataItem;
+
+                        if (col.binding === "type") {
+                            e.cell.textContent = (item.type === '01') ? '매입' : '매출';
+                        }
+                    }
+                });
+
+                new FlexGridContextMenu(this.price_grid);
+                this.price_grid.downloadFileName = '품목 단가';
+
+                /*let price_config = {
+                    target: $('[data-ax5grid="price-grid"]'),
+                    frozenColumnIndex: 4, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: true, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 38  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            _this.price_grid.select(this.dindex);
+                            _this.showPriceDetail(e.item.mcu_id);
+                        }
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        {key: 'mat_type_name', label: '품목유형', width: 100, align: 'center',},
+                        {key: 'mat_grp_name', label: '품목그룹', width: 100, align: 'center',},
+                        {key: 'mat_code', label: '품목코드', width: 100, align: 'center',},
+                        {key: 'mat_name', label: '품목명', width: 150, align: 'left',},
+                        {key: 'unit_name', label: '단위', width: 80, align: 'center',},
+                        {key: 'unit_price', label: '단가', width: 120, align: 'right', formatter: 'money',},
+                        {key: 'former_unit_price', label: '이전단가', width: 120, align: 'right', formatter: 'money',},
+                        {key: 'apply_start_date', label: '적용시작일', width: 120, align: 'center',},
+                        {key: 'apply_end_date', label: '적용종료일', width: 120, align: 'center',},
+                        {key: 'changer_name', label: '변경자', width: 120, align: 'left',},
+                        {key: 'change_date', label: '변경일', width: 120, align: 'center',},
+                    ]
+                };*/
+
+                /*    this.grid1 = new ax5.ui.grid(config1);
+                    this.price_grid = new ax5.ui.grid(price_config);
+                    this.grid_config1 = config1;
+                    this.grid_config2 = price_config;*/
+            }
+
+            setButtonState() {
+                let pk = $('#basicForm').find('#id').val();
+                $('#btnNew').prop('disabled', false);
+                $('#btnSave').prop('disabled', false);
+                if (pk) {
+                    $('#btnDelete').prop('disabled', false);
+                } else {
+                    $('#btnDelete').prop('disabled', true);
+                }
+            }
+
+            setPriceButtonState() {
+                let comp_pk = $('#basicForm').find('#id').val();
+                let price_pk = $('#priceForm').find('#price_id').val();
+                $('#btnNewPrice').prop('disabled', false);
+                $('#btnSavePrice').prop('disabled', false);
+                if (comp_pk && price_pk) {
+                    $('#btnUpdatePrice').prop('disabled', false);
+                    $('#btnDeletePrice').prop('disabled', false);
+                } else {
+                    $('#btnUpdatePrice').prop('disabled', true);
+                    $('#btnDeletePrice').prop('disabled', true);
+                }
+
+            }
+
+            showDetail(id) {
+                let param = {'company_id': id, "action": 'detail'};
+                let result = AjaxUtil.getSyncData(this.url + '/detail', param);
+
+                if (result != null) {
+                    // 데이터 변환
+                    if (result.data.business_number) {
+                        let value = result.data.business_number.replace(/[^0-9]/g, ""); // 숫자만
+                        if (value.length === 10) {
+                            // 사업자번호: 000-00-00000
+                            result.data.business_number = value.replace(/^(\d{3})(\d{2})(\d{5})$/, "$1-$2-$3");
+                        } else if (value.length === 13) {
+                            // 주민번호: 000000-0000000
+                            result.data.business_number = value.replace(/^(\d{6})(\d{7})$/, "$1-$2");
+                        }
+                    }
+
+                    if (result.data.comp_code2) {
+                        result.data.comp_code2 = result.data.comp_code2.replace(/(\d{6})(\d{7})/, "$1-$2");
+                    }
+
+                    // 거래중지여부 체크박스 상태 설정
+                    if (result.data.relyn === 1 || result.data.relyn === '1') {
+                        $('#relyn').prop('checked', true);
+                    } else {
+                        $('#relyn').prop('checked', false);
+                    }
+
+                    // 변환된 데이터 바인딩
+                    FormUtil.BindDataForm(result.data, $('#basicForm'));
+                    FormUtil.BindDataForm(result.data, $('#manageForm'));
+                }
+
+                page.setButtonState();
+            }
+
+
+            searchMainData1() {
+                let _this = this;
+                let data = {
+                    'comp_type': $('#cboCompanyType').val(),
+                    /*'group_name': $('#cboGroupName').val(),*/
+                    'keyword': $('#txtCompany').val(),
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                };
+                let result = AjaxUtil.getSyncData(this.url + '/read', data);
+                if (result != null) {
+                    /*console.log(result.data);*/
+                    _this.viewData.sourceCollection = result.data;
+                }
+
+                //기본정보, 관리정보, 여신정보, 구매품목 탭 초기화
+                $('#basicForm')[0].reset();
+                $('#basicForm').find('#id').val('');
+                $('#manageForm')[0].reset();
+
+                $('#priceForm')[0].reset();
+                $('#priceForm').find('#price_id').val('');
+                $('#priceForm').find('#Material_id').val('');
+                /*this.price_grid.setData([]);*/
+
+                /*_this.viewData2.sourceCollection = result.data;*/
+                page.setButtonState();
+                page.setPriceButtonState();
+            }
+
+
+            showPriceList() {
+                let _this = this;
+                let company_id = $('#basicForm').find('#id').val();
+                let url = '/api/definition/company';
+                let data = {
+                    'action': 'mat_price_list',
+                    'company_id': company_id,
+                };
+                let result = AjaxUtil.getSyncData(this.url + '/mat_price_list', data);
+
+                if (result != null) {
+                    result.data.forEach(item => {
+                        // Date 객체 추가 (문자열 기반 정렬은 정확하지 않아서)
+                        item.ApplyEndDateObj = new Date(item.apply_end_date);
+
+                        // ApplyEndDate가 2100-12-31이면 sortFlag로 지정
+                        item.sortFlag = item.apply_end_date === "2100-12-31" ? 0 : 1;
+                    });
+
+                    _this.viewData2.sourceCollection = result.data;
+
+                    // 정렬 순서: 1. 업체명(오름차순), 2. sortFlag(오름차순), 3. 날짜(내림차순)
+                    _this.viewData2.sortDescriptions.clear();
+                    _this.viewData2.sortDescriptions.push(new wijmo.collections.SortDescription('mat_name', true));      // 업체명 A → Z
+                    _this.viewData2.sortDescriptions.push(new wijmo.collections.SortDescription('sortFlag', true));         // 2100-12-31 우선
+                    _this.viewData2.sortDescriptions.push(new wijmo.collections.SortDescription('ApplyEndDateObj', false)); // 최신 날짜 우선
+
+                    $('#priceForm')[0].reset();
+                    $('#priceForm').find('#price_id').val('');
+                    $('#priceForm').find('input, select').each(function () {
+                        if (!$(this).is(':disabled')) {
+                            $(this).attr('disabled', 'disabled');
+                        }
+                    });
+
+                    _this.setPriceButtonState();
+                }
+
+               /* _this.viewData2.sourceCollection = result.data;
+                page.setPriceButtonState();*/
+            }
+
+            // 품목별 단가히스토리 리스트 조회
+            showPriceHistoryList(comp_id) {
+                let _this = this;
+
+                let url = '/api/definition/company';
+                let data = {
+                    'comp_id': comp_id
+                };
+
+                let result = AjaxUtil.getSyncData(this.url + '/read_price_history', data);
+                if (result != null) {
+                    /*console.log(result.data);*/
+                    _this.viewData2.sourceCollection = result.data;
+
+                    $('#priceForm')[0].reset();
+                    $('#priceForm').find('#price_id').val('');
+                    $('#priceForm').find('input, select').each(function () {
+                        if (!$(this).is(':disabled')) {
+                            $(this).attr('disabled', 'disabled');
+                        }
+                    });
+
+                    page.setPriceButtonState();
+                }
+            }
+
+            // 단가 상세 조회
+            showPriceDetail(mcu_id) {
+                let param = { 'id': mcu_id };
+                let result = AjaxUtil.getSyncData(this.url + '/detail_price', param);
+                if (result != null) {
+                    console.log(result.data);
+                    //FormUtil.BindDataForm(result, $('#priceForm'));
+                    FormUtil.BindDataForm(result.data, $('#priceForm'));
+                    $('#priceForm').find('#MaterialGroup_id').trigger('change');
+
+                    // ApplyStartDate를 UTC에서 한국시간(KST)으로 변환하여 datetime-local 포맷으로 설정
+                    let applyStartDate = result.data.ApplyStartDate;
+                    if (applyStartDate) {
+                        let date = new Date(applyStartDate);
+                        date.setHours(date.getHours() + 9);
+
+                        // YYYY-MM-DD 형식으로 변환
+                        let formattedDate = date.toISOString().substring(0, 10);
+
+                        $('#ApplyStartDate').val(formattedDate);
+                    }
+
+                    $('#priceForm').find('#Material_id').val(result.data.Material_id).trigger('change');
+
+                    $('#priceForm').find('input, select').each(function () {
+                        $(this).removeAttr('disabled'); // disabled 속성 제거
+                    });
+                }
+
+                page.setPriceButtonState();
+            }
+
+            // 단가 정보 등록/변경
+            savePriceData() {
+                let _this = this;
+                let validate = true;
+                let $target = null;
+                let comp_id = $('#basicForm').find('#id').val();
+                let url = this.url + '/save_price';
+                let data = FormUtil.extractForm($('#priceForm'));
+
+                // ApplyStartDate 가공해서 다시 설정
+                let applyDate = data.ApplyStartDate; // YYYY-MM-DD
+                if (applyDate) {
+                    let now = new Date();
+                    let hh = String(now.getHours()).padStart(2, '0');
+                    let mm = String(now.getMinutes()).padStart(2, '0');
+                    let ss = String(now.getSeconds()).padStart(2, '0');
+                    data.ApplyStartDate = `${applyDate}T${hh}:${mm}:${ss}`;
+                }
+                let selectedRowIndex = this.price_grid.selection.row;
+                let selectedId = null;
+                if (selectedRowIndex >= 0) {
+                    let selectedItem = this.price_grid.rows[selectedRowIndex].dataItem;
+                    selectedId = selectedItem.id;
+                }
+
+                let fnSuccess = function (res) {
+                    /*console.log(res);*/ // 서버 응답 확인
+                    if (!res.success) {
+                        Alert.alert('', '저장실패하였습니다.');
+                    } else {
+                        Alert.alert('', '저장되었습니다');
+                        _this.showPriceList(comp_id)
+                        setTimeout(() => {
+                            let targetIndex = -1;
+                            for (let i = 0; i < _this.price_grid.rows.length; i++) { // ← 반드시 _this!
+                                if (_this.price_grid.rows[i].dataItem.id === selectedId) {
+                                    targetIndex = i;
+                                    break;
+                                }
+                            }
+                            if (targetIndex >= 0) {
+                                _this.price_grid.select(targetIndex, 0);
+                                _this.price_grid.scrollIntoView(targetIndex, 0);
+                            } else if (_this.price_grid.rows.length > 0) {
+                                _this.price_grid.select(0, 0);
+                                _this.price_grid.scrollIntoView(0, 0);
+                            }
+                        }, 0);
+
+                    }
+                };
+
+                $('#priceForm').find('input, select').each(function () {
+                    if ($(this).is(':required')) {
+                        if (!$(this).val()) {
+                            validate = false;
+                            $target = $(this);
+                            return false;
+                        }
+                    }
+                });
+
+                /*let mat_id = $('#Material_id').val();
+                let price_grid = this.price_grid.itemsSource;
+
+                // price_grid가 undefined이면 빈 배열로 초기화
+                if (!price_grid || !Array.isArray(price_grid)) {
+                    price_grid = [];
+                }
+
+                // 적용 시작일 중복 체크 최적화
+                let isDuplicate = price_grid.some(item =>
+                    item.mat_id === mat_id && item.apply_start_date === data.ApplyStartDate
+                );
+
+                if (isDuplicate) {
+                    Alert.alert('', '적용 시작일을 확인해주세요.');
+                    $('#ApplyStartDate').focus();
+                    return;
+                }*/
+
+
+                data['Company_id'] = comp_id;
+                data['ChangerName'] = userinfo.username;
+
+                if (validate) {
+                    AjaxUtil.postAsyncData(url, data, fnSuccess);
+                } else {
+                    Alert.alert('', '필수 항목을 입력해주세요.', function () {
+                        $target.focus();
+                    });
+                }
+            }
+
+            // 단가 정보 수정
+            updatePriceData() {
+                let _this = this;
+                let validate = true;
+                let $target = null;
+                let url = this.url + '/update_price';
+                let data = FormUtil.extractForm($('#priceForm'));
+                let comp_id = $('#basicForm').find('#id').val();
+                data['Company_id'] = comp_id;
+                let fnSuccess = function (res) {
+                    if (!res.success) {
+                        Alert.alert('', res.message);
+                    } else {
+                        Alert.alert('','저장되었습니다');
+                        _this.showPriceList(comp_id);
+                        _this.showPriceHistoryList(comp_id)
+                    }
+                };
+
+                $('#priceForm').find('input, select').each(function () {
+                    if ($(this).is(':required')) {
+                        if (!$(this).val()) {
+                            validate = false;
+                            $target = $(this);
+                            return false;
+                        }
+                    }
+                });
+
+                //if ($('#ApplyStartDate').val() > $('#ApplyEndDate').val()) {
+                //    Alert.alert('', '적용기간을 확인해주세요.', function () {
+                //        $('#ApplyStartDate').focus();
+                //    });
+                //    return false;
+                //}
+
+                //data['Material_id'] = mat_id;
+                data['ChangerName'] = userinfo.username;
+
+                if (validate) {
+                    AjaxUtil.postAsyncData(url, data, fnSuccess);
+                } else {
+                    Alert.alert('', '필수 항목을 입력해주세요.', function () {
+                        $target.focus();
+                    });
+                }
+            }
+
+            // 단가 정보 삭제
+            deletePriceData() {
+                let _this = this;
+                let url = this.url + '/delete_price';
+                let id = $('#priceForm').find('#price_id').val()
+                let comp_id = $('#basicForm').find('#id').val();
+                let data = {id: id};
+                let fnSuccess = function () {
+                    Alert.alert('','삭제되었습니다'); // Notification
+                    _this.showPriceList(comp_id);
+                };
+
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+            saveData() {
+                let _this = this;
+                let data1 = FormUtil.extractForm($('#basicForm'));
+                let data2 = FormUtil.extractForm($('#manageForm'));
+                let data = $.extend({}, data1, data2);
+
+                // "-" 제거
+                if (data.business_number) {
+                    data.business_number = data.business_number.replace(/-/g, '');
+                }
+                if (data.comp_code2) {
+                    data.comp_code2 = data.comp_code2.replace(/-/g, '');
+                }
+
+                data.relyn = $('#relyn').is(':checked') ? "1" : "0";
+                data.spjangcd = sessionStorage.getItem('spjangcd');
+
+
+                if (!data.name) {
+                    Alert.alert('', '업체명을 입력해주세요.');
+                    return;
+                } else if (!data.comp_code) {
+                    Alert.alert('', '업체 코드을 입력해주세요.');
+                    return;
+                } else if (!data.business_number) {
+                    Alert.alert('', '사업자번호를 입력해주세요.');
+                    return;
+                }
+
+                let selectedRowIndex = this.grid.selection.row;
+                let selectedId = null;
+                if (selectedRowIndex >= 0) {
+                    let selectedItem = this.grid.rows[selectedRowIndex].dataItem;
+                    selectedId = selectedItem.id;
+                }
+
+                let fnSuccess = function (res) {
+                    Alert.alert('','저장되었습니다');
+                    _this.searchMainData1();
+                    setTimeout(() => {
+                        let targetIndex = -1;
+                        for (let i = 0; i < _this.grid.rows.length; i++) { // ← 반드시 _this!
+                            if (_this.grid.rows[i].dataItem.id === selectedId) {
+                                targetIndex = i;
+                                break;
+                            }
+                        }
+                        if (targetIndex >= 0) {
+                            _this.grid.select(targetIndex, 0);
+                            _this.grid.scrollIntoView(targetIndex, 0);
+                        } else if (_this.grid.rows.length > 0) {
+                            _this.grid.select(0, 0);
+                            _this.grid.scrollIntoView(0, 0);
+                        }
+                    }, 0);
+                };
+                AjaxUtil.postAsyncData(this.url + '/save', data, fnSuccess);
+
+            }
+
+
+            deleteData() {
+                let _this = this;
+                let url = this.url + '/delete';
+                let id = $('#basicForm').find('#id').val()
+                let data = {id: id};
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('','삭제되었습니다');
+                        _this.searchMainData1();
+                    } else {
+                        Alert.alert('', res.message);
+                    }
+                }
+
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+
+                page.setButtonState();
+            }
+
+            checkApplyDate() {
+                let _this = this;
+
+                let url = '/api/definition/company';
+                let data = {
+                    'action': 'checkDate',
+                    'id': $('#price_id').val(),
+                    'company_id': $('#id').val(),
+                    'material_id': $('#Material_id').val(),
+                    'apply_start_date': $('#ApplyStartDate').val(),
+                    //'apply_end_date': $('#apply_end_date').val()
+                };
+                let result = AjaxUtil.getSyncData(url, data);
+                if (result != null) {
+                    if (result.cnt > 0)
+                        return true;
+                }
+                return false;
+            }
+
+
+            showpriceEdit(data) {
+                let _this = this;
+                let content = tmpl('CompanyTemplate', data);
+                let $content = $(content);
+
+                let modalContainer = new PopupDraggable('히스토리 조회');
+                modalContainer.open({ width: 1025, height: 500, $content });
+
+                let target = $content.find('#price-history-grid');
+                _this.viewData4 = data || [];
+
+                setTimeout(() => {
+                    _this.grid4 = new wijmo.grid.FlexGrid('#price-history-grid', {
+                        selectionMode: wijmo.grid.SelectionMode.Row,
+                        headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                        autoGenerateColumns: false,
+                        showMarquee: true,
+                        isReadOnly: false,
+                        formatItem: (sender, e) => {
+                            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                                e.cell.style.textAlign = 'center';
+                            }
+                        },
+                        columns: [
+                            {binding: 'mat_type_name', header: '품목유형', width: 100, align: 'center',},
+                            {binding: 'mat_grp_name', header: '품목그룹', width: 100, align: 'center',},
+                            {binding: 'mat_code', header: '품목코드', width: 100, align: 'center',},
+                            {binding: 'mat_name', header: '품목명', width: 150, align: 'center',},
+                            {binding: 'unit_name', header: '단위', width: 80, align: 'center',},
+                            {binding: 'type', header: '구분', width: 120, align: 'center',},
+                            {binding: 'unit_price', header: '단가', width: 120, align: 'right',},
+                            {binding: 'former_unit_price', header: '이전단가', width: 120, align: 'right',},
+                            {binding: 'apply_start_date', header: '적용시작일', width: 120, align: 'center',},
+                            {binding: 'apply_end_date', header: '적용종료일', width: 120, align: 'center',},
+                            {binding: 'changer_name', header: '변경자', width: 120, align: 'center',},
+                            {binding: 'change_date', header: '변경일', width: '*', align: 'center',},
+                        ],
+                        itemsSource: _this.viewData4
+                    });
+
+                    this.grid4.formatItem.addHandler((s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            let col = s.columns[e.col];
+                            let item = s.rows[e.row].dataItem;
+
+                            if (col.binding === "type") {
+                                e.cell.textContent = (item.type === '01') ? '매입' : '매출';
+                            }
+                        }
+                    });
+
+                    let $btnTest = $content.find('#btnTest');
+                    $btnTest.click(function () {
+                        _this.grid4.collectionView.refresh();
+                    });
+                }, 0);
+            }
+
+
+            showGetPerson() {
+                let _this = this;
+                let viewdata4;
+                let theGrid4;
+                let selectedItem = null;
+
+                let content = tmpl('getPersonTemplate', {});
+                let $content = $(content);
+
+                let popContainer = new PopupDraggable('직원등록');
+                popContainer.open({ width: 800, height: 500, $content });
+
+                let $searchName = $content.find('#searchName');
+                let $searchCode = $content.find('#searchCode');
+                let $btnSearch = $content.find('#btnSubjectSearch');
+
+
+                // 사번 조회 함수
+                function fetchPersonList() {
+                    let searchCode = $searchCode.val();
+                    let searchName = $searchName.val();
+
+                    $.ajax({
+                        url: '/api/system/user/getPerson',
+                        type: 'GET',
+                        data: {
+                            searchCode: searchCode,
+                            searchName: searchName,
+                            spjangcd: sessionStorage.getItem('spjangcd')
+                        },
+                        async: false,
+                        success: function (res) {
+                            let data2 = res.data || [];
+
+                            viewdata4 = new wijmo.collections.CollectionView(data2);
+
+                            if (theGrid4) {
+                                theGrid4.itemsSource = viewdata4;
+                            }
+                        },
+                        error: function (jqXHR, textStatus, errorThrown) {
+                            console.error('Error fetching person data:', textStatus, errorThrown);
+                        }
+                    });
+                }
+
+                // 그리드 먼저 생성
+                theGrid4 = new wijmo.grid.FlexGrid('#person-grid', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    columns: [
+                        { binding: 'id', header: '사번', width: 100, align: 'center' },
+                        { binding: 'name', header: '이름', width: 150, align: 'center' },
+                        { binding: 'dept_name', header: '부서', width: 150, align: 'center' },
+                        { binding: 'dept_id', header: '부서id', width: 150, align: 'center', visible:false},
+                        { binding: '', header: '', width: '*', align: 'center' },
+                    ],
+                    isReadOnly: true,
+                    itemsSource: null
+                });
+
+                theGrid4.rowHeaders.columns.splice(0, 1);
+
+
+                fetchPersonList();
+
+
+                $btnSearch.click(() => {
+                    fetchPersonList();
+                });
+
+
+                $searchCode.add($searchName).on('keydown', function (e) {
+                    if (e.keyCode === 13) {
+                        fetchPersonList();
+                    }
+                });
+
+                theGrid4.selectionChanged.addHandler((s, e) => {
+                    selectedItem = s.collectionView.currentItem;
+                });
+
+                $content.find('#btnAccountSave').click(() => {
+                    if (selectedItem) {
+                        $('#our_manager').val(selectedItem.name);
+                        popContainer.close();
+                    }/* else {
+                        Alert.alert('', '사번을 선택해주세요.');
+                    }*/
+                });
+
+                theGrid4.hostElement.addEventListener('dblclick', function (e) {
+                    let items = theGrid4.selectedItems;
+                    if (items.length === 0) {
+                        return false;
+                    }
+                    const selectedItem = items[0];
+                    $('#our_manager').val(selectedItem.name);
+                    popContainer.close();
+                });
+
+            }
+
+
+
+
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new CompanyPage();
+
+            AjaxUtil.fillSelectOptions($('#cboCompanyType'), 'system_code', 'choose', false, 'company_type');
+            /*AjaxUtil.fillSelectOptions($('#cboGroupName'), 'system_code', 'choose', false,'company_group');*/
+
+            AjaxUtil.fillSelectOptions($('#company_type'), 'system_code', 'choose', false, 'company_type');
+
+            AjaxUtil.fillSelectOptions($('#MaterialGroup_id'), 'material_group', 'choose', false);
+            //AjaxUtil.fillSelectOptions($('#Material_id'), 'material', 'choose', false);
+            $('#MaterialGroup_id').change(function (ex) {
+                let mat_grp_pk = $('#MaterialGroup_id').val();
+                AjaxUtil.fillSelectOptions($('#Material_id'), 'material', 'choose', false, mat_grp_pk);
+            });
+
+            $('#btnSearch').click(function (ex) {
+                page.searchMainData1();
+            });
+
+            $('#txtCompany').on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    page.searchMainData1();
+                }
+            });
+
+            $('.tab_links .tab').click(function (e) {
+                let target = e.currentTarget.id;
+                if (target == 'tabs_unitcost') {
+                    let comp_id = $('#basicForm').find('#id').val();
+                    if (comp_id)
+                        page.showPriceList(comp_id);
+                }
+
+                page.current_tab = target;
+
+            });
+
+            $('#btnNew').click(function (e) {
+                $('#basicForm')[0].reset();
+                $('#basicForm').find('#id').val('');
+                $('#manageForm')[0].reset();
+                $('#company_type').removeAttr('disabled');
+                $('#basicForm input, textarea').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+                $('#manageForm input').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+                //page.setButtonDisable1(true, false, true);
+                page.setButtonState();
+            });
+
+            // 단가 히스토리버튼
+            $('#btnPriceHistory').click(function (e) {
+                let price_grid= wijmo.Control.getControl('#price_grid');
+                let selectedRow = price_grid.selection.row;
+
+                let selectedItem = price_grid.rows[selectedRow].dataItem;
+                /*console.log(selectedItem);*/
+                let id = selectedItem.Company_id;
+                let id2 = selectedItem.mat_code;
+                let data = {
+                    'comp_id': id,
+                    'code': id2
+                }
+
+                let url = '/api/definition/company/read_price_history';
+                let result = AjaxUtil.getSyncData(url, data);
+
+                if (result.success) {
+                    page.showpriceEdit(result.data);
+                } else {
+                    Alert.alert('', "오류가 발생했습니다.");
+                }
+
+
+               /* let company_id = $('#basicForm').find('#id').val();
+
+                if (company_id) {
+                    // 기존 #type 값 저장
+                    let selectedType = $("#type").val();
+
+                    page.showPriceHistoryList(company_id);
+
+                    // reset() 후 다시 기존 값 설정
+                    $("#type").val(selectedType).change();
+                }*/
+            });
+
+            // 단가정보 신규버튼
+            $('#btnNewPrice').click(function (e) {
+                // 단가 상세정보 리셋
+                $('#priceForm')[0].reset();
+                $('#priceForm').find('#price_id').val('');
+
+                $('#priceForm').find('input, select').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                /*page.price_grid.clearSelect();*/
+
+                //page.setPriceButtonDisabled(true, false, true);
+                page.setPriceButtonState();
+
+                $('#ApplyStartDate').val(CommonUtil.getYYYYMMDD());
+
+            });
+
+            // 단가등록/변경 버튼
+            $('#btnSavePrice').click(function (e) {
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        page.savePriceData()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            // 단가정보 수정버튼
+            $('#btnUpdatePrice').click(function (e) {
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        page.updatePriceData()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            // 단가정보 삭제버튼
+            $('#btnDeletePrice').click(function (e) {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        page.deletePriceData()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $('#btnSave').click(function (e) {
+                let basicData = FormUtil.extractForm($('#basicForm'));
+                let data = $.extend({}, basicData);
+
+                if (!data.name) {
+                    Alert.alert('', '업체명을 입력해 주세요');
+                    $('#basicForm #name').focus();
+                    return;
+                }
+                if (!data.company_type) {  // 업체구분 체크
+                    Alert.alert('', '업체구분을 선택해 주세요');
+                    $('#basicForm #company_type').focus();
+                    return;
+                }
+                if (!data.comp_code) {  // 업체코드 체크
+                    Alert.alert('', '업체코드를 입력해 주세요');
+                    $('#basicForm #comp_code').focus();
+                    return;
+                }
+                if (!data.business_number) {  // 사업자번호 체크
+                    Alert.alert('', '사업자번호를 입력해 주세요');
+                    $('#basicForm #business_number').focus();
+                    return;
+                }
+
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        page.saveData()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+
+            $('#btnDelete').click(function (e) {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        page.deleteData()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $(".tab-links a").on("click", function () {
+                if ($(this).attr("id") === "tabs_unitcost") {
+                    $(".button-wrap.button-list").hide();
+                } else {
+                    $(".button-wrap.button-list").show();
+                }
+            });
+
+            $('#getPersonId').click(function (e) {
+                page.showGetPerson();
+            });
+
+            page.searchMainData1();
+
+        });
+        // 등록시 input 사업자번호 및 주민번호 포맷팅 함수
+        function formatNumber(input) {
+            let value = input.value.replace(/[^0-9]/g, ""); // 숫자만
+            if (value.length === 10) {
+                // 사업자번호: 000-00-00000
+                value = value.replace(/^(\d{3})(\d{2})(\d{5})$/, "$1-$2-$3");
+            } else if (value.length === 13) {
+                // 주민번호: 000000-0000000
+                value = value.replace(/^(\d{6})(\d{7})$/, "$1-$2");
+            }
+            input.value = value;
+        }
+        // 그리드 바인드시 포맷팅 함수
+        function formatBusinessNumber(num) {
+            if (!num) return "";
+            // let value = num.replace(/[^0-9]/g, ""); // 숫자만 추출
+            let value = num;
+
+            if (value.length === 10) {
+                // 사업자번호
+                return value.replace(/^(\d{3})(\d{2})(\d{5})$/, "$1-$2-$3");
+            } else if (value.length === 13) {
+                // 주민번호
+                return value.replace(/^(\d{6})(\d{7})$/, "$1-$2");
+            } else {
+                // 그 외: 숫자 그대로
+                return value;
+            }
+        }
+
+    </script>
+    <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+    <script>
+        //본 예제에서는 도로명 주소 표기 방식에 대한 법령에 따라, 내려오는 데이터를 조합하여 올바른 주소를 구성하는 방법을 설명합니다.
+        function sample4_execDaumPostcode() {
+            new daum.Postcode({
+                oncomplete: function (data) {
+                    // 팝업에서 검색결과 항목을 클릭했을때 실행할 코드를 작성하는 부분.
+
+                    // 도로명 주소의 노출 규칙에 따라 주소를 표시한다.
+                    // 내려오는 변수가 값이 없는 경우엔 공백('')값을 가지므로, 이를 참고하여 분기 한다.
+                    var roadAddr = data.roadAddress; // 도로명 주소 변수
+                    var extraRoadAddr = ''; // 참고 항목 변수
+
+                    // 법정동명이 있을 경우 추가한다. (법정리는 제외)
+                    // 법정동의 경우 마지막 문자가 "동/로/가"로 끝난다.
+                    if (data.bname !== '' && /[동|로|가]$/g.test(data.bname)) {
+                        extraRoadAddr += data.bname;
+                    }
+                    // 건물명이 있고, 공동주택일 경우 추가한다.
+                    if (data.buildingName !== '' && data.apartment === 'Y') {
+                        extraRoadAddr += (extraRoadAddr !== '' ? ', ' + data.buildingName : data.buildingName);
+                    }
+                    // 표시할 참고항목이 있을 경우, 괄호까지 추가한 최종 문자열을 만든다.
+                    if (extraRoadAddr !== '') {
+                        extraRoadAddr = ' (' + extraRoadAddr + ')';
+                    }
+
+                    // 우편번호와 주소 정보를 해당 필드에 넣는다.
+                    document.getElementById('zip_code').value = data.zonecode;
+                    document.getElementById("address").value = roadAddr;
+                    document.getElementById("placeAddress").value = data.jibunAddress;
+
+                    var guideTextBox = document.getElementById("guide");
+                    // 사용자가 '선택 안함'을 클릭한 경우, 예상 주소라는 표시를 해준다.
+                    if (data.autoRoadAddress) {
+                        var expRoadAddr = data.autoRoadAddress + extraRoadAddr;
+                        guideTextBox.innerHTML = '(예상 도로명 주소 : ' + expRoadAddr + ')';
+                        guideTextBox.style.display = 'block';
+
+                    } else if (data.autoJibunAddress) {
+                        var expJibunAddr = data.autoJibunAddress;
+                        guideTextBox.innerHTML = '(예상 지번 주소 : ' + expJibunAddr + ')';
+                        guideTextBox.style.display = 'block';
+                    } else {
+                        guideTextBox.innerHTML = '';
+                        guideTextBox.style.display = 'none';
+                    }
+                }
+            }).open();
+        }
+    </script>
+
+</th:block>
+</html>

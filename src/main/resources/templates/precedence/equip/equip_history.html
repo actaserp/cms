@@ -1,0 +1,384 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+	<input type="hidden" id="searchCond" th:value="${searchcond}" />
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>설비점검이력</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>일지 및 데이터</li>
+                <li>선행요건일지</li>
+                <li>설비점검이력</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            일자<span class="eq"></span>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input class="tac date_from " type="date" id="srchStartDt" name="srchStartDt"/>
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input class="tac date_to" type="date" id="srchEndDt" name="srchEndDt"/>
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label>결재상태</label>
+                        </dt>
+                        <dd>
+                            <select class="form-control2" id="apprState" name="apprState"></select>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt><span class="eq"></span></dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+                <div class="button-wrap">
+                    <button type="button" class="btn-default" id="btnAdd">등록</button>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="document_grid" style="height: 600px; max-height: 600px;"></div>
+            </div>
+
+        </section>
+</div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<script type="text/javascript">
+    
+    class CheckResultPage {
+        constructor() {
+            this.grid = null;
+            this.baseUrl = '/api/precedence/equip_history';
+            this.viewData = new wijmo.collections.CollectionView();
+            this.init();
+        } 
+
+        init() {
+            let _this = this;
+            
+            this.gparam = {
+                searchcond : $('#searchCond').val(),
+			};
+
+            this.grid = new wijmo.grid.FlexGrid('#document_grid', {
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                autoGenerateColumns: false,
+                showMarquee: true,
+                isReadOnly: true,
+                formatItem: (s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                    }
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        const col = s.columns[e.col];
+                        const item = e.panel.rows[e.row].dataItem;
+
+                        // 결재현황 (LineName) 처리
+                        if (col.binding === 'LineName') {
+                            e.cell.innerHTML = CommonUtil.convertApprLineNameHtml(item.LineName, item.LineNameState);
+                        }
+
+                        // SearchYN 버튼 처리
+                        if (col.binding === 'SearchYN') {
+                            if (item.SearchYN === 'Y') {
+                                e.cell.innerHTML = ''; // 기존 셀 콘텐츠 제거
+                                const button = document.createElement('button');
+                                button.className = 'btn-default';
+                                button.style.cssText = 'width: 100%; height: 25px;';
+                                button.textContent = '조회';
+                                button.addEventListener('click', () => {
+                                    _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                    _this.detail({item, column: {key: 'SearchYN'}});
+                                });
+                                e.cell.appendChild(button);
+                            } else {
+                                // 해당 셀을 빈 셀로 유지
+                                e.cell.innerHTML = ''; // 셀 비우기
+                            }
+                        }
+
+                        // EditYN 버튼 처리
+                        if (col.binding === 'EditYN') {
+                            if (item.EditYN === 'Y') {
+                                e.cell.innerHTML = '';
+                                const button = document.createElement('button');
+                                button.className = 'btn-default';
+                                button.style.cssText = 'width: 100%; height: 25px;';
+                                button.textContent = '수정';
+                                button.addEventListener('click', () => {
+                                    _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                    _this.detail({item, column: {key: 'EditYN'}});
+                                });
+                                e.cell.appendChild(button);
+                            } else {
+                                // 해당 셀을 빈 셀로 유지
+                                e.cell.innerHTML = ''; // 셀 비우기
+                            }
+                        }
+
+                        // DeleteYN 버튼 처리
+                        if (col.binding === 'DeleteYN') {
+                            if (item.DeleteYN === 'Y') {
+                                e.cell.innerHTML = '';
+                                const button = document.createElement('button');
+                                button.className = 'btn-danger';
+                                button.style.cssText = 'width: 100%; height: 25px;';
+                                button.textContent = '삭제';
+                                button.addEventListener('click', () => {
+                                    _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                    _this.detail({item, column: {key: 'DeleteYN'}});
+                                });
+                                e.cell.appendChild(button);
+                            } else {
+                                // 해당 셀을 빈 셀로 유지
+                                e.cell.innerHTML = ''; // 셀 비우기
+                            }
+                        }
+                    }
+                },
+                columns: [
+                    { binding: 'Title',  header: '일지명', width: 200, align: 'center' },
+                    { binding: 'DataDate',  header: '등록일', width: 120, align: 'center' },
+                    {binding: 'StateName', header: '결재상태', width: 100, align: 'center', isReadOnly: true},
+                    {binding: 'LineName', header: '결재현황', width: 650, isReadOnly: true, align: 'left'},
+                    { binding: 'SearchYN', header: '조회', width: '*', align: 'center' },
+                    { binding: 'EditYN', header: '수정', width: '*', align: 'center' },
+                    { binding: 'DeleteYN', header: '삭제', width: '*', align: 'center' }
+                ],
+                itemsSource: this.viewData, // 데이터를 설정할 배열
+            });
+
+            new FlexGridContextMenu(this.grid);
+            this.grid.downloadFileName = '설비점검이력현황';
+
+
+            /*let config = {
+                target: $('[data-ax5grid="document_grid"]'),
+                sortable: true,
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 25,  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {                        
+                        _this.grid.select(this.dindex);
+                        _this.detail(this);
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'Title', label: '일지명', width: 200, align: 'center' },
+                    { key: 'StateName', label: '결재상태', width: 100, align: 'center' },
+                    {
+                        key: 'LineName', label: '결재현황', width: 450, align: 'left',
+                        formatter: function () {
+                            return CommonUtil.convertApprLineNameHtml(this.item.LineName, this.item.LineNameState);
+                        }
+                    },
+                    { key: 'DataDate', label: '등록일', width: 120, align: 'center' },
+                    {
+                        key: 'SearchYN', label: '조회', width: 80, align: 'center',
+                        formatter: function () {
+                            let html = '';
+                            if (this.item.SearchYN == 'Y') {
+                                html = '<button class="btn-default" style="width:100%; height:0.9em; font-size:1em; padding:0; margin:0">조회</button>'
+                            }
+                            return html;
+
+                        }
+                    },
+                    {
+                        key: 'EditYN', label: '수정', width: 80, align: 'center',
+                        formatter: function () {
+                            let html = '';
+                            if (this.item.EditYN == 'Y') {
+                                html = '<button class="btn-default" style="width:100%; height:0.9em; font-size:1em; padding:0; margin:0">수정</button>'
+                            }
+                            return html;
+
+                        }
+                    },
+                    {
+                        key: 'DeleteYN', label: '삭제', width: 80, align: 'center',
+                        formatter: function () {
+                            let html = '';
+                            if (this.item.DeleteYN == 'Y') {
+                                html = '<button class="btn-danger" style="width:100%; height:0.9em; font-size:1em; padding:0; margin:0">삭제</button>'
+                            }
+                            return html;
+
+                        }
+                    },
+                ]
+            };
+            this.grid = new ax5.ui.grid(config);
+            this.grid_config = config;*/
+        }
+
+        // 일지 상세
+        detail(data) {
+            let _this = this;
+            if (data.column.key == 'SearchYN' && data.item.SearchYN == 'Y') {
+                location.href = encodeURI('/gui/' + gui.gui_code + '/edit?bh_id=' + data.item.id + '&data_date=' + data.item.DataDate + '&view_mode=true' + _this.createSearchCond('&'));
+            } else if (data.column.key == 'EditYN' && data.item.EditYN == 'Y') {
+                location.href = encodeURI('/gui/' + gui.gui_code + '/edit?bh_id=' + data.item.id + '&data_date=' + data.item.DataDate + _this.createSearchCond('&'));
+            } else if (data.column.key == 'DeleteYN' && data.item.DeleteYN == 'Y') {
+                Alert.confirm('', '삭제하시겠습니까?', function () {
+                    // 삭제 서비스 호출                    
+                    let param = {
+                        bh_id: data.item.id,
+                    }
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            Notify.success('삭제하였습니다.');
+                            _this.searchMainData();
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/delete', param, fnSuccess);
+                });
+            }
+        }
+
+        add() {
+            location.href = encodeURI('/gui/' + gui.gui_code + '/edit?bh_id=0' + '&data_date=' + CommonUtil.getYYYYMMDD() + this.createSearchCond('&'));
+        }
+
+        // 검색조건만들기
+        createSearchCond(t) {
+            return t + 'searchcond=' + $('#srchStartDt').val() + '|' + $('#srchEndDt').val();
+        }
+
+        // 검색조건설정
+        setSearchCond() {
+			let _this = this;
+            if (_this.gparam && _this.gparam.searchcond && _this.gparam.searchcond != 'undefined') {
+                let arr = _this.gparam.searchcond.split('|');
+                $('#srchStartDt').val(arr[0]);
+                $('#srchEndDt').val(arr[1]);
+            }
+        }
+
+        //일지 조회
+        searchMainData() {
+            let _this = this;
+            let param = {
+                'start_date': $('#srchStartDt').val(),
+                'end_date': $('#srchEndDt').val(),
+                'appr_state': $('#apprState').val(),
+            }
+
+            let result = AjaxUtil.getSyncData(_this.baseUrl + '/appr_stat', param);
+            console.log(result);
+
+            if (result != null) {
+                _this.viewData.sourceCollection = result.data;
+            }
+        }
+
+        // 엑셀 다운로드
+        exportExcel() {
+            var targetview = this.grid;
+            targetview.exportExcel('설비점검이력-결재현황.xls');
+        }
+
+    }
+
+    let page = null;
+    var picker = new ax5.ui.picker();
+
+    $(document).ready(function (e) {
+        page = new CheckResultPage();
+
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),
+            direction: "top",
+            content: {
+                width: 206,  //130 270
+                margin: 10,
+                type: 'date',
+                config: {
+                    control: {
+                        left: '<i class="fa fa-chevron-left"></i>',
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-chevron-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            }
+
+        });
+        
+        AjaxUtil.fillSelectOptions($("#apprState"), "system_code", "all", '', "appr_status");
+
+        $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-15));
+        $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+        $('#btnSearch').click(function (e) {
+            page.searchMainData();
+        });
+
+        // 엑셀 다운로드
+        $('#btnExcel').on('click', function () {
+            page.exportExcel();
+        });
+
+        $('#btnAdd').on('click', function () {
+            page.add();
+        });
+
+        page.setSearchCond();
+        page.searchMainData();
+    });
+
+</script>
+</th:block>
+</html>

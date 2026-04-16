@@ -1,0 +1,537 @@
+﻿<html layout:decorate="~{layout_page}">
+<head>
+<style>
+    .appr_table {
+        display: table;
+        border-collapse: collapse;
+        margin: 5px 0;
+        font-size: 1.3em;
+        min-width: 250px;
+        text-align: center;
+        table-layout: fixed;
+        width: 30%;
+        margin-left:auto;
+        margin-right:auto;
+    }
+
+    .appr_table td {
+        display: table-cell;
+        width: 300px;
+        margin: 5px;
+        padding: 2px;
+    }
+
+    .appr_head {
+        background:#D8D8D8;
+    }
+
+    .table_t {
+        width:300px;
+        height:100px;
+        padding:20px;
+        margin:30px;
+        font-size: 1.0em;
+        font-weight : bold;
+    }
+
+</style>
+</head>
+<th:block th:fragment="approve_box">
+<script type="text/x-tmpl" id="approveLineBox">
+    <div class="card" style="width: 100%; text-align: center;">
+        <div class="card-header">
+            결재
+        </div>
+        <div class="card-body" style="padding: 0.5rem;">
+            <div class="row" name="lineItems">
+            </div>
+        </div>
+    </div>
+</script>
+<script type="text/x-tmpl" id="approveLineItem">
+    <div name="lineItem">
+        <div class="col-12" name="apprLineName">검토</div>
+        <div class="col-12"  name="apprUserName"></div>
+        <div class="col-12" name="apprStateName">-</div>
+    </div>
+</script>
+<script type="text/x-tmpl" id="approveBoxTemp">
+    <table class="appr_table" border="1">
+        {% if (o.line_count > 0) { %}
+        <tr>
+            <td class="appr_head" colspan="{%=o.line_count%}">결 재</td>
+        </tr>
+        {% } %}
+        <tr>
+            {% for (let i = 0; i < o.line_count; i++) { %}
+                <td>{%=o.line_name[i]%}</td>
+            {% } %}
+        </tr>
+        <tr>
+            {% for (let i = 0; i < o.line_count; i++) { %}
+                <td>{%=o.approver_name[i]%}</td>
+            {% } %}
+        </tr>
+        <tr>
+            {% for (let i = 0; i < o.line_count; i++) { 
+                let state = o.appr_state_name[i];
+                let button = false;
+                if (i > 0 && o.appr_state[i-1] == 'Y' && state == '' && o.user_id == o.approver_id[i])
+                    button = true;
+                if (button) { %}
+                <td><button  type='button' class="btnBoxApprove btn-default" data-id="{%=o.ar_id[i]%}"  
+                            data-line_name="{%=o.line_name[i]%}" data-user="{%=o.user_id%}">승인</button>
+                {% } else { %}
+                    <td>{%=state%}</td>
+                {% } %}
+            {% } %}
+        </tr>
+        <tr>
+            {% for (let i = 0; i < o.line_count; i++) { %}
+                <td>{%=o.appr_date[i]%}</td>
+            {% } %}
+        </tr>
+    </table>
+</script>
+<script type="text/x-tmpl" id="approvePopup">
+<div class="content_wrap popup">
+    <section class="section popupcontent">        
+        <div class="table_box sub">
+            <form id="apprFormPopup">
+                <input type="hidden" id="appr_result_id" name="appr_result_id" value="{%=o.ar_id%}" />
+                <div class ="row">
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5" data-labelCd="단계">단계</span>
+                            </div>
+                            <input class="form-control2 tac" type="text" value="{%=o.line_name%}">
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="결재">결재</span>
+                            </div>
+                            <select class="form-control2" id="cboApprState" name="cboApprState" disabled>
+                                <option value="Y">승인</option>
+                                <option value="N">반려</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5" data-labelCd="비고">비고</span>
+                            </div>
+                            <textarea class="form-control2 tac" id="appr_description" name="appr_description"></textarea>
+                        </div>
+                    </div>
+                 </div>   
+            </form>
+            
+        </div>
+        
+    </section>
+    <section>
+        <div class="align_left popup_button_group bottom">
+            <button type="button" class="btn-popup y_write_auth" id="btnSaveApprove" ><span data-labelCd="저장">저장</span></button>
+            <button type="button" class="btn-popup" id="btnModalClose"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+
+    </section>
+</div>
+</script>
+<script  type="text/x-tmpl" id="approveInsertTmpl">
+    <div class="content_wrap popup" id="mpopup">
+        <table class="appr_insert_table table_t" border="1">
+            {% for (let i=0; i< o.line_count;i++) { 
+                    let key = String(i+1);
+            %}
+                <tr>
+                    <td>{%=o.line_name[i]%}</td>
+                    <td><select id="cboApprover{%=key%}" style="width:200px; font-size: 0.9em;">
+                        {% o.approver_list[i].forEach(function(item, index) { %}
+                            <option value="{%=item.id%}">{%=item.name%}</option>
+                        {% }); %}
+                         </select>
+                     </td>
+                </tr>
+            {% } %}
+        </table>
+    <div>
+    <button type="button" class="btn-default" id="btnPopApprInsert">결재상신</button>
+    <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+</script>
+
+<script type="text/javascript">
+    class ApproveBoxUtil {
+        constructor(head_id, task_code, src_data_pk, src_table_name, dept_id, shift) {
+            this.baseUrl = '/api/common/appr_result';
+            this.div_name = 'approveBox';
+
+            this.head_id = head_id;
+            this.task_code = task_code;            
+            this.src_data_pk = src_data_pk;
+            this.src_table_name = src_table_name;
+
+            // 업무의 기본결재선 선택을 위한 등록
+            this.dept_id = (dept_id ? dept_id : '');
+            this.shift = (shift ? shift : '');
+
+            this.appr_user = false;
+            this.appr_info = null;
+        }
+
+        print(viewMode) {
+            let _this = this;
+            let param = {
+                action: 'init_appr_box',
+                head_id: _this.head_id,
+                task_code: _this.task_code,
+                pk: _this.src_data_pk,
+                table: _this.src_table_name,
+                dept_id: _this.dept_id,
+                shift: _this.shift,
+            }
+
+            let result = AjaxUtil.getSyncData(_this.baseUrl + '/init_appr_box', param);
+			
+            let $apprBox = $('#' + _this.div_name);
+            $apprBox.empty();
+            $apprBox.removeClass('row');
+            $apprBox.addClass('row');
+            if (result.success) {
+                let apprInfo = result.data.appr_info;
+                let arrLineStep = [];
+                if (apprInfo.Line1.length > 0) arrLineStep.push(1);
+                if (apprInfo.Line2.length > 0) arrLineStep.push(2);
+                if (apprInfo.Line3.length > 0) arrLineStep.push(3);
+                if (apprInfo.Line4.length > 0) arrLineStep.push(4);
+				
+                if (arrLineStep.length < 4) {
+                    let blankSize = ((4 - arrLineStep.length) * 3);
+                    $apprBox.append('<div class="col-' + blankSize + ' col-lg-6' + blankSize + ' col-xl-' + blankSize + '"></div >');
+                }
+
+                let apprLineSize = arrLineStep.length * 3;
+                let $apprLine = $('<div class="col-' + apprLineSize + ' col-lg-6' + apprLineSize + ' col-xl-' + apprLineSize + '"></div >');
+                let $apprLineBox = $(tmpl('approveLineBox', {}));
+				
+                let $items = $apprLineBox.find('[name=lineItems]:eq(0)');
+                for (let i = 0; i < 4; i++) {
+                    // 4개의 라인 모두 표시(단 사람이 없는 경우 숨김처리), 업무설정의 4개의 라인 중 해당 안되는 인원이 있는경우 표시되면 안되기 때문;;
+                    if (arrLineStep.indexOf(i + 1) > -1) {
+                        let itemSize = 12 / arrLineStep.length;
+                        let lineItemIndex = i + 1;
+                        let $item = $(tmpl('approveLineItem', {}));
+                        $item.addClass('col-' + itemSize + ' col-lg-' + itemSize + ' col-xl-' + itemSize);
+                        $item.find('[name=apprLineName]:eq(0)').text(apprInfo['Line' + lineItemIndex][0].LineName);
+                        if (viewMode || (apprInfo.ApprHead.id > 0 && apprInfo.ApprHead.State != 'reject')) {
+                            // 뷰모드 또는 결재상신된 경우(반려는 제외)
+                            $item.find('[name=apprUserName]:eq(0)').append('<input type="hidden" name="apprUserId" value="' + apprInfo['Line' + lineItemIndex][0].User_id + '" />');
+                            $item.find('[name=apprUserName]:eq(0)').append('<span>' + apprInfo['Line' + lineItemIndex][0].UserName + '</span>');
+                        }
+                        else if (apprInfo.ApprHead.State == 'reject') {
+                            // 반려의 경우, 기본결재선을 이용하여 option 추가
+                            let $select = $('<select name="apprUserId" />');
+                            for (let idx = 0; idx < apprInfo['DefLine']['Line' + lineItemIndex].length; idx++) {
+                                $select.append('<option value="' + apprInfo['DefLine']['Line' + lineItemIndex][idx].User_id + '">' + apprInfo['DefLine']['Line' + lineItemIndex][idx].UserName + '</option>');
+                            }
+                            $select.val(apprInfo['Line' + lineItemIndex][0].User_id);
+                            $($item.find('[name=apprUserName]:eq(0)')).append($select);
+                        }
+                        else {
+                            let $select = $('<select name="apprUserId" />');
+                            for (let idx = 0; idx < apprInfo['Line' + lineItemIndex].length; idx++) {
+                                $select.append('<option value="' + apprInfo['Line' + lineItemIndex][idx].User_id + '">' + apprInfo['Line' + lineItemIndex][idx].UserName + '</option>');
+                            }
+                            $($item.find('[name=apprUserName]:eq(0)')).append($select);
+                        }
+
+                        if (apprInfo['Line' + lineItemIndex][0].State == 'approval' || apprInfo['Line' + lineItemIndex][0].State == 'reject') {
+                            $item.find('[name=apprStateName]:eq(0)').text(apprInfo['Line' + lineItemIndex][0].StateName + '(' + apprInfo['Line' + lineItemIndex][0].ApprDate + ')');
+                        }
+                        else {
+                            $item.find('[name=apprStateName]:eq(0)').text(apprInfo['Line' + lineItemIndex][0].StateName);
+                        }
+
+                        $items.append($item);
+
+                        // 현재 결재자 표시
+                        if (apprInfo['Line' + lineItemIndex][0].ApprUser == 'Y') {
+                            _this.appr_user = true;
+                        }
+                    }
+                    else {
+                        // 사람이 없는 라인의 경우
+                        let $item = $(tmpl('approveLineItem', {}));
+                        $item.find('[name=apprUserName]:eq(0)').append('<input type="hidden" name="apprUserId" value="" />');
+                        $item.hide();
+
+                        $items.append($item);
+                    }
+                }
+
+                // 결재 화면 표시
+                $apprBox.append($apprLine.append($apprLineBox));
+            }
+
+            _this.appr_info = result.data.appr_info;
+            //console.log('baseUrl', _this.baseUrl);
+            //console.log('param', param);
+            //console.log('appr_data', data);
+        }
+        isApprUser() {
+            return this.appr_user;
+        }
+        getApproverLines() {
+            // 결재라인조회
+            //console.log('this.appr_info', this.appr_info)
+            let lines = [];
+            if (this.appr_info.Line0.length > 0) lines.push(this.appr_info.Line0[0]);
+            if (this.appr_info.Line1.length > 0) lines.push(this.appr_info.Line1[0]);
+            if (this.appr_info.Line2.length > 0) lines.push(this.appr_info.Line2[0]);
+            if (this.appr_info.Line3.length > 0) lines.push(this.appr_info.Line3[0]);
+            if (this.appr_info.Line4.length > 0) lines.push(this.appr_info.Line4[0]);
+			
+            return lines
+        }
+        request(src_data_pk, title, line_url, url_param) {
+            let $apprUsers = $('[name=apprUserName]');
+            let arr = [];
+            if ($apprUsers.length == 0) {
+                Alert.alert('', '결재자 정보가 없습니다.');
+                return;
+            }
+
+            $.each($apprUsers, function (index, item) {
+                arr.push($($apprUsers[index]).find('[name=apprUserId]:eq(0)').val());
+            });
+
+            let _this = this;
+            let param = {
+                task_code: _this.task_code,
+                pk: src_data_pk,
+                table: _this.src_table_name,
+                link_title: title,
+                link_gui: line_url,
+                link_gui_param: url_param,
+                approver_list: arr.join(','),
+            }
+
+            let data = AjaxUtil.postSyncData(_this.baseUrl + '/req_approve', param);
+
+            return { success: data.success };
+        }
+        approval(isAppr, callback) {
+            let _this = this;
+            let fn = function () {                
+                let param = {
+                    pk: _this.src_data_pk,
+                    table: _this.src_table_name,
+                    approval: isAppr ? 'approval' : 'reject',
+                    desc: '',
+                }
+
+                AjaxUtil.postAsyncData(_this.baseUrl + '/conf_approve', param, function () {
+                    Notify.success((isAppr ? '승인' : '반려') + '하였습니다.');
+                    callback();
+                });
+            };
+
+            if (isAppr) {
+                Alert.confirm('', '승인하시겠습니까?', function () {
+                    fn();
+                });
+            } else {
+                Alert.confirm('', '반려하시겠습니까?', function () {
+                    fn();
+                });
+            }
+        }
+    }
+
+    class ApproveBoxClass {
+        constructor(tmpl_name, src_data_pk, src_table_name, div_name) {
+            this.tmpl_name = tmpl_name;
+            this.src_data_pk = src_data_pk;
+            this.src_table_name = src_table_name;
+            this.div_name = div_name;
+
+            if (!this.tmpl_name)
+                this.tmpl_name = 'approveBoxTemp';
+            if (!this.div_name)
+                this.div_name = 'approveBox';
+            
+        } 
+        print(callback) {
+            let _this = this;
+            /// get appr_result
+            let url = '/api/common/appr_result';
+            let param = {
+                action: 'appr_box',
+                pk: _this.src_data_pk,
+                table: _this.src_table_name,
+            };
+            let result = AjaxUtil.getSyncData(url, param);
+            
+            //console.log('appr_result result', data);
+            //let data = {
+            //    line_count: 3,
+            //    user_id: 3,
+            //    ar_id : [1,2,3],
+            //    line_name : ['작성','검토','승인'],
+            //    approver_id : ['3','3','4'],
+            //    approver_name : ['김태영','홍길동','장길산'],
+            //    appr_state : ['Y','',''],
+            //    appr_state_name : ['작성','',''],
+            //    appr_date : ['22-08-05','',''],
+            //};
+
+            let html = tmpl(this.tmpl_name, result.data);
+            //$('#approveBox').html(html);
+            $('#'+_this.div_name).html(html);
+
+            $('.btnBoxApprove').click(function (e) {
+                let ar_id = $(this).data('id');
+                let line_name = $(this).data('line_name');
+                let user_id = $(this).data('user');
+                let data = {
+                    ar_id: ar_id,
+                    line_name: line_name,
+                };
+                let content = tmpl('approvePopup', data);
+                let $content = $(content);
+                let modal = new PopupDraggable('결재');
+                modal.open({ width: 400, height: 300, $content });
+                $content.find('#btnSaveApprove').click(function () {
+                    let ar_id = $content.find('#appr_result_id').val();
+                    let appr_state = $content.find('#cboApprState').val();
+                    let description = $content.find('#appr_description').val();
+                    let param = {
+                        'ar_id': ar_id,
+                        'appr_state': appr_state,
+                        'description': description,
+                    };
+                    let fnSuccess = function (res) {
+                        if (res.success) {
+                            Notify.success('결재되었습니다.');
+                            modal.close();
+                            _this.print();
+                            //return true;
+                            
+                        } else {
+                            Alert.alert('', res.message);
+                        }
+                    }
+                    let url = '/api/common/appr_result/approve';
+                    //AjaxUtil.postAsyncData(url, param, fnSuccess);
+                    let result = AjaxUtil.postSyncData(url, param, fnSuccess);
+                    if (result.success) {
+                            Notify.success('결재되었습니다.');
+                            modal.close();
+                            _this.print();
+                            callback();
+                            
+                        } else {
+                            Alert.alert('', result.message);
+                        } 
+
+                });
+            });
+        }
+    }
+
+    class ApproveInsert {
+        constructor(task_name, work_name, src_data_pk, src_table_name, dept_id, shift) {
+            // src_data_pk는 업무테이블의 id이거나 bundle_head의 id
+            this.task_name = task_name;
+            this.work_name = work_name;
+            this.src_data_pk = src_data_pk;
+            this.src_table_name = src_table_name;
+            this.dept_id = dept_id;
+            this.shift = shift;
+
+            this.modalContainer = new PopupDraggable('결재 상신');
+
+            this.baseUrl = '/api/common/appr_result';
+          
+        } 
+
+        getApproverList() {
+            let _this = this;
+            let url = _this.baseUrl;
+            let param = {
+                action : 'approver_list',
+                task_code : _this.task_name,
+                dept_id : _this.dept_id,
+                shift: _this.shift,
+            };
+            let result = AjaxUtil.getSyncData(url + '/approver_list', param);
+            return result.data;
+        }
+
+        show(callback) {
+            /* approveInsert 템플릿을 팝업으로 보여준다. 팝업에는 라인별로 결재자 목록이 뜬다.
+             * 상신 버튼을 누르면 라인별 지정한 결재자 가지고 appr_result를 만들어 준다.
+             */
+
+            let _this = this;
+            let line_count = 2;
+            let sample_data = {
+                line_count: line_count,
+                line_name: ['검토', '승인'],
+                approver_list: [
+                    [{ id: 1, name: '홍길동' }, { id: 2, name: '장길산' },],
+                    [{ id: 3, name: '이몽룡' }, { id: 4, name: '연흥부' },],
+                ],
+            };
+            let data = sample_data;
+
+            let result = _this.getApproverList();
+            data = result;
+
+            let content = tmpl('approveInsertTmpl', data);
+            let $content = $(content);
+            this.modalContainer.open({ width: 365, height: 230, $content });
+
+            //$content.find('#btnPopApprInsert').on('click', function (e) {
+            //    console.log('popup btnPopApprInsert click');
+
+            //});
+            $('#btnPopApprInsert').click(function (e) {
+                let url = _this.baseUrl + '/insert2';
+                let data = {
+                    task_code : _this.task_name,
+                    work_name : _this.work_name,
+                    src_data_pk: _this.src_data_pk,
+                    src_table_name : _this.src_table_name,
+                    line_count : line_count,
+                };
+                for (let i = 1; i <= line_count; i++) {
+                    data['approver' + String(i)] = $content.find('#cboApprover' + String(i)).val();
+                }
+                let result = AjaxUtil.postSyncData(url, data);
+                if (result.success) {
+                    Notify.success('상신되었습니다.');
+                    _this.modalContainer.close();
+                    //_this.show();
+                    if (callback) {
+                        callback();
+                    }
+                } else {
+                    Alert.alert('', result.message);
+                } 
+            });
+
+            $('#btnModalClose').click(function (e) {
+                modal.close();
+            });
+
+        }
+    }
+</script>
+</th:block>
+</html>

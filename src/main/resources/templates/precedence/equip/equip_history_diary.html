@@ -1,0 +1,632 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <input type="hidden" id="bhId" th:value="${bh_id}"/>
+        <input type="hidden" id="data_date" th:value="${data_date}"/>
+        <input type="hidden" id="search_cond" th:value="${searchcond}"/>
+        <input type="hidden" id="viewMode" th:value="${view_mode}"/>
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>설비점검이력</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>일지 및 데이터</li>
+                <li>선행요건일지</li>
+                <li>설비점검이력</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <!--<label><span class="input-group-text fit_box_sm" data-labelCd="일지명">일지명</span></label>-->
+                            <label for="title">일지명</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" id="title" name="title" class="form-control2">
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="dataDate">점검일</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="date" class="form-control2" id="dataDate" name="dataDate">
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <!--<label> <span class="input-group-text fit_box_sm" data-labelCd="작성자">작성자</span></label>-->
+                            <label for="firstName">작성자</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" id="firstName" name="firstName" class="form-control2" disabled>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <div>
+                        <div id="approveBox" style="margin-left: 400px;"></div>
+                    </div>
+
+                    <!--<dl>
+                        <dt><span class="eq"></span></dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>-->
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="container-fluid">
+                <p id="selectedItem"></p>
+                <!--<div id="theGrid" style="height: 350px; max-height: 350px;"></div>-->
+                <div class="grid_box" id="prodListGrid">
+                    <span class="right_align rpt" data-labelCd="설비점검사항">설비점검사항</span>
+                    <button type="button" class="btn-default" id="btnDiaryPrint">일지출력</button>
+                    <button type="button" class="btn-default" id="btnReqAppr">결재상신</button>
+                    <button type="button" class="btn-default" id="btnSave">저장</button>
+                    <button type="button" class="btn-cancel btn-danger" id="btnDelete" style="width: 124px; height: 48px;">삭제</button>
+                    <button type="button" class="btn-default" id="btnList">목록</button>
+                    <button type="button" class="btn-default" id="btnAppr" style="display:none;">승인</button>
+                    <button type="button" class="btn-cancel" id="btnReject" style="display:none; width: 124px; height: 48px;">반려</button>
+                </div>
+                <form id="checkEquipForm" autocomplete="off">
+                    <table class="write-table"
+                           style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                        <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+                        <input type="hidden" id="id" name="id" readonly/>
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="equ_id" class="fit_box_t7">설비</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <select id="equ_id" name="equ_id"
+                                        style="width: 100%;"></select>
+                            </td>
+
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="cost" class="fit_box_t7">금액(천원)</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="number" id="cost" name="cost"
+                                       style="width: 100%;">
+                            </td>
+
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="manager" class="fit_box_t7">담당</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" style="width: 100%;" id="manager"
+                                       name="manager">
+                            </td>
+
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="part_leader" class="fit_box_t7">파트장</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" style="width: 100%;" id="part_leader"
+                                       name="part_leader">
+                            </td>
+
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="part_leader" class="fit_box_t7">주요내용</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" style="width: 100%;" id="content"
+                                       name="content">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="part_leader" class="fit_box_t7_area">특이사항</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;" colspan="9">
+                                <textarea id="description" name="description"></textarea>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </form>
+
+                <!--<div class="table_box search">
+                    <div class="row">
+                        <div class="col-6 col-lg-6 col-xl-6">
+                            <div class="row">
+                                <div class="col-12 col-lg-12 col-xl-12">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_sm" data-labelCd="일지명">일지명</span>
+                                        </div>
+                                        <input class="form-control2 tac" type="text" id="title" name="title"/>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-lg-6 col-xl-6">
+                                    <div class="input-group" data-ax5picker="multi" id="pickerDate">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_sm" data-labelCd="점검일">점검일</span>
+                                        </div>
+                                        <input class="form-control2 tac" type="text" id="dataDate" name="dataDate"/>
+                                        <span class="input-group-text fs-xl"><i
+                                                class="fas fa-calendar-alt calendar_color"></i></span>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-lg-6 col-xl-6">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text fit_box_sm" data-labelCd="작성자">작성자</span>
+                                        </div>
+                                        <input class="form-control2 tac" type="text" id="firstName" name="firstName"
+                                               disabled/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-6 col-xl-6">
+                            <div id="approveBox"></div>
+                        </div>
+                    </div>
+                </div>-->
+
+                <!--<section class="section">
+                    <div class="grid_box" id="prodListGrid">
+                        <div class="title_box">
+                            <span class="right_align rpt" data-labelCd="설비점검사항">설비점검사항</span>
+                            <button type="button" class="btn-default" id="btnExcel"><i class="fas fa-file-excel"></i></button>
+                            <button type="button" class="btn-default" id="btnDiaryPrint">일지출력</button>
+                            <button type="button" class="btn-default" id="btnReqAppr">결재상신</button>
+                            <button type="button" class="btn-default" id="btnAppr" style="display:none;">승인</button>
+                            <button type="button" class="btn-cancel" id="btnReject" style="display:none;">반려</button>
+                            <button type="button" class="btn-default" id="btnSave">저장</button>
+                            <button type="button" class="btn-cancel" id="btnDelete">삭제</button>
+                            <button type="button" class="btn-default" id="btnList">목록</button>
+                        </div>
+
+                        <form id="checkEquipForm" autocomplete="off">
+                            <input type="hidden" id="id" name="id" readonly/>
+
+                            <div class="table_box sub">
+                                <div class="row">
+                                    <div class="col-3">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t7" data-labelCd="*설비">*설비</span>
+                                            </div>
+                                            <select class="form-control2" id="equ_id" name="equ_id"></select>
+
+                                        </div>
+                                    </div>
+
+                                    <div class="col-3">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t7" data-labelCd="*금액(천원)">*금액(천원)</span>
+                                            </div>
+                                            <input class="form-control2" type="number" id="cost" name="cost">
+
+                                        </div>
+                                    </div>
+
+                                    <div class="col-3 ">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t7" data-labelCd="담당">담당</span>
+                                            </div>
+                                            <input class="form-control2" type="text" id="manager" name="manager">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-3 ">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t7" data-labelCd="파트장">파트장</span>
+                                            </div>
+                                            <input class="form-control2" type="text" id="part_leader" name="part_leader">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t7" data-labelCd="주요내용">주요내용</span>
+                                            </div>
+                                            <input class="form-control2" type="text" id="content" name="content">
+
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text fit_box_t7_area" data-labelCd="특이사항">특이사항</span>
+                                            </div>
+                                            <textarea class="form-control2" type="text" id="description"
+                                                      name="description"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                        </form>
+
+                    </div>
+                </section>-->
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <script type="text/javascript">
+        class CheckResultDiaryPage {
+            constructor() {
+                this.grid = null;
+                this.approveBoxUtil = null;
+                this.resultGrid = null;
+                this.checkMasterName = '설비점검이력'
+                this.baseUrl = '/api/precedence/equip_history';
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                this.gparam = {
+                    bh_id: $('#bhId').val(),
+                    data_date: $('#data_date').val(),
+                    search_cond: $('#search_cond').val(),
+                    view_mode: $('#viewMode').val(),
+                };
+            }
+
+            // 일지 조회
+            searchMainData() {
+                let _this = this;
+                $('#btnDiaryPrint').hide();
+                $('#btnDelete').hide();
+
+                $('#firstName').val(userinfo.username);
+                $('#title').val(_this.checkMasterName);
+
+                if ($('#bhId').val() > 0) {
+                    let param = {
+                        'bh_id': $('#bhId').val(),
+                    };
+
+                    let result = AjaxUtil.getSyncData(_this.baseUrl + '/read', param);
+
+                    if (result != null) {
+                        let headInfo = result.data.head_info;
+                        let diaryInfo = result.data.diary_info;
+
+                        $('#title').val(headInfo.Title);
+                        $('#dataDate').val(headInfo.DataDate);
+                        $('#firstName').val(headInfo.FirstName);
+
+                        FormUtil.BindDataForm(diaryInfo, $('#checkEquipForm'));
+
+                        _this.viewModeSetting(headInfo)
+                    }
+
+                }
+
+                // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+                _this.approveBoxUtil = new ApproveBoxUtil(0, _this.checkMasterName, $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+            }
+
+            viewModeSetting(headInfo) {
+                // 데이터에 따른 버튼 설정
+                if ($('#viewMode').val().toLowerCase() == 'true') {
+                    //보기 모드일 경우 CRUD 버튼 숨김
+                    $('#btnDiaryPrint').hide();
+                    $('#btnReqAppr').hide();
+                    $('#btnSave').hide();
+                    $('#btnDelete').hide();
+                    if (headInfo.State == 'approval') {
+                        $('#btnDiaryPrint').show();
+                    }
+
+                    $('#title').attr('disabled', 'disabled');
+                    $('#dataDate').attr('disabled', 'disabled');
+                    $('#checkEquipForm :input').attr('disabled', 'disabled');
+                } else {
+                    // State : 작성, 미결재, 승인, 반려, 재상신
+                    $('#btnDelete').show();
+                    $('#btnDiaryPrint').hide();
+                    if (headInfo.State == 'process' || headInfo.State == 'reprocess') {
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                    } else if (headInfo.State == 'approval') {
+                        $('#btnDiaryPrint').show();
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                    }
+
+                    if (parseInt($('#bhId').val(), 10) > 0) {
+                        $('#dataDate').attr('disabled', 'disabled');
+                    } else {
+                        $('#btnDelete').hide();
+                    }
+                }
+            }
+
+            // 일지 출력
+            printDiary() {
+                let param = {
+                    'title': $('#title').val(),
+                    'bh_id': $('#bhId').val(),
+                };
+
+                let result = AjaxUtil.postSyncData(this.baseUrl + '/print', param, function () {
+                });
+                if (result.success) {
+                    CommonUtil.openWindow('/api/files/pdf_viewer?file_id=' + result.file_id)
+                } else {
+                    Alert.alert('', '일지 생성 중 오류가 발생했습니다. 관리자에게 문의하세요.');
+                }
+            }
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    $('#btnList').click();
+                });
+            }
+
+            //결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit';
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'data_date': $('#dataDate').val(),
+                };
+
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+            //저장
+            save(isAppr) {
+                let _this = this;
+                let extract = FormUtil.extractForm($('#checkEquipForm'));
+                if (!extract) {
+                    Alert.alert('', '폼 추출에 실패했습니다.');
+                    return false;
+                }
+
+
+                let callback = function () {
+
+                    let data = {
+                        bh_id: $('#bhId').val(),
+                        title: $('#title').val(),
+                        data_date: $('#dataDate').val(),
+                        equ_history_id: extract.id,
+                        equ_id: extract.equ_id,
+                        cost: extract.cost,
+                        manager: extract.manager,
+                        part_leader: extract.part_leader,
+                        content: extract.content,
+                        description: extract.description,
+                    };
+
+                    console.log(data); // data 객체 확인
+
+                    if (!data) {
+                        Alert.alert('', '잘못된 데이터입니다.');
+                        return false;
+                    }
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            $('#bhId').val(resp.data.id);
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                Alert.alert('','저장하였습니다.');
+                                $('#btnDelete').show();
+                                $('#dataDate').attr('disabled', 'disabled');
+                                _this.searchMainData();
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    //let action = $('#bhId').val() > 0 ? '/save' : '/insert';
+
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/save', data, fnSuccess);
+
+                }
+
+                // 필수입력 check
+                if (!extract.equ_id) {
+                    Alert.alert('', '설비종류를 선택해주세요.');
+                    return false;
+                } else if (!extract.cost) {
+                    Alert.alert('', '금액을 입력해주세요.');
+                    return false;
+                }
+
+                if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                } else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+
+            //삭제
+            delete() {
+                let _this = this;
+                Alert.confirm('', '삭제하시겠습니까?', function () {
+                    // 삭제 서비스 호출
+                    let param = {
+                        bh_id: $('#bhId').val(),
+                    }
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            Notify.success('삭제하였습니다.');
+                            $('#btnList').click();
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/delete', param, fnSuccess);
+                });
+            }
+
+            // 엑셀 다운로드
+            exportExcel() {
+                let data =
+                    {
+                        equ_id: $("#equ_id option:selected").text(),
+                        cost: $('#cost').val(),
+                        manager: $('#manager').val(),
+                        part_leader: $('#part_leader').val(),
+                        content: $('#content').val(),
+                        description: $('#description').val()
+                    }
+
+
+                let param = JSON.stringify(data);
+
+                let fileName = '설비점검이력.xlsx'
+
+                let url = this.baseUrl + '/excelDown?param=' + encodeURI(param);
+
+                window.open(url, fileName, "");
+            }
+
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new CheckResultDiaryPage();
+
+            const today = new Date();
+            const formattedToday = today.toISOString().split('T')[0];
+
+            document.getElementById('dataDate').value = formattedToday;
+
+
+            AjaxUtil.fillSelectOptions($('#equ_id'), 'equipment', 'choose', false, '');
+
+            // 일자 변경
+            $('#dataDate').change(function () {
+                page.searchMainData();
+            });
+
+            // 일지 출력
+            $('#btnDiaryPrint').on('click', function () {
+                page.printDiary();
+            });
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+
+            // 행추가
+            $('#btnNew').click(function (e) {
+                let row = {
+                    __index: undefined,
+                };
+                for (var i = 1; i <= 12; i++) {
+                    row['plan_' + String(i)] = '';
+                }
+                page.resultGrid.addRow($.extend({}, row), "last");
+            });
+
+            // 행삭제
+            $("#btnDel").click(function (e) {
+                page.resultGrid.deleteRow("selected");
+            });
+
+            $("#btnUp").click(function (e) {
+                GridUtil.changeOrder("U", page.resultGrid);
+            });
+
+            $("#btnDown").click(function (e) {
+                GridUtil.changeOrder("D", page.resultGrid);
+            });
+
+            $('#btnSave').on('click', function () {
+                page.save(false);
+            });
+
+            // 삭제
+            $('#btnDelete').on('click', function () {
+                page.delete();
+            });
+
+            // 목록
+            $('#btnList').on('click', function () {
+                if (page.gparam.appr_view) {
+                    location.href = encodeURI('/gui/' + page.gparam.appr_view + '?searchcond=' + page.gparam.search_cond);
+                } else {
+                    location.href = encodeURI('/gui/' + gui.gui_code + '?searchcond=' + page.gparam.search_cond);
+                }
+            });
+
+            // 엑셀 다운로드
+            $('#btnExcel').on('click', function () {
+                page.exportExcel();
+            });
+
+            page.searchMainData();
+
+        });
+    </script>
+</th:block>
+</html>

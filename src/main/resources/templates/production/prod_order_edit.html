@@ -1,0 +1,1083 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>작업지시 등록(수주)</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산 관리</li>
+                <li>작업지시 등록(수주)</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label for="cboDateKind">
+                                검색 구분<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboDateKind" name="cboDateKind">
+                                    <option value="suju_date" data-labelCd="수주일">수주일</option>
+                                    <option value="due_date" data-labelCd="납기일">납기일</option>
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            조회기간<span class="eq">*</span>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input type="date" id="srchStartDt" name="srchStartDt">
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input type="date" id="srchEndDt" name="srchEndDt">
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="cboMatType">
+                                제품 구분<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboMatType" name="cboMatType">
+                                    <option value="product">제품</option>
+                                    <option value="semi">반제품</option>
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="cboMatGroup">
+                                제품 그룹<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboMatGroup" name="cboMatGroup">
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="txtMatName">
+                                제품명
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input class="form-control2" type="text" id="txtMatName" name="txtMatName"/>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="chkNoActionFlag">
+
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="checkbox" id="chkNoActionFlag" name="NoActionFlag" value="NOT"/>
+                                미지시 건 만
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnMainSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="grid_box" style="height: 30vh;">
+                <div class="search-wrap">
+                    <dl style="display: none;">
+                        <dt>
+                            생산일
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input type="date" id="ProductionDate" name="ProductionDate">
+                                    <label for="ProductionDate" class="hide">생산일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+                </div>
+                <div id="theGrid"></div>
+            </div>
+        </section>
+        <div class="tab-wrap" style="height: 30vh;">
+            <ul class="tab-links">
+                <li><a href="#tabJobRes">제품 지시내역</a></li>
+                <li><a href="#tabSemi">반제품 작업지시</a></li>
+                <li><a href="#tabConsumed">반제품 지시내역</a></li>
+            </ul>
+            <div>
+                <section class="tab-item" id="tabJobRes" style="border-top-left-radius: 0;">
+                    <div class="section-top">
+                        <div class="button-wrap">
+                            <ul>
+                                <li>
+                                    <a class="btn btn-edit" title="작업 지시 수정" id="btnJobResDetail">
+                                        <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">
+                                        작업 지시 수정
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="container-fluid">
+                        <div id="jobResGrid"></div>
+                    </div>
+                </section>
+                <section class="tab-item" id="tabSemi" style="border-top-left-radius: 0;">
+                    <div class="container-fluid">
+                        <div id="semiGrid"></div>
+                    </div>
+                </section>
+                <section class="tab-item" id="tabConsumed" style="border-top-left-radius: 0;">
+                    <div class="section-top">
+                        <div class="button-wrap">
+                            <ul>
+                                <li>
+                                    <a class="btn btn-edit" title="작업 지시 상세" id="btnSemiJobResDetail">
+                                        <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">
+                                        작업 지시 상세
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="container-fluid">
+                        <div id="semiJobResGrid" ></div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/x-tmpl" id="jobOrderTemplate">
+        <div class="content_wrap popup">
+            <div class="table-wrap">
+                <form id="jobOrderForm" class="form-group">
+                    <table class="write-table">
+                        <caption>작업 지시 테이블</caption>
+                        <input type="hidden" name='id' />
+                        <tbody>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="WorkOrderNumber">작업지시번호</label>
+                                </th>
+                                <td>
+                                    <input type="text" value="{%=o.WorkOrderNumber%}" readonly />
+                                </td>
+                                <th style="text-align: center">
+                                    <label for="ProductionDate">생산일</label>
+                                </th>
+                                <td>
+                                    <input type="date" id="ProductionDate" name="ProductionDate" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="ShiftCode">근무조*</label>
+                                </th>
+                                <td>
+                                    <select id="ShiftCode" name="ShiftCode"></select>
+                                </td>
+                                <th style="text-align: center">
+                                    <label for="WorkCenter_id">워크센터*</label>
+                                </th>
+                                <td>
+                                    <select id="WorkCenter_id" name="WorkCenter_id"></select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="mat_name">제품</label>
+                                </th>
+                                <td>
+                                    <input type="text" disabled value="{%=o.mat_name%}" />
+                                </td>
+                                <th style="text-align: center">
+                                    <label for="OrderQty">지시량({%=o.unit_name%})*</label>
+                                </th>
+                                <td>
+                                    <input type="number" id="OrderQty" name="OrderQty" placeholder="{%=o.unit_name%}" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="StateName">상태</label>
+                                </th>
+                                <td colspan="3">
+                                    <input type="text" value="{%=o.StateName%}" readonly />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: center">
+                                    <label for="description">비고</label>
+                                </th>
+                                <td colspan="3">
+                                    <textarea id="description" name="Description">{%=o.Description%}</textarea>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+
+            <div class="popup-button">
+                <button type="button" class="btn-popup" id="btnPopJobOrderSave" ><span data-labelCd="저장">저장</span></button>
+                <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+            </div>
+        </div>
+    </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <!--    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>-->
+    <!--    <script type="text/javascript" th:src="@{/js/grid.js}"></script>-->
+    <script type="text/javascript">
+
+        class ProductionOrder {
+            constructor() {
+                this.grid = null;
+                this.semiGrid = null;
+                this.jobResGrid = null;
+                this.semiJobResGrid = null;
+                this.$cboMatType = null;
+                this.$cboMatGroup = null;
+                this.workshifOptions = [];
+                this.workcenterOptions = [];
+                this.selectedIndex = 0;
+
+                this.url = '/api/production/prod_order_edit';
+
+                this.initSuju();
+                this.initSemi();
+                this.initJobRes();
+                this.initSemiJobRes();
+            }
+
+            initSuju() {
+                let _this = this;
+
+                // 근무조
+                this.workshifOptions = AjaxUtil.getSelectDataWithNull('shift', 'choose');
+                console.log('workshifOptions', this.workshifOptions);
+
+                let dicWorkShift = {};
+                $.each(this.workshifOptions, function (idx, item) {
+                    dicWorkShift[item.value] = item.text
+                });
+
+                // 워크센터a
+                this.workcenterOptions = AjaxUtil.getSelectDataWithNull('workcenter', 'choose');
+
+                let dicWorkCenter = {};
+                $.each(this.workcenterOptions, function (idx, item) {
+                    dicWorkCenter[item.value] = item.text;
+                });
+
+                let workshiftMap = new wijmo.grid.DataMap(this.workshifOptions, 'value', 'text');
+                let workcenterMap = new wijmo.grid.DataMap(this.workcenterOptions, 'value', 'text');
+
+
+                // Wijmo FlexGrid 설정
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    showMarquee: true,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            let col = s.columns[e.col];
+                            if (col.binding === 'prod_date') {
+                                const item = s.rows[e.row].dataItem;
+
+                                // 기존 내용 제거
+                                e.cell.innerHTML = '';
+
+                                // input 생성
+                                let input = document.createElement('input');
+                                input.type = 'date';
+                                input.style.width = '85%';
+                                input.style.minWidth = '130px';
+                                input.style.height = '100%';
+                                input.style.border = 'none';
+                                input.style.padding = '0 16px 0 0';
+                                input.style.font = 'inherit';
+                                input.style.zIndex = '0';
+
+                                input.value = item.prod_date ? item.prod_date.substring(0, 10) : '';
+
+                                // 값 변경 시 dataItem에 반영
+                                input.addEventListener('change', function () {
+                                    item.prod_date = input.value;
+                                });
+
+                                e.cell.appendChild(input);
+                            }
+                        }
+                        if (
+                            e.panel.cellType === wijmo.grid.CellType.ColumnHeader &&
+                            (
+                                s.columns[e.col].binding === 'AdditionalQty' ||
+                                s.columns[e.col].binding === 'workcenter_id' ||
+                                s.columns[e.col].binding === 'prod_date' ||
+                                s.columns[e.col].binding === 'workshift'
+                            )
+                        ) {
+                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                        }
+                    },
+                    columns: [
+                        {binding: 'id', header: '수주pk', width: 120, visible: false, isReadOnly: true},
+                        {binding: 'JumunNumber', header: '주문번호', width: 140, align: 'center', isReadOnly: true},
+                        {binding: 'JumunDate', header: '수주일', width: 110, align: 'center', isReadOnly: true},
+                        {binding: 'DueDate', header: '납기일', width: 110, align: 'center', isReadOnly: true},
+                        {binding: 'CompanyName', header: '판매처', width: 120, align: 'left', isReadOnly: true},
+                        {binding: 'mat_type_name', header: '제품구분', width: 80, align: 'center', isReadOnly: true},
+                        {binding: 'MaterialGroupName', header: '제품그룹', width: 90, align: 'left', isReadOnly: true},
+                        {binding: 'mat_code', header: '제품코드', width: 80, align: 'center', isReadOnly: true},
+                        {binding: 'mat_pk', header: '제품pk', width: 80, visible: false, isReadOnly: true},
+                        {binding: 'mat_name', header: '제품명', width: 140, align: 'left', isReadOnly: true},
+                        {binding: 'unit_name', header: '단위', width: 60, align: 'center', isReadOnly: true},
+                        {binding: 'SujuQty', header: '수주량', width: 60, align: 'right', isReadOnly: true},
+                        {
+                            binding: 'ordered_qty',
+                            header: '기 지시량',
+                            width: 80,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
+                        {
+                            binding: 'remain_qty',
+                            header: '잔여량',
+                            width: 60,
+                            align: 'right',
+                            isReadOnly: true
+                        },
+                        {binding: 'AdditionalQty', header: '지시량', width: 60, align: 'right', isReadOnly: false}, // 수정 가능
+                        {
+                            binding: 'workcenter_id', header: '워크센터', width: 100, align: 'center',
+                            dataMap: workcenterMap, isReadOnly: false // 수정 가능
+                        },
+                        {
+                            binding: 'prod_date',
+                            header: '생산일',
+                            width: 130,
+                            isReadOnly: true
+                        },
+                        {
+                            binding: 'workshift', header: '근무조', width: 80, align: 'center',
+                            dataMap: workshiftMap, isReadOnly: false // 수정 가능
+                        },
+                        {
+                            binding: 'order_action',
+                            header: '지시',
+                            width: 80,
+                            align: 'center',
+                            // cellTemplate: ctx => userinfo.can_write() ? `<button class="btn-default" style="width: 100%;height: 25px;">지시</button>` : '권한없음',
+                            isReadOnly: true
+                        },
+                        {binding: 'description', header: '비고', width: 100, align: 'left', isReadOnly: true}
+                    ],
+                    itemFormatter: function (panel, row, col, cell) {
+                        if (panel.cellType === wijmo.grid.CellType.Cell) { // 일반 셀 확인
+                            let column = panel.columns[col];
+                            let item = panel.rows[row].dataItem;
+
+                            if (column.binding === 'remain_qty' && item.remain_qty > 0) {
+                                cell.style.backgroundColor = '#ffd800'; // 잔여량이 0보다 크면 배경색 노란색
+                            }
+                        }
+                    },
+
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '작업 지시 목록';
+
+                // FlexGrid 이벤트 설정
+                this.grid.selectionChanged.addHandler((s, e) => {
+                    let selectedRow = s.selection.row;
+                    if (selectedRow < 0) return;
+
+                    let item = s.rows[selectedRow]?.dataItem;
+
+                    // 항상 현재 선택된 데이터 로딩
+                    _this.loadJobResList(item);
+                    _this.loadSemiJobResList(item);
+                    _this.semiJobRes();
+                });
+
+
+                _this.grid.formatItem.addHandler(function (s, e) {
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        let col = s.columns[e.col];
+
+                        if (col.binding === 'order_action' && userinfo.can_write()) {
+                            let btn = document.createElement("button");
+                            btn.className = "btn-default";
+                            btn.style.width = "100%";
+                            btn.style.height = "25px";
+                            btn.innerText = "지시";
+                            let row = s.rows[e.row];
+                            btn.onclick = function () {
+                                let selectedItem = row.dataItem;
+                                _this.selectedIndex = s.rows.findIndex(r => r.dataItem === selectedItem);
+                                handleOrderClick(_this.selectedIndex, row.dataItem);
+                            };
+                            e.cell.innerHTML = "";
+                            e.cell.appendChild(btn);
+                        }
+                    }
+                });
+
+                // 수주목록내 작업지시 버튼 클릭
+                function handleOrderClick(rowIndex, selectedItem) {
+                    if (!selectedItem) return;
+                    if (!selectedItem.workshift) {
+                        Alert.alert('', '근무조를 선택해주세요.');
+                        return;
+                    }
+
+
+                    if (selectedItem.AdditionalQty === 0) {
+                        Alert.alert('', '지시량을 입력해주세요.');
+                        return;
+                    }
+
+                    if (!selectedItem.workcenter_id) {
+                        Alert.alert('', '워크센터를 선택해주세요.');
+                        return;
+                    }
+
+
+                    let data = {
+                        suju_id: selectedItem.id,
+                        workshift: selectedItem.workshift,
+                        workcenter_id: selectedItem.workcenter_id,
+                        AdditionalQty: selectedItem.AdditionalQty,
+                        prod_date: selectedItem.prod_date,
+                        Material_id: selectedItem.mat_pk
+                    };
+
+                    Alert.confirm('', '작업지시를 생성하시겠습니까?', function () {
+                        _this.makeOrder(data);
+
+
+                    });
+                }
+
+
+                this.$cboMatType = $('#cboMatType');
+                this.$cboMatGroup = $('#cboMatGroup');
+
+                //품목유형
+                // product, semi 만
+                AjaxUtil.fillSelectOptions(this.$cboMatType, 'system_code', 'all', false, 'mat_type', 'product,semi');
+
+                //품목그룹
+                AjaxUtil.fillSelectOptions(this.$cboMatGroup, 'material_group', 'all', false);
+                this.$cboMatType.on('change', function (e) {
+                    let matType = _this.$cboMatType.val();
+                    AjaxUtil.fillSelectOptions(_this.$cboMatGroup, 'material_group', 'all', false, matType);
+                });
+
+                // 기간 초기화
+                $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+                $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+                $('#ProductionDate').val(CommonUtil.getYYYYMMDD());
+
+                // 수주 검색
+                $('#btnMainSearch').on('click', function (e) {
+                    _this.sujuSearch();
+                });
+
+
+            }
+
+            // 작업지시 생성
+            makeOrder(data) {
+                let _this = this;
+                let url = _this.url + '/make_prod_order';
+
+                let fnsuccess = function (result) {
+                    if (result.success) {
+                        Alert.alert('', '생성되었습니다.');
+                        _this.sujuSearch();
+                    }
+                };
+
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+            // 반제품 작업지시 생성
+            makeSemiOrder(data, dindex, selectedItem) {
+                let _this = this;
+                let url = _this.url + '/make_prod_order';
+
+                let fnsuccess = function (result) {
+
+                    if (result.success) {
+                        Alert.alert('', '생성되었습니다.');
+                        selectedItem.ordered_qty = result.data.info.ordered_qty;
+                        selectedItem.remain_qty = result.data.info.remain_qty;
+                        selectedItem.workcenter_id = null;
+                        selectedItem.workshift = null;
+                        selectedItem.AdditionalQty = 0;
+                        // _this.semiGrid.collectionView.refresh();
+
+                        let main_grid = _this.grid.collectionView.currentItem;
+
+                        let restoreIndex = _this.selectedIndex || 0;
+                        _this.grid.selectedIndex = -1;
+                        setTimeout(() => {
+                            // 선택 해제 후 다른 행을 선택했다가 다시 복원
+                            if (_this.grid.rows.length > 1) {
+                                _this.grid.select(
+                                    restoreIndex === 0 ? 1 : 0,
+                                    0
+                                );
+                            }
+                            setTimeout(() => {
+                                _this.grid.select(restoreIndex, 0); // 진짜 복원
+                                _this.grid.scrollIntoView(restoreIndex, 0); // 스크롤 이동
+                                _this.loadSemiJobResList(_this.grid.collectionView.items[restoreIndex]);
+                                _this.selectedIndex = 0;
+                            }, 50);
+                        }, 50);
+
+                    }
+                };
+
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+            // 수주검색
+            sujuSearch() {
+
+                let _this = this;
+                let date_kind = $('#cboDateKind').val();
+                let $cboMatGroup = $('#cboMatGroup');
+                let mat_grp = $cboMatGroup.val();
+                let not_flag = $("input:checkbox[id='chkNoActionFlag']").is(":checked") ? 'NOT' : '';
+                let $ProductionDate = $('#ProductionDate');
+
+                let data = {
+                    date_kind: date_kind,
+                    start: $('#srchStartDt').val(),
+                    end: $('#srchEndDt').val(),
+                    mat_group: mat_grp,
+                    not_flag: not_flag,
+                    mat_name: $('#txtMatName').val()
+                };
+
+
+                let fnsuccess = function (result) {
+                    let prod_date = $ProductionDate.val();
+                    if (result.data != null) {
+                        $.each(result.data, function (idx, item) {
+                            item['prod_date'] = prod_date;
+                            if (!item.workshift) {
+                                // 주간조를 디폴트로 선택
+                                item.workshift = _this.workshifOptions.length > 0 ? _this.workshifOptions[2].value : null;
+                            }
+                        });
+
+                        _this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+
+                        let restoreIndex = _this.selectedIndex || 0;
+                        _this.grid.selectedIndex = -1;
+                        setTimeout(() => {
+                            _this.grid.select(restoreIndex, 0);
+
+                            let item = _this.grid.rows[restoreIndex]?.dataItem;
+                            if (item) {
+                                _this.loadJobResList(item);
+                                _this.loadSemiJobResList(item);
+                            }
+                            _this.semiJobRes();
+                            _this.selectedIndex = 0; // 초기화
+                        }, 10);
+                    }
+                };
+
+                AjaxUtil.getAsyncData(this.url + '/suju_list', data, fnsuccess);
+                _this.jobResGrid.itemsSource = new wijmo.collections.CollectionView([]);
+                _this.semiGrid.itemsSource = new wijmo.collections.CollectionView([]);
+                _this.semiJobResGrid.itemsSource = new wijmo.collections.CollectionView([]);
+                $('#btnJobResDetail').attr('disabled', true);
+                $('#btnSemiJobResDetail').attr('disabled', true);
+            }
+
+            // 반제품목록 작업지시생성
+            initSemi() {
+                let _this = this;
+
+                // 근무조
+                this.workshifOptions = AjaxUtil.getSelectDataWithNull('shift', 'choose');
+
+                let dicWorkShift = {};
+                $.each(this.workshifOptions, function (idx, item) {
+                    dicWorkShift[item.value] = item.text
+                });
+
+                // 워크센터
+                this.workcenterOptions = AjaxUtil.getSelectDataWithNull('workcenter', 'choose');
+
+                let dicWorkCenter = {};
+                $.each(this.workcenterOptions, function (idx, item) {
+                    dicWorkCenter[item.value] = item.text;
+                });
+
+                let workshiftMap = new wijmo.grid.DataMap(this.workshifOptions, 'value', 'text');
+                let workcenterMap = new wijmo.grid.DataMap(this.workcenterOptions, 'value', 'text');
+
+
+                this.semiGrid = new wijmo.grid.FlexGrid('#semiGrid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    showMarquee: true,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (
+                            e.panel.cellType === wijmo.grid.CellType.ColumnHeader &&
+                            (
+                                s.columns[e.col].binding === 'AdditionalQty' ||
+                                s.columns[e.col].binding === 'workcenter_id' ||
+                                s.columns[e.col].binding === 'prod_date' ||
+                                s.columns[e.col].binding === 'workshift'
+                            )
+                        ) {
+                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            let col = s.columns[e.col];
+                            if (col.binding === 'prod_date') {
+                                const item = s.rows[e.row].dataItem;
+
+                                // 기존 내용 제거
+                                e.cell.innerHTML = '';
+
+                                // input 생성
+                                let input = document.createElement('input');
+                                input.type = 'date';
+                                input.style.width = '85%';
+                                input.style.minWidth = '130px';
+                                input.style.height = '100%';
+                                input.style.border = 'none';
+                                input.style.padding = '0 16px 0 0';
+                                input.style.font = 'inherit';
+                                input.style.zIndex = '0';
+
+                                input.value = item.prod_date ? item.prod_date.substring(0, 10) : '';
+
+                                // 값 변경 시 dataItem에 반영
+                                input.addEventListener('change', function () {
+                                    item.prod_date = input.value;
+                                });
+
+                                e.cell.appendChild(input);
+                            }
+                        }
+                    },
+                    columns: [
+                        {binding: 'id', header: '수주pk', visible: false, isReadOnly: true},
+                        {binding: 'mat_suju_num', header: '제품주문번호', width: 140, isReadOnly: true, align: 'center'},
+                        {binding: 'group_name', header: '제품그룹', width: 140, isReadOnly: true, align: 'center'},
+                        {binding: 'mat_pk', header: '제품pk', visible: false, isReadOnly: true},
+                        {binding: 'mat_code', header: '제품코드', width: 120, align: 'center', isReadOnly: true},
+                        {binding: 'mat_name', header: '제품명', width: 120, isReadOnly: true, align: 'left'},
+                        {binding: 'unit_name', header: '단위', width: 120, isReadOnly: true, align: 'center'},
+                        {binding: 'order_qty', header: '필요량', width: 120, align: 'right', isReadOnly: true},
+                        {binding: 'ordered_qty', header: '기지시량', width: 120, align: 'right', isReadOnly: true},
+                        {binding: 'AdditionalQty', header: '지시량', width: 120, align: 'right', isReadOnly: false},
+                        {binding: 'workcenter_id', header: '워크센터', width: 120, dataMap: workcenterMap, isReadOnly: false},
+                        {binding: 'prod_date', header: '생산일', width: 140, align: 'center', isReadOnly: true},
+                        {binding: 'workshift', header: '근무조', width: 120, dataMap: workshiftMap, isReadOnly: false},
+                        {binding: 'order_action', header: '지시', width: 80, align: 'center', isReadOnly: true}
+                    ]
+                });
+
+                new FlexGridContextMenu(this.semiGrid);
+                this.semiGrid.downloadFileName = '반제품 작업지시';
+
+                _this.semiGrid.formatItem.addHandler(function (s, e) {
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        let col = s.columns[e.col];
+
+                        if (col.binding === 'order_action' && userinfo.can_write()) {
+                            let btn = document.createElement("button");
+                            let row = s.rows[e.row];
+                            let item = row.dataItem;
+
+                            btn.className = "btn-default";
+                            btn.style.width = "100%";
+                            btn.style.height = "25px";
+                            btn.innerText = "지시";
+
+                            // 아래 속성들을 추가해줍니다
+                            btn.setAttribute("data-custom-btn", e.row); // dindex = row index
+                            btn.setAttribute("suju_id", item.id);  // 필요한 데이터
+
+                            e.cell.innerHTML = "";
+                            e.cell.appendChild(btn);
+
+                        }
+                    }
+                });
+
+                // 반제품 목록내 작업지시 버튼 클릭
+                $('#semiGrid').on("click", "[data-custom-btn]", function () {
+                    let dindex = this.getAttribute("data-custom-btn");
+                    let suju_id = this.getAttribute("suju_id");
+                    let items = _this.semiGrid.selectedItems[0];
+
+                    _this.selectedIndex = _this.grid.selection.row;
+
+                    if (items.length === 0) {
+                        return;
+                    }
+
+                    let workshift = items.workshift;
+                    let workcenter_id = items.workcenter_id;
+                    let AdditionalQty = items.AdditionalQty;
+                    let prod_date = items.prod_date;
+                    let Material_id = items.mat_pk;
+
+                    if (!workcenter_id) {
+                        Alert.alert('', '워크센터 선택하세요');
+                        return;
+                    }
+
+                    if (!AdditionalQty) {
+                        Alert.alert('', '지시량 입력하세요');
+                        return;
+                    }
+
+                    // 입력값 검증 필요
+                    Alert.confirm('', '작업지시를 생성하시겠습니까?', function () {
+                        let data = {
+                            suju_id: suju_id,
+                            workshift: workshift,
+                            workcenter_id: workcenter_id,
+                            AdditionalQty: AdditionalQty,
+                            prod_date: prod_date,
+                            Material_id: Material_id,
+                        }
+
+                        _this.makeSemiOrder(data, dindex, items);
+                    });
+                });
+            }
+
+            // 해당생산지시
+            initJobRes() {
+                let _this = this;
+                this.jobResGrid = new wijmo.grid.FlexGrid('#jobResGrid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    isReadOnly: true,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'WorkOrderNumber', header: '작업지시번호', width: 140, align: 'center'},
+                        {binding: 'ProductionDate', header: '생산일', width: 120, align: 'center'},
+                        {binding: 'ShiftName', header: '근무조', width: 120, align: 'center'},
+                        {binding: 'mat_code', header: '제품코드', width: 120, align: 'center'},
+                        {binding: 'mat_name', header: '제품명', width: 200, align: 'left'},
+                        {binding: 'unit_name', header: '단위', width: 100, align: 'center'},
+                        {binding: 'OrderQty', header: '지시량', width: 100, align: 'right'},
+                        {binding: 'WorkcenterName', header: '워크센터', width: 120, align: 'center'},
+                        {binding: 'StateName', header: '상태', width: 100, align: 'center'}
+                    ]
+                });
+                new FlexGridContextMenu(this.jobResGrid);
+                this.jobResGrid.downloadFileName = '제품 지시내역';
+
+                this.jobResGrid.hostElement.addEventListener('dblclick', function (e) {
+                    let items = _this.jobResGrid.selectedItems;
+                    if (items.length === 0) {
+                        return false;
+                    }
+                    $('#btnJobResDetail').trigger('click');
+                });
+
+                //작업지시상세조회
+                $('#btnJobResDetail').click(function (e) {
+
+                    let items = _this.jobResGrid.selectedItems;
+
+                    if (items.length == 0) {
+                        Alert.alert('', '선택된 데이터가 없습니다.');
+                        return;
+                    }
+
+                    let jobres_id = items[0].id;
+                    let url = _this.url + '/joborder_detail';
+                    let data = {jobres_id: jobres_id};
+                    let fnsuccess = function (result) {
+                        result.data['mat_type'] = 'prod';	//result['mat_type'] = 'prod';
+                        _this.showJobResDetail(result.data);
+                    };
+                    AjaxUtil.getAsyncData(url, data, fnsuccess);
+                });
+            }
+
+            // 해당 반제품생산지시 내역
+            initSemiJobRes() {
+                let _this = this;
+                this.semiJobResGrid = new wijmo.grid.FlexGrid('#semiJobResGrid', {
+                    autoGenerateColumns: false,
+                    isReadOnly: true,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'WorkOrderNumber', header: '작업지시번호', width: 140, align: 'center'},
+                        {binding: 'ProductionDate', header: '생산일', width: 120, align: 'center'},
+                        {binding: 'ShiftName', header: '근무조', width: 120, align: 'center'},
+                        {binding: 'mat_code', header: '제품코드', width: 120, align: 'center'},
+                        {binding: 'mat_name', header: '제품명', width: 200, align: 'left'},
+                        {binding: 'unit_name', header: '단위', width: 100, align: 'center'},
+                        {binding: 'OrderQty', header: '지시량', width: 100, align: 'right'},
+                        {binding: 'WorkcenterName', header: '워크센터', width: 120, align: 'center'},
+                        {binding: 'StateName', header: '상태', width: 100, align: 'center'}
+                    ]
+                });
+                new FlexGridContextMenu(this.semiJobResGrid);
+                this.semiJobResGrid.downloadFileName = '반제품 지시내역';
+
+                this.semiJobResGrid.hostElement.addEventListener('dblclick', function (e) {
+                    let items = _this.semiJobResGrid.selectedItems;
+                    if (items.length === 0) {
+                        return false;
+                    }
+                    $('#btnSemiJobResDetail').trigger('click');
+                });
+
+                //작업지시상세조회
+                $('#btnSemiJobResDetail').click(function (e) {
+
+                    let items = _this.semiJobResGrid.selectedItems;
+
+                    if (items.length == 0) {
+                        Alert.alert('', '선택된 데이터가 없습니다.');
+                        return;
+                    }
+
+                    let jobres_id = items[0].id;
+                    let url = _this.url + '/joborder_detail';
+                    let data = {jobres_id: jobres_id};
+                    let fnsuccess = function (result) {
+                        result.data['mat_type'] = 'semi';	//result['mat_type'] = 'semi';
+                        _this.showJobResDetail(result.data);
+                    };
+                    AjaxUtil.getAsyncData(url, data, fnsuccess);
+                });
+            }
+
+            // 작업지시 상세/수정
+            showJobResDetail(data) {
+                let _this = this;
+                let content = tmpl('jobOrderTemplate', data);
+                let $content = $(content);
+
+                let modalContainer = new PopupDraggable('작업 지시 수정');
+                modalContainer.open({width: 1050, height: 480, $content});
+
+                // $('#srchDtProd2').ax5DatePicker({direction: 'top'});
+                let $form = $content.find('#jobOrderForm');
+                let $ShiftCode = $content.find('#ShiftCode')
+                let $WorkCenter_id = $content.find('#WorkCenter_id');
+                let $OrderQty = $content.find('#OrderQty');
+
+                $.each(this.workcenterOptions, function (idx, item) {
+                    $WorkCenter_id.append('<option value="' + item.value + '">' + item.text + '</option>');
+                });
+
+                $.each(this.workshifOptions, function (idx, item) {
+                    $ShiftCode.append('<option value="' + item.value + '">' + item.text + '</option>');
+                });
+
+                FormUtil.BindDataForm(data, $form);
+
+                let $btnPopJobOrderSave = $content.find('#btnPopJobOrderSave');
+                $btnPopJobOrderSave.click(function (e) {
+
+                    let qty = $OrderQty.val();
+                    if (qty === "" || qty <= 0) {
+                        Alert.alert('', '지사량을 잘못 입력하셨습니다.');
+                        return;
+                    }
+
+                    if ($ShiftCode.val() === '') {
+                        Alert.alert('', '근무조를 선택하세요');
+                        return;
+                    }
+
+                    if ($WorkCenter_id.val() === '') {
+                        Alert.alert('', '워크센터를 선택하세요');
+                        return;
+                    }
+
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        let jobresData = FormUtil.extractForm($form);
+                        jobresData['mat_type'] = data['mat_type'];
+                        _this.updateJobOrder(jobresData, modalContainer);
+                    });
+                });
+            }
+
+            // 작업지시 수정
+            updateJobOrder(data, modalContainer) {
+                let _this = this;
+                let url = this.url + '/update_order';
+                let fnsuccess = function (result) {
+                    if (result.success) {
+                        Notify.success('저장했습니다.');
+                        modalContainer.close();
+                        let items = _this.grid.selectedItems;
+                        if (items.length > 0) {
+                            if (data['mat_type'] === 'prod') {
+                                _this.loadJobResList(items[0]);
+                            } else if (data['mat_type'] === 'semi') {
+                                _this.loadSemiJobResList(items[0]);
+                            }
+                        }
+                    }
+                }
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+            // 해당제품 생산지시 조회
+            loadJobResList(item) {
+
+                $('#btnJobResDetail').attr('disabled', true);
+
+                let suju_id = item.id;
+                let _this = this;
+                let fnsuccess = function (result) {
+                    if (result.data != null) {
+                        _this.jobResGrid.itemsSource = result.data;
+                    }
+                };
+                let url = this.url + '/joborder_list'
+                AjaxUtil.getAsyncData(url, {suju_id: suju_id}, fnsuccess);
+            }
+
+            // 해당반제품 생산지시 조회
+            loadSemiJobResList(item) {
+                $('#btnSemiJobResDetail').attr('disabled', true);
+                let suju_id = item.id;
+                let _this = this;
+                let fnsuccess = function (result) {
+                    if (result.data != null) {
+                        _this.semiJobResGrid.itemsSource = result.data;
+                    }
+                };
+                let url = this.url + '/semi_joborder_list'
+                AjaxUtil.getAsyncData(url, {suju_id: suju_id}, fnsuccess);
+            }
+
+            //반제품 생산지시
+            semiJobRes() {
+                let _this = this;
+                let data = this.grid.selectedItems[0];
+                if (!data) return;
+                let url = this.url + '/semi_list';
+                let param = {
+                    'data_date': $('#ProductionDate').val(),
+                    'mat_pk': data.mat_pk,
+                    'suju_qty': data.SujuQty,
+                    'suju_pk': data.id
+                }
+
+                let fnsuccess = function (result) {
+                    let prod_date = $('#ProductionDate').val();
+                    if (result.data != null) {
+
+                        $.each(result.data, function (idx, item) {
+                            item['prod_date'] = prod_date;
+                            item['id'] = data.id;
+                            item['mat_suju_num'] = data.JumunNumber;
+                            if (!item.workshift) {
+                                item.workshift = _this.workshifOptions.length > 0 ? _this.workshifOptions[1].value : null;
+                            }
+                        });
+
+                        _this.semiGrid.itemsSource = result.data;
+                    }
+                };
+                AjaxUtil.getAsyncData(url, param, fnsuccess);
+            }
+
+        }
+
+        let pageProdOrder;
+
+        $(document).ready(function (e) {
+            pageProdOrder = new ProductionOrder();
+            pageProdOrder.sujuSearch();
+        });
+
+    </script>
+</th:block>
+</html>

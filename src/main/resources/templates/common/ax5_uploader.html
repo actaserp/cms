@@ -1,0 +1,458 @@
+<th:block th:fragment="ax5_uploader">
+<script type="text/x-tmpl" id="ax5_file_upload_template">
+    <div data-ax5uploader="fileuploadAx" class="fileuploaddiv" id="{%=o.divFileUpload%}">
+        <span class="fileuploadTitle"></span>
+        <input type="hidden" class="btn " data-ax5uploader-button="selector" id ="addFile" />
+        <button class="btn " id ="{%=o.btnRemoveAllFile%}" >전체삭제</button>
+        <div data-uploaded-box="fileuploadAx" data-ax5uploader-uploaded-box="inline" id="{%=o.fileUploadBox%}"></div>
+        <input type="hidden" id="{%=o.inputFileId%}" name="srchFileId" />
+        <input type="hidden" id="{%=o.inputDataPk%}" name="DataPk"/>
+    </div>
+</script>
+
+<script type="text/javascript">
+    class ax5FileUploadClass {
+        constructor(div_name, data_pk, option) {
+            // , table_name, attach_name, accept_files, multiple, max_count, file_size
+            this.data_pk = data_pk;
+            this.file_id_list = [];
+            this.table_name = option.table_name;
+            this.attach_name = option.attach_name;
+            this.accept_files = option.accept_files;
+            this.multiple = option.multiple;
+            this.max_count = option.max_count;
+            this.file_size = option.file_size;
+            this.thumb_nail = option.thumb_nail;
+            this.upload_callback = option.upload_callback;
+            this.delete_callback = option.delete_callback;
+            this.file_click_callback = option.file_click_callback;
+            this.can_write = option.can_write;
+			
+            if (!this.multiple)
+                this.multiple = 'N';
+
+            if (!this.attach_name)
+                this.attach_name = 'basic';
+
+            if (!this.accept_files)
+                this.accept_files = 'zip,pdf,doc,docx,xls,xlsx,ppt,pptx';
+
+            if (!this.multiple)
+                this.multiple = true;
+
+            if (!this.max_count)
+                this.max_count = 10;
+
+            if (!this.file_size)
+                this.file_size = 100;
+
+            if (!this.thumb_nail)
+                this.thumb_nail = 'N';
+
+            if (this.can_write === undefined)
+                this.can_write = true;
+
+            this.base_url = '/api/common/attach_file';
+
+            this.upload_url = '/api/files/upload';
+            this.download_url = '/api/files/download';
+            this.downzip_url = '/api/files/downzip';
+
+            //this.mode = 'active';
+
+            this.divFileUpload = option.divFileUpload ? option.divFileUpload : 'fileUploadDiv';
+            this.btnAddFile = option.btnAddFile ? option.btnAddFile : 'addFile';
+            this.btnDownloadAllFile = option.btnDownloadAllFile ? option.btnDownloadAllFile : 'downloadFileAll';
+            this.btnRemoveAllFile = option.btnRemoveAllFile ? option.btnRemoveAllFile : 'removeFileAll';
+            this.fileUploadBox = option.fileUploadBox ? option.fileUploadBox : 'fileUploadBox';
+            this.inputFileId = option.inputFileId ? option.inputFileId : 'srchFileId';
+            this.inputDataPk = option.inputDataPk ? option.inputDataPk : 'DataPk';
+
+            let data = {
+                divFileUpload: this.divFileUpload,
+                btnAddFile: this.btnAddFile,
+                btnDownloadAllFile: this.btnDownloadAllFile,
+                btnRemoveAllFile: this.btnRemoveAllFile,
+                fileUploadBox: this.fileUploadBox,
+                inputFileId: this.inputFileId,
+                inputDataPk: this.inputDataPk,
+            };
+
+            let html = tmpl('ax5_file_upload_template', data);
+            $('#' + div_name).html(html);
+
+            $('#' + this.inputDataPk).val(this.data_pk);
+            this.init();
+        }
+        init() {
+            let _this = this;
+            let disabled = !_this.can_write;
+            $('#' + _this.btnAddFile).prop('disabled', disabled);
+            $('#' + _this.btnRemoveAllFile).prop('disabled', disabled);
+
+            let accept = '.' + _this.accept_files.split(',').join(',.');
+
+            let $target = $('#' + _this.divFileUpload);
+            let myconfig = {
+                title: '파일업로드',
+                fileSize: _this.file_size, // 1회 최대업로드 용량
+                multiple: _this.multipe,  // 멑티업로드 허용여부
+                maxcnt: _this.max_count, // 업로드 최대갯수
+                accept: accept, // 허용 확장자 image .gif,.jpg,.png
+                accepts: _this.accept_files,    // 드래그로 업로드할 때 체크할 용도
+                dropZone: _this.can_write ? 'fileuploadAx' : '',
+                boxZone: 'fileuploadAx',
+                //fileIdsCtl: '#srchFileId',
+                //removeAllCtl: '#removeFileAll',
+                //downloadAllCtl: '#downloadFileAll',
+                //type: 'date', // date(월별저장), default(날짜가 아닌 others의 경로대로 저장)
+                //others: '', // 저장폴더 상위경로(회사코드)
+                //filepath: _this.table_name, // 저장폴더 하위경로
+
+                //attachurl: '',
+                icons: {
+                    'download': '<i class="fa fa-download" aria-hidden="true"></i>',
+                    'delete': '<i class="fa fa-minus-circle" aria-hidden="true"></i>'
+                },
+                emptymsg: this.can_write ? '파일을 Drag&amp;Drop하거나 클릭하여 업로드를 진행하세요' : '파일 업로드 권한이 없습니다.',
+                addfileext: 'Y',
+                //uploadCallback: _this.upload_callback,
+                //deleteCallback: _this.delete_callback,
+                //uploadsxn: 1, // 업로드객체번호 (1: UPLOAD, 2: UPLOAD2, 3: UPLOAD3)
+                tableName: _this.table_name,
+                attachName: _this.attach_name,
+                thumb_nail: 'N',  // 썸네일파일 저장시 Y
+            };
+
+            _this.myconfig = myconfig;
+            let emptyListMsg = '<div class="upload-filebox" style="padding: 10px;"><img src="/images/icon/ico-fileupload.svg" alt="업로드아이콘"><a class="btn" title="파일업로드">파일 업로드</a>' + myconfig.emptymsg + '</div>';
+            let DIALOG = new ax5.ui.dialog({
+                title: '파일업로드'
+            });
+            _this.DIALOG = DIALOG;
+
+            $target.children('span.fileuploadTitle').html('<span>첨부파일</span> [' + accept + '] [1개당 최대Size: ' + _this.file_size + 'MB, 최대파일수: ' + _this.max_count + '개]');
+            if (myconfig.dropZone != '') {
+            } else {
+                emptyListMsg = '<div class="text-center" style="padding: 10px;">' + myconfig.emptymsg + '</div>';
+            }
+
+            let folder_name = _this.table_name == '' ? '' : _this.table_name;
+
+            let upload_uri = _this.upload_url + '?tableName=' + _this.table_name;
+            upload_uri += '&DataPk=' + _this.data_pk;
+            upload_uri += '&attachName=' + _this.attach_name;
+            upload_uri += '&accepts=' + _this.accept_files;
+            upload_uri += '&fileSize=' + _this.file_size;
+            upload_uri += '&addfileext=' + myconfig.addfileext;
+            //upload_uri += '&type = ' + myconfig.type;
+            upload_uri += '&others=' + folder_name;
+            upload_uri += '&thumbnailYN=' + _this.thumb_nail;
+            
+            try {
+                if (_this.UPLOAD) {
+                    _this.UPLOAD = null;  //작동 안 됨.
+                }
+
+                _this.UPLOAD = new ax5.ui.uploader({
+                    debug: true,
+                    target: $target,
+                    form: {
+                        action: encodeURI(upload_uri),
+                        fileName: 'uploadfile'
+                    },
+                    accept: myconfig.accept,
+                    multiple: _this.multiple,
+                    manualUpload: false,
+                    progressBox: true,
+                    progressBoxDirection: 'left',
+                    dropZone: {
+                        target: $('[data-uploaded-box="' + myconfig.dropZone + '"]')
+                    },
+                    uploadedBox: {
+                        target: $('[data-uploaded-box="' + myconfig.boxZone + '"]'),
+                        icon: myconfig.icons,
+                        columnKeys: {
+                            name: 'fileNm',
+                            type: 'fileExt',
+                            size: 'fileSize',
+                            //uploadedName: 'fileNm',
+                            uploadedName: 'fileNm',
+                            uploadedPath: '',
+                            downloadPath: '',
+                            //previewPath: 'C:\\Temp\\mes21\\calib_resut\\11cb173c-37ca-43c5-92ea-48dc22847303.png',
+                            previewPath: '',
+                            thumbnail: ''
+                        },
+                        lang: {
+                            supportedHTML5_emptyListMsg: emptyListMsg,
+                            emptyListMsg: '<div class="text-center" style="padding-top: 30px;">Empty of List.</div>'
+                        },
+                        onchange: function () {
+                        },
+                        onclick: function () {
+                            let fileIndex = this.fileIndex;
+                            let file = _this.UPLOAD.uploadedFiles[fileIndex];
+                            switch (this.cellType) {
+                                case 'delete':
+                                    if (_this.can_write == false) {
+                                        Alert.alert('파일 삭제', '권한이 없습니다.');
+                                        return;
+                                    }
+                                    DIALOG.confirm(
+                                        {
+                                            title: '삭제',
+                                            msg: '해당 파일을 삭제하시겠습니까?',
+                                            autoCloseTime: 10000,
+                                        },
+                                        function () {
+                                            if (this.key != 'ok') {
+                                                return;
+                                            }
+                                            if (_this.deleteFile(fileIndex)) {
+                                                DIALOG.close();
+                                                _this.getFileIds();
+                                                //_this.delete_callback(result);
+                                                Notify.success('파일이 삭제되었습니다.');
+                                            }
+
+                                            //let data = {};
+                                            //data['fileId'] = file.fileId;
+                                            //data['tableName'] = file.TableName;
+                                            //data['physicFileName'] = file.AttachName;
+                                            ////let fnSuccess = function (res) {
+                                            ////    _this.UPLOAD.removeFile(fileIndex);
+                                            ////    Notify.success('파일이 삭제되었습니다.');
+                                            ////    DIALOG.close();
+                                            ////};
+                                            ////AjaxUtil.postAsyncData('/api/common/attach_file?action=deleteFile', data, fnSuccess);
+                                            //let result = AjaxUtil.postSyncData(_this.base_url + '?action=deleteFile', data);
+                                            //if (result && result.success == true) {
+                                            //    DIALOG.close();
+                                            //    _this.UPLOAD.removeFile(fileIndex);
+                                            //    _this.getFileIds();
+                                            //    _this.delete_callback(result);
+                                            //    Notify.success('파일이 삭제되었습니다.');
+
+                                            //}
+                                        }
+                                    );
+                                    break;
+
+                                case 'download':
+                                    if (file) {
+                                        //let url = _this.download_url + '?TableName=' + file.TableName + '&AttachName=' + file.AttachName + '&file_id=' + file.fileId;
+                                        let url = _this.download_url + '?file_id=' + file.fileId;
+                                        AjaxUtil.downloadFile(url, file.fileNm);
+                                    }
+                                    break;
+                                case 'filename':
+                                    _this.file_click_callback(file.fileId);
+                            }
+                        }
+                    },
+                    validateSelectedFiles: function () {
+                        if (_this.can_write == false) {
+                            Alert.alert('파일 업로드 오류', '권한이 없습니다.');
+                            return false;
+                        }
+
+                        // 10개 이상 업로드 되지 않도록 제한.
+                        if (_this.UPLOAD.uploadedFiles.length + _this.UPLOAD.selectedFiles.length > _this.max_count) {
+                            Alert.alert('', _this.max_count + " 개 이상의 파일을 업로드할 수 없습니다.");
+                            return false;
+                        }
+
+                        return true;
+                    },
+                    onprogress: function () {
+
+                    },
+                    onuploaderror: function () {
+                        Alert.alert('업로드 오류', _this.UPLOAD.statusText);
+                    },
+                    onuploaded: function () {
+                        //myconfig.uploadCallback(this);
+                    },
+                    onuploadComplete: function () {
+                        _this.getFileIds();
+                        // 파일 목록 가져오기
+                        $.ajax({
+                            method: 'GET',
+                            success: function (res) {
+                                _this.UPLOAD.setUploadedFiles(res);
+                                let file_id = _this.file_id_list[_this.file_id_list.length - 1];
+                                _this.upload_callback(file_id);
+                            }
+                        });
+                    }
+                });
+
+                // return _this.UPLOAD;
+
+            }
+            catch (ex) {
+            }
+
+            $('#' + _this.btnDownloadAllFile).on('click', function () {
+                if (_this.UPLOAD.uploadedFiles.length + +_this.UPLOAD.selectedFiles.length > 0) {
+                    _this.DIALOG.confirm({
+                        title: '전체 다운로드',
+                        msg: 'zip으로 압축하여 다운로드하시겠습니까?'
+                    }, function () {
+                        if (this.key != 'ok')
+                            return;
+                        //location.href = '/files/filedown/zip/' + $('#'+_this.inputFileId).val();
+                        location.href = _this.downzip_url + '?file_ids=' + $('#' + _this.inputFileId).val();
+                        
+                    });
+                }
+            });
+
+            $('#' + _this.btnRemoveAllFile).on('click', function () {
+                if (_this.can_write == false) {
+                    Alert.alert('파일 삭제', '권한이 없습니다.');
+                    return;
+                }
+
+                let count = _this.UPLOAD.uploadedFiles.length;
+                if (count == 0)
+                    return;
+
+                _this.DIALOG.confirm({
+                    title: '전체 파일 삭제',
+                    msg: '모든 파일을 삭제하시겠습니까?'
+                },
+                    function () {
+                        if (this.key != 'ok')
+                            return;
+
+                        for (var fileIndex = count - 1; fileIndex >= 0; fileIndex--) {
+                            _this.deleteFile(fileIndex);
+                        }
+                        _this.getFileIds();
+                    });
+
+            });
+
+            $('#' + _this.fileUploadBox).show();
+			// 임시로 주석처리
+            _this.getAttachFiles();
+        }
+        //deleteId(_ctl, fileid) {
+        //    var ids = $(_ctl).val().split(',');
+        //    var returnids = new Array;
+        //    $.each(ids, function () {
+        //        if (this != fileid) {
+        //            returnids.push(this);
+        //        }
+        //    });
+        //    $(_ctl).val(returnids.join(','));
+        //}
+        deleteFile(fileIndex) {
+            let _this = this;
+            let file = _this.UPLOAD.uploadedFiles[fileIndex];
+            let data = {};
+            data['fileId'] = file.fileId;
+            data['tableName'] = file.TableName;
+            data['physicFileName'] = file.AttachName;
+            //let fnSuccess = function (res) {
+            //    _this.UPLOAD.removeFile(fileIndex);
+            //    Notify.success('파일이 삭제되었습니다.');
+            //    DIALOG.close();
+            //};
+            //AjaxUtil.postAsyncData('/api/common/attach_file?action=deleteFile', data, fnSuccess);
+            let result = AjaxUtil.postSyncData(_this.base_url + '/deleteFile', data);
+            if (result && result.success == true) {
+                _this.UPLOAD.removeFile(fileIndex);
+                //_this.getFileIds();
+                //_this.delete_callback(result);
+                //Notify.success('파일이 삭제되었습니다.');
+                return true;
+            }
+            return false;
+        }
+        getFileIds() {
+            let _this = this;
+            let fileIds = '';
+            _this.file_id_list = [];
+            $.each(_this.UPLOAD.uploadedFiles, function (index, item) {
+                _this.file_id_list.push(item.fileId);
+                //fileIds += (fileIds == '' ? '' : ',') + item.fileId;
+                if (index == 0)
+                    fileIds = item.fileId;
+                else
+                    fileIds += ',' + item.fileId;
+            });
+            $('#' + _this.inputFileId).val(fileIds);
+            return fileIds;
+        }
+        getAttachFiles() {
+            let _this = this;
+            _this.data_pk = _this.data_pk === NaN || _this.data_pk === undefined ? _this.data_pk = 0 : Number(_this.data_pk);
+            //_this.data_pk = Number(_this.data_pk);
+            if (this.data_pk <= 0) {
+                _this.UPLOAD.setUploadedFiles([])
+                return;
+            }
+
+            let param = {
+                //action: 'detailFiles',
+                TableName: _this.table_name,
+                DataPk: _this.data_pk,
+                attachName: _this.attach_name
+            };
+            let result = AjaxUtil.getSyncData(_this.base_url + "/detailFiles", param);
+            
+            if (_this.UPLOAD && result != null) {
+                _this.UPLOAD.setUploadedFiles(result.data);
+                _this.getFileIds();
+
+                //let file_ids = '';
+                //result.forEach(function (item, index) {
+                //    if (index == 0)
+                //        file_ids = item.id;
+                //    else
+                //        file_ids += ',' + item.id;
+                //});
+                //$(_this.myconfig.fileIdsCtl).val(file_ids);
+            }
+        }
+        imageUri(file_id) {
+            let _this = this;
+            if (file_id) {
+                //let tableName = _this.table_name;
+                //let url = '/api/files/download?TableName=' + tableName + '&AttachName=' + attachName + '&file_id=' + fileId;
+                let t = new Date()
+                //let url = '/api/files/download?file_id=' + file_id + '&t=' + t;
+                let url = _this.download_url + '?file_id=' + file_id + '&t=' + t;
+                return url;
+            }
+            else
+                return '';
+        }
+        showFirstImage(imgTag) {
+            let _this = this;
+            if (_this.file_id_list.length > 0) {
+                let file_id = _this.file_id_list[0];
+                let imgSrc = _this.imageUri(file_id);
+                $('#'+imgTag).attr('src', imgSrc);
+            }
+        }
+        showLastImage(imgTag) {
+            let _this = this;
+            let len = _this.file_id_list.length;
+            if (len > 0) {
+                let file_id = _this.file_id_list[len - 1];
+                let imgSrc = _this.imageUri(file_id);
+                $('#'+imgTag).attr('src', imgSrc);
+            }
+        }
+        showImage(imgTag, file_id) {
+            let _this = this;
+            let imgSrc = _this.imageUri(file_id);
+            $('#'+imgTag).attr('src', imgSrc);
+            
+        }
+    }
+</script>

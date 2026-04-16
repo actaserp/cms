@@ -1,0 +1,318 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>저수조용수 관리점검표</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>선행요건 일지</li>
+                <li>저수조용수 관리점검표</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <form id="searchForm">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                점검월
+                            </dt>
+                            <dd>
+                                <ul class="date-box">
+                                    <li>
+                                        <input type="month" id="srchStartDt" name="srchStartDt">
+                                        <label for="srchStartDt" class="hide">시작일</label>
+                                    </li>
+                                    <li>
+                                        <input type="month" id="srchEndDt" name="srchEndDt">
+                                        <label for="srchEndDt" class="hide">종료일</label>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label for="cboState">
+                                    결재상태
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select class="form-control2" id="cboState" name="cboState" ></select>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </form>
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <a class="btn" title="등록" id="btnAdd">
+                                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                등록
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="document_grid" style="height: 730px;"></div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<script type="text/javascript">
+    class materialStorehouseStat {
+        constructor() {
+            this.grid = null;
+            this.baseUrl = '/api/precedence/reservoir_clean_stat';
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+            this.grid = new wijmo.grid.FlexGrid('#document_grid', {
+                selectionMode: wijmo.grid.SelectionMode.Row, // 단일 행 선택
+                autoGenerateColumns: false, // 사용자 정의 컬럼 사용
+                headersVisibility: wijmo.grid.HeadersVisibility.Column, // 헤더만 표시
+                isReadOnly: false, // 편집 가능 여부
+                itemsSource: new wijmo.collections.CollectionView([]), // 데이터 소스 초기화
+                formatItem: (s, e) => {
+                    // 헤더 정렬 설정
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                    }
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        const col = s.columns[e.col];
+                        const item = e.panel.rows[e.row].dataItem;
+
+
+                        // 결재현황 (LineName) 처리
+                        if (col.binding === 'LineName') {
+                            e.cell.innerHTML = CommonUtil.convertApprLineNameHtml(item.LineName, item.LineNameState);
+                        }
+
+                        // 조회 버튼
+                        if (col.binding === 'SearchYN') {
+                            e.cell.innerHTML = '';
+                            if (item.SearchYN === 'Y') {
+                                const button = document.createElement('button');
+                                button.className = 'btn-default';
+                                button.style.cssText = 'width: 100%; height: 25px; font-size: 1em; padding: 0; margin: 0;';
+                                button.textContent = '조회';
+                                button.addEventListener('click', () => {
+                                    _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                    _this.detail({ item, column: { key: 'SearchYN' } });
+                                });
+                                e.cell.appendChild(button);
+                            }
+                        }
+
+                        // 수정 버튼
+                        if (col.binding === 'EditYN') {
+                            e.cell.innerHTML = '';
+                            if (item.EditYN === 'Y') {
+                                const button = document.createElement('button');
+                                button.className = 'btn-default';
+                                button.style.cssText = 'width: 100%; height: 25px; font-size: 1em; padding: 0; margin: 0;';
+                                button.textContent = '수정';
+                                button.addEventListener('click', () => {
+                                    _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                    _this.detail({ item, column: { key: 'EditYN' } });
+                                });
+                                e.cell.appendChild(button);
+                            }
+                        }
+
+                        // 삭제 버튼
+                        if (col.binding === 'DeleteYN') {
+                            e.cell.innerHTML = '';
+                            if (item.DeleteYN === 'Y') {
+                                const button = document.createElement('button');
+                                button.className = 'btn-danger';
+                                button.style.cssText = 'width: 100%; height: 25px; font-size: 1em; padding: 0; margin: 0;';
+                                button.textContent = '삭제';
+                                button.addEventListener('click', () => {
+                                    _this.grid.select(new wijmo.grid.CellRange(e.row, -1));
+                                    _this.detail({ item, column: { key: 'DeleteYN' } });
+                                });
+                                e.cell.appendChild(button);
+                            }
+                        }
+                    }
+                },
+                columns: [
+                    { binding: 'StateName', header: '결재상태', width: 120, align: 'center', isReadOnly: true },
+                    { binding: 'LineName', header: '결재현황', width: 400, align: 'left', isReadOnly: true },
+                    { binding: 'DataDate', header: '월', width: 120, align: 'center', isReadOnly: true },
+                    { binding: 'SearchYN', header: '조회', width: 80, align: 'center', isReadOnly: true },
+                    { binding: 'EditYN', header: '수정', width: 80, align: 'center', isReadOnly: true },
+                    { binding: 'DeleteYN', header: '삭제', width: 80, align: 'center', isReadOnly: true },
+                ]
+            });
+
+            new FlexGridContextMenu(this.grid);
+            this.grid.downloadFileName = '저수조 용수관리 일지현황';
+        }
+
+
+        // 일지 상세
+        detail(data) {
+            let _this = this;
+            if (data.column.key === 'SearchYN' && data.item.SearchYN === 'Y') {
+                location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + data.item.id + '&data_date=' + data.item.DataDate + '&view_mode=true' + this.createSearchCond('&');
+            } else if (data.column.key === 'EditYN' && data.item.EditYN === 'Y') {
+                location.href = '/gui/' + gui.gui_code + '/edit?bh_id=' + data.item.id + '&data_date=' + data.item.DataDate + this.createSearchCond('&');
+            } else if (data.column.key === 'DeleteYN' && data.item.DeleteYN === 'Y') {
+                Alert.confirm('', '삭제하시겠습니까?', function () {
+                    // 삭제 서비스 호출                    
+                    let param = {
+                        bh_id: data.item.id,
+                    }
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            Notify.success('삭제하였습니다.');
+                            _this.searchMainData();
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/mst_delete', param, fnSuccess);
+                });
+            }
+        }
+
+        add() {
+            location.href = '/gui/' + gui.gui_code + '/edit?bh_id=0' + this.createSearchCond('&');
+        }
+
+        // 검색조건만들기
+        createSearchCond(t) {
+            return t + 'searchcond=' + $('#srchStartDt').val() + ' ' + $('#srchEndDt').val() + ' ' + $('#cboState').val();
+        }
+
+        // 검색조건설정
+        setSearchCond() {
+            if (gparam && gparam.searchcond && gparam.searchcond != 'undefined') {
+                let arr = gparam.searchcond.split('|');
+                $('#srchStartDt').val(arr[0]);
+                $('#srchEndDt').val(arr[1]);
+                $('#cboState').val(arr[2]);
+            }
+        }
+
+        // 일지 조회
+        searchMainData() {
+            let _this = this;
+
+            let base_date = $('#srchStartDt').val()
+			let start_day = base_date + '-01'
+			let tempDate = new Date($('#srchEndDt').val());
+
+			let last_day = $('#srchEndDt').val() + '-' + new Date(tempDate.getFullYear(), tempDate.getMonth() + 1, 0).getDate()
+
+            let param = {
+                'action': 'appr_stat',
+                'start_date': start_day,
+                'end_date': last_day,
+                'appr_status': $('#cboState').val(),
+            }
+
+            let result = AjaxUtil.getSyncData(_this.baseUrl + '/appr_stat', param);            
+            if (result.data != null) {
+                _this.grid.itemsSource = result.data;
+                //_this.grid.setHeight(count * 30 + 100);
+                _this.grid.refresh();
+            }
+        }
+
+        // 일지 출력
+        printDiary() {
+            let dataList = [];
+            $.each($('input[name=chkPrint]:checked'), function (index, item) {
+                let param = {
+                    'bh_id': $(item).attr('data-bhid'),
+                };
+
+                dataList.push(param);
+            });
+
+            if (dataList.length === 0) {
+                Alert.alert('', '선택된 일지가 없습니다.');
+                return;
+            }
+
+            let param = {
+                'title': '저수조용수 관리점검표',
+                'data_list': JSON.stringify(dataList),
+            };
+
+            let result = AjaxUtil.postSyncData(this.baseUrl + '?action=print_all', param, function () { });
+            if (result.success) {
+                CommonUtil.openWindow('/api/files/pdf_viewer?file_id=' + result.file_id)
+            }
+            else {
+                Alert.alert('', '일지 생성 중 오류가 발생했습니다. 관리자에게 문의하세요.');
+            }
+        }
+
+    }
+
+    $(document).ready(function (e) {
+        page = new materialStorehouseStat();
+
+        AjaxUtil.fillSelectOptions($('#cboState'), 'system_code', 'all', false, 'appr_status');        
+
+        let today_string = new Date();
+		let currentMonth = (today_string.getMonth() + 1) < 10 ? '0' + (today_string.getMonth() + 1) : (today_string.getMonth() + 1);
+		let format_today = today_string.getFullYear() + '-' + currentMonth;
+
+		$('#srchStartDt').val(format_today);
+		$('#srchEndDt').val(format_today);                        
+
+        $('#btnSearch').click(function (e) {
+            page.searchMainData();
+        });
+
+        // 엑셀 다운로드
+        $('#btnExcel').on('click', function () {
+            page.exportExcel();
+        });
+
+        $('#btnAdd').on('click', function () {
+            page.add();
+        });
+
+        //일괄출력 버튼
+        $('#btnPrint').on('click', function () {
+            page.printDiary();
+        });
+
+        //page.setSearchCond();
+        page.searchMainData();
+    });
+
+</script>
+</th:block>
+</html>

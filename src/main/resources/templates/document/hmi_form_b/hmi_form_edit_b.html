@@ -1,0 +1,1304 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+<div class="content_wrap">
+    <section>
+        <div class="table_box">
+            <div class="title_box">
+                <span class="left_align ">
+                    <label class="switch">
+                        <input type="checkbox" checked id="btnToggle"><span class="slider round"></span>
+                    </label>
+                    기본정보 입력 보기/감추기
+                </span>
+                <button type="button" class="btn-default pull-right" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>
+            </div>
+
+            <div class="table_box sub" id="basicInfo">
+                <form id="hmiForm">
+                    <div class="row">
+                        <input type="hidden" id="hmi_pk" name="hmi_pk" />
+                        <!--<input type="hidden" id="hmi_pk" name="hmi_pk" value="{{gui.pk}}" />-->
+                        <div class="col-12 col-md-4 col-lg-2">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4" data-labelCd="양식명">양식명</span>
+                                </div>
+                                <input class="form-control2" type="text" id="form_name" name="form_name">
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text fit_box_t4_area" data-labelCd="설명">설명</span>
+                                </div>
+                                <textarea class="form-control2" id="description" name="description"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="title_box">
+            <button type="button" class="btn-default" id="btnBack" title="뒤로"><i class="fa fa-arrow-circle-left"></i></button>
+            <button type="button" class="btn-default" id="btnSave" style="display:none !important;" title="저장"><i class="fas fa-save"></i></button>
+            <button type="button" class="btn-danger" id="btnDel" style="display:none !important;" title="삭제"><i class="fas fa-trash"></i></button>     
+            <span class="tools"><i class="fas fa-grip-lines-vertical"></i></span><button type="button" class="btn-default tools" id="btnAdd" title="추가"><i class="far fa-plus-square"></i></button>
+            <button type="button" class="btn-default tools" id="btnCopy" title="복사" disabled><i class="fa fa-copy"></i></button>
+            <button type="button" class="btn-default tools" id="btnLeft" title="왼쪽으로 이동" disabled><i class="fa fa-chevron-left"></i></button>
+            <button type="button" class="btn-default tools" id="btnRight" title="오른쪽으로 이동" disabled><i class="fa fa-chevron-right"></i></button>
+            <button type="button" class="btn-default tools" id="btnUp" title="위로 이동" disabled><i class="fa fa-chevron-up"></i></button>
+            <button type="button" class="btn-default tools" id="btnDown" title="아래로 이동" disabled><i class="fa fa-chevron-down"></i></button>
+            <button type="button" class="btn-default tools" id="btnFoward" disabled><span>맨앞으로</span></button>
+            <button type="button" class="btn-default tools" id="btnBackward" disabled><span>맨뒤로</span></button>
+            <span class="tools"><i class="fas fa-grip-lines-vertical"></i></span><button type="button" class="btn-default tools" id="btnSetting" title="배경설정"><i class="fa fa-cog"></i></button>
+            <button type="button" class="btn-danger tools" id="btnNodeDel" title="노드 삭제" disabled><i class="fas fa-trash"></i></button>
+        </div>
+
+        <div id="stage-parent">
+            <div id="stage"></div>
+        </div>
+
+    </section>
+</div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="/document/hmi_form_b/popup/node_edit.html :: node_edit"> </th:block>
+<th:block th:replace="/document/hmi_form_b/popup/node_image.html :: node_image"> </th:block>
+<th:block th:replace="/document/hmi_form_b/popup/setting.html :: setting"> </th:block>
+
+<!-- konva -->
+<script type="text/javascript" src="/resource/konva/konva.min.js"></script>
+
+<script type="text/javascript">
+
+    class HmiEditPage {
+        constructor() {
+
+            this.url = '/api/support/hmi_b';
+            this.stage = null;
+            this.layer = null;
+            this.currentGroup = null;
+            this.currentTransformer = null;
+            this.backgroundImageKonva = null;
+            this.guideLineOffset = 5;
+
+            this.$stageParent = $('#stage-parent');
+            this.initialCanvasWidth = this.$stageParent.width();
+            this.initialCanvasHeight = this.initialCanvasWidth * 0.5;
+            
+            let queryString = window.location.search
+            
+            let urlParams = new URLSearchParams(queryString);
+            $('#hmi_pk').val(urlParams.get('pk'))
+            /*
+            ModelAndView [
+            	view="document/hmi_form_b/hmi_form_edit_b.html"; 
+            	model={action=[new], pk=[], username=관리자, userinfo=mes.domain.entity.User@685d403f, gui_code=wm_hmi_form_b, template_key=edit, mqtt_host=10.10.10.231, mqtt_web_port=9001, hmi_topic=mes21_hmi_data, read_flag=true, write_flag=true}
+            ]
+            */
+            if (gui.action != 'new') {
+                let pk = $('#hmi_pk').val();
+                this.getFormData(pk);
+            } else {
+                this.createStage();
+            }
+
+            // 삭제 화면에서는 그리기 도구 아이콘 숨김
+            if (gui.action == 'delete') {
+                $('.tools').hide();
+            }
+            
+            this.triggerPanel();
+            this.triggerStage();
+        }
+
+        // canvas 생성
+        createStage() {
+            let _this = this;
+
+            this.stage = new Konva.Stage({
+                container: '#stage',
+                width: _this.initialCanvasWidth,
+                height: _this.initialCanvasHeight,
+                userOptions: {
+                    backgroundColor: '#EAEAEA', 
+                    scaleX: 1,
+                    scaleY: 1,
+                }
+            });
+
+            this.stage.getContainer().style.backgroundColor = '#EAEAEA';
+
+            this.layer = new Konva.Layer({
+                userType: 'layer',
+            });
+
+            this.stage.add(this.layer);
+
+            this.layer.children.forEach(function (val) {
+                let group = _this.findUserType({ target: val, types: ['group'] });
+                if (group) {
+                    group.draggable(true);
+                    _this.triggerGroup(group);
+                }
+            });
+
+            this.stage.draw();
+        }
+
+        // canvas 크기 변경 시
+        // Resize Observer로 canvas 크기 변경 감지 중
+        triggerPanel() {
+            let _this = this;
+            let container = document.querySelector('#stage-parent');
+
+            const ro = new ResizeObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    _this.setScale();
+                });
+            });
+
+            ro.observe(container);
+        }
+
+        // canvas 외부 클릭 시 tranformer 해제
+        triggerStage() {
+            let _this = this;
+
+            this.stage.on('click tap', function (e) {
+                if (e.target === _this.stage || e.target === _this.layer || e.target.attrs.userType == 'background_image') {
+                    _this.destroyTransformer();
+                }
+            });
+        }
+
+        // scale 세팅
+        setScale() {
+            let _this = this;
+
+            let containerWidth = $('#stage-parent').width();
+            let containerHeight = $('#stage-parent').height();
+            if ($('#stage-parent').height() == 0) {
+                containerHeight = containerWidth * 0.5;
+            }
+
+            let xScale = (containerWidth / this.initialCanvasWidth);
+            let yScale = (containerHeight / this.initialCanvasHeight);
+
+            this.stage.width(this.initialCanvasWidth * xScale);
+            this.stage.height(this.initialCanvasHeight * yScale);
+            this.stage.scale({ x: xScale, y: yScale });
+        }
+
+        // 도구 버튼 활성화
+        setButtonState(active) {
+            let _this = this;
+            // 추가, 세팅 버튼은 transformer 활성화 여부에 상관없이 사용가능
+            let $tools = $('.tools').not('#btnAdd').not('#btnSetting');
+
+            if (active) {
+                $tools.each(function () {
+                    $(this).removeAttr('disabled');
+                });
+            } else {
+                $tools.each(function () {
+                    if (!$(this).is(':disabled')) {
+                        $(this).attr('disabled', 'disabled');
+                    }
+                });
+            }
+        }
+
+        // 배경 설정 팝업
+        settingPopup() {
+            let _this = this;
+
+            let settingPopup = new PopupSetting();
+            let data = {};
+            let background_color = this.rgbToHex(this.stage.getContainer().style.backgroundColor);
+            let background_image = this.stage.attrs.userOptions.image;
+            let callback = function (formData) {
+                if (formData.background_image) {
+                    _this.stage.attrs.userOptions.image = formData.background_image;
+                } else {
+                    _this.stage.attrs.userOptions.image = '';
+                }
+
+                _this.setBackgroundImage(formData.background_image, _this.stage.attrs.width, _this.stage.attrs.height);
+
+                if (formData.background_color) {
+                    _this.stage.getContainer().style.backgroundColor = formData.background_color;
+                    _this.stage.attrs.userOptions.backgroundColor = formData.background_color;
+                }
+
+                _this.stage.draw();
+            }
+
+            if (background_color) {
+                data.background_color = background_color;
+                data.background_image = background_image;
+            }
+            
+            settingPopup.show(callback, data);
+        }
+
+        // convert rgb to hex
+        rgbToHex(rgb) {
+            if (rgb.search("rgb") == -1 ) {
+                return false;
+            } else {
+                rgb = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+))?\)$/);
+                function hex(x) {
+                    return ("0" + parseInt(x).toString(16)).slice(-2);
+                }
+                return "#" + hex(rgb[1]) + hex(rgb[2]) + hex(rgb[3]);
+            }
+        }
+
+        // convert hex to rgb
+        hexToRgb(hex) {
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        // 배경 이미지 설정
+        setBackgroundImage(fileName, initialWidth, initialHeight) {
+            let _this = this;
+
+            if (fileName) {
+                let imageSrc = '/api/files/get_hmi_image?file_name=' + fileName + '&type=background';
+                let imageObj = new Image();
+
+                imageObj.onload = function (e) {
+                    let width = initialWidth;
+                    let height = initialHeight;
+
+                    function createImage(x) {
+                        let adjX = 0;
+                        let adjY = 0;
+
+                        if (_this.backgroundImageKonva) {
+                            _this.backgroundImageKonva.destroy();
+                        }
+
+                        let count = 0;
+
+                        while (true) {
+                            count++;
+                            if (count > 5000) {
+                                return _this.backgroundImageKonva; 
+                            }
+
+                            _this.backgroundImageKonva = new Konva.Image({
+                                x: 0, y: 0,
+                                width: imageObj.width,
+                                height: imageObj.height,
+                                image: imageObj,
+                                userType: 'background_image',
+                                scaleX: adjX,
+                                scaleY: adjY
+                            });
+
+                            if (_this.backgroundImageKonva.getClientRect().width > (width - 1) && _this.backgroundImageKonva.getClientRect().height > (height - 1)) {
+                                return _this.backgroundImageKonva;
+                            }
+
+                            if (_this.backgroundImageKonva.getClientRect().width < width) {
+                                adjX += .003;
+                            }
+
+                            if (_this.backgroundImageKonva.getClientRect().height < height) {
+                                adjY += .003;
+                            }
+
+                            _this.backgroundImageKonva.destroy();
+                        }
+                    }
+
+                    var image = createImage();
+
+                    _this.layer.add(image);
+                    image.moveToBottom();
+                    _this.layer.draw();
+                    imageObj = null;
+                };
+
+                imageObj.src = imageSrc;
+
+            } else {
+                this.layer.children.forEach(function (item) {
+                    if (item.attrs.userType === 'background_image') {
+                        _this.layer.children.splice(item.index, 1);
+                    }
+                });
+
+                this.layer.draw();
+            }
+        }
+
+        // 이미지 추가 (배경)
+        createImage(data) {
+            let _this = this;
+            
+            let fileName = data.image;
+
+            if (fileName) {
+                let group = new Konva.Group({
+                    x: 200,
+                    y: 100,
+                    draggable: true,
+                    userType: 'group',
+                    userOptions: data,
+                    name: 'image',
+                });
+
+                let imageSrc = '/api/files/get_hmi_image?file_name=' + fileName + '&type=node';
+
+                Konva.Image.fromURL(imageSrc, function (image) {
+                    group.add(image);
+                    _this.layer.add(group);
+                    _this.triggerGroup(group);
+                    group.moveToTop();
+                    _this.createTransformer(group);
+                });
+            }
+        }
+
+        // 노드 편집 팝업
+        editPopup(action) {
+            let _this = this;
+
+            let editPopup = new PopupNodeEdit();
+            let data = {};
+
+            if (action == 'edit') {
+                let group = this.findGroup(this.currentGroup, ['group']);
+                data = { ...data, ...group.attrs.userOptions };
+                if (!data.image) {
+                    data.text_value = data.text_value.replace(/\n/g, ' ');
+                } else {
+                    data['shape'] = 'image';
+                }
+
+            } else {
+                data.shape_color = '#FFFFFF';
+                data.outline_width = 0;
+                data.text_size = 16;
+            }
+
+            let callback = function (formData) {
+                if (action == 'edit') {
+                    _this.updateShape(formData);
+                } else {
+                    _this.createShape(formData);
+                }
+            };
+            editPopup.show(action, data, callback);
+        }
+
+        // 노드 생성
+        createShape(data) {
+            let _this = this;
+            let shape = null;
+            let tag = null;
+            let fontStyle = 'normal';
+
+            let group = null;
+            let text = null;
+            let rgb = null;
+            let opacity = 1;
+            let shapeColor = null;
+            let shapeOption = null;
+            let sides = {
+                triangle: 3, rhombus: 4, pentagon: 5, hexagon: 6, heptagon: 7, octagon: 8
+            };
+
+            if (data.shape != 'image') {
+                // 줄바꿈
+                if (data.linebreak == 'yes') {
+                    if (data.text_value) {
+                        data.text_value = data.text_value.replace(/ /g, '\n');
+                    }
+                }
+
+                // 텍스트 속성
+                if (data.text_bold == 'yes' && data.text_italic == 'yes') {
+                    fontStyle = 'italic bold';
+                } else {
+                    if (data.text_bold == 'yes') fontStyle = 'bold';
+                    if (data.text_italic == 'yes') fontStyle = 'italic';
+                }
+
+                // 그룹 = 모양 + 텍스트
+                group = new Konva.Group({
+                    x: 200,
+                    y: 100,
+                    draggable: true,
+                    userType: 'group',
+                    userOptions: data
+                });
+
+
+                // 텍스트
+                text = new Konva.Text({
+                    fontSize: data.text_size || 16,
+                    fontFamily: 'Calibri',
+                    fontStyle: fontStyle,
+                    text: data.text_value,
+                    fill: data.text_color || 'black',
+                    padding: 10,
+                    align: 'center',
+                    elipsis: true,
+                    userType: 'text',
+                });
+
+                rgb = this.hexToRgb(data.shape_color);
+                opacity = 1;
+                if (data.shape_transparent == 'yes') {
+                    opacity = 0;
+                }
+            
+                shapeColor = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + opacity + ')';
+
+                // 모양 옵션
+                shapeOption = {
+                    width: text.width(),
+                    height: text.height(),
+                    fill: shapeColor || 'white',
+                    stroke: data.outline_width == '0' ? null : data.outline_color,
+                    strokeWidth: data.outline_width == '0' ? null : data.outline_width,
+                    strokeScaleEnabled: false,
+                    userType: 'shape',
+                }
+            }
+            
+
+            // 선택한 모양에 따라 create
+            switch (data.shape) {
+                case 'label':
+                case 'leftpointinglabel':
+                case 'rightpointinglabel':
+                case 'uppointinglabel':
+                case 'downpointinglabel':
+                    shape = new Konva.Label({ ...shapeOption, ...{ userType: 'label' } });
+                    switch (data.shape) {
+                        case 'label':
+                            tag = new Konva.Tag({
+                                fill: shapeColor || 'black',
+                                userType: 'tag'
+                            });
+                            break;
+                        case 'leftpointinglabel':
+                            tag = new Konva.Tag({
+                                fill: shapeColor || 'black',
+                                pointerDirection: 'left',
+                                pointerWidth: 20,
+                                pointerHeight: 36,
+                                lineJoin: 'round',
+                                userType: 'tag'
+                            });
+                            break;
+                        case 'rightpointinglabel':
+                            tag = new Konva.Tag({
+                                fill: shapeColor || 'black',
+                                pointerDirection: 'right',
+                                pointerWidth: 20,
+                                pointerHeight: 36,
+                                lineJoin: 'round',
+                                userType: 'tag'
+                            });
+                            break;
+                        case 'uppointinglabel':
+                            tag = new Konva.Tag({
+                                fill: shapeColor || 'black',
+                                pointerDirection: 'up',
+                                pointerWidth: 10,
+                                pointerHeight: 10,
+                                lineJoin: 'round',
+                                userType: 'tag'
+                            });
+                            break;
+                        case 'downpointinglabel':
+                            tag = new Konva.Tag({
+                                fill: shapeColor || 'black',
+                                pointerDirection: 'down',
+                                pointerWidth: 10,
+                                pointerHeight: 10,
+                                lineJoin: 'round',
+                                userType: 'tag'
+                            });
+                            break;
+                    }
+                    break;
+                case 'rectangle':
+                    shape = new Konva.Rect({ ...shapeOption, ...{} });
+                    break;
+                case 'roundedrectangle':
+                    shape = new Konva.Rect({ ...shapeOption, ...{ shadowBlur: 10, cornerRadius: 10 } });
+                    break;
+                case 'triangle':
+                case 'rhombus':
+                case 'pentagon':
+                case 'hexagon':
+                case 'heptagon':
+                case 'octagon':
+                    shape = new Konva.RegularPolygon({
+                        ...shapeOption,
+                        ...{
+                            sides: sides[data.shape],
+                            radius: 40,
+                            x: text.width() / 2,
+                            y: text.height() / 2
+                        }
+                    });
+                    break;
+                case 'circle':
+                    shape = new Konva.Circle({
+                        ...shapeOption,
+                        ...{
+                            radius: 50,
+                            x: text.width() / 2,
+                            y: text.height() / 2
+                        }
+                    });
+                    break;
+                case 'image':
+                    let imageGroup = new Konva.Group({
+                        x: 200,
+                        y: 100,
+                        draggable: true,
+                        userType: 'group',
+                        userOptions: data,
+                        name: 'image',
+                    });
+
+                    let imageSrc = '/api/files/get_hmi_image?file_name=' + data.image + '&type=node';
+
+                    Konva.Image.fromURL(imageSrc, function (image) {
+                        imageGroup.add(image);
+                        _this.layer.add(imageGroup);
+                        _this.triggerGroup(imageGroup);
+                        imageGroup.moveToTop();
+                        _this.createTransformer(imageGroup);
+                    });
+                default:
+                    break;
+            }
+
+            if (data.shape != 'image') {
+                group.add(shape);
+
+                if (tag) {
+                    shape.add(tag).add(text);
+                } else {
+                    group.add(text);
+                }
+
+                this.layer.add(group);
+                this.triggerGroup(group);
+                group.moveToTop();
+                this.createTransformer(group);
+            }
+        }
+
+        // 노드 편집 - 편집 시 모양 수정 불가
+        updateShape(data) {
+            let _this = this;
+
+            let fontStyle = null;
+            let group = this.findUserType({ target: _this.currentGroup, types: ['group'] });
+            let shape = this.findUserType({ target: group, types: ['shape', 'tag'] });
+            let text = this.findUserType({ target: group, types: ['text'] });
+
+            group.attrs.userOptions = data;
+
+            // 텍스트 update
+            if (text) {
+                text.attrs.userOptions = data;
+
+                if (data.linebreak == 'yes') {
+                    if (data.text_value) {
+                        data.text_value = data.text_value.replace(/ /g, '\n');
+                    }
+                }
+
+                if (data.text_bold == 'yes' && data.text_italic == 'yes') {
+                    fontStyle = 'italic bold';
+                } else {
+                    if (data.text_bold == 'yes') fontStyle = 'bold';
+                    if (data.text_italic == 'yes') fontStyle = 'italic';
+                }
+
+                text.fontStyle(fontStyle);
+                text.fontSize(data.text_size);
+                text.text(data.text_value);
+                text.fill(data.text_color);
+            }
+
+            // 색상 및 외곽선 update (텍스트가 추가되는 경우 size 재조정)
+            if (shape) {
+                let rgb = this.hexToRgb(data.shape_color);
+                let opacity = 1;
+                if (data.shape_transparent == 'yes') {
+                    opacity = 0;
+                }
+                let shapeColor = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + opacity + ')';
+
+                shape.fill(shapeColor);
+                if (data.outline_width != '0') {
+                    shape.stroke(data.outline_color);
+                    shape.strokeWidth(data.outline_width);
+                    shape.strokeScaleEnabled(false);
+                } else {
+                    shape.stroke(null);
+                    shape.strokeWidth(null);
+                }
+
+                if (text) {
+                    shape.width(text.width());
+                    shape.height(text.height());
+                }
+            }
+
+            if (data.image) {
+                let imageSrc = '/api/files/get_hmi_image?file_name=' + data.image + '&type=node';
+
+                group.attrs.userOptions = data;
+
+                group.children.forEach(function (item) {
+                    if (item.attrs.image) {
+                        group.children.splice(item.index, 1);
+                    }
+                });
+
+                Konva.Image.fromURL(imageSrc, function (image) {
+                    group.add(image);
+                    _this.createTransformer(group);
+                    _this.layer.draw();
+                });
+            } else {
+                this.createTransformer(group);
+                this.layer.draw();
+            }
+        }
+
+        // 노드 이벤트
+        triggerGroup(group) {
+            let _this = this;
+
+            group.on('mouseover', function () { document.body.style.cursor = 'pointer'; });
+            group.on('mouseout', function () { document.body.style.cursor = 'default'; });
+            group.on('dragstart', function () { _this.layer.draw(); });
+            group.on('dragmove', function (e) {
+                document.body.style.cursor = 'pointer';
+                _this.createGuideLine(e.target);
+            });
+            group.on('dragend', function () {
+                _this.removeGuideLine();
+            });
+            group.on('click', function (e) { _this.createTransformer(e.target); });
+            group.on('dblclick', function (e) {
+                _this.createTransformer(e.currentTarget);
+                _this.editPopup('edit');
+            });
+            group.on('transformstart', function () { });
+            group.on('transform', function (e) { });
+            group.on('transformend', function () { });
+        }
+
+        // transformer 생성
+        createTransformer(target) {
+            let _this = this;
+
+            let group = this.findGroup(target);
+            this.destroyTransformer();
+
+            let tr = new Konva.Transformer({
+                node: group,
+                ignoreStroke: true,
+                padding: 5,
+            });
+
+            this.layer.add(tr);
+            this.currentGroup = group;
+            this.layer.draw();
+            this.setButtonState(true);
+            this.currentTransformer = tr;
+        }
+
+        // transformer 삭제
+        destroyTransformer() {
+            let _this = this;
+
+            this.currentGroup = null;
+            if (this.stage.find('Transformer').length != 0) {
+                this.stage.find('Transformer').forEach(function (item) {
+                    item.destroy();
+                }) 
+            }
+            this.layer.draw();
+            this.setButtonState(false);
+        }
+
+        // target내부에서 설정한 type과 filter로 노트 찾기
+        findUserType({ target, types, filter }) {
+            let _this = this;
+
+            let find = null;
+            if (types.includes(target.attrs.userType)) {
+                if (filter) {
+                    let okCount = 0;
+                    for (let [key, value] of Object.entries(filter)) {
+                        if (target.attrs.userOptions.hasOwnProperty(key) && target.attrs.userOptions[key] == value) {
+                            okCount = okCount + 1;
+                        }
+                    }
+                    if (okCount == Object.keys(filter).length) {
+                        find = target;
+                    }
+                } else {
+                    find = target;
+                }
+            }
+
+            if (!find) {
+                if (target.children) {
+                    target.children.forEach(val => {
+                        if (!find) {
+                            find = _this.findUserType({ target: val, types, filter });
+                        }
+                    });
+                }
+            }
+
+            return find;
+        }
+
+        // 그룹 찾기
+        findGroup(target) {
+            let _this = this;
+
+            if (target.attrs.userType == 'group') {
+                return target;
+            } else {
+                return this.findGroup(target.parent);
+            }
+        }
+
+        // HMI양식 등록, 수정, 삭제
+        saveHmiForm(action) {
+            let _this = this;
+
+            this.url = '/api/support/hmi_b'
+            
+            let data = {};
+            let fnSuccess = function(res) {
+				_this.url = '/api/support/hmi_b';
+                if (!res.success) {
+                    Alert.alert('', res.message);
+                } else {
+                    if (action == 'new' || action == 'edit') {
+                        Notify.success('저장되었습니다.');
+                        _this.getFormData(res.data.id);
+                    } else if (action == 'delete') {
+                        Notify.success("삭제되었습니다.");
+                        location.href = '/gui/' + gui.gui_code;
+                    }
+                }
+            }
+
+            if (action == 'new' || action == 'edit') {
+                this.url += '/save';		//url += 'save';                
+            } else if (action == 'delete') {
+                this.url += '/delete';		//url += 'delete';
+            }
+
+            if (!$('#form_name').val()) {
+                Alert.alert('', '양식명을 입력해주세요.', function () {
+                    $('#form_name').focus();
+                });
+
+                return;
+            }
+
+            let formValue = this.stage.toJSON();
+
+            data['id'] = $('#hmi_pk').val();
+            data['form_name'] = $('#form_name').val();
+            data['description'] = $('#description').val();
+            data['content'] = formValue;
+			
+            AjaxUtil.postAsyncData(this.url, data, fnSuccess);
+        }
+
+        // 저장된 데이터 조회
+        getFormData(pk) {
+            let _this = this;
+
+            let param = { 'id': pk };
+            //let url = '/api/support/hmi_b';
+            let result = AjaxUtil.getSyncData(this.url + '/detail', param);
+				
+            if (result.success) {
+                $('#hmi_pk').val(result.data.id);
+                $('#form_name').val(result.data.FormName);
+                $('#description').val(result.data.Description);
+
+                var formValue = JSON.parse(result.data.Content);
+                this.setStage(formValue);
+            }
+        }
+
+        // stage 세팅
+        setStage(stage) {
+            let _this = this;
+            let group = null;
+
+            this.initialCanvasWidth = stage.attrs.width;
+            this.initialCanvasHeight = stage.attrs.height;
+
+            this.stage = Konva.Node.create(stage, '#stage');
+            this.layer = this.findUserType({ target: this.stage, types: ['layer'] });
+
+            if (stage.attrs.userOptions) {
+                if (stage.attrs.userOptions.backgroundColor) {
+                    this.stage.getContainer().style.backgroundColor = stage.attrs.userOptions.backgroundColor;
+                } else {
+                    this.stage.getContainer().style.backgroundColor = '#EAEAEA';
+                }
+
+                if (stage.attrs.userOptions.image) {
+                    this.setBackgroundImage(stage.attrs.userOptions.image, stage.attrs.width, stage.attrs.height);
+                }
+            }
+
+            this.layer.children.forEach(function (val) {
+                let group = _this.findUserType({ target: val, types: ['group'] });
+
+                if (group) {
+                    if (group.attrs.userOptions.image) {
+                        let imageSrc = '/api/files/get_hmi_image?file_name=' + group.attrs.userOptions.image + '&type=node';
+
+                        group.children.forEach(function (item) {
+                            group.children.splice(item.index, 1);
+                        });
+
+                        Konva.Image.fromURL(imageSrc, function (image) {
+                            group.add(image);
+                        });
+                    }
+                    group.draggable(true);
+                    _this.triggerGroup(group);
+                }
+            });
+
+            this.stage.draw();
+        }
+
+        // ==================== guide line 관련 함수 start ====================
+
+        getLineGuideStops(skipShape) {
+            let _this = this;
+
+            let result = {};
+
+            let width = $('#stage').innerWidth();
+            let height = $('#stage').innerHeight();
+
+            let vertical = [0, width / 2, width];
+            let horizontal = [0, height / 2, height];
+
+            this.layer.children.forEach(function (val) {
+                var group = _this.findUserType({ target: val, types: ['group'] });
+                if (group) {
+                    if (group == skipShape) return;
+
+                    var box = group.getClientRect();
+                    var x = parseFloat(box.x);
+                    var y = parseFloat(box.y);
+                    var boxWidth = parseFloat(box.width);
+                    var boxHeight = parseFloat(box.height);
+                    
+                    vertical.push([x, x + boxWidth, x + boxWidth / 2]);
+                    horizontal.push([y, y + boxHeight, y + boxHeight / 2]);
+                }
+            });
+
+            result.vertical = vertical.flat();
+            result.horizontal = horizontal.flat();
+
+            return result;
+        }
+
+        getObjectSnappingEdges(node) {
+            let box = node.getClientRect();
+            let absPos = node.absolutePosition();
+            let result = {};
+
+            let vertical = [
+                {
+                    guide: Math.round(box.x),
+                    offset: Math.round(absPos.x - box.x),
+                    snap: 'start',
+                },
+                {
+                    guide: Math.round(box.x + box.width / 2),
+                    offset: Math.round(absPos.x - box.x - box.width / 2),
+                    snap: 'center',
+                },
+                {
+                    guide: Math.round(box.x + box.width),
+                    offset: Math.round(absPos.x - box.x - box.width),
+                    snap: 'end',
+                },
+            ];
+
+            let horizontal = [
+                {
+                    guide: Math.round(box.y),
+                    offset: Math.round(absPos.y - box.y),
+                    snap: 'start',
+                },
+                {
+                    guide: Math.round(box.y + box.height / 2),
+                    offset: Math.round(absPos.y - box.y - box.height / 2),
+                    snap: 'center',
+                },
+                {
+                    guide: Math.round(box.y + box.height),
+                    offset: Math.round(absPos.y - box.y - box.height),
+                    snap: 'end',
+                },
+            ];
+
+            result.vertical = vertical;
+            result.horizontal = horizontal;
+
+            return result
+        }
+
+        getGuides(lineGuideStops, itemBounds) {
+            let _this = this;
+
+            let resultVertical = [];
+            let resultHorizontal = [];
+            let guides = [];
+
+            // vertical guide line
+            lineGuideStops.vertical.forEach(function (lineGuide) {
+                itemBounds.vertical.forEach(function (itemBound) {
+                    var diff = Math.abs(lineGuide - itemBound.guide);
+                    if (diff < _this.guideLineOffset) {
+                        resultVertical.push({
+                            lineGuide: lineGuide,
+                            diff: diff,
+                            snap: itemBound.snap,
+                            offset: itemBound.offset,
+                        });
+                    }
+                });
+            });
+
+            // horizontal guide line
+            lineGuideStops.horizontal.forEach(function (lineGuide) {
+                itemBounds.horizontal.forEach(function (itemBound) {
+                    var diff = Math.abs(lineGuide - itemBound.guide);
+                    if (diff < _this.guideLineOffset) {
+                        resultHorizontal.push({
+                            lineGuide: lineGuide,
+                            diff: diff,
+                            snap: itemBound.snap,
+                            offset: itemBound.offset,
+                        });
+                    }
+                });
+            });
+
+            let minVertical = resultVertical.sort(function (a, b) { a.diff - b.diff })[0];
+            let minHorizontal = resultHorizontal.sort(function (a, b) { a.diff - b.diff })[0];
+
+            if (minVertical) {
+                guides.push({
+                    lineGuide: minVertical.lineGuide,
+                    offset: minVertical.offset,
+                    orientation: 'V',
+                    snap: minVertical.snap,
+                });
+            }
+
+            if (minHorizontal) {
+                guides.push({
+                    lineGuide: minHorizontal.lineGuide,
+                    offset: minHorizontal.offset,
+                    orientation: 'H',
+                    snap: minHorizontal.snap,
+                });
+            }
+
+            return guides;
+        }
+
+        drawGuides(guides) {
+            let _this = this;
+
+            guides.forEach(function (guide) {
+                if (guide.orientation == 'H') {
+                    var line = new Konva.Line({
+                        points: [-6000, 0, 6000, 0],
+                        stroke: 'rgb(255, 0, 0)',
+                        strokeWidth: 2,
+                        name: 'guide-line',
+                        dash: [4, 6],
+                    });
+
+                    _this.layer.add(line);
+                    line.absolutePosition({
+                        x: 0,
+                        y: guide.lineGuide,
+                    });
+                } else if (guide.orientation == 'V') {
+                    var line = new Konva.Line({
+                        points: [0, -6000, 0, 6000],
+                        stroke: 'rgb(255, 0, 0)',
+                        strokeWidth: 2,
+                        name: 'guide-line',
+                        dash: [4, 6],
+                    });
+
+                    _this.layer.add(line);
+                    line.absolutePosition({
+                        x: guide.lineGuide,
+                        y: 0,
+                    });
+                }
+            });
+        }
+
+        createGuideLine(target) {
+            let _this = this;
+
+            this.layer.find('.guide-line').forEach(function (line) {
+                line.destroy();
+            });
+
+            let lineGuideStops = this.getLineGuideStops(target);
+            let itemBounds = this.getObjectSnappingEdges(target);
+            let guides = this.getGuides(lineGuideStops, itemBounds);
+            let absPos = target.absolutePosition();
+
+            if (!guides.length) return;
+
+            this.drawGuides(guides);
+
+            guides.forEach(function (guide) {
+                switch (guide.snap) {
+                    case 'start':
+                        if (guide.orientation == 'V') absPos.x = guide.lineGuide + guide.offset;
+                        if (guide.orientation == 'H') absPos.y = guide.lineGuide + guide.offset;
+                        break;
+                    case 'center': 
+                        if (guide.orientation == 'V') absPos.x = guide.lineGuide + guide.offset;
+                        if (guide.orientation == 'H') absPos.y = guide.lineGuide + guide.offset;
+                        break;
+                    case 'end': 
+                        if (guide.orientation == 'V') absPos.x = guide.lineGuide + guide.offset;
+                        if (guide.orientation == 'H') absPos.y = guide.lineGuide + guide.offset;
+                        break;
+                }
+            });
+
+            target.absolutePosition(absPos);
+        }
+
+        removeGuideLine() {
+            this.layer.find('.guide-line').forEach(function (line) {
+                line.destroy();
+            });
+        }
+
+        // ==================== guide line 관련 함수 end ====================
+    }
+
+    let page = null;
+
+    $(document).ready(function (e) {
+      page = new HmiEditPage();
+        // 부모페이지의 action에 따라 form control
+        if (gui.action == 'new' || gui.action == 'edit') {
+            $('#btnSave').attr('style', 'display:inline-block !important;');
+        } else if (gui.action == 'delete') {
+            $('#btnDel').attr('style', 'display:inline-block !important;');
+        }
+
+        if (gui.action == 'delete') {
+            $('#form_name').attr('readonly', true);
+            $('#description').attr('readonly', true);
+        }
+        //page = new HmiEditPage();
+        page.getLineGuideStops();
+        let nodes = null;
+
+        // 뒤로가기 버튼
+        $('#btnBack').click(function () {
+            location.href = '/gui/' + gui.gui_code;
+        });
+
+        // 저장
+        $('#btnSave').click(function () {
+            Alert.confirm('', 
+                "저장하시겠습니까?",
+                function () { page.saveHmiForm(gui.action) },
+                function () { }
+            );
+        });
+
+        // 삭제
+        $('#btnDel').click(function () {
+            Alert.confirm('', 
+                "삭제하시겠습니까?",
+                function () { page.saveHmiForm(gui.action) },
+                function () { }
+            );
+        });
+
+        // 보기/감추기
+        $('#btnToggle').click(function () {
+            $("#basicInfo").toggle(300);
+        });
+
+        // 노드추가
+        $('#btnAdd').click(function () {
+            page.editPopup('create');
+        });
+
+        // 노드복사
+        $('#btnCopy').click(function () {
+            nodes = page.currentTransformer.nodes();
+            let newNodes = [];
+            if (nodes.length != 0) {
+                nodes.forEach(function (node) {
+                    if (node.attrs.userType == 'group') {
+                        let cloneNode = node.clone({ x: node.x() + 20, y: node.y() + 20 });
+                        page.layer.add(cloneNode);
+                        newNodes.push(cloneNode);
+                    }
+                });
+
+                page.destroyTransformer();
+
+                let tr = new Konva.Transformer({
+                    nodes: newNodes,
+                    ignoreStroke: true,
+                    padding: 5,
+                });
+
+                page.layer.add(tr);
+                page.layer.draw();
+
+                page.setButtonState(true);
+                page.currentTransformer = tr;
+            }
+        });
+
+        // 왼쪽으로 이동
+        $('#btnLeft').click(function () {
+            nodes = page.currentTransformer.nodes();
+            if (nodes.length != 0) {
+                nodes.forEach(function (node) {
+                    if (node.attrs.userType == 'group') {
+                        node.x(node.x() - 1);
+                    }
+                });
+            }
+        });
+
+        // 오른쪽으로 이동
+        $('#btnRight').click(function () {
+            nodes = page.currentTransformer.nodes();
+            if (nodes.length != 0) {
+                nodes.forEach(function (node) {
+                    if (node.attrs.userType == 'group') {
+                        node.x(node.x() + 1);
+                    }
+                });
+            }
+        });
+
+        // 위로 이동
+        $('#btnUp').click(function () {
+            nodes = page.currentTransformer.nodes();
+            if (nodes.length != 0) {
+                nodes.forEach(function (node) {
+                    if (node.attrs.userType == 'group') {
+                        node.y(node.y() - 1);
+                    }
+                });
+            }
+        });
+
+        // 아래로 이동
+        $('#btnDown').click(function () {
+            nodes = page.currentTransformer.nodes();
+            if (nodes.length != 0) {
+                nodes.forEach(function (node) {
+                    if (node.attrs.userType == 'group') {
+                        node.y(node.y() + 1);
+                    }
+                });
+            }
+        });
+
+        // 맨앞으로
+        $('#btnFoward').click(function () {
+            nodes = page.currentTransformer.nodes();
+            if (nodes.length != 0) {
+                nodes.forEach(function (node) {
+                    if (node.attrs.userType == 'group') {
+                        node.moveToTop();
+                    }
+                });
+            }
+        });
+
+        // 맨뒤로
+        $('#btnBackward').click(function () {
+            nodes = page.currentTransformer.nodes();
+            if (nodes.length != 0) {
+                nodes.forEach(function (node) {
+                    if (node.attrs.userType == 'group') {
+                        node.moveToBottom();
+                    }
+                });
+            }
+        });
+
+        // 노드삭제
+        $('#btnNodeDel').click(function () {
+            nodes = page.currentTransformer.nodes();
+            if (nodes.length != 0) {
+                nodes.forEach(function (node) {
+                    if (node.attrs.userType == 'group') {
+                        node.destroy();
+                    }
+                });
+            }
+            page.destroyTransformer();
+        });
+
+        // 배경설정
+        $('#btnSetting').click(function () {
+            page.destroyTransformer();
+            page.settingPopup();
+        });
+    });
+</script>
+</th:block>
+</html>

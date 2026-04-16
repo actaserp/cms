@@ -1,0 +1,289 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+<div class="content_wrap">    
+    <section class="section">
+
+        <div class="title_box ">
+            <div class="left_align">
+                <h3 data-labelCd="자재 발주 내역">자재 발주 내역</h3>
+            </div>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>        
+        </div>
+
+        <div class="table_box search">
+            <div class="row">
+
+                <div class="col-12 col-lg-6 col-xl-3" >
+                    <div class="input-group" >
+                        <div class="input-group-prepend mr-s1">
+                            <select class="input-group-text2 fit_box_md" id="cboDateKind" name="cboDateKind" >
+                            <option value="order" data-labelCd="발주일">발주일</option>
+                            <option value="receive" data-labelCd="입고예정일">입고예정일</option>
+                            </select>
+                        </div> 
+                        <div data-ax5picker="multi" id="srchDt">
+                            <div class="input-group-append">
+                            <input class="tac " type="text" id="srchStartDt" name="srchStartDt" />
+                                <span class="input-group-text fs-xl">
+                                    <i class="fas fa-calendar-alt calendar_color" ></i>
+                                </span>
+                            <span class="slow_sign">~</span>
+                            <input class="tac " type="text" id="srchEndDt" name="srchEndDt" />
+                                <span class="input-group-text fs-xl">
+                                    <i class="fas fa-calendar-alt calendar_color"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-6 col-md-3 col-lg-3 col-xl-2" >
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_md" data-labelCd="업체">업체</span>
+                        </div>
+                        <select id="cboCompany" class="form-control2"></select>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3 col-lg-3 col-xl-2" >
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_md" data-labelCd="품목그룹">품목그룹</span>
+                        </div>
+                        <select id="cboMaterialGroup" class="form-control2"></select>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3 col-lg-3 col-xl-2" >
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_md"data-labelCd="품목">품목</span>
+                        </div>
+                        <select id="cboMaterial" class="form-control2"></select>
+                    </div>
+                </div>
+                <div class="col-1" >
+                    <button type="button" class="btn-default" id="btnSearch" title="조회"><i class="fas fa-search"></i></button>
+                </div>
+
+            </div>
+        </div>
+    </section>   
+    
+    <section>
+        <div class="grid_box">
+            <div class="title_box">
+                <span class="right_align rpt" data-labelCd="자재 발주 내역">자재 발주 내역</span>
+                <button type="button" class="btn-default" id="btnExcel" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+                <button type="button" class="btn-default" id="btnGridSetting" style="visibility:hidden"><i class="fas fa-cog"></i> Setting</button>
+            </div>
+            <div class="h-630" data-ax5grid="material-order-grid"></div>
+        </div>
+
+    </section>
+    
+</div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+
+<script type="text/javascript">
+
+    class PageMaterialOrderApproval {
+        constructor() {
+            this.url = '/api/schedule/mat_order';
+            this.grid = null;
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="material-order-grid"]'),
+                frozenColumnIndex: 6, // 열 고정 단위까지
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 38  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.grid.select(this.dindex);
+                    },
+                    onDataChanged: function () {
+                        _this.grid.select(this.dindex, { selected: true });
+                    }
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'StateName', label: '상태', width: 100, align: 'center' },
+                    { key: 'OrderNumber', label: '발주번호', width: 120, align: 'center' },
+                    { key: 'Company_Name', label: '구매처', width: 150, align: 'left' },
+                    { key: 'Material_Code', label: '품목코드', width: 80, align: 'center' },
+                    { key: 'Material_Name', label: '품목명', width: 200, align: 'left' },
+                    { key: 'UnitName', label: '단위', width: 80, align: 'center' },
+                    { key: 'PackingUnitName', label: '포장', width: 80, align: 'center' },
+                    {
+                        key: 'PackOrderQty', label: '발주량(포장)', width: 100, align: 'right'
+                        , formatter:'money'
+                        , styleClass: function () {
+                            return 'grid-cell-yellow';
+                        }
+                    },
+                    {
+                        key: 'OrderQty', label: '발주량', width: 100, align: 'right', 
+                        formatter:'money',
+                    },
+                    {
+                        key: 'UnitPrice', label: '단가', width: 100, align: 'right'
+                        , formatter:'money',
+                    },
+                    {
+                        key: 'TotalPrice', label: '총금액', width: 100, align: 'right'
+                        , formatter:'money',
+                    },
+                    { key: 'InputPlanDate', label: '입고예정일', width: 150, align: 'center' },
+                    { key: 'OrderDate', label: '발주일', width: 150, align: 'center' },
+                    { key: 'ApproverName', label: '승인자', width: 100, align: 'center' },
+                    { key: 'ApproveDateTime', label: '승인일시', width: 150, align: 'center' },
+                ]
+            };
+
+            this.grid = new ax5.ui.grid(config);
+            this.grid_config = config;
+
+            AjaxUtil.fillSelectOptions($('#cboCompany'), 'company', 'all', false, 'purchase');
+
+            let $cboMaterialGroup = $('#cboMaterialGroup');
+            let $cboMaterial = $('#cboMaterial');
+
+            AjaxUtil.fillSelectOptions($cboMaterialGroup, 'material_group', 'all', false,);
+            AjaxUtil.fillSelectOptions($cboMaterial, 'material', 'all', false, '');
+
+            $cboMaterialGroup.change(function (e) {
+                AjaxUtil.fillSelectOptions($cboMaterial, 'material', 'all', false, this.value);
+            });
+
+
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            // 검색
+            $('#btnSearch').click(function (e) {
+                _this.searchDataBind();
+            });
+
+        }
+
+        // 엑셀 다운로드
+        exportExcel() {
+            var targetview = this.grid;
+            targetview.exportExcel('자재발주내역.xls');
+        }
+
+        searchDataBind() {
+            let _this = this;
+            let date1 = $('#srchStartDt').val();
+            let date2 = $('#srchEndDt').val();
+            let dateKind = $('#cboDateKind').val();
+            let company_id = $('#cboCompany').val();
+            let mat_group_id = $('#cboMaterialGroup').val();
+            let mat_id = $('#cboMaterial').val();
+
+            let param = {
+                'date1': date1,
+                'date2': date2,
+                'date_kind': dateKind,
+                'company_id': company_id,
+                'mat_group_id': mat_group_id,
+                'mat_id': mat_id
+            }
+
+            AjaxUtil.getAsyncData(this.url + '/mat_order_history_list', param, function (result) {
+                if (result != null) {
+                    
+                    _this.grid.setData({
+                        list: result.data,
+                        page: {
+                            display: true,
+                            totalElements: result.data.length,
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    let page = null;
+    $(document).ready(function (e) {
+        page = new PageMaterialOrderApproval();
+
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),
+            direction: "top",
+            locale: {
+                format: 'YYYY-MM-DD'
+            },
+            content: {
+                width: 214,  // 130, //270,
+                margin: 10,
+                type: 'date',
+
+                config: {
+                    control: {
+                        left: '<i class="fa fa-arrow-left"></i>',   //fa-chevron-left
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-arrow-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            },
+            btns: {
+
+            },
+            onStateChanged: function () {
+
+            }
+        });
+
+        // 엑셀 다운로드
+        $('#btnExcel').on('click', function () {
+            page.exportExcel();
+        });
+
+        //그리드 컬럼설정
+        page.popColSetting = new popColSetting();
+        let columns1 = page.popColSetting.loadColumnData(gui.gui_code, gui.template_key, 'grid', page.grid);
+
+        if (userinfo.group_code == 'admin') {
+            $('#btnGridSetting').css('visibility', 'visible');
+        }
+
+        $('#btnGridSetting').click(function (e) {
+            let _this = this;
+            let fix_cols = page.grid_config.frozenColumnIndex;
+            page.popColSetting.show(gui.gui_code, gui.template_key, 'grid', page.grid_config.columns, page.grid, { 'order_fix': false, 'fix_cols': fix_cols });
+        });
+
+        page.searchDataBind();
+
+    });
+</script>
+</th:block>
+</html>

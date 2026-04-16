@@ -1,0 +1,816 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        table.type01 {
+            border-collapse: collapse;
+            text-align: left;
+            line-height: 1.5;
+            margin: 20px 10px;
+        }
+
+        table.type01 th {
+            width: 150px;;
+            padding: 10px;
+            font-weight: bold;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        table.type01 td {
+            width: 940px;
+            padding: 10px;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+
+        #check_item_week_grid .wj-cell {
+            padding: 6px !important;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <input type="hidden" id="bhId" th:value="${bh_id}"/>
+        <input type="hidden" id="viewMode" th:value="${view_mode}"/>
+        <input type="hidden" id="apprView" th:value="${appr_view}"/>
+        <input type="hidden" id="checkMasterId" th:value="${check_master_id}"/>
+        <input type="hidden" id="createrName" th:value="${creater_name}"/>
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>중요관리점 검증점검표(소규모HACCP)</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP 관리</li>
+                <li>중요관리점 검증점검표(소규모HACCP)</li>
+            </ul>
+        </div>
+        <section class="section">
+            <div class="section-card-wrap">
+                <div class="col-5">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">점검명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="title" name="title"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="check_date">점검일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="date" id="check_date" name="check_date"
+                                       disabled/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="cboCheck">일지종류</label>
+                            </th>
+                            <td>
+                                <select class="form-control2 tac" id="cboCheck" name="cboCheck"></select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="creater_name">작성자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="creater_name" name="creater_name"
+                                       disabled/>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-6">
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+            <div class="title_box">
+                <div class="left_align">
+                    <label class="switch">
+                        <input type="checkbox" checked id="btnToggle"><span class="slider round"></span>
+                    </label>
+                    관리기준 보기/감추기
+                </div>
+            </div>
+            <div id="standardDIv">
+                <div class="col-12">
+                    <table class="type01">
+                        <tr>
+                            <th scope="row">관리기준</th>
+                            <td>관리기준</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">결재주기</th>
+                            <td id="checkCycle">1회</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">판정결과</th>
+                            <td>적합(O), 부적합(X)</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="tab_week">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <h3>일지 목록</h3>
+                </div>
+                <div class="button-wrap">
+                    <button type="button" class="btn" id="btnDiaryPrint">일지출력</button>
+                    <button type="button" class="btn" id="btnReqAppr">결재상신</button>
+                    <button type="button" class="btn" id="btnAppr" style="display:none;">승인</button>
+                    <button type="button" class="btn" id="btnReject" style="display:none;">반려</button>
+                    <button type="button" class="btn" id="btnSave">저장</button>
+                    <!--                    <button type="button" class="btn" id="btnDelete">삭제</button>-->
+                    <button type="button" class="btn" id="btnList">목록</button>
+                </div>
+            </div>
+            <div class="section-top">
+                <div class="search-wrap" style="justify-content: flex-start; align-items: flex-end;">
+                    <dl>
+                        <dt>
+                            <label for="check_name">
+                                점검자
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input class="form-control2" type="text" id="check_name" name="check_name" disabled>
+                            </div>
+                        </dd>
+                    </dl>
+                    <div>
+                        <button type="button" class="btn" id="btnAllItem">전체적합</button>
+                    </div>
+                </div>
+            </div>
+            <div class="grid_box" id="main_grid">
+                <div id="check_item_week_grid" style="height: 570px;"></div>
+            </div>
+            <div>
+                <div class="row">
+                    <div class="col-12">
+                        <table colspan="2">
+                            <tr>
+                                <th scope="row">특이사항</th>
+                                <td><textarea class="form-control2 tal" id="description"
+                                              name="description"></textarea></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="section">
+            <div class="grid_box" id="sub_grid">
+                <div class="section-top" id="button_box2">
+                    <div class="search-wrap">
+                        <h3>이탈 목록</h3>
+                    </div>
+                    <div class="left_align">
+                        <button type="button" class="btn-default" id="btnDeviActionSave"
+                                style="display:none">저장
+                        </button>
+                    </div>
+                </div>
+                <!--<div class="h-200" data-ax5grid="devi_action_grid"></div>-->
+                <div class="container-fluid">
+                    <div id="devi_action_grid" style="height: 200px; max-height: 200px;"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script type="text/x-tmpl" id="imagePopup">
+
+        <div class="content_wrap modal-content popup">
+                <section class="pt-2">
+                   <div class="table_box sub" >
+                        <div class ="row">
+                            <div class="col-12">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text fit_box_t5" data-labelCd="점검항목명">점검항목명</span>
+                                    </div>
+                                    <input class="form-control2 tac" type="text" id="pop_item_name" disabled="disabled" />
+                                </div>
+                            </div>
+                            </div>
+                            <div class="col-12 mx-auto" id="image_upload1"></div>
+                    </div>
+                </section>
+                <section>
+                    <div class="align_left popup_button_group bottom">
+                        <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+                    </div>
+                </section>
+        </div>
+    </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/upload_one_image_box.html :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code.html :: popup_select_user_code"></th:block>
+    <script type="text/javascript">
+        class CheckResultDiaryPage {
+            constructor() {
+                this.grid = null;
+                this.approveBoxUtil = null;
+                this.appr_view = null;
+                this.baseUrl = '/api/haccp/ccp_management_vertifi';
+                this.check_class_code = '중요관리점 검증점검표(소규모해썹)';
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                this.resultGrid = new wijmo.grid.FlexGrid('#check_item_week_grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    frozenColumns: 0,
+                    frozenRows: 0,
+                    allowSorting: false,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    allowMerging: wijmo.grid.AllowMerging.Cells,
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                    autoRowHeights: true,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        // 헤더 스타일 적용
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
+                            && s.columns[e.col].binding === 'result1') {
+                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
+                        }
+                        // 병합된 셀 확인
+                        const range = s.getMergedRange(e.panel, e.row, e.col);
+                        if (range) {
+                            e.cell.style.display = 'flex';
+                            e.cell.style.alignItems = 'center'; // 세로 가운데 정렬
+                            e.cell.style.justifyContent = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            e.cell.style.whiteSpace = "normal"; // 자동 줄 바꿈
+                            e.cell.style.wordBreak = "break-word"; // 단어 단위로 줄 바꿈
+                            e.cell.style.overflow = "visible"; // 넘치는 텍스트 표시
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell
+                            && s.columns[e.col].binding === 'result1'
+                            || s.columns[e.col].binding === 'result2') {
+                            e.cell.style.display = "flex"; // Flexbox 적용
+                            e.cell.style.justifyContent = "center"; // 수평 정렬
+                            e.cell.style.alignItems = "center"; // 수직 정렬
+                        }
+                    },
+                    columns: [
+                        {
+                            binding: 'group1',
+                            header: '구분',
+                            width: 130,
+                            align: 'left',
+                            isReadOnly: true,
+                            allowMerging: true
+                        },
+                        {binding: 'index_order', header: '순번', width: 50, align: 'center', isReadOnly: true},
+                        {binding: 'group2', header: '구분2', width: 130, align: 'left', visible: false},
+                        {binding: 'group3', header: '구분3', width: 130, align: 'left', visible: false},
+                        {binding: 'item_name', header: '점검항목명', width: 450, align: 'left', isReadOnly: true},
+                        {
+                            binding: 'result1',
+                            header: '점검결과(클릭)',
+                            width: 110,
+                            align: 'center',
+                            isReadOnly: true
+                        },
+                        {
+                            binding: 'result2',
+                            header: '비고',
+                            width: 130,
+                            align: 'left',
+                            isReadOnly: false
+                        }
+                    ],
+                });
+
+                this.resultGrid.hostElement.addEventListener('click', (e) => {
+                    const ht = this.resultGrid.hitTest(e);
+                    if (ht.cellType === wijmo.grid.CellType.Cell) {
+                        const col = this.resultGrid.columns[ht.col];
+                        const item = this.resultGrid.rows[ht.row]?.dataItem;
+
+                        if (!$('#viewMode').val()) {
+                            if (col.binding === 'result1' && item.result_type === 'OX') {
+                                switch (item.result1) {
+                                    case null:
+                                        item.result1 = 'O';
+                                        this.resultGrid.collectionView.commitEdit();
+                                        break;
+                                    case 'O':
+                                        item.result1 = 'X';
+                                        this.resultGrid.collectionView.commitEdit();
+                                        break;
+                                    case 'X':
+                                        item.result1 = null;
+                                        this.resultGrid.collectionView.commitEdit();
+                                        break;
+
+                                }
+                            }
+                            if (col.binding === 'result1' && item.result_type !== 'OX') {
+                                col.isReadOnly = false;
+
+                            }
+                            this.resultGrid.collectionView.refresh();
+                        }
+                    }
+                });
+
+                // 전체적합 버튼
+                $('#tab_week').find('#btnAllItem').click(function () {
+                    this.resultGrid.itemsSource.items.forEach(item => {
+                        if (item.result_type === 'OX') {
+                            item.result1 = 'O';
+                        }
+                    });
+                    this.resultGrid.collectionView.refresh();
+                }.bind(this));
+
+                // 이상조치사항 테이블
+                this.deviResultGrid = new wijmo.grid.FlexGrid('#devi_action_grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    frozenColumns: 0,
+                    frozenRows: 0,
+                    allowSorting: false,
+                    isReadOnly: true,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoRowHeights: true,
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            e.cell.style.whiteSpace = "normal"; // 자동 줄 바꿈
+                            e.cell.style.wordBreak = "break-word"; // 단어 단위로 줄 바꿈
+                            e.cell.style.overflow = "visible"; // 넘치는 텍스트 표시
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            e.cell.style.display = "flex"; // Flexbox 적용
+                            e.cell.style.alignItems = "center"; // 수직 정렬
+                        }
+                    },
+                    columns: [
+                        {binding: 'id', header: '번호', width: 80, align: 'right', visible: false},
+                        {binding: 'src_data_pk', header: '점검항목결과번호', width: 80, align: 'right', visible: false},
+                        {binding: '_order', header: '순번', width: 50, align: 'center'},
+                        {binding: 'abnormal_detail', header: '이상발생내역', width: 400, align: 'left'},
+                        {binding: 'action_detail', header: '조치내역및결과', width: 250, align: 'left'},
+                        {binding: 'actor_name', header: '조치자', width: 80, align: 'left'},
+                        {binding: 'creater_name', header: '작성자', width: 80, align: 'left'},
+                        {binding: 'confirm_state', header: '확인', width: 80, align: 'left', visible: false}
+                    ]
+
+                });
+
+
+                this.deviResultGrid.hostElement.addEventListener('click', (e) => {
+                    const ht = this.deviResultGrid.hitTest(e);
+                    if (ht.cellType === wijmo.grid.CellType.Cell) {
+                        const col = this.deviResultGrid.columns[ht.col];
+                        const item = this.deviResultGrid.rows[ht.row]?.dataItem;
+
+                        if (!$('#viewMode').val() && col.binding === 'action_detail') {
+                            this.showDeviActionCodeSavePopup(item);
+                        }
+                    }
+                });
+                _this.deviTabType = this.deviResultGrid;
+
+
+                $('#title').val('중요관리점 검증점검표');
+                //view mode
+                if ($('#viewMode').val().toLowerCase() === 'true') {
+                    $('#title').attr('disabled', 'disabled');
+                    $('#check_date').attr('disabled', 'disabled');
+                    $('#cboCheck').attr('disabled', 'disabled');
+                    $('#btnSave').hide();
+                    $('#tab_week').find('#btnAllItem').hide();
+                    $('#tab_week').find('#description').attr('disabled', 'disabled');
+                    $('#tab_week').find('#btnDeviActionSave').hide();
+                    $('#btnReqAppr').hide();
+                }
+            }
+
+            // 일지 리스트
+            searchMainData() {
+                let _this = this;
+
+                if ($('#bhId').val() > 0) {
+                    let param = {
+                        'action': 'result_list',
+                        'bh_id': $('#bhId').val(),
+                        'char1': 'week'
+                    }
+
+                    let result = AjaxUtil.getSyncData(_this.baseUrl + '/result_list', param);
+                    if (result.data != null) {
+                        _this.week_result = result.data.week_result;
+                        _this.mst_info = result.data.mst_info;
+
+                        $('#cboCheck').val(_this.mst_info.check_master_id);
+                        $('#check_date').val(_this.mst_info.DataDate);
+                        $('#checkCycle').text(_this.mst_info.checkCycle);
+
+
+                        $('#tab_week').find('#description').val(_this.week_result.description);
+                        $('#tab_week').find('#check_name').val(_this.week_result.CheckerName);
+
+                        // let count = _this.week_result.item_result.length;
+                        // let deviCount = _this.week_result.item_devi_result.length;
+
+                        //주간 일지 목록
+                        _this.resultGrid.itemsSource.sourceCollection = _this.week_result.item_result;
+
+                        //주간 이탈 목록
+                        _this.deviResultGrid.itemsSource.sourceCollection = _this.week_result.item_devi_result;
+
+                    }
+                } else {
+                    _this.searchItemList();
+                }
+
+                if ($('#bhId').val() > 0) {
+                    if ($('#viewMode').val().toLowerCase() !== 'true') {
+                        $('#tab_week').find('#btnDeviActionSave').show();
+                    }
+
+                    $('#cboCheck').attr('disabled', 'disabled');
+                }
+
+
+                _this.approveBoxUtil = new ApproveBoxUtil(0, _this.check_class_code, $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+
+            }
+
+            // 일지 리스트
+            searchItemList(check_result_id) {
+                let _this = this;
+
+                let param = {
+                    'action': 'read',
+                    'check_master_id': $('#cboCheck').val(),
+                    'check_date': $('#check_date').val()
+                }
+                let grid_result = AjaxUtil.getSyncData('/api/check/check_item/read', param);
+
+
+                grid_result.data.forEach(function (item, idx) {
+                    item.result1 = null;
+                })
+
+                // 주간
+                _this.resultGrid.itemsSource.sourceCollection = grid_result.data;
+
+            }
+
+            save(isAppr) {
+                let _this = this;
+                let callback = null;
+
+                callback = function () {
+
+                    let Q = [];
+                    let data = null
+
+                    if ($('#bhId').val() > 0) {
+                        if (_this.tabGubun === 'week') {
+
+                        } else if (_this.tabGubun === 'night') {
+
+                        }
+
+                        _this.week_result.description = $('#tab_week').find('#description').val();
+                        _this.week_result.check_name = $('#tab_week').find('#check_name').val();
+                        Q = [
+                            _this.week_result,
+                        ]
+
+                        data = {
+                            bh_id: $('#bhId').val(),
+                            check_date: $('#check_date').val(),
+                            title: $('#title').val(),
+                            Q: JSON.stringify(Q)
+
+                        }
+                    } else {
+                        let weekResult = {
+                            'char1': 'week',
+                            'description': $('#tab_week').find('#description').val(),
+                            'tabList': _this.resultGrid.itemsSource.sourceCollection,
+                            'check_name': $('#tab_week').find('#check_name').val(),
+                        }
+
+
+                        Q = [
+                            weekResult
+                        ];
+
+
+                        data = {
+                            check_date: $('#check_date').val(),
+                            check_master_id: $('#cboCheck').val(),
+                            title: $('#title').val(),
+                            Q: JSON.stringify(Q)
+                        }
+                    }
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            $('#bhId').val(resp.data.id);
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                Notify.success('저장하였습니다.');
+                                $('#btnDelete').show();
+                                _this.searchMainData();
+
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    }
+                    let action = $('#bhId').val() > 0 ? '/save' : '/insert'
+
+                    if (isAppr) {
+                        let checkGrid1 = _this.resultGrid.selectedItems;
+                        let checkGrid2 = _this.deviResultGrid.selectedItems;
+
+                        let result = checkGrid1.filter(function (e) {
+                            return e.result1 === "X";
+                        })
+
+                        if (result.length > 0) {
+                            if (checkGrid2.length === 0) {
+                                Alert.alert('결재상신', '조치내역을 입력해주세요.');
+                                return
+                            }
+                        }
+
+                        let result2 = checkGrid2.filter(function (e) {
+                            return e.action_detail === "" || e.action_detail == null;
+                        })
+
+                        if (result2.length > 0) {
+                            Alert.alert('결재상신', '조치내역을 입력해주세요.');
+                            return
+                        }
+                    }
+
+                    AjaxUtil.postAsyncData(_this.baseUrl + action, data, fnSuccess);
+                }
+
+                if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                } else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    $('#btnList').click();
+                });
+            }
+
+            // 결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit'
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'check_master_id': $("#cboCheck").val(),
+                    'data_date': $('#check_date').val(),
+                };
+
+                /**
+                 * 결재선 : 푸드/박원준 , 푸드/고형석
+                 * */
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+            test() {
+                // let url = '/api/common/devi_action?action=save_multi_devi_action';
+                //     let happen_date = $('#check_date').val();
+                //     let happen_place = $('#cboCheck').text();
+
+                //     let data = {
+                //         data_pk: _this.week_result.id,
+                //         table_name: 'check_item_devi_result',
+                //         happen_date: happen_date,
+                //         happen_place: happen_place,
+                //         Q: JSON.stringify(_this.deviResultGrid.getList()),
+                //     };
+                //     let fnSuccess = function () {
+                //         Notify.success('저장되었습니다');
+                //     }
+                // AjaxUtil.postAsyncData(url, data, fnSuccess);
+                ////////////
+                // let url = '/api/common/devi_action?action=save_multi_devi_action';
+                //     let happen_date = $('#check_date').val();
+                //     let happen_place = $('#cboCheck').text();
+
+                //     let data = {
+                //         data_pk: _this.night_result.id,
+                //         table_name: 'check_item_devi_result',
+                //         happen_date: happen_date,
+                //         happen_place: happen_place,
+                //         Q: JSON.stringify(_this.deviResultNGrid.getList()),
+                //     };
+                //     let fnSuccess = function () {
+                //         Notify.success('저장되었습니다');
+                //     }
+                //     AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+
+            showDeviActionCodeSavePopup(item) {
+
+                // 점검내역 조치내역 팝업
+                let _this = this;
+                let tempResult = _this.deviResultGrid.selectedItems[0];
+                let popupPage = new PopupSelectUserCodePage({
+
+                    'title': '점검내역 선택',
+                    'gridValueLabel': '점검항목',
+                    'infoData': [
+                        {label: '이상발생내역', value: item.check_name},
+                    ],
+                    'parentCode': '위생관리점검표', 'closeManual': true,
+                });
+                popupPage.show(function (data) {
+                    if (data && data.selected.Code === '직접입력') {
+                        item.action_detail = data.input;
+                    } else {
+                        item.action_detail = data.selected.Value;
+                    }
+                    popupPage.close();
+                    _this.deviTabType.refresh();
+                    if (item.action_detail) {
+                        _this.saveDeviAction();
+                    }
+                });
+            }
+
+            saveDeviAction() {
+                let _this = this;
+                let url = '/api/common/devi_action/save_multi_devi_action';
+                let happen_date = $('#check_date').val();
+                let happen_place = $('#cboCheck').text();
+                let result_id = _this.week_result.id
+                let data = {
+                    data_pk: result_id,
+                    table_name: 'check_item_devi_result',
+                    happen_date: happen_date,
+                    happen_place: happen_place,
+                    Q: JSON.stringify(_this.deviTabType.selectedItems),
+                };
+                let fnSuccess = function () {
+                    Notify.success('저장되었습니다');
+                }
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+
+            // 이미지 팝업
+            setImagePopup(data) {
+                let _this = this;
+
+                let content = tmpl('imagePopup', data);
+                let $content = $(content);
+                let modalContainer;
+
+                if (data && data.file_id) {
+                    modalContainer = new PopupDraggable('점검항목 이미지');
+                    modalContainer.open({width: 500, height: 350, $content});
+                }
+
+                let fncCallback = function () {
+                };
+                _this.upload = new UploadOneImage(1, {
+                    table_name: 'check_item',
+                    data_pk: data.checkItem_id,
+                    attach_name: 'check_item_image',
+                    file_id: data.file_id,
+                    upload_form_id: 'upload_form1',
+                    upload_div_id: 'image_upload1',
+                    image_width: '100%',
+                    image_height: 'auto',
+                    callback: fncCallback,
+                });
+
+                _this.upload.printFormDiv();
+                $('#pop_item_name').val(data.item_name);
+                $('#btnUpload1').hide();
+                $('#btnRemoveFile1').hide();
+                $('#attachFileId1').hide();
+            }
+
+        }
+
+        $(document).ready(function (e) {
+
+            this.appr_view = $('#apprView').val()
+
+            let creater = $('#createrName').val()
+
+            $('#creater_name').val(creater)
+
+            page = new CheckResultDiaryPage();
+
+            //부모에서 넘어온 파라미터 셋팅
+            AjaxUtil.fillSelectOptions($('#cboCheck'), 'check_master', null, $('#checkMasterId').val(), page.check_class_code);
+
+
+            $('#check_date').val(CommonUtil.getYYYYMMDD());
+
+            // 그리드 토글
+            $('#btnToggle').click(function (e) {
+                $("#standardDIv").toggle(300);
+            });
+
+            // 목록
+            $('#btnList').on('click', function () {
+                if (this.appr_view) {
+                    location.href = '/gui/' + this.appr_view
+                } else {
+                    location.href = '/gui/' + gui.gui_code
+                }
+
+            });
+
+            // 신규저장
+            $('#btnSave').on('click', function () {
+                page.save(false);
+            });
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+            // 점검일지
+            $('#cboCheck').change(function () {
+                page.searchMainData();
+
+            });
+
+            page.searchMainData();
+        });
+    </script>
+</th:block>
+</html>

@@ -1,0 +1,927 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <input type="hidden" id="newEquipId" value="0"/>
+        <input type="hidden" id="bhId" th:value="${bh_id}"/>
+        <input type="hidden" id="data_date" th:value="${data_date}"/>
+        <input type="hidden" id="search_cond" th:value="${searchcond}"/>
+        <input type="hidden" id="viewMode" th:value="${view_mode}"/>
+        <input type="hidden" id="equip_id" th:value="${equip_id}"/>
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>설비관리대장 등록</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>일지 및 데이터</li>
+                <li>선행요건일지</li>
+                <li>설비관리대장등록</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <!--<label><span class="input-group-text fit_box_sm" data-labelCd="일지명">일지명</span></label>-->
+                            <label for="title">일지명</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" id="title" name="title" class="form-control2">
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label for="title">설비명</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboEquip" name="cboEquip" class="form-control2"></select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <!--<label> <span class="input-group-text fit_box_sm" data-labelCd="작성자">작성자</span></label>-->
+                            <label for="firstName">작성자</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" id="firstName" name="firstName" class="form-control2" disabled>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            기간<span class="eq"></span>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input class="tac date_from " type="date" id="srchStartDt" name="srchStartDt"/>
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input class="tac date_to" type="date" id="srchEndDt" name="srchEndDt"/>
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+                    <div>
+                        <div id="approveBox"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="title_box">
+                <span class="right_align rpt" data-labelCd="설비점검이력">설비점검이력</span>
+                <button type="button" class="btn-default" id="btnDiaryPrint">일지출력</button>
+                <!--<button type="button" class="btn-default" id="btnExcel"><i class="fas fa-file-excel"></i></button>-->
+                <button type="button" class="btn-default" id="btnReqAppr">결재상신</button>
+                <button type="button" class="btn-default" id="btnAppr" style="display:none;">승인</button>
+                <button type="button" class="btn-cancel" id="btnReject" style="display:none; width: 124px; height: 48px;">반려</button>
+                <button type="button" class="btn-default" id="btnSave">저장</button>
+                <button type="button" class="btn-cancel btn-danger" id="btnDelete"  style="width: 124px; height: 48px;" >삭제</button>
+                <button type="button" class="btn-default" id="btnList">목록</button>
+            </div>
+            <div class="grid_box" id="repair_section">
+                <div class="title_box">
+                    <span class="right_align rpt" data-labelCd="설비점검이력">설비점검이력</span>
+                </div>
+                <div class="h-250" data-ax5grid="equip-repair-grid"></div>
+            </div>
+
+            <button type="button" class="btn-default" id="btnExcel2"><i class="fas fa-file-excel"></i></button>
+            <div class="grid_box" id="history_section">
+                <div class="title_box">
+                    <span class="right_align rpt" data-labelCd="설비이력">설비이력</span>
+                </div>
+                <div class="h-250" data-ax5grid="equip-history-grid"></div>
+            </div>
+
+            <div id="new_equ_section">
+                <form id="equipmentForm">
+                    <table class="write-table"
+                           style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                        <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+                        <input class="form-control2 readonly" type="hidden" id="id" name="id" readonly/>
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="EquipmentGroup_id">설비그룹</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <select id="EquipmentGroup_id" name="EquipmentGroup_id"
+                                        style="width: 100%;"></select>
+                            </td>
+
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="Usage">용도</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" id="Usage" name="Usage" style="width: 100%;">
+                            </td>
+
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="Code">설비코드</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" style="width: 100%;" id="Code"
+                                       name="Code">
+                            </td>
+                            <th style="width: 7%; padding: 5px; border: 1px solid #ddd; text-align: center;">
+                                <label for="Name">설비명</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" style="width: 100%;" id="Name" name="Name">
+                            </td>
+                        </tr>
+
+
+                        <tr>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="ManageNumber">관리번호</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" id="ManageNumber" name="ManageNumber"
+                                       style="width: 100%;">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="WorkCenter_id">워크센터</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <select id="WorkCenter_id" name="WorkCenter_id"
+                                        style="width: 100%;"></select>
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="Model">모델명</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" style="width: 100%;" id="Model"
+                                       name="Model">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="Maker">제조사</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" style="width: 100%;" id="Maker"
+                                       name="Maker">
+                            </td>
+                        </tr>
+
+
+                        <tr>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="Voltage">사용전압</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" id="Voltage" name="Voltage"
+                                       style="width: 100%;">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="PowerWatt">용량(Watt)</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="number" id="PowerWatt" name="PowerWatt"
+                                       style="width: 100%;">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="InputDate">입고일</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="date" style="width: 100%;" id="InputDate"
+                                       name="InputDate">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="Depart_id">사용부서</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <select style="width: 100%;" id="Depart_id"
+                                        name="Depart_id"></select>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="ASTelNumber">AS전화번호</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" id="ASTelNumber" name="ASTelNumber"
+                                       style="width: 100%;">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="SerialNumber">시리얼번호</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" id="SerialNumber" name="SerialNumber"
+                                       style="width: 100%;">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="ProductionYear">제작년도</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="number" style="width: 100%;" id="ProductionYear"
+                                       name="ProductionYear" min="1990" max="2030">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="PurchaseDate">구매일</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="date" style="width: 100%;" id="PurchaseDate"
+                                       name="PurchaseDate">
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="InstallDate">설치일</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="date" id="InstallDate" name="InstallDate"
+                                       style="width: 100%;">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="SupplierName">공급업체</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" id="SupplierName" name="SupplierName"
+                                       style="width: 100%;">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="PurchaseCost">구매금액(원)</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="number" style="width: 100%;" id="PurchaseCost"
+                                       name="PurchaseCost" min="0">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="OperationRateYN">가동률표시여부</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <select style="width: 100%;" id="OperationRateYN"
+                                        name="OperationRateYN">
+                                    <option value="Y">Y</option>
+                                    <option value="N">N</option>
+                                </select>
+                            </td>
+                        </tr>
+
+
+                        <tr>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="DisposalDate">폐기일</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="date" id="DisposalDate" name="DisposalDate"
+                                       style="width: 100%;">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="Manager">관리책임자</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" id="Manager" name="Manager"
+                                       style="width: 100%;">
+                            </td>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="Manager">위치</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                <input type="text" id="Located" name="Located"
+                                       style="width: 100%;">
+                            </td>
+                            <th></th>
+                            <td></td>
+                        </tr>
+
+
+                        <tr>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="Description">기타사항</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;" colspan="7">
+                                <textarea id="Description" name="Description"></textarea>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                <label for="AttentionRemark">점검 및 사용상 주의점</label>
+                            </th>
+                            <td style="width: 15%; padding: 5px; border: 1px solid #ddd;" colspan="7">
+                                <textarea id="AttentionRemark" name="AttentionRemark"></textarea>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <script type="text/javascript">
+        class ReportDiaryPage {
+            constructor() {
+                this.grid_repair = null;
+                this.grid_history = null;
+
+                this.init();
+
+                this.uploader = null;
+                this.approveBoxUtil = null;
+
+                this.baseUrl = '/api/precedence/equip_history_card';
+                this.table_name = 'doc_result';
+                this.titleName = '설비관리대장'
+            }
+
+            init() {
+                let _this = this;
+
+                this.gparam = {
+                    bh_id: $('#bhId').val(),
+                    data_date: $('#data_date').val(),
+                    search_cond: $('#search_cond').val(),
+                    view_mode: $('#viewMode').val(),
+                    equip_id: $('#equip_id').val(),
+                };
+
+                let repair_config = {
+                    target: $('[data-ax5grid="equip-repair-grid"]'),
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: true, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: true, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 25  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            _this.grid.select(this.dindex)
+                        },
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        //{ key: 'id', label: '번호', width: 50, align: 'right' },
+                        {key: 'equ_name', label: '설비명', width: 150, align: 'center'},
+                        {key: 'data_date', label: '일시', width: 120, align: 'center'},
+                        {key: 'content', label: '주요내용', width: 150, align: 'left'},
+                        {key: 'cost', label: '금액(천원)', width: 120, align: 'center'},
+                        {key: 'content', label: '주요내용', width: 150, align: 'left'},
+                        {key: 'description', label: '특이사항', width: 250, align: 'left'},
+                        {
+                            label: '확인자', align: 'center', columns: [
+                                {key: 'manager', label: '담당', width: 100, align: 'left'},
+                                {key: 'part_leader', label: '파트장', width: 100, align: 'left'},
+                            ]
+                        }
+                    ]
+                };
+
+                this.grid_repair = new ax5.ui.grid(repair_config);
+
+                let history_config = {
+                    target: $('[data-ax5grid="equip-history-grid"]'),
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: true, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: true, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 25  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        onClick: function (e) {
+                            _this.grid_repair.select(this.dindex)
+                        },
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        //{ key: 'id', label: '번호', width: 50, align: 'right' },
+                        {key: 'change_date', label: '변경일', width: 160, align: 'center'},
+                        {key: 'change_name', label: '변경자', width: 100, align: 'center'},
+                        {
+                            key: 'equ_status_name', label: '상태', width: 80, align: 'center', formatter: function () {
+                                let html = '<span>' + (this.item.equ_status == 'A' ? '사용' : (this.item.equ_status == 'D' ? '폐기' : '대기')) + '</span>';
+                                return html;
+                            }
+                        },
+                        {key: 'group_name', label: '설비그룹', width: 120, align: 'left'},
+                        {key: 'Usage', label: '용도', width: 100, align: 'left'},
+                        {key: 'Code', label: '설비코드', width: 120, align: 'left'},
+                        {key: 'Name', label: '설비명', width: 200, align: 'left'},
+                        {key: 'DepartName', label: '사용부서', width: 100, align: 'left'},
+                        {key: 'workcenter_name', label: '워크센터', width: 100, align: 'left'},
+                        {key: 'ManageNumber', label: '관리번호', width: 100, align: 'left'},
+                        {key: 'CcpTestCycle', label: 'CCP검사주기(분)', width: 80, align: 'right'},
+                        {key: 'OvenCount', label: '오븐개수', width: 80, align: 'right'},
+                        {key: 'OvenTemperCount', label: '오븐온도수집개수', width: 80, align: 'right'},
+                        {key: 'OvenProductTemperStandard', label: '오븐품온기준', width: 80, align: 'right'},
+                        {key: 'OvenHeatingMnStandard', label: '오븐소성시간기준(분)', width: 80, align: 'right'},
+                        {key: 'ForeignDetectMasterName', label: '이물검출마스터', width: 80, align: 'left'},
+                        {key: 'Model', label: '모델명', width: 150, align: 'left'},
+                        {key: 'Maker', label: '제조사', width: 150, align: 'left'},
+                        {key: 'SerialNumber', label: '시리얼번호', width: 150, align: 'left'},
+                        {key: 'ProductionYear', label: '제작년도', width: 150, align: 'center'},
+                        {key: 'PurchaseDate', label: '구매일', width: 150, align: 'center'},
+                        {key: 'InstallDate', label: '설치일', width: 150, align: 'center'},
+                        {key: 'SupplierName', label: '공급업체', width: 150, align: 'left'},
+                        {key: 'PurchaseCost', label: '구매금액', width: 150, align: 'right', formatter: 'money'},
+                        {key: 'OperationRateYN', label: '가동률표시', width: 100, align: 'center'},
+                        {key: 'Manager', label: '관리책임자', width: 150, align: 'center'},
+                        {key: 'SupplierName', label: '공급업체', width: 150, align: 'left'},
+                        {key: 'DisposalDate', label: '폐기일', width: 150, align: 'left'},
+                        {key: 'Description', label: '설명', width: 150, align: 'left'},
+                        {key: 'Voltage', label: '사용전압', width: 100, align: 'left'},
+                        {key: 'PowerWatt', label: '용량(W)', width: 100, align: 'left'},
+                        {key: 'InputDate', label: '입고일', width: 100, align: 'left'},
+
+                        {key: 'ASTelNumber', label: 'AS전화번호', width: 100, align: 'left'},
+                        {key: 'AttentionRemark', label: '주의사항', width: 100, align: 'left'},
+                    ]
+                };
+
+                this.grid_history = new ax5.ui.grid(history_config);
+
+                AjaxUtil.fillSelectOptions($('#EquipmentGroup_id'), 'equipment_group', 'choose', false);
+                AjaxUtil.fillSelectOptions($('#WorkCenter_id'), 'workcenter', 'choose', false);
+                AjaxUtil.fillSelectOptions($('#Depart_id'), 'depart', 'choose', false);
+            }
+
+            setView() {
+                // 신규로 등록중인 설비
+                if ($('#cboEquip').val() == '0' || $('#cboEquip').val() == null || parseInt($('#cboEquip').val(), 10) <= 0) {
+                    $("#new_equ_section").show();
+                    $("#history_section").hide();
+                    $('#repair_section').hide();
+                    $('#btnExcel2').hide();
+                } else {
+                    $("#new_equ_section").hide();
+                    $("#history_section").show();
+                    $('#repair_section').show();
+                    $('#btnExcel2').show();
+                }
+            }
+
+            searchMainData() {
+                let _this = this;
+                let data = {
+                    'bh_id': $('#bhId').val(),
+                    'equ_id': $('#cboEquip option:checked').val(),
+                    'from_date': $('#srchStartDt').val(),
+                    'to_date': $('#srchEndDt').val(),
+                }
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/read_in', data);
+
+                if (result != null) {
+                    let headInfo = result.data.head_info;
+                    let repairInfo = result.data.repair_info;
+                    let historyInfo = result.data.history_info;
+                    let newEquip = result.data.new_equip;
+
+                    $('#title').val(headInfo.Title);
+                    $('#firstName').val(headInfo.FirstName);
+                    //headInfo.EquipId<=0 ? $('#cboEquip').val(headInfo.NewEquipId) : $('#cboEquip').val(headInfo.EquipId);
+                    $('#cboEquip').val(headInfo.EquipId);
+                    $('#srchStartDt').val(headInfo.FromDate);
+                    $('#srchEndDt').val(headInfo.ToDate);
+
+                    // 데이터에 따른 버튼 설정
+                    if ($('#viewMode').val()) {
+                        //보기 모드일 경우 CRUD 버튼 숨김
+                        //$('#btnDiaryPrint').hide();
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        if (headInfo.State == 'approval') {
+                            //$('#btnDiaryPrint').show();
+                        }
+
+                        $('#title').attr('disabled', 'disabled');
+                        $('#cboEquip').attr('disabled', 'disabled');
+                        $('#srchStartDt').attr('disabled', 'disabled');
+                        $('#srchEndDt').attr('disabled', 'disabled');
+
+                    } else {
+                        // State : 작성, 미결재, 승인, 반려, 재상신
+                        //$('#btnDiaryPrint').hide();
+                        if (headInfo.State == 'process' || headInfo.State == 'reprocess') {
+                            $('#btnReqAppr').hide();
+                            $('#btnSave').hide();
+                            $('#btnDelete').hide();
+                        } else if (headInfo.State == 'approval') {
+                            //$('#btnDiaryPrint').show();
+                            $('#btnReqAppr').hide();
+                            $('#btnSave').hide();
+                            $('#btnDelete').hide();
+                        }
+
+                        if (parseInt($('#bhId').val(), 10) > 0) {
+                            $('#cboEquip').attr('disabled', 'disabled');
+                            $('#srchStartDt').attr('disabled', 'disabled');
+                            $('#srchEndDt').attr('disabled', 'disabled');
+                        } else {
+                            $('#btnDelete').hide();
+                        }
+                    }
+
+                    let histotyData = [];
+                    $.each(historyInfo, function (index, item) {
+                        let o = item['Text1'].replace(/'/g, '"');
+                        let i = JSON.parse(o);
+                        i['id'] = item['id'];
+                        i['change_date'] = item['ChangeDate'];
+                        i['change_name'] = item['ChangeName'];
+
+                        histotyData.push(i);
+                    });
+
+                    _this.grid_repair.setData({
+                        list: repairInfo,
+                        page: {
+                            display: true,
+                            totalElements: repairInfo.length,
+                        }
+                    });
+
+                    _this.grid_history.setData({
+                        list: histotyData,
+                        page: {
+                            display: true,
+                            totalElements: histotyData.length,
+                        }
+                    });
+
+                    _this.grid_repair.setHeight(repairInfo.length * 25 + 120);
+                    _this.grid_history.setHeight(histotyData.length * 25 + 100);
+
+                    if (parseInt(headInfo.NewEquipId, 10) > 0) {
+                        FormUtil.BindDataForm(newEquip, $('#equipmentForm'));
+                    }
+
+                    // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+                    _this.approveBoxUtil = new ApproveBoxUtil(0, _this.titleName, $('#bhId').val(), 'bundle_head', false, false);
+                    _this.approveBoxUtil.print($('#viewMode').val());
+                    if (_this.approveBoxUtil.isApprUser()) {
+                        // 결재자의 경우 버튼 처리
+                        $('#btnAppr').show();
+                        $('#btnReject').show();
+                    }
+                }
+
+                _this.setView();
+            }
+
+
+            // 일지 출력
+            //printDiary() {
+            //    let param = {
+            //        'title': $('#title').val(),
+            //        'bh_id': $('#bhId').val(),
+            //    };
+
+            //    let result = AjaxUtil.postSyncData(this.baseUrl + '?action=print', param, function () { });
+            //    if (result.success) {
+            //        CommonUtil.openWindow('/api/files/pdf_viewer?file_id=' + result.file_id)
+            //    }
+            //    else {
+            //        Alert.alert('', '일지 생성 중 오류가 발생했습니다. 관리자에게 문의하세요.');
+            //    }
+            //}
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    if (isAppr) {
+                        // 등록된 설비 _status 'T' -> A 변경
+                        AjaxUtil.postSyncData(_this.baseUrl + '/equ_available', {bh_id: $('#bhId').val()});
+                    }
+                    $('#btnList').click();
+                });
+            }
+
+            //결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit';
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'equ_id': $('#cboEquip option:checked').val(),
+                    'from_date': $('#srchStartDt').val(),
+                    'to_date': $('#srchEndDt').val(),
+                };
+
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+            //저장
+            save(isAppr) {
+                let _this = this;
+                let callback = function () {
+                    if ($('#cboEquip').val() == '0') {
+                        //신규설비의 경우 설비 저장 후 저장 호출
+                        _this.equipSave();
+                    }
+
+                    let histIdList = [];
+                    $.each(_this.grid_repair.getList(), function (index, item) {
+                        histIdList.push({id: item['id']});
+                    })
+                    $.each(_this.grid_history.getList(), function (index, item) {
+                        histIdList.push({id: item['id']});
+                    })
+
+                    let data = {
+                        bh_id: $('#bhId').val(),
+                        title: $('#title').val(),
+                        equ_id: $('#cboEquip').val(),
+                        from_date: $('#srchStartDt').val(),
+                        to_date: $('#srchEndDt').val(),
+                        new_equ_id: $('#newEquipId').val(),
+                        Q: JSON.stringify(histIdList),
+                    };
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            $('#bhId').val(resp.data.id);
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                Alert.alert('','저장하였습니다.');
+                                $('#btnDelete').show();
+                                _this.searchMainData();
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/save', data, fnSuccess);
+                }
+
+                if ($('#cboEquip').val() == '0' && !_this.validEquip()) {
+                    return;
+                }
+
+                if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                } else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+
+            //삭제
+            delete() {
+                let _this = this;
+                Alert.confirm('', '삭제하시겠습니까?', function () {
+                    // 삭제 서비스 호출
+                    let param = {
+                        bh_id: $('#bhId').val(),
+                    }
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            Alert.alert('','삭제하였습니다.');
+                            $('#btnList').click();
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/delete', param, fnSuccess);
+                });
+            }
+
+            validEquip() {
+                let Code = $('#Code').val();
+                let Name = $('#Name').val();
+
+                if (!Code) {
+                    Alert.alert('', '설비코드를 입력해주세요.', function () {
+                    });
+                    return false;
+                } else if (!Name) {
+                    Alert.alert('', '설비명을 입력해주세요.', function () {
+                    });
+                    return false;
+                } else if ($('#PurchaseCost').val() < 0) {
+                    Alert.alert('', '구매금액을 확인해 주세요.');
+                    return false;
+                }
+
+                return true;
+            }
+
+            // 신규 설비 저장
+            equipSave() {
+                let url = '/api/definition/equipment';
+
+                let data = FormUtil.extractForm($('#equipmentForm'));
+                data['Q'] = JSON.stringify(data);
+
+                // 필수입력 check
+                if (!data.Code) {
+                    Alert.alert('', '설비코드를 입력해주세요.');
+                    return false;
+                } else if (!data.Name) {
+                    Alert.alert('', '설비명을 입력해주세요.');
+                    return false;
+                } else if (!data.WorkCenter_id) {
+                    Alert.alert('', '워크센터를 선택해주세요.');
+                    return false;
+                }
+
+                let res = AjaxUtil.postSyncData(url + '/save', data);
+                // 신규설비아이디등록
+                $('#newEquipId').val(res.data.id);
+                return res.success;
+            }
+
+            // 엑셀 다운로드
+            exportExcel() {
+                if ($('#cboEquip').val() == 0) {
+                    let data =
+                        {
+                            EquipmentGroup_id: $("#EquipmentGroup_id option:selected").text(),
+                            Usage: $('#Usage').val(),
+                            Code: $('#Code').val(),
+                            Name: $('#Name').val(),
+                            ManageNumber: $('#ManageNumber').val(),
+                            WorkCenter_id: $("#WorkCenter_id option:selected").text(),
+                            Model: $('#Model').val(),
+                            Maker: $('#Maker').val(),
+                            Voltage: $('#Voltage').val(),
+                            PowerWatt: $('#PowerWatt').val(),
+                            InputDate: $('#InputDate').val(),
+                            Depart_id: $("#Depart_id option:selected").text(),
+                            ASTelNumber: $('#ASTelNumber').val(),
+                            SerialNumber: $('#SerialNumber').val(),
+                            ProductionYear: $('#ProductionYear').val(),
+                            SupplierName: $('#SupplierName').val(),
+                            PurchaseDate: $('#PurchaseDate').val(),
+                            InstallDate: $('#InstallDate').val(),
+                            PurchaseCost: $('#PurchaseCost').val(),
+                            OperationRateYN: $("#OperationRateYN option:selected").text(),
+                            DisposalDate: $('#DisposalDate').val(),
+                            Manager: $('#Manager').val(),
+                            Located: $('#Located').val(),
+                            Description: $('#Description').val(),
+                            AttentionRemark: $('#AttentionRemark').val()
+                        }
+
+
+                    let param = JSON.stringify(data);
+
+                    let fileName = '설비이력카드.xlsx'
+
+                    let url = this.baseUrl + '/excelDown?param=' + encodeURI(param);
+
+                    window.open(url, fileName, "");
+
+                } else {
+                    var targetview = this.grid_repair;
+                    targetview.exportExcel('설비점검이력.xls');
+                }
+            }
+
+            // 엑셀 다운로드
+            exportExcel2() {
+                var targetview = this.grid_history;
+                targetview.exportExcel('설비이력.xls');
+            }
+        }
+
+        let page = null;
+        var picker = new ax5.ui.picker();
+
+        $(document).ready(function (e) {
+            page = new ReportDiaryPage();
+
+            if (page.gparam.equip_id > 0) {
+                AjaxUtil.fillSelectOptions($("#cboEquip"), "equipment_gongmu", page.gparam.equip_id, false);
+                $("#cboEquip").val(page.gparam.equip_id);
+            } else {
+                AjaxUtil.fillSelectOptions($("#cboEquip"), "equipment_gongmu", null, false);
+            }
+
+            // 신규설비 추가
+            if (parseInt($('#bhId').val(), 10) <= 0 || page.gparam.equip_id <= 0) {
+                $("#cboEquip").prepend('<option value="0">신규설비</option>');
+                $("#cboEquip").val('0');
+            }
+
+            $('#srchDt').ax5DatePicker({direction: 'top'});
+            $('#InputDate').ax5DatePicker({direction: 'bottom'});
+            $('#PurchaseDate').ax5DatePicker({direction: 'bottom'});
+            $('#InstallDate').ax5DatePicker({direction: 'bottom'});
+            $('#DisposalDate').ax5DatePicker({direction: 'bottom'});
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD());
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            //AjaxUtil.fillSelectOptions($('#doc_form_id'), 'doc_form', 'choose', '', 'file', '설비이력카드');
+
+            $('#cboEquip, #srchStartDt, #srchEndDt').on('change', function () {
+                page.searchMainData();
+            });
+
+            // 일지 출력
+            //$('#btnDiaryPrint').on('click', function () {
+            //    page.printDiary();
+            //});
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+
+            // 임시저장
+            $('#btnSave').on('click', function () {
+                page.save(false);
+            });
+
+            // 삭제
+            $('#btnDelete').on('click', function () {
+                page.delete();
+            });
+
+            // 목록
+            $('#btnList').on('click', function () {
+                if (page.gparam.appr_view) {
+                    location.href = encodeURI('/gui/' + page.gparam.appr_view + '?searchcond=' + page.gparam.searchcond);
+                } else {
+                    location.href = encodeURI('/gui/' + gui.gui_code + '?searchcond=' + page.gparam.searchcond);
+                }
+            });
+
+            // 엑셀 다운로드
+            $('#btnExcel').on('click', function () {
+                page.exportExcel();
+            });
+
+            // 엑셀 다운로드
+            $('#btnExcel2').on('click', function () {
+                page.exportExcel2();
+            });
+
+            page.searchMainData();
+            if (page.gparam.view_mode) {
+                $('#equipmentForm :input').attr('disabled', 'disabled');
+            }
+        });
+
+    </script>
+</th:block>
+</html>

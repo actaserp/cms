@@ -1,0 +1,386 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>미지급 현황</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>출금 관리</li>
+        <li>미지급 현황</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl id="searchComArea">
+            <dt>
+              거래처
+            </dt>
+            <dd>
+              <input type="text" id="btnCompanySearch" name="btnCompanySearch" placeholder="입력 후 엔터를 눌러 검색하세요."/>
+              <input type="hidden" id="cboCompanyHidden">
+              <input type="hidden"  id="cltflag" name="cltflag"/>
+              <input type="hidden" id="spjangcdHidden">
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              조회기간<span class="eq">*</span>
+            </dt>
+            <dd>
+              <ul class="date-box">
+                <li>
+                  <input type="date" id="srchStartDt" name="srchStartDt">
+                  <label for="srchStartDt" class="hide">시작일</label>
+                </li>
+                <li>
+                  <input type="date" id="srchEndDt" name="srchEndDt">
+                  <label for="srchEndDt" class="hide">종료일</label>
+                </li>
+              </ul>
+            </dd>
+          </dl>
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <li>
+                <a class="btn btn-search" title="검색" id="btnSearch">
+                  <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+      </div>
+      <div class="tab-wrap">
+
+        <ul class="tab-links">
+          <li><a href="#tabs_count" style="border-radius: 6px 0 0 0;">집계</a></li>
+          <li><a href="#tabs_portion_detail" style="border-radius: 0 6px 0 0;">상세</a></li>
+        </ul>
+        <div>
+          <section class="tab-item" id="tabs_count" style="border-top-left-radius: 0;">
+            <div class="container-fluid">
+              <div id="theGrid1" style="height: 730px;"></div>
+            </div>
+          </section>
+          <section class="tab-item" id="tabs_portion_detail" style="border-top-left-radius: 0; display: none;">
+            <div class="container-fluid">
+              <div id="theGrid3" style="height: 730px;"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/multiform_material :: multiform_material"></th:block>
+    <th:block th:replace="/common/popup_company :: popup_company"></th:block>
+  <th:block th:replace="/common/popup_company_employee_bank_card.html :: popup_company"></th:block>
+    <script type="text/javascript">
+      class production_require {
+        constructor() {
+          this.grid = null;
+          this.grid3 = null;
+          this.$btnEdit = $('#btnEdit');
+          this.$btnAddNew = $('#btnAddNew');
+          this.spjangcd = $('#spjangcdHidden');
+          this.viewData = new wijmo.collections.CollectionView();
+          this.init();
+        }
+
+        init() {
+          let _this = this;
+          this.grid = new wijmo.grid.FlexGrid('#theGrid1', {
+            selectionMode: wijmo.grid.SelectionMode.Row,
+            headersVisibility: wijmo.grid.HeadersVisibility.Column,
+            autoGenerateColumns: false,
+            showMarquee: true,
+            isReadOnly: true,
+            formatItem: (sender, e) => {
+              if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                e.cell.style.textAlign = 'center';
+              }
+            },
+            columns: [
+              {binding: 'cltcd', header: '코드', width: 130, align: 'center'},
+              {binding: 'cltflag', header: '거래처구분 코드', width: 130, visible: false},
+              {binding: 'cltname', header: '거래처명', width: 320, align: 'center'},
+              {binding: 'payable', header: '전잔액', width: 220, align: 'right'},
+              {binding: 'purchase', header: '매입액', width: 200, align: 'right'},
+              {binding: 'AmountPaid', header: '지급액', width: 200, align: 'right'},
+              {binding: 'balance', header: '잔액', width: 210, align: 'right'}
+            ]
+          });
+
+          new FlexGridContextMenu(this.grid);
+          this.grid.downloadFileName = '미지급 집계 현황';
+          this.grid.hostElement.addEventListener('dblclick', function (e) {
+            let selectedItem = _this.grid.selectedItems[0];
+
+            if (!selectedItem) {
+              console.warn('선택된 항목이 없습니다.');
+              return;
+            }
+
+            const code = selectedItem.code || selectedItem.cltcd;
+            const name = selectedItem.clt_name || selectedItem.cltname;
+            const cltflag = selectedItem.cltflag || selectedItem.cltflag;
+
+            // ✅ input에 값 설정
+            document.getElementById('cboCompanyHidden').value = code;
+            document.getElementById('cltflag').value = cltflag;
+            document.getElementById('btnCompanySearch').value = name;
+
+            // 상세 데이터 다시 조회
+            _this.loadDetailData(code, cltflag);
+
+            // 탭 전환
+            _this.switchToDetailTab();
+          });
+          // ✅ Footer 패널 사용 설정
+          this.grid.columnFooters.rows.push(new wijmo.grid.Row());
+          this.grid.bottomLeftCells.setCellData(0, 0, '합 계');
+
+          // ✅ Footer 합계 값 설정 (수동)
+          this.grid.loadedRows.addHandler(() => {
+            const rows = this.grid.rows;
+            const footerTotal = this.grid.columnFooters.rows[0];
+
+            const getSum = (field) => rows.map(r => +r.dataItem[field] || 0).reduce((a, b) => a + b, 0);
+            footerTotal.dataItem = {
+              clt_name: '합 계',
+              payable: getSum('payable'),
+              purchase: getSum('purchase'),
+              AmountPaid: getSum('AmountPaid'),
+            };
+          });
+
+          this.grid3 = new wijmo.grid.FlexGrid('#theGrid3', {
+            autoGenerateColumns: false,
+            selectionMode: wijmo.grid.SelectionMode.Row,
+            headersVisibility: wijmo.grid.HeadersVisibility.Column,
+            isReadOnly: false,
+            showMarquee: true,
+            formatItem: (sender, e) => {
+              const col = sender.columns[e.col];
+              const item = sender.rows[e.row]?.dataItem;
+
+              if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                e.cell.style.textAlign = 'center';
+              }
+              if (e.panel.cellType === wijmo.grid.CellType.Cell && col.binding === 'date') {
+                if (item?.summary === '전잔액') {
+                  e.cell.textContent = '전잔액';  // 날짜 대신 전잔액 표시
+                  e.cell.style.textAlign = 'center';
+                  e.cell.style.fontWeight = 'bold';
+                  e.cell.style.color = '#444';
+                }
+              }
+            },
+            columns: [
+              {binding: 'comp_name', header: '거래처명', width: 150, align: 'center'},
+              {binding: 'date', header: '일자', width: 100, align: 'center'},
+              {binding: 'summary', header: '구분', width: 70, align: 'center'},
+              {binding: 'total_amount', header: '금액', width: 150, align: 'right'},
+              {binding: 'balance', header: '잔액', width: 150, align: 'right'},
+              {binding: 'itemnm', header: '품목', width: 120, align: 'center'},
+              {binding: 'iotype', header: '입금형태', width: 70, align: 'center'},
+              {binding: 'banknm', header: '은행', width: 120, align: 'center'},
+              {binding: 'accnum', header: '계좌', width: 180, align: 'center'},
+              {binding: 'eumnum', header: '어음번호', width: 150, align: 'center'},
+              {binding: 'eumtodt', header: '만기일', width: 120, align: 'center'},
+              {binding: 'tradenm', header: '거래구분', width: 120, align: 'center'},
+              {binding: 'remark1', header: '적요', width: 200, align: 'center'},
+              {binding: 'memo', header: '메모', width: 200, align: 'center'}
+            ],
+            itemsSource: this.viewData,
+          });
+
+          new FlexGridContextMenu(this.grid3);
+          this.grid3.downloadFileName = '미지급 현황 상세';
+          // ✅ Footer 패널 사용 설정
+          this.grid3.columnFooters.rows.push(new wijmo.grid.Row());
+          this.grid3.bottomLeftCells.setCellData(0, 0, '매입계');
+          this.grid3.columnFooters.rows.push(new wijmo.grid.Row());
+          this.grid3.bottomLeftCells.setCellData(0, 0, '지급계');
+
+          // ✅ Footer 합계 값 설정 (수동)
+          this.grid3.loadedRows.addHandler(() => {
+            const rows = this.grid3.rows;
+            const SalesTotal = this.grid3.columnFooters.rows[0];
+            const DepositTotal = this.grid3.columnFooters.rows[1];
+
+            const getSumBySummary = (field, summaryType) =>
+              rows
+                .filter(r => r.dataItem.summary === summaryType)
+                .map(r => +r.dataItem[field] || 0)
+                .reduce((a, b) => a + b, 0);
+
+            // 매입 합계
+            SalesTotal.dataItem = {
+              comp_name: '합계',
+              summary: '매입계',
+              total_amount: getSumBySummary('total_amount', '매입')
+            };
+
+            // 지급 합계
+            DepositTotal.dataItem = {
+              summary: '지급계',
+              total_amount: getSumBySummary('total_amount', '지급')
+            };
+          });
+        }
+
+        searchMainData() {
+          let _this = this;
+          let cboCompany = $("#cboCompanyHidden").val();
+          let url = '/api/transaction/accounts_payable_list'
+          let data = {
+            'srchStartDt': $("#srchStartDt").val(),
+            'srchEndDt': $("#srchEndDt").val(),
+            'companyCode': cboCompany,
+            'cltflag' : $("#cltflag").val(),
+            spjangcd: this.spjangcd.val()
+          };
+          let result = AjaxUtil.getSyncData(url + "/read", data);
+          if (result.data != null) {
+            console.log('accounts_payable_list data : ', result.data)
+            _this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+          }
+        }
+
+        loadDetailData(code, cltflag) {
+          let _this = this;
+          let url = '/api/transaction/accounts_payable_list/DetailList';
+          let param = {
+            'srchStartDt': $("#srchStartDt").val(),
+            'srchEndDt': $("#srchEndDt").val(),
+            'cboCompany': $("#cboCompanyHidden").val(),
+            'code': code, // 🔥 여기 코드 필터
+            'cltflag':cltflag,
+            spjangcd: this.spjangcd.val()
+          };
+
+          AjaxUtil.getAsyncData(url, param, function (result) {
+            if (result != null && result.data) {
+              _this.grid3.itemsSource = result.data;
+            } else {
+              _this.grid3.itemsSource = []; // 데이터 없으면 초기화
+            }
+          });
+        }
+        switchToDetailTab() {
+          $('a[href="#tabs_portion_detail"]').click();
+        }
+
+      }
+
+      function companyPopupOpenCustom(intputId, hiddenid, hiddenflag){
+
+        const value = document.getElementById(intputId).value;
+
+        let poppage = new PopCompComponentCustom(value);
+
+        let result = AjaxUtil.getSyncData('/api/popup/search_Comp_Custom', { item2 : value, spjangcd : getSpjangcdFromSession() });
+
+        let searchcallback = function (items) {
+
+          document.getElementById(intputId).focus();
+
+          document.getElementById(intputId).value = items.item2;
+          document.getElementById(hiddenid).value = items.id;
+          document.getElementById(hiddenflag).value = items.cltflag;
+        };
+        if(result && result.data.length === 1){
+          searchcallback(result.data[0]);   ``
+          return;
+        }
+
+        poppage.show(searchcallback, result.data);
+      }
+
+      let page = null;
+
+      $(document).ready(function (e) {
+        const spjangcd = sessionStorage.getItem('spjangcd');
+        if (spjangcd) {
+          $('#spjangcdHidden').val(spjangcd);  // hidden input이 있어야 함
+        }
+        page = new production_require();
+
+        AjaxUtil.fillSelectOptions($('#cboCompany'), 'company', 'all', '', 'sale');
+        AjaxUtil.fillSelectOptions($('#cboYear'), 'data_year', '', false);
+
+        let today = new Date();
+        let monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        $('#srchStartDt').val(CommonUtil.formatYYYYMMDD(monthStart));
+        $('#srchEndDt').val(CommonUtil.formatYYYYMMDD(today));
+
+        page.searchMainData();
+
+        // 검색
+        $('#btnSearch').click(function (e) {
+          const companyCode = $('#cboCompanyHidden').val();
+          if ($('#cboCompany').val() !== '' && $('#cboCompanyHidden').val() === '') {
+          // 집계 조회
+          page.searchMainData();
+          } else {
+            page.searchMainData();
+          }
+          //상세 데이터도 같이 조회
+          if (companyCode !== '') {
+            page.loadDetailData(companyCode);
+          } else {
+            // 회사 선택 안 된 경우 상세 그리드 초기화
+            page.grid3.itemsSource = [];
+          }
+        });
+
+        $('#btnCompanySearch').on('click keydown', function (e) {
+          if (e.type === 'keydown' && (e.key === 'Enter' || e.keyCode === 13)) {
+            e.preventDefault();
+
+            companyPopupOpenCustom('btnCompanySearch', 'cboCompanyHidden', 'cltflag');
+          }
+        });
+
+        $('#btnCompanySearch').on('input', function () {
+          const val = $(this).val();
+          if (val === '') {
+            $('#cboCompanyHidden').val('');
+            $('#cltflag').val('');
+          }
+        });
+
+        // .btn-clear 클릭 후 input 이벤트 강제 발생
+        $(document).on('click', '.btn-clear', function () {
+          const $input = $(this).siblings('input[type="text"]');
+          $input.val('');
+          $input.trigger('input'); // 🔥 input 이벤트 강제 발생
+        });
+
+        // 초기화 버튼 클릭 이벤트
+        $('#btnClear').click(function () {
+
+          document.getElementById('cboCompany').value = '';
+          document.getElementById('cboCompanyHidden').value = '';
+        });
+      })
+    </script>
+
+  </th:block>
+
+  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html>

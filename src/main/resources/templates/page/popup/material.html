@@ -1,0 +1,175 @@
+{% extends "app/layout_page.html" %}
+{% block css %}
+{% endblock %}
+
+{% block content %}
+<div class="content_wrap popup">
+    <header>
+        <h4>품목선택</h4>
+        <div class="popup_close_box"><button class="btn_popup_close" id="modal-close"><i class="fas fa-times"></i></button></div>
+    </header>
+    <section class="section popupcontent">
+        <div class="title_box">
+            <div class="left_align"></div>
+            <div class="right_align"><button type="button" class="search" id="btn_search"><i class="fas fa-search"></i><span>조회</span></button></div>
+        </div>
+        <div class="table_box search">
+            <form id="searchForm" autocomplete="off">
+                <table class="table search">
+                    <caption>조회조건</caption>
+                    <colgroup>
+                        <col/>
+                        <col/>
+                        <col/>
+                        <col/>
+                    </colgroup>
+                    <tr>
+                        <th>품목그룹</th>
+                        <td><select id="cboMaterialGroup" name="cboMaterialGroup" style="width:100px;"></select></td>
+                        <th>품목명</th>
+                        <td>
+                            <input value="" id="keyword" name="keyword" placeholder="" title="">
+                        </td>
+                    </tr>
+                </table>
+            </form>
+        </div>
+        <div class="grid_box">
+            <div style="position: relative;height:200px;" id="grid-parent">
+                <div data-ax5grid="material-grid" style="height:100%;"></div>
+            </div>
+        </div>
+    </section>
+
+
+    <section class="section">
+        <div class="popup_button_group bottom">
+            <button type="button" class="search" id="modal-select"><span>선택</span></button>
+            <button type="button" class="close" id="modal-close2"><span>닫기</span></button>
+            
+        </div>
+    </section>
+</div>
+
+
+
+{% endblock %}
+
+
+{% block scripts %}
+
+
+
+<script type="text/javascript">
+
+    class PopupMaterialPage {
+        constructor() {
+            this.grid = null;
+            this.selectedItem = null;
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="material-grid"]'),
+                sortable: true,
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 30  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onDBLClick: function () {
+                        //_this.grid.select(this.dindex);
+                        _this.selectData(this.item);
+                        _this.selectedItem = this.item;
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'group_name', label: '품목그룹', width: 150, align: 'left', sortable: false },
+                    { key: 'Code', label: '품목코드', width: 150, align: 'center', sortable: false },
+                    { key: 'Name', label: '품목명', width: 250, align: 'left', sortable: false },
+                    //{ key: 'Description', label: '설명', width: 250, align: 'center', sortable: false },
+                ]
+            };
+
+            this.grid = new ax5.ui.grid(config);
+            AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false);
+        }
+
+        searchDataBind() {
+            let _this = this;
+
+            let url = '/api/popup/search_material';
+            let data = {
+                'group_id': $('#cboMaterialGroup').val(),
+                'keyword': $('#keyword').val(),
+            };
+
+            let result = AjaxUtil.getSyncData(url, data);
+            if (result != null) {
+                let recordsTotal = result.length;
+                _this.grid.setData({
+                    list: result,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            }
+
+            this.selectedItem = null;
+
+        }//searchDataBind
+
+
+        selectData(item) {
+            let _this = this;
+            var param = ax5.util.param(ax5.info.urlUtil().param);
+            let ret_data = { 'Code': item.Code, 'Name': item.Name, 'MaterialGroup_id': item.MaterialGroup_id };
+            parent[param.callBack](ret_data);
+        }
+
+    }
+
+    var popupPage = null;
+
+    $(document).ready(function (e) {
+        popupPage = new PopupMaterialPage();
+        var _isSave = false;
+
+
+        $('#btn_search').click(function (e) {
+            popupPage.searchDataBind();
+        });
+
+        $('#modal-select').click(function (e) {
+            if (popupPage.selectedItem != null) {
+                popupPage.selectData(popupPage.selectedItem);
+            }
+        });
+
+        // 팝업 닫기
+        $('#modal-close, #modal-close2').on('click', function () {
+            parent.subModal.close(); // 그냥 닫기
+        });
+
+
+
+    });
+
+
+</script>
+{% endblock %}

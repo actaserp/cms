@@ -1,0 +1,484 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <!-- Page Title -->
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>근무조</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>근무조</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px">
+            <section class="section" style="width: 60%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>근무조명</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" class="form-control2" id="txtShiftName" name="txtShiftName">
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+
+                </div> <!--//section-top end -->
+                <div class="container-fluid">
+                    <p id="selectedItem"></p>
+                    <div id="theGrid" style=""></div>
+                </div>
+                <div class="btn-wrap">
+                </div>
+            </section>
+            <section style="width: 40%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <ul>
+                            <li>
+                                <!-- <a class="btn btn-excell" title="신규등록" id="btnNew" >
+                                     <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                     신규등록
+                                 </a>-->
+                                <button type="button" class="btn-excellt btn-default" id="btnNew" name="btnNew"
+                                        style="height: 36px; width:115px;"><i
+                                        class="fas fa-plus"></i>신규등록
+                                </button>
+                            </li>
+
+                            <li>
+                                <!-- <a class="btn btn-edit" id="btnSave" title="저장">
+                                     <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                                     저장
+                                 </a>-->
+                                <button type="button" class="btn-excellt btn-default y_write_auth" id="btnSave"
+                                        style="float:none; height: 36px; width:115px;">
+                                    <i class="fas fa-save"></i>저장
+                                </button>
+                            </li>
+
+                            <li>
+                                <!--  <a class="btn btn-delete" title="삭제" id="btnDel">
+                                      <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                      삭제
+                                  </a>-->
+                                <button type="button" class="btn-delete btn-danger y_write_auth" id="btnDel"
+                                        style="float:none; height: 36px; width:115px;"><i
+                                        class="fas fa-trash"></i>삭제
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="table-wrap" style=" overflow-x: auto;">
+                    <form id="shiftForm">
+                        <table class="write-table" style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                            <caption style="text-align: left; margin-bottom: 8px;">등록테이블</caption>
+                            <colgroup>
+                                <col class="wp20">
+                                <col class="wp80">
+                            </colgroup>
+                            <!--<input type="hidden" id="id" name="id"/>-->
+                            <tbody>
+                            <tr>
+                                <th>
+                                    <label for="id">번호</label>
+                                </th>
+                                <td>
+                                    <input type="text" id="id" name="id" style="width: 100%;" readonly disabled>
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="Code"><span class="eq">*</span>근무조코드</label>
+                                </th>
+                                <td>
+                                    <input type="text" id="Code" name="Code" style="width: 100%;">
+                                </td>
+
+
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="Name"><span class="eq">*</span>근무조명</label>
+                                </th>
+                                <td>
+                                    <input type="text" style="width: 100%;" id="Name" name="Name">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="StartTime"><span class="eq">*</span>근무시작시간</label>
+                                </th>
+                                <td>
+                                    <input type="time" style="width: 100%;" id="StartTime" name="StartTime" value="00:00">
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="EndTime"><span class="eq">*</span>근무종료시간</label>
+                                </th>
+                                <td>
+                                    <input type="time" style="width: 100%;" id="EndTime" name="EndTime" value="12:00">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label for="Description">설명</label>
+                                </th>
+                                <td colspan="5">
+                                    <input type="text" id="Description" name="Description" style="width: 100%;">
+                                    <!--<textarea id="Description" name="Description"></textarea>-->
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+            </section>
+        </div>
+    </div> <!--//layout-contents end -->
+
+    <footer style="margin-top: 24px;">
+        <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+    </footer>
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+    <script type="text/javascript">
+
+        var theGrid;
+        var viewdata;
+
+        let columns = [
+            {binding: 'id', header: '번호', width: 100, align: 'center'},
+            {binding: 'shift_code', header: '근무조코드', width: 150, align: 'left'},
+            {binding: 'shifht_name', header: '근무조명', width: 200, align: 'left'},
+            {binding: 'start_time', header: '시작시간', width: 150, align: 'left'},
+            {binding: 'end_time', header: '종료시간', width: 150, align: 'left'},
+            {binding: 'description', header: '비고', width: 500, align: 'left'},
+            {binding: '', header: '', width: "*", align: 'left'},
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            let data2 = [];
+
+            let shift_name = $('#txtShiftName').val();
+
+            $.ajax({
+                url: withCtx('/api/system/shift/read'),
+                type: 'GET',
+                data: {
+                    'shift_name': shift_name,
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                },
+                async: false,
+                success: function (data) {
+                    data2 = data.data;
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_count data:', textStatus, errorThrown);
+                }
+            })
+
+            viewdata = new wijmo.collections.CollectionView(data2);
+
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+
+
+            theGrid.hostElement.addEventListener('dblclick', function (e) {
+                let selectedItem = theGrid.selectedItems[0];
+                document.getElementById('id').value = selectedItem.id;
+                document.getElementById('Code').value = selectedItem.shift_code;
+                document.getElementById('Name').value = selectedItem.shifht_name;
+                document.getElementById('StartTime').value = selectedItem.start_time;
+                document.getElementById('EndTime').value = selectedItem.end_time;
+                document.getElementById('Description').value = selectedItem.description;
+
+
+                setButtonState();
+
+            });
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+
+        }
+
+
+        // 버튼 활성화 설정
+        function setButtonState() {
+            let pk = $('#id').val();
+            $('#btnNew').prop('disabled', false);
+            $('#btnSave').prop('disabled', false);
+            if (pk) {
+                $('#btnDel').prop('disabled', false);
+            } else {
+                $('#btnDel').prop('disabled', true);
+            }
+        }
+
+        function searchMainData() {
+            let shift_name = $('#txtShiftName').val();
+
+            $.ajax({
+                url: withCtx('/api/system/shift/read'),
+                type: 'GET',
+                data: {
+                    'shift_name': shift_name,
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                },
+                async: false,
+                success: function (result) {
+                    if (result.success) {
+                        grid_binding(result.data);
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+
+                }
+            });
+
+            $('#shiftForm')[0].reset();
+            $('#shiftForm').find('#id').val('');
+
+            $('#detail_box').find('input, textarea').each(function () {
+                if (!$(this).is(':disabled')) {
+                    $(this).attr('disabled', 'disabled');
+                }
+            });
+
+            setButtonState();
+        }
+
+        function grid_binding(data) {
+            if (!Array.isArray(data)) {
+                console.error('데이터가 배열 형식이 아닙니다:', data);
+                return;
+            }
+
+            let menulogData = data.map(item => ({
+                id: item.id,
+                shift_code: item.shift_code,
+                shifht_name: item.shifht_name,
+                start_time: item.start_time,
+                end_time: item.end_time,
+                description: item.description
+
+            }));
+
+            if (typeof theGrid === 'undefined' || typeof viewdata === 'undefined') {
+                console.error('theGrid 또는 viewdata가 정의되지 않았습니다.');
+                return;
+            }
+
+            theGrid.columns.clear();
+            theGrid.autoGenerateColumns = false;
+
+            // columns 배열이 정의되어 있는지 확인
+            if (typeof columns === 'undefined' || !Array.isArray(columns)) {
+                console.error('columns 배열이 정의되지 않았습니다.');
+                return;
+            }
+
+            columns.forEach(columnDef => {
+                var col = new wijmo.grid.Column(columnDef);
+                theGrid.columns.push(col);
+            });
+
+            viewdata = new wijmo.collections.CollectionView(menulogData);
+
+            theGrid.itemsSource = viewdata;
+            theGrid.refresh();
+        }
+
+        function saveShift() {
+            let url = '/api/system/shift';
+
+            let data = FormUtil.extractForm($('#shiftForm'));
+
+            if (!data.Code) {
+                Alert.alert('', '근무조코드를 입력해주세요')
+                $('#shiftForm #Code').focus();
+                return false;
+            }
+            if (!data.Name) {
+                Alert.alert('', '근무조명을 입력해주세요')
+                $('#shiftForm #Name').focus();
+                return false;
+            }
+            if (!data.StartTime) {
+                Alert.alert('', '시작시간을 입력해주세요')
+                $('#shiftForm #StartTime').focus();
+                return false;
+            }
+            if (!data.EndTime) {
+                Alert.alert('', '종료시간을 입력해주세요')
+                $('#shiftForm #EndTime').focus();
+                return false;
+            }
+
+            data.spjangcd= sessionStorage.getItem('spjangcd');
+
+            let fnSuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '저장되었습니다');
+                    searchMainData(); // 저장 후 데이터 갱신
+                } else {
+                    Alert.alert('저장 실패', result.message);
+                    console.error('저장 실패:', result.message);
+                }
+            }
+            AjaxUtil.postAsyncData(url + '/save', data, fnSuccess);
+        }
+
+
+        function deleteShift() {
+            let url = '/api/system/shift';
+            let id = $('#shiftForm').find('#id').val();
+            let data = {'id': id};
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Alert.alert('', '삭제되었습니다');
+                    searchMainData();
+                } else {
+                    Alert.alert('삭제 실패', res.message);
+                    console.error('삭제 실패:', res.message);
+                }
+            }
+
+            AjaxUtil.postAsyncData(url + "/delete", data, fnSuccess);
+        }
+
+
+        $(document.body).ready(function (e) {
+
+            $('#txtShiftName').on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    searchMainData();
+                }
+            });
+
+            /*   // StartTime과 EndTime의 기본값 설정
+               const startTime = '00:00'; // 오전 12시
+               const endTime = '12:00'; // 오후 12시
+               // StartTime input에 기본값 설정
+               $('#StartTime').val(startTime);
+               $('#EndTime').val(endTime);*/
+
+
+            /* $('#StartTime').timepicker({
+                 show2400: true,
+                 timeFormat: 'H:i'
+             }).val('00:00');
+             $('#EndTime').timepicker({
+                 show2400: true,
+                 timeFormat: 'H:i'
+             }).val('00:00');*/
+            //$('#EndTime').blur(function (event) {
+            //        DataValidation.validateTime(event.target);
+            //  });
+
+
+            // 검색버튼
+            $('#btnSearch').click(function (e) {
+                searchMainData();
+            });
+
+            // 신규버튼
+            $('#btnNew').click(function (e) {
+
+                $('#shiftForm')[0].reset();
+                $('#shiftForm').find('#id').val('');
+
+                $('#detail_box').find('input, textarea').each(function () {
+                    if ($(this).is(':disabled')) {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+
+                $('#StartTime').val(startTime);
+                $('#EndTime').val(endTime);
+
+                setButtonState();
+            });
+
+            // 저장버튼
+            $('#btnSave').click(function (e) {
+                Alert.confirm('',
+                    "저장하시겠습니까?",
+                    function () {
+                        saveShift()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            // 삭제버튼
+            $('#btnDel').click(function (e) {
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        deleteShift()
+                    },
+                    function () {
+                    }
+                );
+            });
+
+
+        });
+
+    </script>
+
+</th:block>
+
+</html>

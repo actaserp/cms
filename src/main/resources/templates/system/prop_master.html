@@ -1,0 +1,459 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+  <style>
+      .wj-header {
+          text-align: center !important;
+      }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <!-- Page Title -->
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>프라퍼티 마스터 관리</h2>
+        <a title="북마크" class="bookmark toggle">
+          내메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>시스템관리</li>
+        <li>프라퍼티마스터관리</li>
+      </ul>
+    </div>
+
+    <div style="display: flex; gap: 5px;">
+      <section clas="section" style="flex: 0 0 50%">
+        <div class="section-top">
+          <div class="search-wrap">
+            <dl>
+              <dt>
+                <label for="cboTable_name">
+                  테이블
+                </label>
+              </dt>
+              <dd>
+                <div class="srch-box">
+                  <select class="form-control2" id="cboTable_name" name="cboTable_name"></select>
+                </div>
+              </dd>
+            </dl>
+
+            <dl>
+              <dt><span class="eq"></span></dt>
+              <dd>
+                <li>
+                  <a class="btn btn-delete" title="검색" id="btnSearch">
+                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                    검색
+                  </a>
+                </li>
+              </dd>
+            </dl>
+          </div>
+        </div> <!--//section-top end -->
+        <div class="container-fluid">
+          <p id="selectedItem"></p>
+          <div id="theGrid" style=""></div>
+        </div>
+        <div class="btn-wrap">
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-top">
+          <div class="search-wrap">
+
+            <li>
+              <a class="btn btn-excell" title="신규등록" id="btnNew">
+                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                신규등록
+              </a>
+              <!-- <button type="button" class="btn btn-excel" id="btnNew" name="btnNew" title="신규">
+                   <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                   신규</button>-->
+            </li>
+
+            <li>
+              <a class="btn btn-edit" id="btnSave" title="저장">
+                <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">
+                저장
+              </a>
+            </li>
+            <!-- <button type="button" class="btn btn-edit" id="btnSave"  title="저장">
+                 <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">저장</button>-->
+
+
+            <li>
+              <a class="btn btn-delete" title="삭제" id="btnDelete">
+                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                삭제
+              </a>
+              <!-- <button type="button" class="btn btn-delete" id="btnDel" title="삭제">
+                   <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                   삭제</button>-->
+            </li>
+          </div>
+
+        </div>
+        <div class="table-wrap" style="flex:0 0 50%; min-width: 0;" id="detailBox">
+          <form id="prop_master_form">
+            <table class="write-table" style="">
+              <caption style="text-align: left; margin-bottom: 8px;">등록테이블</caption>
+              <input class="form-control2" type="text" id="id" name="id" hidden/>
+              <tbody>
+              <tr>
+                <th>
+                  <label for="table_name">테이블</label>
+                </th>
+                <td>
+                  <select id="table_name" name="table_name" style="width: 100%;"></select>
+                </td>
+                <th>
+                  <label for="table_code">코드</label>
+                </th>
+                <td>
+                  <input type="text" id="table_code" name="table_code" style="width: 100%;">
+                </td>
+
+              </tr>
+              <tr>
+                  <th>
+                      <label for="val_type">값유형</label>
+                  </th>
+                  <td>
+                      <select style="width: 100%;" id="val_type" name="val_type"></select>
+                  </td>
+                  <th>
+                      <label for="new_data">새 데이터로 저장</label>
+                  </th>
+                  <td>
+                      <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                          <input type="checkbox" id="new_data" name="new_data" value="Y" disabled>
+                      </div>
+                  </td>
+              </tr>
+              <tr>
+                <th>
+                  <label for="description">설명</label>
+                </th>
+                <td colspan="3">
+                  <input type="text" style="width: 100%;" id="description" name="description">
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div> <!--//layout-contents end -->
+
+  <footer style="margin-top: 24px;">
+    <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
+  </footer>
+
+</th:block>
+<th:block layout:fragment="scripts">
+  <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+  <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+  <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
+  <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+
+  <script type="text/javascript">
+
+    var theGrid;
+    var viewdata;
+
+    let columns = [
+      {binding: 'table_name', header: '테이블', width: 180, align: 'center'},
+      {binding: 'table_code', header: '코드', width: 150, align: 'center'},
+      {binding: 'val_type', header: '값유형', width: 160, align: 'center'},
+      {binding: 'description', header: '설명', width: '*', align: 'center'},
+      /*{binding: '', header: '', width: "*", align: 'center'}*/
+    ];
+
+    document.readyState === 'complete' ? init() : window.onload = init;
+
+    function init() {
+      let data2 = [];
+
+      let tb_name = $('#cboTable_name').val();
+
+      $.ajax({
+        url: '/api/system/property_master/read',
+        type: 'GET',
+        data: {
+          'tb_name': tb_name
+        },
+        async: false,
+        success: function (data) {
+          data2 = data.data;
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          console.error('Error fetching log_count data:', textStatus, errorThrown);
+        }
+      })
+
+      viewdata = new wijmo.collections.CollectionView(data2);
+
+      theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+        autoGenerateColumns: false,
+        showMarquee: true,
+        columns: columns,
+        isReadOnly: true,
+        itemsSource: viewdata
+      });
+
+
+      theGrid.hostElement.addEventListener('click', function (e) {
+        $('#detailBox').find('input, select').each(function () {
+          if ($(this).is(':disabled')) {
+            $(this).removeAttr('disabled');
+          }
+        });
+
+        $('#new_data')
+          .prop('checked', true) // 체크된 상태로 설정
+          .prop('disabled', true); // 다시 비활성화 설정
+
+        let selectedItem = theGrid.selectedItems[0];
+        document.getElementById('id').value = selectedItem.id;
+
+        let table_nameSelect = document.getElementById('table_name');
+        if (table_nameSelect) {
+          for (let i = 0; i < table_nameSelect.options.length; i++) {
+            if (table_nameSelect.options[i].text === selectedItem.table_name) {
+              table_nameSelect.options[i].selected = true;
+              break;
+            }
+          }
+        }
+
+        let val_typeSelect = document.getElementById('val_type');
+        if (val_typeSelect) {
+          for (let i = 0; i < val_typeSelect.options.length; i++) {
+            if (val_typeSelect.options[i].text === selectedItem.val_type) {
+              val_typeSelect.options[i].selected = true;
+              break;
+            }
+          }
+        }
+
+        document.getElementById('table_code').value = selectedItem.table_code;
+        document.getElementById('description').value = selectedItem.description;
+
+      });
+
+
+      theGrid.rowHeaders.columns.splice(0, 1);
+      /*  new FlexGridContextMenu(theGrid);*/
+
+    }
+
+    function searchMainData() {
+      let tb_name = $('#cboTable_name').val();
+
+      $.ajax({
+        url: '/api/system/property_master/read',
+        type: 'GET',
+        data: {
+          'tb_name': tb_name
+        },
+        async: false,
+        success: function (result) {
+          if (result.success) {
+            grid_binding(result.data);
+          } else {
+            console.log("Error occurred");
+          }
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          console.error('Error fetching log_list data:', textStatus, errorThrown);
+
+        }
+      });
+
+      $('#prop_master_form')[0].reset();
+      $('#prop_master_form').find('#id').val();
+
+      $('#detailBox').find('input, select').each(function () {
+        if (!$(this).is(':disabled')) {
+          $(this).attr('disabled', 'disabled');
+        }
+      });
+    }
+
+    function grid_binding(data) {
+      if (!Array.isArray(data)) {
+        console.error('데이터가 배열 형식이 아닙니다:', data);
+        return;
+      }
+
+
+      let menulogData = data.map(item => ({
+        table_name: item.table_name,
+        table_code: item.table_code,
+        description: item.description,
+        val_type: item.val_type
+
+      }));
+
+      if (typeof theGrid === 'undefined' || typeof viewdata === 'undefined') {
+        console.error('theGrid 또는 viewdata가 정의되지 않았습니다.');
+        return;
+      }
+
+      theGrid.columns.clear();
+      theGrid.autoGenerateColumns = false;
+
+      // columns 배열이 정의되어 있는지 확인
+      if (typeof columns === 'undefined' || !Array.isArray(columns)) {
+        console.error('columns 배열이 정의되지 않았습니다.');
+        return;
+      }
+
+      columns.forEach(columnDef => {
+        var col = new wijmo.grid.Column(columnDef);
+        theGrid.columns.push(col);
+      });
+
+      viewdata = new wijmo.collections.CollectionView(menulogData);
+
+      theGrid.itemsSource = viewdata;
+      theGrid.refresh();
+    }
+
+    //저장
+    function savePropMaster() {
+      const url = '/api/system/property_master/save';
+      let validate = true;
+      let $target = null;
+
+      let new_data = $('#new_data').val();
+
+      // 폼 데이터 추출
+      const data = FormUtil.extractForm($('#prop_master_form'));
+      data.new_data = new_data;
+
+      // 필수 항목 검증
+      if (!data.table_name || !data.table_code || !data.val_type) {
+        Alert.alert('', '필수 항목 [ 테이블, 코드, 값유형 ]을 입력해주세요.', function () {
+          if ($target) $target.focus();
+        });
+        return;
+      }
+
+      // 저장 여부 확인 알림
+      Alert.confirm('', '저장하시겠습니까?', function () {
+        let fnSuccess = function (result) {
+          if (result.success) {
+            Alert.alert('', '저장되었습니다');
+            searchMainData(); // 저장 후 데이터 갱신
+          } else {
+            Alert.alert('저장 실패', result.message);
+            console.error('저장 실패:', result.message);
+          }
+        };
+
+        // 데이터 저장 요청
+        AjaxUtil.postAsyncData(url, data, fnSuccess);
+      });
+
+      // 입력 필드 검증
+      $('#detailBox').find('input, select').each(function () {
+        if ($(this).is(':required') && !$(this).val()) {
+          validate = false;
+          $target = $(this);
+          return false; // 필수 항목 누락 시 반복 중단
+        }
+      });
+
+      // 필수 입력값이 없는 경우
+      if (!validate && $target) {
+        Alert.alert('', '필수 입력값을 입력해주세요.', function () {
+          $target.focus();
+        });
+      }
+    }
+
+
+    //삭제
+    function deletePropMaster() {
+      let url = '/api/system/property_master/delete';
+      let id = $('#prop_master_form').find('#id').val();
+      let data = {'id': id}
+
+      Alert.confirm('', '삭제하시겠습니까?', function () {
+        let fnSuccess = function (result) {
+          if (result.success) {
+            Alert.alert('', '삭제되었습니다');
+            searchMainData(); // 저장 후 데이터 갱신
+          } else {
+            Alert.alert('삭제 실패', result.message);
+            console.error('저장 실패:', result.message);
+          }
+        };
+
+        // 데이터 저장 요청
+        AjaxUtil.postAsyncData(url, data, fnSuccess);
+      });
+
+    }
+
+
+    function setButtonState() {
+      let pk = $('#id').val();
+      $('#btnNew').prop('disabled', false);
+      $('#btnSave').prop('disabled', false);
+      if (pk) {
+        $('#btnDelete').prop('disabled', false);
+      } else {
+        $('#btnDelete').prop('disabled', true);
+      }
+    }
+
+
+    $(document).ready(function (e) {
+      AjaxUtil.fillSelectOptions($('#cboTable_name'), 'system_code', 'all', false, 'prop_master');
+      AjaxUtil.fillSelectOptions($('#table_name'), 'system_code', 'choose', false, 'prop_master');
+      AjaxUtil.fillSelectOptions($('#val_type'), 'system_code', 'choose', false, 'value_type');
+
+      $('#btnSearch').click(function (e) {
+        searchMainData();
+      });
+
+      $('#btnNew').click(function (e) {
+
+        $('#prop_master_form')[0].reset();
+        $('#prop_master_form').find('#id').val('');
+
+        $('#detailBox').find('input, select').each(function () {
+          if ($(this).is(':disabled')) {
+            $(this).removeAttr('disabled');
+          }
+        });
+
+        $('#new_data')
+          .prop('checked', true) // 체크된 상태로 설정
+          .prop('disabled', true); // 다시 비활성화 설정
+
+        setButtonState();
+      });
+
+      $('#btnSave').click(function (e) {
+        savePropMaster();
+      });
+
+      $('#btnDelete').click(function (e) {
+        deletePropMaster()
+      });
+
+    });
+
+  </script>
+</th:block>
+
+</html>

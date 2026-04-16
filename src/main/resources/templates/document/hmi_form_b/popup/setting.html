@@ -1,0 +1,89 @@
+<th:block th:fragment="setting">
+<script type="text/x-tmpl" id="settingTemplate">
+    <div class="content_wrap popup">
+        <section class="pt-2">
+            <div class="table_box">
+                <form id="settingForm">
+                    <div class="table_box sub">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text fit_box_md">배경 색</span>
+                                    </div>
+                                    <input class="form-control2" type="color" id="background_color" name="background_color">
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text fit_box_md">배경 이미지</span>
+                                    </div>
+                                    <select class="form-control2" id="background_image" name="background_image"></select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section class="popupcontent">
+            <div class="align_left">
+                <button type="button" class="btn-popup" id="btnApply"><span>적용</span></button>
+                <button type="button" class="btn-popup" id="modal-close-button"><span>닫기</span></button>
+            </div>
+        </section>
+    </div>
+</script>
+
+<script type="text/javascript">
+    class PopupSetting {
+        constructor() {
+            this.callback = null;
+            this.modalContainer = new PopupDraggable('배경 설정');
+        }
+
+        show(callback, data) {
+            let _this = this;
+            let content = tmpl('settingTemplate', data);
+            let $content = $(content);
+            let param = { 'action': 'background_image_list' };
+            let $comboBackgroundImage = $content.find('#background_image');
+            let backgroundImageList = AjaxUtil.getSyncData('/api/support/hmi_b/background_image_list', param);
+            let option = {
+                'value': '',
+                'text': '없음',
+            };
+
+            backgroundImageList.data.unshift(option);
+
+            $.each(backgroundImageList.data, function (index, image) {
+                let option = $('<option>',
+                    {
+                        value: image['value'],
+                        text: image['text'],
+                    });
+                $comboBackgroundImage.append(option);
+            });
+
+            this.modalContainer.open({ width: 300, height: 200, $content });
+            this.callback = callback;
+
+            FormUtil.BindDataForm(data, $('#settingForm'));
+
+            $content.find('#btnApply').click(function () {
+                let formData = FormUtil.extractForm($('#settingForm'));
+
+                if (typeof _this.callback !== 'undefined' && _this.callback!=null) {
+                    _this.callback(formData);
+                } 
+
+                _this.modalContainer.close();
+            });
+
+            
+
+        }
+    }
+</script>

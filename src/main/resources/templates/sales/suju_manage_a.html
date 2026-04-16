@@ -1,0 +1,370 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+
+<div class="content_wrap">
+    <section>
+        <div class="title_box ">
+            <div class="left_align">
+                <h3 data-labelCd="수주 관리">수주 관리</h3>
+            </div>
+            <small2>A</small2>
+            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>        
+        </div>
+        <div class="table_box search">
+            <div class="row">
+                <div class="col-12 col-lg-5 col-xl-4" >
+                    <div class="input-group" >
+                        <div class="input-group-prepend mr-s1">
+                            <select class="input-group-text2 fit_box_sm" id="dateKind" name="dateKind" >
+                                <option value="sales">수주일</option>
+                                <option value="delivery">납기일</option>
+                            </select>
+                        </div> 
+                        <div data-ax5picker="multi" id="srchDt">
+                            <div class="input-group-append">
+                            <input class="tac " type="text" id="srchStartDt" name="srchStartDt" />
+                                <span class="input-group-text fs-xl">
+                                    <i class="fas fa-calendar-alt calendar_color" ></i>
+                                </span>
+                            <span class="slow_sign">~</span>
+                            <input class="tac " type="text" id="srchEndDt" name="srchEndDt" />
+                                <span class="input-group-text fs-xl">
+                                    <i class="fas fa-calendar-alt calendar_color"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-5 col-md-3 col-lg-3 col-xl-2 mt-6 tac" >
+                    <input type="checkbox" id="chk_non_all" name="chk_non_all" value="NOT" />
+                    미계획만(기간 무관)
+                </div>
+                <div class="col-1" >
+                    <button type="button" class="btn-default" id="btnSearch" title="조회"><i class="fas fa-search"></i></button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section >
+            <!--<div class="title_box">
+                 <span class="right_align rpt">예약 = min(가용재고,소요량), 수주량2 = 수주량-예약</span>
+            </div>-->
+        <div class="grid_box" >
+            <div class="title_box buttons">
+                <span class="right_align rpt" data-labelCd="수주 내역">수주 내역</span>
+                <!--
+                <button type="button" class="btn-default" id="btnReservation">재고 예약</button>
+                -->
+                <button type="button" class="btn-default y_write_auth" id="btnAppoint" data-labelCd="생산 계획일 지정">생산 계획일 지정</button>
+                <button type="button" class="btn-danger" id="btnCancel" data-labelCd="수주 취소">수주 취소</button>
+                <button type="button" class="btn-default" id="btnExcel" title="엑셀 다운로드"><i class="fas fa-file-excel"></i></button>
+            </div>
+            <div class="h-650" data-ax5grid="suju_list-grid" ></div>
+        </div>
+    </section>
+ </div>
+<th:block layout:fragment="scripts">
+<th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+<script type="text/javascript">
+    class SujuManage {
+        constructor() {
+            this.grid = null;
+            this.init();
+            this.url = '/api/sales/suju_manage';
+        }
+
+        
+        init() {
+            let _this = this;
+
+            let config = {
+                target: $('[data-ax5grid="suju_list-grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                lineNumberColumnWidth: 40,
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 38  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        //e.colIndex
+                        //e.dindex
+                        //c.value
+                        //e.column
+                        //e.item
+                        //e.list
+                        _this.grid.select(this.dindex);
+                        let state = e.item.state;
+                        if (state == '수주') {
+                            $('#btnCancel').attr('class', 'btn-danger').text('수주 취소');
+                            $('#btnCancel').attr('disabled', false);
+                        } else if (state == '취소') {
+                            $('#btnCancel').attr('class', 'btn-default').text('수주 복구');
+                            $('#btnCancel').attr('disabled', false);
+                        }
+                    },
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                content: function (e) {
+                    var target = e.target;
+                    if($(target).index() == 1) {
+                        return ("SomeTooltipText")
+                    }
+                    else {
+                        return ("AnotherTooltipText")
+                }},
+                columns: [                  //컬럼 key 변경 필요
+                    { key: 'company_name', label: '업체명', width: 200, align: 'left' },
+                    { key: 'product_group', label: '제품그룹', width: 150, align: 'left' },
+                    { key: 'product_code', label: '제품코드', width: 140, align: 'center' },
+                    { key: 'product_name', label: '제품명', width: 250, align: 'left' },
+                    { key: 'unit', label: '단위', width: 60, align: 'center' },
+                    { key: 'available_stock', label: '가용재고', width: 100, align: 'right' ,formatter:'money'},
+                    { key: 'suju_qty', label: '수주량', width: 100, align: 'right',formatter:'money'},
+                    { key: 'jumun_date', label: '수주일', width: 100, align: 'center' },
+                    { key: 'due_date', label: '납기일', width: 100, align: 'center' },
+                    { key: 'plan_date', label: '<span class="editable_clr">생산 계획일</span>', width: 120, align: 'center', editor: { type: "date", } },
+                    {
+                        key: 'state', label: '상태', width: 80, align: 'center',
+                        styleClass: function () {
+                            if (this.item['state'] == '취소') return 'redText';
+                        }
+                    },
+                ]
+            };
+
+            _this.grid = new ax5.ui.grid(config);
+
+            // 엔터키 검색
+            $('#keyword').on('keypress', function (e) {
+                if (event.keyCode == 13) {
+                    _this.searchDataBind();
+                }
+            });
+        }
+
+        exportExcel() {
+            var targetview = this.grid;
+            // 현재 html코드로 데이터 만들어 확장자만 xls로 변경해주고 있음
+            targetview.exportExcel('수주내역.xls');
+        }
+
+        searchDataBind() {
+            let _this = this;
+            //let url = '/api/sales/suju_manage';
+            let url = this.url+'/read'
+            let data = {
+                'data_startdate': $('#srchStartDt').val(),
+                'data_enddate': $('#srchEndDt').val(),
+                'date_kind': $('#dateKind').val(),
+                'all_yn': $("#chk_non_all").is(":checked"),
+                'action' : 'read'
+            };
+
+            let result = AjaxUtil.getSyncData(url, data);
+            if (result != null) {
+                let recordsTotal = result.data.length;
+                _this.grid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            }
+        }
+
+        saveData(action) {
+            let _this = this;
+            //let sujuList = _this.grid.list;
+            let sujuList = this.grid.getList('modified');
+            let updateSujuList = [];
+            let content = '';
+            let confirmContent = '';
+
+            if (sujuList.length==0){
+                Alert.alert('', '변경할 데이터가 없습니다.');
+                return false;
+            }
+
+            sujuList.forEach(suju => {
+                if (action == 'reservation') {
+                    if (suju.reservation_qty != null && suju.reservation_qty != '') {
+                        updateSujuList.push(suju);
+                    }
+                    content = '예약량이 입력된 수주가 없습니다.';
+                    confirmContent = '재고예약을 저장하시겠습니까?'
+                } else if (action == 'plan_appoint') {
+                    if (suju.plan_date != null && suju.plan_date != '') {
+                        updateSujuList.push(suju);
+                    }
+                    content = '생산계획일이 입력된 수주가 없습니다.';
+                    confirmContent = '생산계획일을 지정하시겠습니까?'
+                } else {
+                    return;
+                }
+            });
+
+            let url = '/api/sales/suju_manage/' + action;
+            //let data = {
+            //    'list_data': updateSujuList,
+            //}
+            let data = {
+                Q :JSON.stringify(updateSujuList)
+            }
+
+            // 필수입력 check routine
+            if (updateSujuList.length == 0) {
+                Alert.alert('', '변경할 데이터가 없습니다.');
+                return false;
+            }
+
+            let fnSuccess = function () {
+                Notify.success('저장되었습니다');
+                _this.searchDataBind();
+            }
+
+            if (updateSujuList.length > 0) {
+                Alert.confirm('', updateSujuList.length + '건의 ' + confirmContent,
+                    function () {
+                        AjaxUtil.postAsyncData(url, data, fnSuccess);
+                    },
+                    function () { }
+                );
+            }
+        }
+
+        saveDataState(action,suju_id) {
+            let _this = this;
+            let url = '/api/sales/suju_manage/' + action;
+            let data = {
+                'suju_id': suju_id,
+                'action' : action,
+            };
+
+            let result = AjaxUtil.getSyncData(url, data);
+            if (result != null) {
+                Notify.success('저장되었습니다');
+                _this.searchDataBind();
+            }
+        }
+
+    }
+
+    let page = null;
+    var picker = new ax5.ui.picker();
+
+    $(document).ready(function (e) {
+        $(".right_align").attr("title","예약 = min(가용재고,소요량), 수주량2 = 수주량-예약");      
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),
+            direction: "top",
+            content: {
+                width: 214,  //130 270
+                margin: 10,
+                type: 'date',
+                config: {
+                    control: {
+                        left: '<i class="fa fa-chevron-left"></i>',
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-chevron-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            },
+            btns: {
+                /*ok: {
+                    label: "닫기", theme: "default", onClick: function () {
+                        this.self.close();
+                    }
+                }*/
+            }
+        })
+
+        page =  new SujuManage();
+        //기본값 세팅
+        //DatePicker,Select
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+        $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+        $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+        page.searchDataBind();
+
+
+        // 검색
+        $('#btnSearch').click(function (e) { page.searchDataBind(); });
+
+        //재고예약 버튼
+        //$('#btnReservation').on('click', function () {
+        //    if (page.grid.length == 0)  {
+        //        Alert.alert('', '재고 예약할 내용이 없습니다.'); return;
+        //    }
+
+        //    page.saveData('reservation');
+        //});
+
+        //생산계획일지정 버튼
+        $('#btnAppoint').on('click', function () {
+            if (page.grid.length == 0) {
+                Alert.alert('', '생산계획일 지정할 내용이 없습니다.');
+                return;
+            }
+            page.saveData('plan_appoint');
+        });
+
+
+        //수주취소,복구 버튼
+        $('#btnCancel').on('click', function () {
+
+            if (page.grid.length == 0) {
+                Alert.alert('', '수주 취소할 내용이 없습니다.'); return;
+            }
+            else if (page.grid.getList("selected").length == 0) {
+                Alert.alert('', '항목 선택해 주세요.'); return;
+            }
+
+            let action = 'cancel';
+            let content = "취소하시겠습니까?";
+
+            let sujus = page.grid.getList("selected");
+            if (sujus.length > 0) {
+                if (sujus[0].state == '취소') {
+                    action = 'restore'
+                    content = "복구하시겠습니까?";
+                }
+
+                Alert.confirm('', content,
+                    function () {
+                        page.saveDataState(action,sujus[0].suju_id);
+                    },
+                    function () { }
+                );
+            }
+        });
+        //엑셀저장
+        $('#btnExcel').on('click', function () {
+            page.exportExcel();
+        });
+    })
+</script>
+
+</th:block>
+</html>

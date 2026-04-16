@@ -1,0 +1,3554 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style id="print_invoice_css">
+        #printArea {
+            font-family: 'Malgun Gothic', sans-serif;
+            font-size: 12px;
+            padding: 10px;
+        }
+
+        #printArea .doc-title {
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        #printArea table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 2px solid #000;
+            font-size: 11px;
+        }
+
+        #printArea th,
+        #printArea td {
+            border: 1px solid #000;
+            text-align: center;
+            padding: 4px;
+        }
+
+        #printArea thead th {
+            height: 30px;
+        }
+
+        #printArea tbody td {
+            height: 25px;
+        }
+
+        #printArea tfoot td {
+            font-weight: bold;
+            height: 30px;
+        }
+
+        #printArea .vertical-text {
+            vertical-align: middle;
+        }
+
+        #printArea .text-right {
+            text-align: right;
+        }
+
+        #printArea .text-left {
+            text-align: left;
+        }
+
+        #printArea th, #printArea td {
+            word-wrap: break-word;
+            overflow: hidden;
+            white-space: normal; /* ✅ 줄바꿈 허용 */
+        }
+
+        .wp4  { width: 4%; }
+        .wp7  { width: 7%; }
+        .wp10 { width: 10%; }
+        .wp12 { width: 12%; }
+        .wp14 { width: 14%; }
+        .wp20 { width: 20%; }
+
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 10mm;
+            }
+
+        }
+    </style>
+
+    <style>
+        .reason-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 300px);
+            margin-bottom: 30px;
+            border: 2px solid black; /* 전체 테두리 굵게 */
+        }
+
+        .reason-grid div {
+            padding: 20px;
+            border-bottom: 1px solid #ccc;
+            border-right: 1px solid #ccc;
+        }
+
+        /* 오른쪽 열 요소에는 border-right 제거 (테두리 겹침 방지) */
+        .reason-grid div:nth-child(2n) {
+            border-right: none;
+        }
+
+        /* 마지막 행 요소는 border-bottom 제거 */
+        .reason-grid div:nth-last-child(-n+2) {
+            border-bottom: none;
+        }
+
+
+        .reason-grid label {
+            display: block;
+            text-align: left;
+        }
+
+
+        .reason-grid .desc {
+            max-width: 300px;
+            word-break: break-word;
+            white-space: normal; /* ✅ 줄바꿈 허용 */
+            overflow-wrap: break-word; /* ✅ 긴 단어 자르기 */
+            margin: 5px 0 0 0;
+            color: #555;
+            text-align: left;
+        }
+
+        .wj-cell .v-center {
+            position: relative;
+            top: 50%;
+            transform: translateY(-50%);
+            white-space: pre-wrap;
+        }
+
+        a[aria-disabled="true"] {
+            pointer-events: none;
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-blue {
+            color: white !important;
+            background-color: #03428E;
+        }
+
+        #btnCompanySearch::placeholder {
+            font-size: 13px; /* 원하는 크기로 */
+        }
+
+        @media print {
+            body * {
+                visibility: hidden !important;
+                height: 0 !important;
+                overflow: hidden !important;
+            }
+
+            .ax5modal.primary, .ax5modal.primary * {
+                visibility: visible !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+
+            .ax5modal.primary {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                background: white !important;
+                box-shadow: none !important;
+            }
+
+            #btnInvoiceSave, #btnInvoiceCancel {
+                display: none !important;
+            }
+        }
+
+
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>매출 관리</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>입금 관리</li>
+                <li>매출 관리</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label for="cboInvoice">
+                                매출 구분<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboInvoice" name="cboInvoice" tabindex="1" style="width: 140px;">
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            <label for="cboStatecode">
+                                상태<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboStatecode" name="cboStatecode" tabindex="2"
+                                        style="width: 120px;"></select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            <label for="btnCompanySearch">
+                                거래처
+                            </label>
+                        </dt>
+                        <dd>
+                            <input type="text" id="btnCompanySearch" name="btnCompanySearch" placeholder="거래처명 입력후 엔터"
+                                   style="width: 140px;" autocomplete="off" tabindex="3">
+                            <input type="hidden" id="cboCompanyHidden">
+                        </dd>
+                    </dl>
+                    <!--                    <dl>-->
+                    <!--                        <dt>-->
+                    <!--                            <label for="cboAlign">-->
+                    <!--                                정렬<span class="eq"></span>-->
+                    <!--                            </label>-->
+                    <!--                        </dt>-->
+                    <!--                        <dd>-->
+                    <!--                            <div class="srch-box">-->
+                    <!--                                <select id="cboAlign" name="cboAlign">-->
+                    <!--                                    <option value="createDate">작성일자</option>-->
+                    <!--                                    <option value="issueDate">발행일자</option>-->
+                    <!--                                </select>-->
+                    <!--                            </div>-->
+                    <!--                        </dd>-->
+                    <!--                    </dl>-->
+                    <dl>
+                        <dt>
+                            조회기간
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input type="date" id="srchStartDt" name="srchStartDt" tabindex="4">
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input type="date" id="srchEndDt" name="srchEndDt" tabindex="5">
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <button class="btn btn-delete" title="검색" id="btnSearch" tabindex="6">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" style="margin-right:0;" alt="검색 아이콘">
+                                </button>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <a class="btn btn-edit" title="발행" id="btnIssue">
+                                발행
+                            </a>
+                        </li>
+                        <li>
+                            <a class="btn" title="거래명세서 출력" id="btnWritePrint">
+                                거래명세서 출력
+                            </a>
+                        </li>
+                        <li>
+                            <a class="btn" title="계산서 일괄 등록" id="btnAddBatch">
+                                일괄 등록
+                            </a>
+                        </li>
+                        <li>
+                            <a class="btn" title="매출 복사" id="btnCopy">
+                                매출 복사
+                            </a>
+                        </li>
+                        <li>
+                            <a class="btn-blue btn" title="출고 리스트" id="btnShipList">
+                                출고 리스트
+                            </a>
+                        </li>
+
+                        <li>
+                            <a class="btn-blue btn" title="매출 등록" id="btnAddNewRegular">
+                                매출 등록
+                            </a>
+                        </li>
+
+                    </ul>
+                </div>
+            </div>
+            <!--            <div class="section-top">-->
+            <!--                <div class="search-wrap">-->
+            <!--                    <dl>-->
+            <!--                        <dt>-->
+            <!--                            <label for="totalAmount">-->
+            <!--                                총 합계금액-->
+            <!--                            </label>-->
+            <!--                        </dt>-->
+            <!--                        <dd>-->
+            <!--                            <div class="srch-box">-->
+            <!--                                <input style="text-align: right;max-width: 200px;" class="form-control2"-->
+            <!--                                       id="totalAmount" name="totalAmount" readonly>-->
+            <!--                            </div>-->
+            <!--                        </dd>-->
+            <!--                    </dl>-->
+            <!--                    <dl>-->
+            <!--                        <dt>-->
+            <!--                            <label for="totalSupPrice">-->
+            <!--                                총 공급가액-->
+            <!--                            </label>-->
+            <!--                        </dt>-->
+            <!--                        <dd>-->
+            <!--                            <div class="srch-box">-->
+            <!--                                <input style="text-align: right;max-width: 200px;" class="form-control2"-->
+            <!--                                       id="totalSupPrice" name="totalSupPrice" readonly>-->
+            <!--                            </div>-->
+            <!--                        </dd>-->
+            <!--                    </dl>-->
+            <!--                    <dl>-->
+            <!--                        <dt>-->
+            <!--                            <label for="totalTax">-->
+            <!--                                총 세액-->
+            <!--                            </label>-->
+            <!--                        </dt>-->
+            <!--                        <dd>-->
+            <!--                            <div class="srch-box">-->
+            <!--                                <input style="text-align: right;max-width: 200px;" class="form-control2" id="totalTax"-->
+            <!--                                       name="totalTax" readonly>-->
+            <!--                            </div>-->
+            <!--                        </dd>-->
+            <!--                    </dl>-->
+            <!--                </div>-->
+            <!--                <div class="button-wrap">-->
+            <!--                    <ul>-->
+            <!--                        <li>-->
+            <!--                            <a class="btn btn-delete" title="삭제" id="btnDelete">-->
+            <!--                                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">-->
+            <!--                                삭제-->
+            <!--                            </a>-->
+            <!--                        </li>-->
+            <!--                        <li>-->
+            <!--                            <a class="btn btn-edit" title="수정" id="btnEdit">-->
+            <!--                                <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">-->
+            <!--                                수정-->
+            <!--                            </a>-->
+            <!--                        </li>-->
+
+            <!--                        <li>-->
+            <!--                            <a class="btn btn-edit" title="발행 취소" id="btnIssueCancel">-->
+            <!--                                발행 취소-->
+            <!--                            </a>-->
+            <!--                        </li>-->
+            <!--                        <li>-->
+            <!--                            <a class="btn" title="재전송" id="btnReMessage">-->
+            <!--                                재전송-->
+            <!--                            </a>-->
+            <!--                        </li>-->
+            <!--                    </ul>-->
+            <!--                </div>-->
+            <!--            </div>-->
+            <div class="container-fluid">
+                <div id="theGrid" style="height: 740px;"></div>
+            </div>
+        </section>
+    </div>
+
+    <script type="text/x-tmpl" id="addShipListPopup">
+        <div class="content_wrap popup">
+            <div class="section-top">
+                <div class="search-wrap" style="justify-content: flex-start;">
+                  <dl>
+                    <dt style="display:flex;">
+                      조회기간
+                    </dt>
+                    <dd>
+                      <ul class="date-box">
+                        <li>
+                          <input type="date" id="srchStartDt" name="srchStartDt">
+                          <label for="srchStartDt" class="hide">시작일</label>
+                        </li>
+                        <li>
+                          <input type="date" id="srchEndDt" name="srchEndDt">
+                          <label for="srchEndDt" class="hide">종료일</label>
+                        </li>
+                      </ul>
+                    </dd>
+                  </dl>
+                  <dl>
+                    <dt style="text-align: left;">
+                        <label for="btnCompanySearch_ship">
+                            거래처
+                        </label>
+                    </dt>
+                    <dd>
+                        <div class="input-clear">
+                            <input type="text" id="btnCompanySearch_ship" name="btnCompanySearch_ship" placeholder="클릭하여 검색"
+                               style="width: 160px;">
+                            <span class="btn-clear" style="display: none;">×</span>
+                        </div>
+                        <input type="hidden" id="cboCompanyHidden_ship">
+                    </dd>
+                  </dl>
+                  <dl>
+                    <dt>&nbsp;</dt>
+                    <dd>
+                      <li>
+                        <a class="btn btn-delete" title="검색" id="btnSearch_ship">
+                          <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                          <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                          검색
+                        </a>
+                      </li>
+                    </dd>
+                  </dl>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="ship-list-grid" style="height: 400px;"></div>
+            </div>
+            <div class="popup-button">
+                <button type="button" class="btn-popup y_write_auth" id="btnShipAction">등록</button>
+                <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+            </div>
+
+        </div>
+    </script>
+
+    <script type="text/x-tmpl" id="modifyReasonModal">
+        <div class="content_wrap popup">
+            <div class="section-top">
+                <h3 style="margin-bottom: 15px;">세금계산서 수정 사유 선택</h3>
+            </div>
+
+            <div class="container-fluid">
+                <form id="modifyReasonForm">
+                    <div class="reason-grid">
+                        <div class="radio-box-mo">
+                            <label>
+                                <input type="radio" name="modifyReason" value="기재사항 착오정정">
+                                <strong>기재사항 착오정정</strong>
+                            </label>
+                            <p class="desc">작성된 세금계산서의 일부 항목(상호, 금액 등)에 단순 오기가 있어 정정하는 경우</p>
+                        </div>
+                        <div class="radio-box-mo">
+                            <label>
+                                <input type="radio" name="modifyReason" value="착오에 의한 이중발급">
+                                <strong>착오에 의한 이중발급</strong>
+                            </label>
+                            <p class="desc">동일 거래에 대해 세금계산서가 중복으로 발행된 경우</p>
+                        </div>
+                        <div class="radio-box-mo">
+                            <label>
+                                <input type="radio" name="modifyReason" value="공급가액 변동">
+                                <strong>공급가액 변동</strong>
+                            </label>
+                            <p class="desc">계약 조건의 변경이나 공급 수량/금액이 변경된 경우</p>
+                        </div>
+                        <div class="radio-box-mo">
+                            <label>
+                                <input type="radio" name="modifyReason" value="계약의 해제">
+                                <strong>계약의 해제</strong>
+                            </label>
+                            <p class="desc">계약이 해제되어 거래가 무효가 된 경우</p>
+                        </div>
+                        <div class="radio-box-mo">
+                            <label>
+                                <input type="radio" name="modifyReason" value="환입">
+                                <strong>환입</strong>
+                            </label>
+                            <p class="desc">공급한 물품이 반품되어 세금계산서를 취소해야 하는 경우</p>
+                        </div>
+                        <div class="radio-box-mo">
+                            <label>
+                                <input type="radio" name="modifyReason" value="내국신용장 사후개설">
+                                <strong>내국신용장 사후개설</strong>
+                            </label>
+                            <p class="desc">내국신용장이 사후에 개설되어 세금계산서 유형을 변경하는 경우</p>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="popup-button">
+                <button type="button" class="btn-popup y_write_auth" id="btnSelectModifyReason">수정사유 선택</button>
+                <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-tmpl" id="excelUploadInvoiceTemplate">
+        <div class="content_wrap popup">
+
+            <div class="table-wrap">
+                <form id="excelUploadForm">
+                <table class="write-table">
+                    <colgroup>
+                        <col style="width: 25%;">
+                        <col style="width: 75%;">
+                    </colgroup>
+                    <tbody>
+                        <!--<tr>
+                            <th style="text-align: center">
+                                <label>첨부파일</label>
+                            </th>
+                            <td>
+                                <input style="width:300px; height: 44px;" type="file" id="upload_file" name="upload_file" enctype="multipart/form-data" accept=".xls, .xlsx"/>
+                            </td>
+                        </tr>-->
+                        <tr>
+                            <th>첨부파일</th>
+                            <td>
+                                <div id="uploadComponent1" class="upload-component">
+                                    <div class="upload-filebox">
+                                        <img src="/images/icon/ico-fileupload.svg" alt="업로드아이콘">
+                                        <a class="btn" title="파일업로드">파일업로드</a>
+                                        <input type="file" id="fileInput1" class="fileInput">
+                                        <p>Maximun upload file size <span>1GiB</span></p>
+                                    </div>
+                                    <div class="upload-filelist">
+                                        <div class="title">
+                                            <h5>Files (0)</h5>
+                                            <a title="Delete all" class="btn-file-deleteall">Delete
+                                                all</a>
+                                        </div>
+                                        <ul class="filelist" id="filelist">
+                                        </ul>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                </form>
+            </div>
+
+            <div class="popup-button">
+                <button type="button" class="btn-popup" id="btn_excel_form" >양식 받기</button>
+                <button type="button" class="btn-popup y_write_auth" id="btn_excel_save" >저장</button>
+                <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-tmpl" id="popup_reMessageTemplate">
+
+        <div class="content_wrap popup">
+
+            <section class="section" style="padding: 10px;">
+
+                <div class="section-top">
+                    <div class="search-wrap" style="text-align: left;">
+                        <div id="preState">
+                            <div class="dialog_note_box mgt_0">
+                                <ul>
+                                    <li>메일을 보낼 이메일을 입력하세요.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="container-fluid">
+                        <div class="dialog_box">
+                            <table class="dialog_table" id="reMessage">
+                                <colgroup>
+                                    <col width="80px">
+                                    <col>
+                                    <col width="80px">
+                                    <col>
+                                </colgroup>
+                                <tbody>
+                                    <tr>
+                                        <th class="al_l noborder_l">이메일1</th>
+                                        <td class="al_r" colspan="3">
+                                            <input class="in_txt" id="reMessage1" maxlength="50" style="width:347px;height:30px;" type="text">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th class="al_l noborder_l">이메일2</th>
+                                        <td class="al_r" colspan="3">
+                                            <input class="in_txt" id="reMessage2" maxlength="50" style="width:347px;height:30px;" type="text">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th class="al_l noborder_l">이메일3</th>
+                                        <td class="al_r" colspan="3">
+                                            <input class="in_txt" id="reMessage3" maxlength="50" style="width:347px;height:30px;" type="text">
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+                <div class="popup-button">
+                    <button type="button" class="btn-popup" id="btnSend" ><span data-commonCd="보내기">보내기</span></button>
+                    <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+                </div>
+
+
+        </div>
+    </script>
+
+    <script type="text/x-tmpl" id="popup_copyTemplate">
+
+        <div class="content_wrap popup">
+
+            <section class="section" style="padding: 10px;">
+
+                <div class="section-top">
+                    <div class="search-wrap" style="text-align: left;">
+                        <div id="preState">
+                            <div class="dialog_note_box mgt_0">
+                                <ul>
+                                    <li>선택한 작성일자로 매출이 복사됩니다.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="container-fluid">
+                        <div class="dialog_box">
+                            <table class="dialog_table" id="reMessage">
+                                <colgroup>
+                                    <col width="80px">
+                                    <col>
+                                    <col width="80px">
+                                    <col>
+                                </colgroup>
+                                <tbody>
+                                    <tr>
+                                        <th class="al_l noborder_l">작성일자</th>
+                                        <td class="al_r" colspan="3">
+                                            <input class="in_txt" id="WriteDate" maxlength="50" style="width:180px;height:30px;" type="date">
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+                <div class="popup-button">
+                    <button type="button" class="btn-popup" id="btnCopy"><span data-commonCd="복사하기">복사하기</span></button>
+                    <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+                </div>
+        </div>
+    </script>
+
+
+    <script type="text/x-tmpl" id="writPrint_Template">
+        <div id="printArea">
+
+        <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+            <tr style="height: 0; font-size: 0; line-height: 0; border: none;">
+              <th style="border: none; padding: 0; width: 4%;"></th>
+              <th style="border: none; padding: 0; width: 9%;"></th>
+              <th style="border: none; padding: 0; width: 18%;"></th>
+              <th style="border: none; padding: 0; width: 7%;"></th>
+              <th style="border: none; padding: 0; width: 12%;"></th>
+              <th style="border: none; padding: 0; width: 4%;"></th>
+              <th style="border: none; padding: 0; width: 9%;"></th>
+              <th style="border: none; padding: 0; width: 18%;"></th>
+              <th style="border: none; padding: 0; width: 7%;"></th>
+              <th style="border: none; padding: 0; width: 12%;"></th>
+            </tr>
+
+
+            <tr>
+                <td colspan="10" style="text-align: center; font-weight: bold; height: 35px;">
+                   <span style="font-size: 16px;">거래 명세서</span>
+                   <span style="font-size: 12px;">(공급받는자용)</span>
+                </td>
+              </tr>
+
+              <tr>
+                <th rowspan="4" class="vertical-text">공<br/>급<br/>자</th>
+                <th>등록번호</th><td colspan="3">${icercorpnum}</td>
+                <th rowspan="4" class="vertical-text">공<br/>급<br/>받<br/>는<br/>자</th>
+                <th>등록번호</th><td colspan="3">${ivercorpnum}</td>
+              </tr>
+
+              <tr>
+                <th>상호명</th><td class="text-left">${icercorpnm}</td>
+                <th>성명</th><td class="text-left">${icerceonm}</td>
+                <th>상호명</th><td class="text-left">${ivercorpnm}</td>
+                <th>성명</th><td class="text-left">${iverceonm}</td>
+              </tr>
+
+              <tr>
+                <th>주소</th><td class="text-left" colspan="3">${iceraddr}</td>
+                <th>주소</th><td class="text-left" colspan="3">${iveraddr}</td>
+              </tr>
+
+              <tr>
+                <th>업태</th><td class="text-left">${icerbiztype}</td>
+                <th>종목</th><td class="text-left">${icerbizclass}</td>
+                <th>업태</th><td class="text-left">${iverbiztype}</td>
+                <th>종목</th><td class="text-left">${iverbizclass}</td>
+              </tr>
+        </table>
+
+        <table style="width: 100%; table-layout: fixed; border-collapse: collapse; border-top: none;">
+          <!-- 열 너비 고정용 헤더 -->
+          <tr style="height: 0; font-size: 0; line-height: 0; border: none;">
+            <th style="border: none; padding: 0; width: 5%;"></th>   <!-- No -->
+            <th style="border: none; padding: 0; width: 6%;"></th>   <!-- 월 -->
+            <th style="border: none; padding: 0; width: 6%;"></th>   <!-- 일 -->
+            <th style="border: none; padding: 0; width: 23%;"></th>  <!-- 품목 -->
+            <th style="border: none; padding: 0; width: 8%;"></th>   <!-- 수량 -->
+            <th style="border: none; padding: 0; width: 10%;"></th>  <!-- 단가 -->
+            <th style="border: none; padding: 0; width: 12%;"></th>  <!-- 공급가액 -->
+            <th style="border: none; padding: 0; width: 12%;"></th>  <!-- 부가세액 -->
+            <th style="border: none; padding: 0; width: 10%;"></th>   <!-- 비고1 -->
+            <th style="border: none; padding: 0; width: 8%;"></th>   <!-- 비고2 -->
+          </tr>
+            <tr>
+                <td colspan="10" style="font-weight: bold; text-align: center; border-top: none;">내&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;용</td>
+            </tr>
+            <tr style="background-color: #EDEFF5;">
+                <th>No</th>
+                <th>월</th>
+                <th>일</th>
+                <th>품목</th>
+                <th>수량</th>
+                <th>단가</th>
+                <th>공급가액</th>
+                <th>부가세액</th>
+                <th colspan="2">비고</th>
+            </tr>
+
+            <tbody id="detailRows">
+                <!-- JS에서 detailList로 행 추가 -->
+            </tbody>
+
+            <tfoot>
+                <tr></tr>
+            </tfoot>
+        </table>
+    </div>
+    </script>
+
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <!--<th:block th:replace="/common/columns_setting :: columns_setting"></th:block>-->
+    <th:block th:replace="/common/multiform_material :: multiform_material"></th:block>
+    <th:block th:replace="/common/popup_company :: popup_company"></th:block>
+    <th:block th:replace="/common/popup_invoice :: popup_invoice"></th:block>
+
+
+    <script type="text/javascript">
+        class SalesInvoicePage {
+            constructor() {
+                this.url = '/api/tran/sales';
+                this.grid = null;
+                // this.$btnEdit = $('#btnEdit');
+                this.$btnAddNewRegular = $('#btnAddNewRegular');
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+                this.invoiceSelector = null;
+                this.shipSelector = null
+                this.issueDivOptions = [];
+
+            }
+
+            init() {
+                let _this = this;
+
+                // 첫 포커스
+                let $cboInvoice = $('#cboInvoice');
+
+                // 포커스 설정 (탭 이동 시 첫 번째로 선택되게)
+                setTimeout(() => {
+                    $cboInvoice.focus();
+                }, 100);
+
+                // 매출 구분
+                this.issueDivOptions = AjaxUtil.getSelectData('issuediv');
+
+                let dicIssuediv = {};
+                $.each(this.issueDivOptions, function (idx, item) {
+                    dicIssuediv[item.value] = item.text;
+                });
+
+                let issueDivMap = new wijmo.grid.DataMap(this.issueDivOptions, 'value', 'text');
+
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.All,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnFooter) {
+                            const col = sender.columns[e.col];
+                            if (col.binding === 'item_summary') {
+                                e.cell.style.textAlign = 'center';
+                            }
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            const col = sender.columns[e.col];
+                            const row = sender.rows[e.row];
+
+                            if (col.binding === 'issuediv' && row.dataItem.statecode !== 100 && row.dataItem.statecode !== 999) {
+                                // select 요소 비활성화
+                                let select = e.cell.querySelector('select');
+                                if (select) {
+                                    select.disabled = true;
+                                    select.style.backgroundColor = '#eee';
+                                    select.style.pointerEvents = 'none';
+                                }
+                            }
+                            // if (col.binding === 'statecode_name' && row.dataItem.modifycd) {
+                            //     e.cell.style.color = 'red';
+                            // }
+                        }
+                    },
+                    columns: [
+                        {binding: 'misdate', header: '작성일자', width: 100, align: 'center', isReadOnly: true},
+                        {binding: 'misnum', header: '작성번호', width: 90, visible: false},
+                        {binding: 'cltcd', header: '회사id', width: 90, visible: false},
+                        {binding: 'ivercorpnum', header: '사업자 번호', width: 120, align: 'center', isReadOnly: true},
+                        {binding: 'ivercorpnm', header: '상호', width: 130, align: 'left', isReadOnly: true},
+                        {binding: 'item_summary', header: '품명', width: 100, isReadOnly: true},
+                        {
+                            binding: 'issuediv', header: '발행 구분', width: 120, align: 'center',
+                            dataMap: issueDivMap
+                        },
+                        {
+                            binding: 'totalamt',
+                            header: '합계금액',
+                            width: 110,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
+                        {
+                            binding: 'supplycost',
+                            header: '공급가액',
+                            width: 110,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
+                        {binding: 'taxtotal', header: '세액', width: 100, align: 'right', format: 'n0', isReadOnly: true},
+                        {binding: 'statecode', visible: false},
+                        {binding: 'statecode_name', header: '상태', width: 80, align: 'center', isReadOnly: true},
+                        {binding: 'taxtype', header: '구분', width: 80, align: 'center', isReadOnly: true},
+                        {binding: 'misgubun_name', header: '매출구분', width: 80, align: 'center', isReadOnly: true},
+                        {binding: 'iverceonm', header: '대표자', width: 90, align: 'center', isReadOnly: true},
+                        {binding: 'iveremail', header: '이메일', width: 130, align: 'center', isReadOnly: true},
+                        {binding: 'iveraddr', header: '주소', width: 150, align: 'center', isReadOnly: true},
+                        {
+                            binding: 'statedt_formatted',
+                            header: '상태 변경일시',
+                            width: 160,
+                            align: 'center',
+                            isReadOnly: true
+                        },
+                    ],
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '매출 계산서 내역';
+
+                this.grid.beginningEdit.addHandler(function (s, e) {
+                    const col = s.columns[e.col];
+                    const row = s.rows[e.row];
+
+                    if (col.binding === 'issuediv' && row.dataItem.statecode !== 100 && row.dataItem.statecode !== 999) {
+                        e.cancel = true; // 편집 시작 자체를 막는다
+                        Notify.error('상태 수정이 불가능합니다.');
+                    }
+                });
+
+                this.grid.cellEditEnded.addHandler(function (s, e) {
+                    const col = s.columns[e.col];
+                    const row = s.rows[e.row];
+
+                    if (col.binding === 'issuediv') {
+                        const newValue = s.getCellData(e.row, e.col, false);
+                        const rowData = s.rows[e.row].dataItem;
+
+                        let data = {
+                            misnum: rowData.misnum,
+                            issuediv: newValue
+                        };
+
+                        AjaxUtil.postAsyncData(_this.url + '/invoice_update', data, function (res) {
+                            if (res.success) {
+                                Notify.success('저장되었습니다.');
+                            } else {
+                                Notify.error(res.message || '저장 중 오류가 발생했습니다.');
+                            }
+                        });
+                    }
+                });
+
+                this.grid.selectionChanged.addHandler(function (s, e) {
+                    let statecode = null;
+                    let disableAll = false;
+
+                    const selectedItems = _this.grid.rows
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
+
+                    if (selectedItems.length === 1) {
+                        statecode = selectedItems[0].statecode;
+                    }
+                        // else if (selectedItems.length > 1) {
+                        //     const uniqueStatecodes = [...new Set(selectedItems.map(item => item.statecode))];
+                        //
+                        //     const allInReissueGroup = selectedItems.every(item =>
+                        //         [300, 301, 302, 303, 304].includes(item.statecode)
+                        //     );
+                        //
+                        //     if (uniqueStatecodes.length === 1) {
+                        //         // 모두 동일
+                        //         statecode = uniqueStatecodes[0];
+                        //         if (statecode === 300) {
+                        //             statecode = 'MULTI_300';
+                        //         }
+                        //     }
+                        //     else if (allInReissueGroup) {
+                        //         // 서로 다르지만 전부 재전송 허용 그룹이면 → 재전송만 허용
+                        //         statecode = 'MULTI_REISSUE';
+                        //     }
+                        //     else {
+                        //         disableAll = true;
+                        //     }
+                    // }
+                    else {
+                        const row = s.selection.row;
+                        if (row >= 0) {
+                            statecode = s.rows[row].dataItem.statecode;
+                        }
+                    }
+
+                    if (disableAll) {
+                        updateButtonDisable(null);
+                    } else {
+                        updateButtonDisable(statecode, selectedItems.length > 1);
+                    }
+                });
+
+
+                // 버튼 비활성화
+                function updateButtonDisable(statecode, isMultiSelected = false) {
+                    // const allButtons = ['btnDelete', 'btnEdit', 'btnIssue', 'btnIssueCancel', 'btnReMessage'];
+                    const allButtons = ['btnIssue'];
+
+                    allButtons.forEach(id => {
+                        const btn = document.getElementById(id);
+                        if (btn) {
+                            btn.setAttribute('aria-disabled', 'true');
+                        }
+                    });
+
+                    if (statecode == null) return;
+
+                    const enableButtons = [];
+
+                    if (isMultiSelected) {
+                        if (statecode === 100) {
+                            // enableButtons.push('btnDelete', 'btnIssue');
+                            enableButtons.push('btnIssue');
+                            // } else if (statecode === 'MULTI_REISSUE') {
+                            //     enableButtons.push('btnReMaesage');
+                            // } else if (statecode === 'MULTI_300') {
+                            //     enableButtons.push('btnIssueCancel', 'btnReMessage');
+                            // } else if ([300, 301, 302, 303, 304].includes(statecode)) {
+                            //     enableButtons.push('btnReMessage'); // fallback
+                        }
+                    } else {
+                        switch (statecode) {
+                            case 100:
+                                // enableButtons.push('btnDelete', 'btnEdit', 'btnIssue');
+                                enableButtons.push('btnIssue');
+                                break;
+                            // case 300:
+                            //     enableButtons.push('btnIssueCancel', 'btnReMessage');
+                            //     break;
+                            // case 301:
+                            // case 302:
+                            // case 303:
+                            //     enableButtons.push('btnReMessage');
+                            //     break;
+                            // case 304:
+                            //     enableButtons.push('btnEdit', 'btnReMessage');
+                            //     break;
+                            // case 600:
+                            //     enableButtons.push('btnDelete');
+                            //     break;
+                            default:
+                                break;
+                        }
+                    }
+
+                    enableButtons.forEach(id => {
+                        const btn = document.getElementById(id);
+                        if (btn) {
+                            btn.setAttribute('aria-disabled', 'false');
+                        }
+                    });
+                }
+
+                // 하단 합계 행 추가
+                this.grid.columnFooters.rows.push(new wijmo.grid.GroupRow());
+
+                // 데이터 변경 시 합계 업데이트
+                this.grid.collectionView.collectionChanged.addHandler(() => {
+                    _this.updateFooter();
+                });
+                this.invoiceSelector = new wijmo.grid.selector.Selector(this.grid, {
+                    itemChecked: () => {
+                        this.updateSelectedTotals();
+                    }
+                })
+
+                this.grid.hostElement.addEventListener('dblclick', function (e) {
+                    let ht = _this.grid.hitTest(e); // 마우스 위치 기반 셀 hit test
+                    if (ht.cellType === wijmo.grid.CellType.Cell) {
+                        let row = _this.grid.rows[ht.row]; // 해당 행
+                        let item = _this.grid.rows[ht.row].dataItem; // 해당 row의 데이터
+
+                        _this.modify([item]); // 배열로 넘기는 걸 유지하려면 이렇게
+                    }
+                });
+
+
+                // 계산서 작성 클릭
+                this.$btnAddNewRegular.click(function (e) {
+                    let defaultData = {
+                        id: '',
+                        mode: 'new',
+                    };
+                    _this.showInvoiceForm(defaultData);
+                });
+
+                // 거래명세서 출력
+                $('#btnWritePrint').on('click', async function (e) {
+                    const items = _this.grid.rows
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
+
+                    if (items.length === 0) {
+                        Alert.alert('', '출력할 항목을 선택해주세요.');
+                        return;
+                    }
+
+                    let allHtml = `
+                        <html>
+                        <head>
+                            <title>거래명세서 출력</title>
+                            ${$('#print_invoice_css')[0].outerHTML}
+                            <style>
+                                @media print {
+                                  @page {
+                                    size: A4 portrait;
+                                    margin: 5mm;
+                                  }
+
+                                  /* 한 거래명세서 묶음 (공급받는자용 + 공급자용) */
+                                  .invoice-pair {
+                                    display: block;
+                                    page-break-inside: avoid;   /* ✅ 둘은 항상 한 페이지에 함께 */
+                                    break-inside: avoid-page;
+                                    page-break-after: always;   /* ✅ 다음 거래명세서로 넘어갈 때 새 페이지 */
+                                  }
+
+                                  .invoice-buyer,
+                                  .invoice-seller {
+                                    page-break-inside: avoid;   /* ✅ 내부 분리 방지 */
+                                    break-inside: avoid-page;
+                                  }
+
+                                  table, tr, td, thead, tbody, tfoot {
+                                    page-break-inside: avoid !important;
+                                    break-inside: avoid-page !important;
+                                  }
+
+                                  hr {
+                                    border: 1px dashed #aaa;
+                                    margin: 10px 0;
+                                  }
+                                }
+
+                            </style>
+                        </head>
+                        <body>
+                    `;
+
+                    for (const item of items) {
+                        const result = await getInvoiceData(item.misnum);
+                        const htmlBase = renderInvoiceHtml(result.data);
+
+                        // 상단: 공급받는자용
+                        const htmlForBuyer = htmlBase.replace('(공급받는자용)', '(공급받는자용)');
+
+                        // 하단: 공급자용
+                        const htmlForSeller = htmlBase.replace('(공급받는자용)', '(공급자용)');
+
+                        // 하나의 페이지에 두 개 쌓기
+                        allHtml += `
+                            <div class="invoice-pair">
+                                <div class="invoice-seller">${htmlForSeller}</div>
+                                <hr>
+                                <div class="invoice-buyer">${htmlForBuyer}</div>
+                            </div>
+                                                `;
+                                        }
+
+
+                    allHtml += `</body></html>`;
+
+                    const printWindow = window.open('', '_blank', 'width=850,height=1000');
+                    printWindow.document.open();
+                    printWindow.document.write(allHtml);
+                    printWindow.document.close();
+
+                    printWindow.onload = function () {
+                        printWindow.focus();
+                        printWindow.print();
+                        setTimeout(() => printWindow.close(), 300);
+                    };
+                });
+
+                // AjaxUtil.getAsyncData → Promise 감싸기
+                function getInvoiceData(misnum) {
+                    return new Promise((resolve, reject) => {
+                        AjaxUtil.getAsyncData(_this.url + '/invoice_print', { misnum }, function (result) {
+                            resolve(result);
+                        });
+                    });
+                }
+
+
+                function renderInvoiceHtml(data) {
+                    console.log('data', data);
+                    let template = document.getElementById('writPrint_Template').innerHTML;
+
+                    function formatNumber(value) {
+                        if (value == null || value === '') return '';
+                        return Number(value).toLocaleString();
+                    }
+
+                    // ${key} 를 data[key]로 치환
+                    template = template.replace(/\$\{(.*?)\}/g, function (match, key) {
+                        return data[key.trim()] ?? '';
+                    });
+
+                    // detailList 행 추가
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = template;
+
+                    const tbody = tempDiv.querySelector('#detailRows');
+                    let supplyTotal = 0;
+                    let taxTotal = 0;
+
+                    if (tbody && Array.isArray(data.detailList)) {
+                        const list = data.detailList;
+                        const minRows = 10;
+
+                        for (let i = 0; i < Math.max(list.length, minRows); i++) {
+                            const item = list[i] || {};  // 없는 항목은 빈 객체 처리
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                    <td>${i + 1}</td>
+                                    <td>${item.month || ''}</td>
+                                    <td>${item.day || ''}</td>
+                                    <td class="text-left">${item.name || ''}</td>
+                                    <td>${formatNumber(item.qty)}</td>
+                                    <td>${formatNumber(item.unitcost)}</td>
+                                    <td class="text-right">${formatNumber(item.supplycost)}</td>
+                                    <td class="text-right">${formatNumber(item.tax)}</td>
+                                    <td class="text-left" colspan="2">${item.remark || ''}</td>
+                                `;
+                            tbody.appendChild(tr);
+                        }
+                    }
+
+                    const tfoot = tempDiv.querySelector('tfoot tr');
+                    if (tfoot) {
+                        tfoot.innerHTML = `
+                          <td colspan="6" style="text-align: center; font-weight: bold;">합계</td>
+                          <td style="text-align: right;">${formatNumber(data.supplycost)}</td>
+                          <td style="text-align: right;">${formatNumber(data.taxtotal)}</td>
+                          <td colspan="2" style="text-align: right;">${formatNumber(data.totalamt)}</td>
+                        `;
+                                    }
+
+                    return tempDiv.innerHTML;
+                }
+
+                // 수정 클릭
+                // this.$btnEdit.click(function (e) {
+                //
+                //     let item = _this.grid.selectedItems;
+                //     console.log('$btnEdit item', item);
+                //     if (item[0].statecode === 304) {
+                //         console.log('item.statecode', item.statecode);
+                //         let content = tmpl('modifyReasonModal', {});
+                //         let $content = $(content);
+                //         let modalContainer = new PopupDraggable('수정사유 선택 ');
+                //         modalContainer.open({width: 615, height: 450, $content});
+                //
+                //         $content.find('#btnSelectModifyReason').click(function () {
+                //             const selectedReason = $content.find('input[name="modifyReason"]:checked').val();
+                //             if (!selectedReason) {
+                //                 Alert.alert('알림', '수정 사유를 선택해주세요.');
+                //                 return;
+                //             }
+                //
+                //             console.log('선택된 수정사유:', selectedReason);
+                //             $content.close(); // 선택 후 모달 닫기
+                //             // 이후 로직 수행
+                //             _this.modify(item);
+                //         });
+                //
+                //     } else {
+                //         _this.modify(item);
+                //     }
+                // });
+
+                // 삭제 버튼
+                // $('#btnDelete').click(function (e) {
+                //     const items = _this.grid.rows
+                //         .filter(row => row.isSelected)
+                //         .map(row => row.dataItem);
+                //
+                //     _this.deleteinvoice(items);
+                // });
+
+                // 발행 버튼
+                $('#btnIssue').click(async function (e) {
+                    const items = _this.grid.rows
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
+
+
+                    if (items.length === 0) {
+                        Alert.alert('', '발행할 항목을 선택해주세요.');
+                        return;
+                    }
+
+                    const missingEmailItem = items.find(item => !item.iveremail || item.iveremail.trim() === '');
+                    if (missingEmailItem) {
+                        Alert.alert('', `품명: ${missingEmailItem.item_summary} \n 발행할 이메일 주소를 입력해주세요.`);
+                        return;
+                    }
+
+                    const confirm = await Alert.confirmAsync('', '선택한 항목을 발행하시겠습니까?');
+                    if (!confirm) return;
+
+                    // PDF 생성 및 저장 예시
+                    for (const item of items) {
+                        const result = await getInvoiceData(item.misnum);
+                        let htmlBody = renderInvoiceHtml(result.data);
+
+                        htmlBody = htmlBody
+                            .replace(/&nbsp;/g, ' ')
+                            .replace(/<br>/g, '<br/>')
+                            .replace(/<hr>/g, '<hr/>')
+                            .replace(/<img([^>]+?)>/g, '<img$1/>');
+
+                        const style = $('#print_invoice_css')[0]?.outerHTML || '';
+                        const html = `
+                            <html>
+                            <head>
+                                <meta charset="UTF-8"/>
+                                ${style}
+                                <style>
+                                    body {
+                                        font-family: 'Malgun Gothic', sans-serif;
+                                    }
+                                </style>
+                            </head>
+                            <body>${htmlBody}</body>
+                            </html>
+                        `;
+
+                        await AjaxUtil.postJsonDataUTF(_this.url + '/save_invoice_pdf', {
+                            misnum: item.misnum,
+                            html: html
+                        });
+                    }
+
+                    const issueList = items.map(item => ({
+                        misnum: item.misnum
+                    }));
+
+                    let url = _this.url + '/invoice_issue';
+                    AjaxUtil.postJsonData(url, issueList, function (res) {
+                        if (res.success) {
+                            Alert.alert('', res.message || '발행이 완료되었습니다.', function () {
+                                _this.searchMainData();
+                            });
+                        } else {
+                            Alert.alert('', res.message || '발행 중 오류가 발생했습니다.');
+                        }
+                    });
+
+                });
+
+                // 매출 복사 버튼
+                $('#btnCopy').click(function (e) {
+                    const items = _this.grid.rows
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
+
+                    if (items.length === 0) {
+                        Alert.alert('', '복사할 항목을 선택해주세요.');
+                        return;
+                    }
+
+                    let content = tmpl('popup_copyTemplate', {});
+                    let $content = $(content);
+                    let modalContainer = new PopupDraggable('복사하기');
+                    modalContainer.open({width: 350, height: 270, $content});
+
+                    let $writeDate = $content.find('#WriteDate');
+                    let today = CommonUtil.getYYYYMMDD();
+                    $writeDate.val(today);
+
+                    $content.find('#btnCopy').click(function () {
+
+                        Alert.confirm('', '선택한 날짜로 복사 하시겠습니까?', function () {
+                            const copyList = items.map(item => ({
+                                misnum: item.misnum,
+                                writedate: $writeDate.val()
+                            }));
+
+                            let url = _this.url + '/invoice_copy';
+                            AjaxUtil.postJsonData(url, copyList, function (res) {
+                                if (res.success) {
+                                    Alert.alert('', res.message || '복사되었습니다.', function () {
+                                        _this.searchMainData();
+                                        modalContainer.close();
+                                    });
+                                } else {
+                                    Alert.alert('', res.message || '복사 중 오류가 발생했습니다.');
+                                }
+                            });
+                        });
+                    });
+                });
+
+                // 발행 취소 버튼
+                // $('#btnIssueCancel').click(function (e) {
+                //     const items = _this.grid.rows
+                //         .filter(row => row.isSelected)
+                //         .map(row => row.dataItem);
+                //
+                //     if (items.length === 0) {
+                //         Alert.alert('', '발행 취소할 항목을 선택해주세요.');
+                //         return;
+                //     }
+                //
+                //     Alert.confirm('', '선택한 항목을 발행 취소하시겠습니까?', function () {
+                //         const issueList = items.map(item => ({
+                //             misnum: item.misnum
+                //         }));
+                //
+                //         let url = _this.url + '/cancel_issue';
+                //         AjaxUtil.postJsonData(url, issueList, function (res) {
+                //             if (res.success) {
+                //                 Alert.alert('', res.message || '발행이 취소되었습니다.', function () {
+                //                     console.log('res.success', res);
+                //                     _this.searchMainData();
+                //                 });
+                //             } else {
+                //                 Alert.alert('', res.message || '발행 중 오류가 발생했습니다.');
+                //             }
+                //         });
+                //     });
+                //
+                // });
+
+                // 재전송 버튼
+                // $('#btnReMessage').click(function (e) {
+                //     const items = _this.grid.rows
+                //         .filter(row => row.isSelected)
+                //         .map(row => row.dataItem);
+                //
+                //     if (items.length === 0) {
+                //         Alert.alert('', '이메일을 재전송 할 항목을 선택해주세요.');
+                //         return;
+                //     }
+                //
+                //     const issueList = items.map(item => ({
+                //         misnum: item.misnum
+                //     }));
+                //
+                //     let url = _this.url + '/re_message';
+                //     AjaxUtil.postJsonData(url, issueList, function (res) {
+                //         if (res.success) {
+                //             Alert.alert('', res.message || '재전송 되었습니다.', function () {
+                //                 console.log('res.success', res);
+                //                 _this.searchMainData();
+                //             });
+                //         } else {
+                //             Alert.alert('', res.message || '발행 중 오류가 발생했습니다.');
+                //         }
+                //     });
+                //
+                // });
+
+            }
+
+            deleteinvoice(items, skipConfirm = false, onComplete = null) {
+                let _this = this;
+
+                const runDelete = function () {
+                    const allDeleteList = items.map(item => ({misnum: item.misnum}));
+
+                    const popbillItems = items.filter(item => item.statecode === 305 || item.statecode === 600);
+                    const popbillMisnums = popbillItems.map(item => item.misnum);
+
+                    const nonPopbillDeleteList = items
+                        .filter(item => !popbillMisnums.includes(item.misnum))
+                        .map(item => ({misnum: item.misnum}));
+
+                    if (popbillItems.length > 0) {
+                        const url = _this.url + '/issue_delete';
+                        const popbillList = popbillItems.map(item => ({misnum: item.misnum}));
+
+                        AjaxUtil.postJsonData(url, popbillList, function (res) {
+                            if (!res.success && (!res.data || !res.data.successMisnums)) {
+                                Alert.alert('', res.message || '팝빌 삭제 중 오류가 발생했습니다.');
+                                return;
+                            }
+
+                            const successMisnums = res.data.successMisnums || [];
+
+                            const filteredPopbillList = popbillItems
+                                .filter(item => successMisnums.includes(item.misnum))
+                                .map(item => ({misnum: item.misnum}));
+
+                            const finalDeleteList = [...nonPopbillDeleteList, ...filteredPopbillList];
+
+                            if (finalDeleteList.length === 0) {
+                                Alert.alert('', '팝빌에 등록된 문서번호가 없습니다.');
+                                return;
+                            }
+
+                            deleteLocal(finalDeleteList);
+                        });
+                    } else {
+                        deleteLocal(allDeleteList);
+                    }
+                };
+
+                if (skipConfirm) {
+                    runDelete();
+                } else {
+                    Alert.confirm('', '선택한 항목을 삭제하시겠습니까?', runDelete);
+                }
+
+                function deleteLocal(list) {
+
+                    const url2 = _this.url + '/invoice_delete';
+                    AjaxUtil.postJsonData(url2, list, function (res) {
+                        if (res.success) {
+                            Alert.alert('', '삭제가 완료되었습니다.', function () {
+                                _this.searchMainData();
+                                if (typeof onComplete === 'function') {
+                                    onComplete();
+                                }
+                            });
+                        } else {
+                            Alert.alert('', res.message || '삭제 중 오류가 발생했습니다.');
+                        }
+                    });
+                }
+            }
+
+            // 상세보기
+            modify(selectedItem) {
+                let _this = this;
+
+                let selectedItems = selectedItem;
+
+                if (selectedItems.length === 1) {
+
+                    let data = {
+                        misnum: selectedItems[0].misnum,
+                        action: 'detail'
+                    };
+                    let fnsuccess = function (result) {
+                        result.data['mode'] = 'edit';
+                        _this.showInvoiceForm(result.data);
+                    };
+                    AjaxUtil.getAsyncData(_this.url + '/invoice_detail', data, fnsuccess);
+                } else if (selectedItems.length > 1) {
+                    Alert.alert('', '데이터를 하나만 선택하세요.');
+                } else {
+                    Alert.alert('', '선택된 데이터가 없습니다.');
+                }
+
+            }
+
+            // 엑셀 업로드 버튼
+            showPopupExcelUpload(data) {
+                let _this = this;
+                let content = tmpl('excelUploadInvoiceTemplate', data);
+                let $content = $(content);
+
+                //팝업공통모듈
+                let modalContainer = new PopupDraggable('일괄 등록');
+                modalContainer.open({width: 440, height: 340, $content});
+
+                initializeUploadComponent($content.find('.upload-component')[0]);
+
+                $content.find('#btn_excel_save').on('click', function () {
+                    let $form = $content.find('#excelUploadForm');
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        _this.saveInvoiceBulkData($form, modalContainer);
+                    });
+                });
+
+                $content.find('#modal-close-button').on('click', function () {
+                    uploadedFiles = [];  // 파일 리스트 초기화
+                });
+
+                $content.find('#btn_excel_form').on('click', function () {
+                    let _this = this;
+                    //let url = '/api/files/mes_form?action=suju_upload';
+                    let fileName = "세금계산서양식.xlsx";
+                    let url = withCtx('/api/files/mes_form?file_name=') + fileName;
+                    /*
+                    let data = {
+                        //'tableName' : tableName,
+                        'file_name': "수주업로드양식.xlsx",
+                    };
+                    */
+                    AjaxUtil.downloadFile(url, fileName);
+                });
+            }
+
+            // 엑셀 업로드 저장
+            saveInvoiceBulkData($form, modalContainer) {
+                let _this = this;
+                var form = $('#excelUploadForm')[0];
+                var formData = new FormData(form);
+
+                formData.append("spjangcd", sessionStorage.getItem('spjangcd'));
+
+                if (uploadedFiles.length === 1) {
+                    formData.append("upload_file", uploadedFiles[0]);
+                } else if (uploadedFiles.length > 1) {
+                    Alert.alert('', '파일은 하나만 업로드할 수 있습니다.');
+                    return;
+                } else {
+                    Alert.alert('', '파일을 선택해주세요.');
+                    return;
+                }
+
+                let result = AjaxUtil.postFileSyncData(_this.url + '/upload_save', formData);
+
+                if (result) {
+                    const errors = result.data?.errors || [];
+                    if (result.success) {
+                        if (errors.length > 0) {
+                            let errorText = errors.map(err => `- ${err.row}행: ${err.message}`).join('\n');
+                            Alert.alert('일부 항목 저장 실패', `아래 항목은 오류가 발생했습니다:\n${errorText}`, function () {
+                                Notify.success('정상 항목은 저장되었습니다.');
+                                _this.searchMainData();
+                                modalContainer.close();
+                                uploadedFiles = [];
+                            });
+                        } else {
+                            Notify.success('저장되었습니다.');
+                            _this.searchMainData();
+                            modalContainer.close();
+                            uploadedFiles = [];
+                        }
+                    } else {
+                        Alert.alert('', result.message || '저장 중 오류가 발생했습니다.');
+                        uploadedFiles = [];
+                    }
+                }
+            }
+
+            updateSelectedTotals() {
+                const selectedItems = this.grid.rows
+                    .filter(row => row.isSelected)
+                    .map(row => row.dataItem);
+                let _this = this;
+                let totalAmt = 0, totalSupply = 0, totalTax = 0;
+
+                selectedItems.forEach(item => {
+                    totalAmt += item.totalamt || 0;
+                    totalSupply += item.supplycost || 0;
+                    totalTax += item.taxtotal || 0;
+                });
+
+                const formatNumber = (n) => n.toLocaleString('ko-KR');
+                $('#totalAmount').val(formatNumber(totalAmt));
+                $('#totalSupPrice').val(formatNumber(totalSupply));
+                $('#totalTax').val(formatNumber(totalTax));
+            }
+
+
+            // 하단 합계 업데이트 함수
+            updateFooter() {
+                let totalamtSum = 0;
+                let supplycostSum = 0;
+                let taxtotalSum = 0;
+
+                // grid 합계 계산
+                if (this.grid && this.grid.collectionView) {
+                    this.grid.collectionView.items.forEach(item => {
+                        totalamtSum += item.totalamt || 0; // undefined일 경우 0 처리
+                        supplycostSum += item.supplycost || 0; // undefined일 경우 0 처리
+                        taxtotalSum += item.taxtotal || 0; // undefined일 경우 0 처리
+                    });
+
+                    // columnFooters의 첫 번째 행을 가져와 합계 업데이트
+                    let footerRow = this.grid.columnFooters.rows[0];
+
+                    this.grid.columnFooters.setCellData(footerRow.index, 'item_summary', '합계');
+                    this.grid.columnFooters.setCellData(footerRow.index, 'totalamt', totalamtSum);
+                    this.grid.columnFooters.setCellData(footerRow.index, 'supplycost', supplycostSum);
+                    this.grid.columnFooters.setCellData(footerRow.index, 'taxtotal', taxtotalSum);
+                }
+
+            }
+
+            // showPrintForm(data) {
+            //     let _this = this;
+            //     let content = tmpl('popup_invoiceTemplate', data);
+            //     let $content = $(content);
+            //
+            //     // 버튼 등 숨김 처리
+            //     $content.find('#btnInvoiceSave').hide();
+            //     $content.find('#modal-close-button').hide();
+            //     $content.find('#WriteTypeList').hide();
+            //     $content.find('#addRemark').hide();
+            //     $content.find('#removeRemark2').hide();
+            //     $content.find('#removeRemark3').hide();
+            //     $content.find('#removeRemark3').hide();
+            //     $content.find('#btnAddFiveDetails').hide();
+            //     $content.find('[id^="btnDelItem_"]').hide();
+            //     $content.find('[id^="btnViewItem_"]').hide();
+            //     $content.find('#saveInvoicee').hide();
+            //     $content.find('#btnAddFiveDetails').hide();
+            //
+            //     // header를 제거
+            //     const modal = new PopupDraggable('');
+            //     const modalInstance = modal.open({
+            //         width: 1200,
+            //         height: 680,
+            //         $content: $content
+            //     });
+            //
+            //     // 모달을 화면에 보이지 않게 숨김
+            //     modalInstance.$["root"].css({
+            //         position: 'absolute',
+            //         left: '-9999px',
+            //         top: '0',
+            //         visibility: 'hidden'
+            //     });
+            //     const landscapeStyle = `
+            //         <style id="print-orientation-style">
+            //             @page {
+            //                 size: A4 landscape;
+            //                 margin: 10mm;
+            //             }
+            //             @media print {
+            //                 #taxForm {
+            //                     width: 90% !important;
+            //                     margin: 0 auto !important;
+            //                     font-size: 13px !important
+            //                 }
+            //                 #taxForm * {
+            //                     font-size: 13px !important;
+            //                 }
+            //                 input[type="radio"] {
+            //                    vertical-align: middle !important;
+            //                     transform: translateY(-8px); /*  더 확실히 이동됨 */
+            //                     margin-right: 4px !important;
+            //                     padding: 0 !important;
+            //                 }
+            //                 #taxForm input,
+            //                 #taxForm textarea{
+            //                     border: 0 !important;
+            //                     outline: none !important;
+            //                 }
+            //                 #writeDate {
+            //                     padding: 0 0 0 -5px;
+            //                     margin: 0;
+            //                 }
+            //                 #sale_type {
+            //                     display: none !important;
+            //                 }
+            //                 #sale_type_print {
+            //                     border: 0 !important;
+            //                     background: none !important;
+            //                     font-size: 13px !important;
+            //                 }
+            //                 #btnSelectInvoicee {
+            //                     display: none !important;
+            //                 }
+            //                 #btnSelectInvoicee {
+            //                     display: none !important;
+            //                 }
+            //                 #btnSelectInvoicee {
+            //                     display: none !important;
+            //                 }
+            //
+            //                 #saveInvoicee {
+            //                     display: none !important;
+            //                 }
+            //             }
+            //         </style>
+            //     `;
+            //     if (!document.querySelector('#print-orientation-style')) {
+            //         document.head.insertAdjacentHTML('beforeend', landscapeStyle);
+            //     }
+            //
+            //     setTimeout(() => {
+            //         FormUtil.BindInvoiceDataForm(data, $content.find('#taxForm'));
+            //         window.__skipCorpNumReset = true;
+            //         window.__skipInvoiceeFieldReset = true;
+            //
+            //         $content.find('input[name="InvoiceeType"]:checked').trigger('change');
+            //
+            //         let $saleType = $content.find('#sale_type');
+            //         AjaxUtil.fillSelectOptions($saleType, 'system_code', 'choose', false, 'sale_type');
+            //
+            //         $content.find('#taxName').text('거래명세서');
+            //
+            //         $content.find('#InvoiceeCorpNum').trigger('input');
+            //         window.__skipInvoiceeFieldReset = false;
+            //
+            //         // 출력 실행
+            //         setTimeout(() => {
+            //             window.print();
+            //             modal.close();
+            //         }, 300);
+            //     }, 0);
+            // }
+
+
+            shipmentheadids = [];
+
+            // 등록 팝업
+            showInvoiceForm(data) {
+
+                let _this = this;
+                let content = tmpl('popup_invoiceTemplate', data);
+                let $content = $(content);
+                let code = null;
+
+                setTimeout(() => {
+
+                }, 0);
+
+                let modalContainer = null;
+                let $taxForm = $content.find('#taxForm');
+                // 매출 구분
+                let $saleType = $content.find('#sale_type');
+                AjaxUtil.fillSelectedOptions($saleType, 'system_code', 'choose', false, 'sale_type');
+
+                // 발행 구분
+                let $issueDiv = $content.find('#issue_div');
+                let rows1 = AjaxUtil.getSelectData('system_code', 'issue_div_default');
+                let selectedValue = rows1.length > 0 ? rows1[0].value : null;
+                AjaxUtil.fillSelectOptions($issueDiv, 'system_code', 'choose', selectedValue, 'issue_div');
+
+                // 발행 목적
+                let $purposeType = $content.find('#purpose_type');
+                let rows2 = AjaxUtil.getSelectData('system_code', 'PurposeType');
+                let selectedValue2 = rows2.length > 0 ? rows2[0].text : null;
+                if (selectedValue2) {
+                    $purposeType.val(selectedValue2).trigger('change');
+                }
+
+                const ntscfnum = data.ntscfnum;
+                const orgntscfnum = data.orgntscfnum;
+                const ntscodeDes = data.ntscode_des;
+                const modiname = data.modify_name;
+
+
+                if (data.mode === 'new') {
+                    modalContainer = new PopupDraggable('등록');
+
+                    // // 공급자 정보 불러오기
+                    // let data1 = {
+                    //     spjangcd: sessionStorage.getItem('spjangcd'),
+                    // };
+                    // let url = _this.url + '/invoicer_read';
+                    // let fnSaveSuccess = function (result) {
+                    //     if (result.success) {
+                    //         $content.find('#InvoicerCorpNum').val(result.data.saupnum).trigger('input');
+                    //         // $content.find('#InvoicerTaxRegID').val(result.data);
+                    //         $content.find('#InvoicerCorpName').val(result.data.spjangnm);
+                    //         $content.find('#InvoicerCEOName').val(result.data.prenm);
+                    //         $content.find('#InvoicerAddr').val(result.data.address);
+                    //         $content.find('#InvoicerBizType').val(result.data.biztype);
+                    //         $content.find('#InvoicerBizClass').val(result.data.item);
+                    //         $content.find('#InvoicerContactName').val(result.data.agnertel1);
+                    //         $content.find('#InvoicerTEL').val(result.data.agnertel2).trigger('input');
+                    //         $content.find('#InvoicerEmail').val(result.data.emailadres);
+                    //
+                    //     }
+                    // };
+                    // AjaxUtil.getAsyncData(url, data1, fnSaveSuccess);
+
+                    // 출고리스트에서 작성시에는 신규이지만 거래처 정보가 있음
+                    if (data.invoicee) {
+                        const i = data.invoicee;
+                        $content.find('#InvoiceeID').val(i.id).trigger('change');
+                        $content.find('#InvoiceeCorpNum').val(i.business_number).trigger('input');
+                        $content.find('#InvoiceeTaxRegID').val(i.invoiceetaxregid);
+                        $content.find('#InvoiceeCorpName').val(i.compname);
+                        $content.find('#InvoiceeCEOName').val(i.invoiceeceoname);
+                        $content.find('#InvoiceeAddr').val(i.invoiceeaddr);
+                        $content.find('#InvoiceeBizType').val(i.invoiceebiztype);
+                        $content.find('#InvoiceeBizClass').val(i.invoiceebizclass);
+                        $content.find('#InvoiceeContactName1').val(i.invoiceecontactname1);
+                        $content.find('#InvoiceeTEL1').val(i.invoiceetel1).trigger('input');
+                        $content.find('#InvoiceeEmail1').val(i.invoiceeemail1);
+                        $content.find('#InvoiceeCorpNum').prop('readonly', true);
+                    }
+                    $content.find('#resultList').hide();
+
+                    setTimeout(() => {
+                        $content.find('#InvoiceeCorpName').focus();
+                    }, 0);
+
+                    // 품목의 일자
+                    $content.find('#writeDate').on('change', function () {
+                        const val = $(this).val(); // yyyy-mm-dd
+                        if (!val) return;
+
+                        const parts = val.split('-');
+                        if (parts.length !== 3) return;
+
+                        const mm = parts[1];
+                        const dd = parts[2];
+
+                        // 모든 품목행에 적용
+                        $content.find('tr[id^="item_"]').each(function (index) {
+                            $(this).find(`#detailList${index}\\.PurchaseDT1`).val(mm);
+                            $(this).find(`#detailList${index}\\.PurchaseDT2`).val(dd);
+                        });
+                    });
+
+                    // 작성일자
+                    let $writeDate = $content.find('#writeDate');
+                    let today = CommonUtil.getYYYYMMDD();
+                    $writeDate.val(today).trigger('change');
+
+                    // detailList의 PurchaseDT1 변경 → 전체 행에 동일하게 반영
+                    $content.on('change', 'input[name^="detailList"][name$=".PurchaseDT1"]', function () {
+                        const newVal = $(this).val();
+                        if (!newVal) return;
+
+                        $content.find('input[name^="detailList"][name$=".PurchaseDT1"]').each(function () {
+                            $(this).val(newVal);
+                        });
+                    });
+
+                    // detailList의 PurchaseDT2 변경 → 전체 행에 동일하게 반영
+                    $content.on('change', 'input[name^="detailList"][name$=".PurchaseDT2"]', function () {
+                        const newVal = $(this).val();
+                        if (!newVal) return;
+
+                        $content.find('input[name^="detailList"][name$=".PurchaseDT2"]').each(function () {
+                            $(this).val(newVal);
+                        });
+                    });
+
+
+                } else {
+                    modalContainer = new PopupDraggable('상세보기');
+                    setTimeout(() => {
+
+                        code = data.StateCode;
+
+                        // 상태 코드별 버튼 표시
+                        if (code === undefined || code === null || code === 100 || code === 999) {
+                            $content.find('#btnInvoiceSave').show(); // 저장or수정 버튼
+                            $content.find('#btnDelete').show();
+                        }
+
+                        if (code === 305 || code === 600) {
+                            $content.find('#btnReSave').show(); // 실패 후 다시 저장 버튼
+                            $content.find('#btnInvoiceSave').hide();
+                            $content.find('#btnDelete').show(); // 삭제 버튼
+                        }
+
+                        if (code === 300) {
+                            $content.find('#btnIssueCancel').show(); // 발행취소 버튼
+                            $content.find('#btnReMessage').show();   // 재전송 버튼
+                            $content.find('#btnInvoiceSave').hide();
+                        }
+
+                        if (code === 304) {
+                            $content.find('#btnReMessage').show();   // 기타 전송 상태 재전송 버튼
+                            $content.find('#btnInvoiceSave').hide();
+                            $content.find('#btnEdit').show();
+                        }
+
+                        if ([301, 302, 303].includes(code)) {
+                            $content.find('#btnReMessage').show();   // 기타 전송 상태 재전송 버튼
+                            $content.find('#btnInvoiceSave').hide();
+                        }
+
+                        const stateName = data.statecode_name;
+                        if (stateName) {
+                            $content.find('div[name="statecode_name"]').show(); // 라벨
+                            $content.find('#statecode_name').text(stateName);   // 값
+                        }
+
+                        const $resultList = $content.find('#resultList');
+                        const isEmpty = (val) => val === null || val === undefined || val.toString().trim() === ' ';
+
+                        // ntscfnum 표시 여부
+                        const $ntscfnumTd = $content.find('#ntscfnum').closest('td');
+                        const $ntscfnumTh = $ntscfnumTd.prev('th');
+                        // ntscode_des 표시 여부
+                        const $ntscodeDesTd = $content.find('#ntscode_des').closest('td');
+                        const $ntscodeDesTh = $ntscodeDesTd.prev('th');
+
+                        if (!isEmpty(ntscfnum) || !isEmpty(orgntscfnum)) {
+                            const hasNtscodeDes = !isEmpty(ntscodeDes);
+
+                            $ntscfnumTd.show();
+                            $ntscfnumTh.show();
+                            $ntscfnumTd.attr('colspan', !isEmpty(orgntscfnum) ? 22 : 89);
+
+                            if (hasNtscodeDes) {
+                                $content.find('#ntscode_des').text(ntscodeDes);
+                                $ntscodeDesTd.show();
+                                $ntscodeDesTh.show();
+                            } else {
+                                $ntscodeDesTd.hide();
+                                $ntscodeDesTh.hide();
+                            }
+
+                            $content.find('#ntscfnum').text(isEmpty(ntscfnum) ? '' : ntscfnum);
+                        } else {
+                            $ntscfnumTd.hide();
+                            $ntscfnumTh.hide();
+                            $ntscodeDesTd.hide();
+                            $ntscodeDesTh.hide();
+                        }
+
+                        // orgntscfnum 표시 여부
+                        const $orgntscfnumTd = $content.find('#orgntscfnum').closest('td');
+                        const $orgntscfnumTh = $orgntscfnumTd.prev('th');
+                        const $modinameTd = $content.find('#modify_name').closest('td');
+                        const $modinameTh = $modinameTd.prev('th');
+
+                        if (!isEmpty(orgntscfnum)) {
+                            $content.find('#orgntscfnum').text(orgntscfnum);
+                            $content.find('#modify_name').text(modiname);
+                            $orgntscfnumTd.show();
+                            $orgntscfnumTh.show();
+                            $modinameTd.show();
+                            $modinameTh.show();
+                        } else {
+                            $orgntscfnumTd.hide();
+                            $orgntscfnumTh.hide();
+                            $modinameTd.hide();
+                            $modinameTh.hide();
+                        }
+
+
+                        // 전체 resultList 표시 여부
+                        if (!isEmpty(ntscfnum) || !isEmpty(orgntscfnum) || !isEmpty(ntscodeDes) ) {
+                            $resultList.show();
+                        } else {
+                            $resultList.hide();
+                        }
+
+
+                        FormUtil.BindInvoiceDataForm(data, $content.find('#taxForm'));
+
+                        window.__skipCorpNumReset = true;
+                        window.__skipInvoiceeFieldReset = true;
+
+                        $content.find('input[name="InvoiceeType"]:checked').trigger('change');
+
+                        const invoiceeId = $content.find('#InvoiceeID').val();
+                        const invoiceeType = $content.find('input[name="InvoiceeType"]:checked').val();
+
+                        if (invoiceeId || invoiceeType === '외국인') {
+                            $content.find('#InvoiceeCorpNum').prop('readonly', true);
+                        } else {
+                            $content.find('#InvoiceeCorpNum').prop('readonly', false);
+                        }
+
+                        setTimeout(() => {
+                            $content.find('#keyboardFocusCatcher').focus();
+                        }, 0);
+
+                        $content.find('#InvoiceeCorpNum').trigger('input');
+                        $content.find('#btnInvoiceSave span').text('수정');
+                        window.__skipInvoiceeFieldReset = false;
+
+                    }, 0);
+
+                }
+                const popInvoice = new PopInvoiceComponent();
+                let modalHeight = 600;
+
+                if (ntscfnum || orgntscfnum) {
+                    modalHeight = 630;
+                    if (ntscodeDes) {
+                        modalHeight = 660;
+                    }
+                }
+
+                setTimeout(() => {
+                    popInvoice.initAfterOpen();
+                }, 0);
+
+                modalContainer.open({width: 1200, height: modalHeight, $content});
+
+
+                initializeDetailRows(data.detailList || []);
+
+                // 신규 버튼 클릭
+                $content.find('#btnInvoiceNew').click(function () {
+                    _this.clearForm();
+                });
+
+                _this.clearForm = function () {
+                    const $form = $content.find('#taxForm');
+
+                    const excludeIds = ['ChargeDirection', 'IssueType',
+                        'WriteTypeSelect', 'issue_div', 'purpose_type',
+                        'writeDate', 'sale_type']; // 초기화하지 않을 id들
+
+                    $form.find('input, select, textarea').each(function () {
+                        const id = $(this).attr('id');
+
+                        if (excludeIds.includes(id)) return; // 예외 처리
+
+                        if ($(this).is(':checkbox') || $(this).is(':radio')) {
+
+                        } else {
+                            $(this).val('');
+                        }
+                    });
+
+                    $content.find('tr[id^="item_"]').not('#item_0').remove();
+
+                    // 품목의 일자
+                    $content.find('#writeDate').on('change', function () {
+                        const val = $(this).val(); // yyyy-mm-dd
+                        if (!val) return;
+
+                        const parts = val.split('-');
+                        if (parts.length !== 3) return;
+
+                        const mm = parts[1];
+                        const dd = parts[2];
+
+                        // 모든 품목행에 적용
+                        $content.find('tr[id^="item_"]').each(function (index) {
+                            $(this).find(`#detailList${index}\\.PurchaseDT1`).val(mm);
+                            $(this).find(`#detailList${index}\\.PurchaseDT2`).val(dd);
+                        });
+                    });
+
+                    // 첫 번째 행은 값만 초기화
+                    const $firstRow = $content.find('#item_0');
+                    $firstRow.find('input, select').val('');
+                    initializeDetailRows([]);
+
+                    let $writeDate = $content.find('#writeDate');
+                    let today = CommonUtil.getYYYYMMDD();
+                    $writeDate.val(today).trigger('change');
+
+                    $content.find('#InvoiceeCorpNum').removeAttr('readonly');
+
+                    // 버튼 상태 조정
+                    $content.find('#btnInvoiceSave').show();
+                    $content.find('#btnReSave').hide();
+                    $content.find('#btnDelete').hide();
+                    $content.find('#btnIssueCancel').hide();
+                    $content.find('#btnReMessage').hide();
+
+                    $content.find('#ntscfnum').text('');
+                    $content.find('#orgntscfnum').text('');
+                    $content.find('#modify_name').text('');
+                    $content.find('#ntscode_des').text('');
+
+                    $content.find('#resultList').hide();
+
+                    $content.closest('[data-modal-els="root"]').css('height', '630px');
+                    $content.closest('[data-modal-els="body"]').css('height', '600px');
+                    $content.closest('[data-modal-els="body-frame"]').css('height', '600px');
+                    $content.find('.content_wrap.popup').css('height', '100%');
+
+                    $content.find('#btnInvoiceSave span').text('저장');
+
+                    setTimeout(() => {
+                        $content.find('#InvoiceeCorpName').focus();
+                    }, 0);
+                };
+
+                let oldBusinessNumber = null;
+
+                // 선택 버튼(거래처 조회)
+                $content.find('#btnSelectInvoicee').click(function () {
+                    let poppage = new PopCompComponent();
+
+                    let searchcallback = function (item) {
+                        const businessNumber = item.business_number.replace(/-/g, '');
+                        const compid = item.id;
+
+                        // 사업자 등록번호 길이에 따라 구분
+                        if (businessNumber.length === 10) {
+                            // 사업자
+                            $content.find('input[name="InvoiceeType"][value="사업자"]').prop('checked', true).trigger('change');
+
+                            let data = {
+                                b_no: businessNumber,
+                                compid: compid,
+                            };
+
+                            let url = _this.url + '/invoicee_check';
+
+                            const fnSaveSuccess = function (result) {
+                                if (result.success) {
+                                    const data = result.data;
+                                    if (data.b_stt_cd === '01') {
+                                        bindInvoiceeData(item);
+                                    } else {
+                                        Alert.alert('', result.message);
+                                    }
+                                } else if (result.code === 'STOP_CONFIRM') {
+                                    Alert.confirm('', result.message, function () {
+                                        AjaxUtil.postAsyncData(_this.url + '/invoicee_stop', { compid: compid }, function (res) {
+                                            Alert.alert('', res.message);
+                                        });
+                                    });
+                                } else {
+                                    Alert.alert('', result.message);
+                                }
+                            };
+
+                            AjaxUtil.postAsyncData(url, data, fnSaveSuccess);
+
+                        } else if (businessNumber.length === 13) {
+                            // 개인
+                            $content.find('input[name="InvoiceeType"][value="개인"]').prop('checked', true).trigger('change');
+                            bindInvoiceeData(item);
+                        } else {
+                            Alert.alert('', '유효하지 않은 사업자 번호 형식입니다.');
+                        }
+                    };
+
+                    const bindInvoiceeData = function (item) {
+                        $content.find('#InvoiceeID').val(item.id).trigger('change');
+                        $content.find('#InvoiceeCorpNum').val(item.business_number).trigger('input');
+                        $content.find('#InvoiceeTaxRegID').val(item.invoiceetaxregid);
+                        $content.find('#InvoiceeCorpName').val(item.compname);
+                        $content.find('#InvoiceeCEOName').val(item.invoiceeceoname);
+                        $content.find('#InvoiceeAddr').val(item.invoiceeaddr);
+                        $content.find('#InvoiceeBizType').val(item.invoiceebiztype);
+                        $content.find('#InvoiceeBizClass').val(item.invoiceebizclass);
+                        $content.find('#InvoiceeContactName1').val(item.invoiceecontactname1);
+                        $content.find('#InvoiceeTEL1').val(item.invoiceetel1).trigger('input');
+                        $content.find('#InvoiceeEmail1').val(item.invoiceeemail1);
+                        oldBusinessNumber = item.business_number;
+                        $content.find('#InvoiceeCorpNum').prop('readonly', true);
+                    };
+
+                    poppage.show(searchcallback);
+                });
+
+                function determineInvoiceeTypeAndBind(item) {
+                    const businessNumber = item.business_number.replace(/-/g, '');
+                    const compid = item.id;
+
+                    if (businessNumber.length === 13) {
+                        $content.find('input[name="InvoiceeType"][value="개인"]').prop('checked', true).trigger('change');
+                        bindInvoiceeData(item);
+                        return;
+                    }
+
+                    if (businessNumber.length === 10) {
+                        $content.find('input[name="InvoiceeType"][value="사업자"]').prop('checked', true).trigger('change');
+
+                        const data = { b_no: businessNumber, compid };
+                        const url = _this.url + '/invoicee_check';
+
+                        AjaxUtil.postAsyncData(url, data, function (result) {
+                            if (result.success) {
+                                const data = result.data;
+                                if (data.b_stt_cd === '01') {
+                                    bindInvoiceeData(item);
+                                } else {
+                                    Alert.alert('', result.message);
+                                }
+                            } else if (result.code === 'STOP_CONFIRM') {
+                                Alert.confirm('', result.message,
+                                    function onYes() {
+                                        AjaxUtil.postAsyncData(_this.url + '/invoicee_stop', { compid }, function (res) {
+                                            Alert.alert('', res.message);
+                                        });
+                                    },
+                                    function onCancel() {
+                                        $content.find('#InvoiceeCorpName').focus();
+                                    }
+                                );
+                            } else {
+                                Alert.alert('', result.message);
+                            }
+                        });
+                    } else {
+                        Alert.alert('', '유효하지 않은 사업자 번호입니다.');
+                    }
+                }
+
+                function bindInvoiceeData(item) {
+                    $content.find('#InvoiceeID').val(item.id).trigger('change');
+                    $content.find('#InvoiceeCorpNum').val(item.business_number).trigger('input');
+                    $content.find('#InvoiceeTaxRegID').val(item.invoiceetaxregid);
+                    $content.find('#InvoiceeCorpName').val(item.compname);
+                    $content.find('#InvoiceeCEOName').val(item.invoiceeceoname);
+                    $content.find('#InvoiceeAddr').val(item.invoiceeaddr);
+                    $content.find('#InvoiceeBizType').val(item.invoiceebiztype);
+                    $content.find('#InvoiceeBizClass').val(item.invoiceebizclass);
+                    $content.find('#InvoiceeContactName1').val(item.invoiceecontactname1);
+                    $content.find('#InvoiceeTEL1').val(item.invoiceetel1).trigger('input');
+                    $content.find('#InvoiceeEmail1').val(item.invoiceeemail1);
+                    oldBusinessNumber = item.business_number;
+                    $content.find('#InvoiceeCorpNum').prop('readonly', true);
+
+                    setTimeout(() => {
+                        $content.find('#Remark1').focus();
+                    }, 0);
+                }
+
+
+                // 등록번호에서 엔터
+                $content.find('#InvoiceeCorpNum').on('keydown', function (e) {
+                    if (e.key !== 'Enter' && e.keyCode !== 13) return;
+
+                    e.preventDefault();
+                    const keyword = $content.find('#InvoiceeCorpNum').val().trim();
+                    const poppage = new PopCompComponent();
+
+                    const searchcallback = function (item) {
+                        determineInvoiceeTypeAndBind(item);
+                    };
+
+                    if (!keyword) {
+                        poppage.focusAfterClose = $content.find('#InvoiceeCorpName')[0];
+                        poppage.show(searchcallback);
+                        return;
+                    }
+
+                    const result = AjaxUtil.getSyncData('/api/popup/search_Comp', {
+                        compCode: '',
+                        compName: '',
+                        business_number: keyword
+                    });
+                    const rows = result?.data || [];
+
+                    if (rows.length === 1) {
+                        searchcallback(rows[0]);
+                    } else {
+                        poppage.show(searchcallback);
+                        setTimeout(() => {
+                            poppage.$businessNumber.val(keyword);
+                            poppage.$btnCompSearch.trigger('click');
+                        }, 50);
+                    }
+                });
+
+
+                // 상호에서 엔터
+                $content.find('#InvoiceeCorpName').on('keydown', function (e) {
+                    if (e.key !== 'Enter' && e.keyCode !== 13) return;
+
+                    e.preventDefault();
+                    const keyword = $content.find('#InvoiceeCorpName').val().trim();
+                    const poppage = new PopCompComponent();
+
+                    const searchcallback = function (item) {
+                        determineInvoiceeTypeAndBind(item);
+                    };
+
+                    if (!keyword) {
+                        poppage.focusAfterClose = $content.find('#InvoiceeCorpName')[0];
+                        poppage.show(searchcallback);
+                        return;
+                    }
+
+                    const result = AjaxUtil.getSyncData('/api/popup/search_Comp', {
+                        compCode: '',
+                        compName: keyword,
+                        business_number: ''
+                    });
+                    const rows = result?.data || [];
+
+                    if (rows.length === 1) {
+                        searchcallback(rows[0]);
+                    } else {
+                        poppage.show(searchcallback);
+                        setTimeout(() => {
+                            poppage.$compName.val(keyword);
+                            poppage.$btnCompSearch.trigger('click');
+                        }, 50);
+                    }
+                });
+
+
+
+                $('#btnCompanySearch').on('keydown', function (e) {
+                    if (e.key === 'Enter' || e.keyCode === 13) {
+                        e.preventDefault();
+
+                        const keyword = $('#btnCompanySearch').val().trim();
+
+                        let poppage = new PopCompComponent();
+
+                        // 콜백 공통 처리
+                        const callback = function (item) {
+                            $('#btnCompanySearch').val(item.compname);
+                            $('#cboCompanyHidden').val(item.id);
+                            $('#btnCompanySearch').trigger('input');
+
+                            setTimeout(() => {
+                                $('#btnSearch').focus();
+                            }, 0);
+                        };
+
+                        if (!keyword) {
+                            // 버튼 포커스 콜백
+                            poppage.focusAfterClose = document.getElementById('btnCompanySearch');
+                            // 빈 값이면 바로 모달 오픈
+                            poppage.show(callback);
+                            return;
+                        }
+
+                        // 임시 DOM으로 검색 템플릿 렌더링
+                        const $content = $(tmpl('popup_compSearchTemplate', {}));
+                        const $compName = $content.find('#compName');
+                        $compName.val(keyword);
+
+                        const data = {
+                            compCode: '',
+                            compName: keyword,
+                            business_number: ''
+                        };
+
+                        const result = AjaxUtil.getSyncData('/api/popup/search_Comp', data);
+                        const rows = result?.data || [];
+
+                        if (rows.length === 1) {
+                            // 검색 결과 1건이면 자동 선택
+                            callback(rows[0]);
+
+                        } else {
+                            // 0건이거나 2건 이상이면 모달 열고 검색 실행
+                            poppage.show(callback);
+                            setTimeout(() => {
+                                poppage.$compName.val(keyword);
+                                poppage.$btnCompSearch.trigger('click');
+                            }, 50);
+
+                        }
+                    }
+                });
+
+                // 정보 저장버튼
+                let $saveReInvoicee = $content.find('#btnReSave');
+
+                $saveReInvoicee.click(function (e) {
+                    const misnum = parseInt($content.find('#misnum').val());
+
+                    let items = [{
+                        misnum: misnum
+                    }];
+
+                    let data = FormUtil.extractForm($taxForm);
+
+
+                    Alert.confirm('', '수정 후 새로 저장합니다.\n기존 데이터를 삭제하시겠습니까?', function () {
+                        // 확인 클릭 시: 삭제 후 저장
+                        _this.deleteinvoice(items, true, function () {
+                            $content.find('#misnum').val('');
+                            saveInvoice($taxForm, modalContainer, true);
+                            modalContainer.close();
+                        });
+                    }, function () {
+                        // 취소 클릭 시: 삭제 없이 저장만
+                        $content.find('#misnum').val('');
+                        saveInvoice($taxForm, modalContainer, true);
+                        modalContainer.close();
+                    });
+                });
+
+                let $saveInvoicee = $content.find('#saveInvoicee');
+                $saveInvoicee.click(function (e) {
+
+                    let data = FormUtil.extractForm($taxForm);
+
+                    if (!data.InvoiceeCorpNum || data.InvoiceeCorpNum.trim() === '') {
+                        Alert.alert('', '등록번호를 입력해주세요.', function () {
+                            $content.find('#InvoiceeCorpNum').focus();
+                        });
+                        return;
+                    }
+
+                    if (!data.InvoiceeCorpName || data.InvoiceeCorpName.trim() === '') {
+                        Alert.alert('', '상호명 값을 입력해주세요.', function () {
+                            $content.find('#InvoiceeCorpName').focus();
+                        });
+                        return;
+                    }
+
+                    let id = data.InvoiceeID;
+                    let newBusinessNumber = data.InvoiceeCorpNum;
+
+                    if (id && oldBusinessNumber && oldBusinessNumber !== newBusinessNumber) {
+                        Alert.confirm('', '사업자등록번호가 변경되었습니다.\n수정하시겠습니까?\n취소하면 새로 등록합니다.',
+                            function () {
+                                // 확인(수정 선택)
+                                let url = _this.url + '/invoicee_save';
+                                let fnSaveSuccess = function (result) {
+                                    if (result.success) {
+                                        Alert.alert('', '저장되었습니다.');
+                                    } else {
+                                        Alert.alert('', result.message);
+                                    }
+                                };
+                                AjaxUtil.postAsyncData(url, data, fnSaveSuccess);
+                            },
+                            function () {
+                                // 취소(신규 선택)
+                                data.InvoiceeID = '';
+                                let url = _this.url + '/invoicee_save';
+                                let fnSaveSuccess = function (result) {
+                                    if (result.success) {
+                                        Alert.alert('', '저장되었습니다.');
+                                        $content.find('#InvoiceeID').val(result.data.id);
+                                    } else {
+                                        Alert.alert('', result.message);
+                                    }
+                                };
+                                AjaxUtil.postAsyncData(url, data, fnSaveSuccess);
+                            }
+                        );
+                    } else {
+                        // id 없거나 사업자번호 변경 안된 경우 그냥 저장
+                        let url = _this.url + '/invoicee_save';
+                        let fnSaveSuccess = function (result) {
+                            if (result.success) {
+                                Notify.success("저장되었습니다.");
+                            } else {
+                                Notify.error(result.message || "저장에 실패했습니다.");
+                            }
+                        };
+                        AjaxUtil.postAsyncData(url, data, fnSaveSuccess);
+                    }
+
+                });
+
+                // Enter 키로 품목 선택 팝업 열기
+                $(document).off('keydown', 'textarea[id$=".ItemName"]');
+                $(document).on('keydown', 'textarea[id$=".ItemName"]', function (e) {
+                    if (e.key !== 'Enter' && e.keyCode !== 13) return;
+
+                    e.preventDefault();
+
+                    const $field = $(this);
+                    const $row = $field.closest('tr');
+
+                    const keyword = $field.val().trim();
+                    const pop = new PopMatComponent();
+                    pop.material_type = 'product,sangpum';
+
+                    const callback = function (item) {
+                        $row.find('input[id$=".ItemId"]').val(item.id || '');
+                        $row.find('textarea[id$=".ItemName"]').val(item.Name || '');
+                        $row.find('textarea[id$=".Spec"]').val(item.Spec || '');
+                    };
+
+                    if (!keyword) {
+                        pop.focusAfterClose = $field[0];
+                        pop.show(callback);
+                        return;
+                    }
+
+                    const data = {
+                        keyword: keyword,
+                        spjangcd: sessionStorage.getItem('spjangcd')
+                    };
+
+                    const result = AjaxUtil.getSyncData('/api/popup/search_material', data);
+                    const rows = result?.data || [];
+
+                    if (rows.length === 1) {
+                        callback(rows[0]);
+                    } else {
+                        pop.show(callback);
+                        setTimeout(() => {
+                            pop.$keyword.val(keyword);
+                            pop.$btnMaterialSearch.trigger('click');
+                        }, 50);
+                    }
+                });
+
+                // 품목 추가 버튼
+                $(document).off('click', 'a[id^="btnViewItem_"]').on('click', 'a[id^="btnViewItem_"]', function (e) {
+                    e.preventDefault();
+
+                    const $btn = $(this);
+                    const $row = $btn.closest('tr');
+
+                    const pop = new PopMatComponent();
+                    pop.material_type = 'product,sangpum';
+
+                    pop.show(function (item) {
+                        $row.find('input[id$=".ItemId"]').val(item.id || '');
+                        $row.find('textarea[id$=".ItemName"]').val(item.Name || '');
+                        $row.find('textarea[id$=".Spec"]').val(item.Spec || '');
+                    });
+
+                    pop.searchDataBind();
+                });
+
+                if (data.shipids) {
+                    if (Array.isArray(data.shipids)) {
+                        _this.shipmentheadids = data.shipids.map(id => parseInt(id, 10));
+                    } else if (typeof data.shipids === 'string') {
+                        _this.shipmentheadids = data.shipids.split(',').map(id => parseInt(id.trim(), 10));
+                    }
+                }
+
+                // 계산서 저장 버튼
+                let $btnInvoiceSave = $content.find('#btnInvoiceSave');
+
+                $btnInvoiceSave.click(function (e) {
+                    saveInvoice($taxForm, modalContainer);
+                });
+
+                function saveInvoice($taxForm, modalContainer, skipConfirm = false) {
+                    let data = FormUtil.extractForm($taxForm);
+
+                    if (!data.InvoiceeCorpNum?.trim()) {
+                        Alert.alert('', '등록번호를 입력해주세요.', () => {
+                            $taxForm.find('#InvoiceeCorpNum').focus();
+                        });
+                        return;
+                    }
+
+                    if (!data.InvoiceeCorpName?.trim()) {
+                        Alert.alert('', '상호를 입력해주세요.', () => {
+                            $taxForm.find('#InvoiceeCorpName').focus();
+                        });
+                        return;
+                    }
+
+                    if (!data.InvoiceeCEOName?.trim()) {
+                        Alert.alert('', '성명을 입력해주세요.', () => {
+                            $taxForm.find('#InvoiceeCEOName').focus();
+                        });
+                        return;
+                    }
+                    if (!data.TotalAmount || data.TotalAmount === '0') {
+
+                        Alert.alert('', '금액이 없습니다.');
+                        return;
+                    }
+
+                    if (['issuenow', 'nextday'].includes(data.issue_div)) {
+                        if (!data.InvoiceeEmail1?.trim()) {
+                            Alert.alert('', '발행받을 이메일을 입력해주세요.', () => {
+                                $taxForm.find('#InvoiceeEmail1').focus();
+                            });
+                            return;
+                        }
+                    }
+
+                    let hasItemName = false;
+                    $taxForm.find('textarea[name^="detailList["][name$="].ItemName"]').each(function () {
+                        if ($(this).val()?.trim()) {
+                            hasItemName = true;
+                            return false; // 하나라도 있으면 종료
+                        }
+                    });
+
+                    if (!hasItemName) {
+                        Alert.alert('', '품목을 하나 이상 입력해주세요.', () => {
+                            $taxForm.find('textarea[name^="detailList["][name$="].ItemName"]').first().focus();
+                        });
+                        return;
+                    }
+
+                    for (let i = 0; i < 20; i++) {
+                        const itemName = data[`detailList[${i}].ItemName`];
+
+                        if (itemName && itemName.trim() !== '') {
+                            let month = data[`detailList[${i}].PurchaseDT1`];
+                            let day = data[`detailList[${i}].PurchaseDT2`];
+
+                            // month/day 없으면 misdate에서 보완
+                            if (!month || !day) {
+                                const misdate = data.misdate || '';
+                                month = misdate.substr(4, 2);
+                                day = misdate.substr(6, 2);
+                            }
+
+                            const paddedMonth = month.padStart(2, '0');
+                            const paddedDay = day.padStart(2, '0');
+                            data[`detailList[${i}].PurchaseDT`] = `${paddedMonth}${paddedDay}`;
+                        }
+
+                        delete data[`detailList[${i}].PurchaseDT1`];
+                        delete data[`detailList[${i}].PurchaseDT2`];
+                    }
+
+
+                    if (_this.shipmentheadids.length > 0) {
+                        data.shipids = _this.shipmentheadids.join(',');
+                    }
+
+                    const doSave = function () {
+                        const url = _this.url + '/invoice_save';
+                        AjaxUtil.postJsonAsyncData(url, data, function (result) {
+                            if (result.success) {
+                                Notify.success("저장되었습니다.");
+                                _this.shipmentheadids = [];
+                                if ($btnInvoiceSave.text().trim() !== '수정') {
+                                    _this.clearForm();
+                                }
+                                _this.searchMainData();
+                            } else {
+                                Alert.alert('', result.message || "저장에 실패했습니다.");
+                            }
+                        });
+                    };
+
+                    if (skipConfirm) {
+                        doSave(); // 바로 저장
+                    } else {
+                        Alert.confirm('', '저장하시겠습니까?', doSave); // 컨펌 후 저장
+                    }
+
+                }
+
+                // 삭제 버튼
+                let $btnDelete = $content.find('#btnDelete');
+                $btnDelete.click(function (e) {
+                    const misnum = $content.find('#misnum').val(); // 모달 내의 현재 문서 ID
+                    if (!misnum) {
+                        Alert.alert('', '삭제할 문서가 없습니다.');
+                        return;
+                    }
+
+                    const item = {
+                        misnum: misnum,
+                        statecode: code // 앞서 showInvoiceForm에서 설정한 상태코드
+                    };
+
+                    _this.deleteinvoice([item], false, function () {
+                        if (modalContainer) {
+                            modalContainer.close(); // 삭제 완료 후 모달 닫기
+                        }
+                    });
+                });
+
+                // 수정세금계산서
+                let $btnEdit = $content.find('#btnEdit');
+                $btnEdit.click(function (e) {
+
+                    let item = _this.grid.selectedItems;
+                    if (code === 304) {
+                        let popupHtml = tmpl('modifyReasonModal', {});
+                        let $popupContent = $(popupHtml);
+                        let modalContainer1 = new PopupDraggable('수정사유 선택 ');
+                        modalContainer1.open({width: 615, height: 460, $content: $popupContent});
+
+                        $popupContent.find('#btnSelectModifyReason').click(function () {
+                            const selectedReason = $popupContent.find('input[name="modifyReason"]:checked').val();
+                            if (!selectedReason) {
+                                Alert.alert('알림', '수정 사유를 선택해주세요.');
+                                return;
+                            }
+
+                            const reasonMap = {
+                                '기재사항 착오정정': '1',
+                                '공급가액 변동': '2',
+                                '환입': '3',
+                                '계약의 해제': '4',
+                                '내국신용장 사후개설': '5',
+                                '착오에 의한 이중발급': '6'
+                            };
+                            const modifyCode = reasonMap[selectedReason];
+                            const modifyName = selectedReason;
+
+                            item.modifyName = modifyName;
+                            item.modifyCode = modifyCode;
+
+                            $content.find('#ModifyCode').val(modifyCode);
+                            $(modalContainer.modal.$["root"])
+                                .find('.ax-modal-header')
+                                .contents()
+                                .filter(function () {
+                                    return this.nodeType === 3; // 텍스트 노드
+                                })
+                                .first()[0].textContent = '수정 계산서 - ' + modifyName;
+
+                            $content.find('#btnInvoiceNew').hide();
+                            $content.find('#btnInvoiceSave').show();
+                            $content.find('#btnEdit').hide();
+                            $content.find('#btnReMessage').hide();
+
+                            const fields = [
+                                { id: 'ntscfnum', tdColspan: 22, thColspan: 11 },
+                                { id: 'orgntscfnum', tdColspan: 22, thColspan: 15 },
+                                { id: 'modify_name', tdColspan: 30, thColspan: 11 },
+                            ];
+
+                            fields.forEach(({ id, tdColspan, thColspan }) => {
+                                const $td = $content.find(`#${id}`).closest('td');
+                                const $th = $td.prev('th');
+                                const $row = $td.closest('tr');
+
+                                $row.show();
+                                $th.show();
+                                $td.show();
+                                $td.attr('colspan', tdColspan);
+                                $th.attr('colspan', thColspan);
+                            });
+
+                            const ntscfnum = $content.find('#ntscfnum').val().trim();
+                            $content.find('#orgntscfnum').val(ntscfnum);
+                            $content.find('#ntscfnum').val('');
+                            $content.find('#modify_name').text(modifyName);
+
+                            // 국세청 전송결과 숨김
+                            const $ntscodeRow = $content.find('#ntscode_des').closest('tr');
+                            const $ntscodeTh = $content.find('#ntscode_des').closest('td').prev('th');
+                            $ntscodeRow.hide();   // 전체 row 숨김
+                            $ntscodeTh.hide();
+
+                            // 수정세금계산서 신규 등록
+                            $content.find('#newModifiedInvoice').val('true');
+
+                            if (modifyCode === '1') {
+
+
+                            } else if (modifyCode === '2') {
+                                const $writeDate = $content.find('#writeDate');
+                                const $remark1 = $content.find('#Remark1');
+
+                                // 기존 날짜 가져오기 (YYYY-MM-DD)
+                                const originalDate = $writeDate.val(); // 예: '2025-05-26'
+
+                                // 오늘 날짜 구하기 (YYYY-MM-DD)
+                                const today = new Date();
+                                const yyyy = today.getFullYear();
+                                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                                const dd = String(today.getDate()).padStart(2, '0');
+                                const todayFormatted = `${yyyy}-${mm}-${dd}`;
+
+                                // writeDate를 오늘 날짜로 설정
+                                $writeDate.val(todayFormatted).trigger('change');
+
+                                // 품목 PurchaseDT1, PurchaseDT2에 MM/DD 넣기
+                                $content.find('tr[id^="item_"]').each(function (index) {
+                                    $(this).find(`#detailList${index}\\.PurchaseDT1`).val(mm);
+                                    $(this).find(`#detailList${index}\\.PurchaseDT2`).val(dd);
+                                });
+
+                                // remark1에 기존 작성일 기록
+                                if (originalDate) {
+                                    $remark1.val('');
+                                    const formattedOriginal = originalDate.replace(/-/g, '.'); // '2025.05.30'
+                                    const remarkText = `${formattedOriginal} (당초 세금계산서 작성일)`;
+                                    const currentRemark = $remark1.val() || '';
+                                    const updatedRemark = currentRemark ? currentRemark + '\n' + remarkText : remarkText;
+                                    $remark1.val(updatedRemark);
+                                }
+
+
+                            } else if (modifyCode === '3') {
+
+                                const $writeDate = $content.find('#writeDate');
+                                const $remark1 = $content.find('#Remark1');
+
+                                // 기존 날짜 가져오기 (YYYY-MM-DD)
+                                const originalDate = $writeDate.val(); // 예: '2025-05-26'
+
+                                // 오늘 날짜 구하기 (YYYY-MM-DD)
+                                const today = new Date();
+                                const yyyy = today.getFullYear();
+                                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                                const dd = String(today.getDate()).padStart(2, '0');
+                                const todayFormatted = `${yyyy}-${mm}-${dd}`;
+
+                                // writeDate를 오늘 날짜로 설정
+                                $writeDate.val(todayFormatted).trigger('change');
+
+                                // 품목 PurchaseDT1, PurchaseDT2에 MM/DD 넣기
+                                $content.find('tr[id^="item_"]').each(function (index) {
+                                    $(this).find(`#detailList${index}\\.PurchaseDT1`).val(mm);
+                                    $(this).find(`#detailList${index}\\.PurchaseDT2`).val(dd);
+                                });
+
+                                // remark1에 기존 작성일 기록
+                                if (originalDate) {
+                                    $remark1.val('');
+                                    const formattedOriginal = originalDate.replace(/-/g, '.'); // '2025.05.30'
+                                    const remarkText = `${formattedOriginal} (당초 세금계산서 작성일)`;
+                                    const currentRemark = $remark1.val() || '';
+                                    const updatedRemark = currentRemark ? currentRemark + '\n' + remarkText : remarkText;
+                                    $remark1.val(updatedRemark);
+                                }
+
+                            } else if (modifyCode === '4') {
+
+                                const $writeDate = $content.find('#writeDate');
+                                const $remark1 = $content.find('#Remark1');
+
+                                // 기존 날짜 가져오기 (YYYY-MM-DD)
+                                const originalDate = $writeDate.val(); // 예: '2025-05-26'
+
+                                // 오늘 날짜 구하기 (YYYY-MM-DD)
+                                const today = new Date();
+                                const yyyy = today.getFullYear();
+                                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                                const dd = String(today.getDate()).padStart(2, '0');
+                                const todayFormatted = `${yyyy}-${mm}-${dd}`;
+
+                                // writeDate를 오늘 날짜로 설정
+                                $writeDate.val(todayFormatted).trigger('change');
+
+                                // 품목 PurchaseDT1, PurchaseDT2에 MM/DD 넣기
+                                $content.find('tr[id^="item_"]').each(function (index) {
+                                    $(this).find(`#detailList${index}\\.PurchaseDT1`).val(mm);
+                                    $(this).find(`#detailList${index}\\.PurchaseDT2`).val(dd);
+                                });
+
+                                // remark1에 기존 작성일 기록
+                                if (originalDate) {
+                                    $remark1.val('');
+                                    const formattedOriginal = originalDate.replace(/-/g, '.'); // '2025.05.30'
+                                    const remarkText = `${formattedOriginal} (당초 세금계산서 작성일)`;
+                                    const currentRemark = $remark1.val() || '';
+                                    const updatedRemark = currentRemark ? currentRemark + '\n' + remarkText : remarkText;
+                                    $remark1.val(updatedRemark);
+                                }
+
+                                $content.find('tr[id^="item_"]').each(function (index) {
+                                    const $row = $(this);
+                                    const $unitCost = $row.find(`#detailList${index}\\.UnitCost`);
+                                    const $supplyCost = $row.find(`#detailList${index}\\.SupplyCost`);
+                                    const $tax = $row.find(`#detailList${index}\\.Tax`);
+
+                                    const unitCostVal = $unitCost.val().replace(/,/g, '').trim();
+                                    const supplyCostVal = $supplyCost.val().replace(/,/g, '').trim();
+                                    const taxVal = $tax.val().replace(/,/g, '').trim();
+
+                                    if (unitCostVal && parseFloat(unitCostVal) !== 0) {
+                                        const negatedUnit = -parseFloat(unitCostVal);
+                                        $unitCost.val(negatedUnit.toLocaleString());
+                                    }
+
+                                    if (supplyCostVal && parseFloat(supplyCostVal) !== 0) {
+                                        const negatedSupply = -parseFloat(supplyCostVal);
+                                        $supplyCost.val(negatedSupply.toLocaleString());
+                                    }
+
+                                    if (taxVal && parseFloat(taxVal) !== 0) {
+                                        const negatedTax = -parseFloat(taxVal);
+                                        $tax.val(negatedTax.toLocaleString());
+                                    }
+                                });
+
+                                updateTotals();
+
+                            } else if (modifyCode === '5') {
+                                $content.find('input[name="TaxType"][value="영세"]').prop('checked', true).trigger('change');
+
+
+                            } else if (modifyCode === '6') {
+
+                                Alert.confirm('', '수정 사유 : 착오에 의한 이중발급 \n생성하시겠습니까?', function () {
+                                    saveInvoice($content.find('#taxForm'), modalContainer, true);
+                                });
+                                modalContainer1.close();
+                                modalContainer.close();
+                                return;
+
+                            }
+
+
+                            modalContainer1.close(); // 선택 후 모달 닫기
+
+                            $content.closest('[data-modal-els="root"]').css('height', '670px');
+                            $content.closest('[data-modal-els="body"]').css('height', '630px');
+                            $content.closest('[data-modal-els="body-frame"]').css('height', '630px');
+                            $content.find('.content_wrap.popup').css('height', '100%');
+
+                        });
+
+                    } else {
+                        Alert.alert("", "수정할 계산서가 없습니다.");
+                        modalContainer1.close();
+                    }
+                });
+
+                // 발행 취소 버튼
+                let $btnIssueCancel = $content.find('#btnIssueCancel');
+                $btnIssueCancel.click(function (e) {
+
+                    Alert.confirm('', '선택한 항목을 발행 취소하시겠습니까?', function () {
+                        const misnum = $content.find('#misnum').val();
+                        const item = {
+                            misnum: misnum
+                        };
+
+                        let url = _this.url + '/cancel_issue';
+                        AjaxUtil.postJsonData(url, [item], function (res) {
+                            if (res.success) {
+                                Alert.alert('', res.message || '발행이 취소되었습니다.', function () {
+                                    _this.searchMainData();
+                                });
+                            } else {
+                                Alert.alert('', res.message || '발행 중 오류가 발생했습니다.');
+                            }
+                        });
+                    });
+
+                });
+
+                // 재전송 버튼
+                let $btnReMessage = $content.find('#btnReMessage');
+                $btnReMessage.click(function (e) {
+
+                    let popupHtml = tmpl('popup_reMessageTemplate', {});
+                    let $popupContent = $(popupHtml);
+                    let modalContainer = new PopupDraggable('재전송 ');
+                    modalContainer.open({width: 490, height: 350, $content: $popupContent});
+
+                    const currentEmail = $content.find('#InvoiceeEmail1').val();
+                    $popupContent.find('#reMessage1').val(currentEmail || '');
+
+                    $popupContent.find('#btnSend').click(function () {
+                        const email1 = $popupContent.find('#reMessage1').val();
+                        const email2 = $popupContent.find('#reMessage2').val();
+                        const email3 = $popupContent.find('#reMessage3').val();
+                        const misnum = $content.find('#misnum').val();
+                        const item = {
+                            misnum: misnum,
+                            email1: email1,
+                            email2: email2,
+                            email3: email3
+                        };
+
+                        let url = _this.url + '/re_message';
+                        AjaxUtil.postJsonData(url, [item], function (res) {
+                            if (res.success) {
+                                Alert.alert('', res.message || '재전송 되었습니다.', function () {
+                                    _this.searchMainData();
+                                    modalContainer.close();
+                                });
+                            } else {
+                                Alert.alert('', res.message || '발행 중 오류가 발생했습니다.');
+                            }
+                        });
+                    });
+
+                });
+
+
+                // let data = FormUtil.extractForm($taxForm);
+
+                // $content.find('#InvoiceeID').change(function () {
+                //     $content.find('tr[id^="item_"]').each(function () {
+                //         checkAndTryShowPrice($(this));
+                //     });
+                // });
+
+                // 단가 가져오기
+                // function checkAndTryShowPrice($row) {
+                //     const $Material_id = $row.find('input[id$=".ItemId"]');
+                //     const $InvoiceeID = $content.find('#InvoiceeID'); // 거래처 id
+                //     const today = new Date().getFullYear().toString();
+                //     const month = $row.find('input[id$=".PurchaseDT1"]').val();
+                //     const day = $row.find('input[id$=".PurchaseDT2"]').val();
+                //
+                //     const monthStr = month ? month.padStart(2, '0') : '01';
+                //     const dayStr = day ? day.padStart(2, '0') : '01';
+                //     const JumunDate = `${today}-${monthStr}-${dayStr}`;
+                //
+                //     if ($Material_id.val() && $InvoiceeID.val() && JumunDate) {
+                //         tryShowPrice($Material_id.val(), $InvoiceeID.val(), $row, JumunDate);
+                //     }
+                // }
+
+                // $(document).on('change', 'input[id$=".PurchaseDT1"], input[id$=".PurchaseDT2"]', function () {
+                //     const $row = $(this).closest('tr');
+                //     checkAndTryShowPrice($row);
+                // });
+
+                // function tryShowPrice(mat_pk, company_id, row, JumunDate) {
+                //     let url = '/api/sales/suju/readPriceSuju';
+                //     let data = {
+                //         'mat_pk': mat_pk,
+                //         'company_id': company_id,
+                //         'JumunDate': JumunDate
+                //     };
+                //
+                //     if (mat_pk && company_id && JumunDate) {
+                //         let fnsuccess = function (result) {
+                //             if (result && result.data && result.data.length > 0) {
+                //                 let unitPrice = parseFloat(result.data[0].UnitPrice);
+                //                 row.find('input[id$=".UnitCost"]').val(unitPrice.toLocaleString());
+                //             } else {
+                //                 row.find('input[id$=".UnitCost"]').val('');
+                //             }
+                //         };
+                //
+                //         AjaxUtil.getAsyncData(url, data, fnsuccess);
+                //     }
+                // }
+
+            }
+
+            // 계산서 가져오기
+            searchMainData() {
+                let _this = this;
+                let invoice_kind = $('#cboInvoice').val();
+                let cboCompany = $('#cboCompanyHidden').val();
+                let cboStatecode = $('#cboStatecode').val();
+                let start = $('#srchStartDt').val();
+                let end = $('#srchEndDt').val();
+                let url = this.url + '/read';
+
+                let data = {
+                    'invoice_kind': invoice_kind,
+                    'cboCompany': cboCompany,
+                    'cboStatecode': cboStatecode,
+                    'start': start,
+                    'end': end,
+                    'action': 'read',
+                    'spjangcd': sessionStorage.getItem('spjangcd'),
+                };
+
+
+                let fnsuccess = function (result) {
+                    if (result != null && result.data) {
+                        result.data.forEach(item => {
+                            let corpNum = item.ivercorpnum;
+
+                            // 값이 존재할 경우만 처리
+                            if (corpNum) {
+                                const cleaned = corpNum.replace(/[^0-9]/g, '');
+                                if (corpNum.includes('*')) {
+                                    // 마스킹된 주민번호 포맷
+                                    item.ivercorpnum = formatMaskedRRN(corpNum);
+                                } else if (cleaned.length === 13) {
+                                    item.ivercorpnum = formatRRN(cleaned);
+                                } else if (cleaned.length === 10) {
+                                    item.ivercorpnum = formatBizNum(cleaned);
+                                }
+                            }
+                        });
+
+                        _this.grid.itemsSource = result.data;
+                        _this.updateFooter();
+                    }
+                };
+
+                AjaxUtil.getAsyncData(url, data, fnsuccess);
+            }
+
+            showShipListPopup() {
+                let _this = this;
+
+                let content = tmpl('addShipListPopup', {});
+                let $content = $(content);
+                let modalContainer = new PopupDraggable('출고 리스트');
+                modalContainer.open({width: 1100, height: 560, $content});
+
+                this.shipListGrid = new wijmo.grid.FlexGrid('#ship-list-grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.All,
+                    allowMerging: 'ColumnHeaders',
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            e.cell.style.color = '';
+                            e.cell.style.textAlign = '';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+
+                            const binding = s.columns[e.col].binding;
+
+                            if (binding === 'StoreHouse_id' || binding === 'inputQty' || binding === 'Description2') {
+                                e.cell.style.color = '#5567ff'; // 글자 색 적용
+                            }
+                        }
+                    },
+                    columns: [
+                        {
+                            binding: 'company_name',
+                            header: '거래처',
+                            width: 100,
+                            align: 'left',
+                            isReadOnly: true,
+                            allowMerging: true
+                        },
+                        {
+                            binding: 'ship_date',
+                            header: '출하일',
+                            width: 120,
+                            align: 'center',
+                            isReadOnly: true,
+                            allowMerging: true
+                        },
+                        {
+                            binding: 'total_qty',
+                            header: '총 지시량',
+                            width: 100,
+                            align: 'center',
+                            isReadOnly: true,
+                            allowMerging: true
+                        },
+                        {
+                            binding: 'total_price',
+                            header: '총 공급가',
+                            width: 120,
+                            align: 'right',
+                            isReadOnly: true,
+                            allowMerging: true
+                        },
+                        {
+                            binding: 'total_vat',
+                            header: '총 세액',
+                            width: 120,
+                            align: 'right',
+                            isReadOnly: true,
+                            allowMerging: true
+                        },
+                        {
+                            binding: 'total_amount',
+                            header: '총액',
+                            width: 120,
+                            align: 'right',
+                            isReadOnly: true,
+                            allowMerging: true
+                        },
+                        {
+                            binding: 'state_name',
+                            header: '상태',
+                            width: 60,
+                            align: 'center',
+                            isReadOnly: true,
+                            allowMerging: true
+                        },
+                        {binding: 'issue_yn', header: '발행 여부', width: 80, align: 'right', isReadOnly: true},
+                        {binding: 'issue_date', header: '발행 일자', width: 90, align: 'right', isReadOnly: true},
+                        {
+                            binding: 'description',
+                            header: '비고',
+                            width: '*',
+                            align: 'right',
+                            isReadOnly: true,
+                            allowMerging: true
+                        },
+                    ],
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                });
+
+                new FlexGridContextMenu(this.shipListGrid);
+                this.shipListGrid.downloadFileName = '출고 리스트';
+
+                let extraRow = new wijmo.grid.Row();
+                extraRow.allowMerging = true;
+
+                let panel = this.shipListGrid.columnHeaders;
+                panel.rows.splice(0, 0, extraRow)
+
+                for (let colIndex = 7; colIndex <= 8; colIndex++) {
+                    panel.setCellData(0, colIndex, '거래명세서');
+                }
+
+                ['company_name', 'ship_date', 'total_qty', 'total_price', 'total_vat'
+                    , 'total_amount', 'state_name', 'description'].forEach((binding) => {
+                    let col = this.shipListGrid.getColumn(binding);
+                    col.allowMerging = true;
+                    panel.setCellData(0, col.index, col.header);
+                });
+
+                this.shipListGrid.formatItem.addHandler(function (s, e) {
+                    if (e.panel == s.columnHeaders && e.range.rowSpan > 1) {
+                        var html = e.cell.innerHTML;
+                        e.cell.innerHTML = '<div class="v-center">' + html + '</div>';
+                    }
+                });
+
+                $content.find('#btnCompanySearch_ship').click(function () {
+                    let poppage = new PopCompComponent();
+                    let $poppage = $(poppage);
+                    let searchcallback = function (items) {
+                        $content.find('#btnCompanySearch_ship').val(items.compname);
+                        $content.find('#cboCompanyHidden_ship').val(items.id);
+
+                        // 수동으로 input 이벤트 발생
+                        $content.find('#btnCompanySearch_ship').trigger('input');
+                    };
+
+                    poppage.show(searchcallback);
+                });
+
+                $content.find('#btnSearch_ship').on('click', function () {
+                    fnLoadShipList();
+                });
+
+                // input 감지 → x 버튼 표시/숨김, 히든값 클리어
+                $content.on('input', '#btnCompanySearch_ship', function () {
+                    let $clearBtn = $(this).closest('.input-clear').find('.btn-clear');
+                    let value = $(this).val().trim();
+
+                    if (value) {
+                        $clearBtn.show();
+                    } else {
+                        $clearBtn.hide();
+                        $content.find('#cboCompanyHidden_ship').val('');
+                    }
+                });
+
+                // x 버튼 클릭 → 텍스트 초기화 및 input 이벤트 트리거
+                $content.on('click', '.btn-clear', function () {
+                    const $input = $(this).siblings('input[type="text"]');
+                    $input.val('').trigger('input'); // input 이벤트 강제 발생
+                });
+
+                $content.on('click', '.radio-box-mo', function (e) {
+                    const $radio = $(this).find('input[type=radio]');
+                    $radio.prop('checked', true).trigger('change');
+                });
+
+                let start = $content.find('#srchStartDt');
+                let end = $content.find('#srchEndDt');
+
+
+                start.val(CommonUtil.getYYYYMMDD(-7));
+                end.val(CommonUtil.getYYYYMMDD());
+
+                let fnLoadShipList = function () {
+                    let cltcd = $content.find('#cboCompanyHidden_ship').val();
+
+                    let fnsuccess = function (result) {
+
+                        if (result.data !== null) {
+                            _this.shipListGrid.itemsSource = new wijmo.collections.CollectionView(result.data);
+                            _this.shipSelector = new wijmo.grid.selector.Selector(_this.shipListGrid);
+
+                        }
+                    };
+                    let shipParam = {
+                        'srchStartDt': start.val(),
+                        'srchEndDt': end.val(),
+                        'comp_id': cltcd
+                    };
+
+                    AjaxUtil.getAsyncData(_this.url + '/shipment_head_list', shipParam, fnsuccess);
+
+                };
+
+                fnLoadShipList();
+
+                $content.find('#btnShipAction').on('click', async function () {
+                    let items = _this.shipListGrid.rows
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
+
+                    if (items.length === 0) {
+                        Alert.alert('', '선택된 리스트가 없습니다.');
+                        return;
+                    }
+
+                    const companyIds = [...new Set(items.map(item => item.company_id))];
+                    if (companyIds.length > 1) {
+                        Alert.alert('', '하나의 업체만 선택해주세요.');
+                        return;
+                    }
+
+                    const allMaterialIds = items
+                        .map(item => item.material_ids || '')
+                        .flatMap(ids => ids.split(',').map(id => id.trim()))
+                        .filter(id => id);
+
+                    const materialCount = allMaterialIds.length;
+                    const shipIds = items.map(item => item.id);
+
+                    const total_price_raw = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
+                    const total_vat_raw = items.reduce((sum, item) => sum + (item.total_vat || 0), 0);
+                    const total_price = total_price_raw.toLocaleString();
+                    const total_vat = total_vat_raw.toLocaleString();
+
+                    let defaultData = {
+                        id: '',
+                        mode: 'new',
+                        shipids: shipIds,
+                        detailList: []
+                    };
+
+                    // Ajax 요청을 Promise로 감싸기
+                    const getMaterial = (material_id) => {
+                        return new Promise(resolve => {
+                            AjaxUtil.getAsyncData(_this.url + '/get_material', {material_id}, result => {
+                                resolve(result?.data || null);
+                            });
+                        });
+                    };
+
+                    const getCompany = (id) => {
+                        return new Promise(resolve => {
+                            AjaxUtil.getAsyncData('/api/popup/get_Comp', {id}, result => {
+                                resolve(result?.data?.[0] || null);
+                            });
+                        });
+                    };
+
+                    const material_id = parseInt(allMaterialIds[0], 10);
+
+                    const [materialData, companyData] = await Promise.all([
+                        materialCount >= 1 ? getMaterial(material_id) : Promise.resolve(null),
+                        getCompany(companyIds[0])
+                    ]);
+
+                    const now = new Date();
+                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    const day = String(now.getDate()).padStart(2, '0');
+
+                    // 자재 정보가 있으면 detailList 구성
+                    if (materialData) {
+                        if (materialCount === 1) {
+                            const total_qty = items.reduce((sum, item) => sum + (item.total_qty || 0), 0);
+                            defaultData.detailList = [{
+                                PurchaseDT1: month,
+                                PurchaseDT2: day,
+                                SupplyCost: total_price,
+                                Tax: total_vat,
+                                ItemName: materialData.material_name,
+                                Spec: materialData.spec,
+                                Qty: total_qty
+                            }];
+                        } else {
+                            defaultData.detailList = [{
+                                PurchaseDT1: month,
+                                PurchaseDT2: day,
+                                SupplyCost: total_price,
+                                Tax: total_vat,
+                                ItemName: `${materialData.material_name} 외 ${materialCount - 1}개`
+                            }];
+                        }
+                    } else {
+                        Alert.alert('', '자재 정보가 없습니다.');
+                        return;
+                    }
+
+                    if (!companyData) {
+                        Alert.alert('', '업체 정보를 불러올 수 없습니다.');
+                        return;
+                    }
+
+                    defaultData.invoicee = {
+                        id: companyData.id,
+                        business_number: companyData.business_number,
+                        invoiceetaxregid: companyData.invoiceetaxregid,
+                        compname: companyData.compname,
+                        invoiceeceoname: companyData.invoiceeceoname,
+                        invoiceeaddr: companyData.invoiceeaddr,
+                        invoiceebiztype: companyData.invoiceebiztype,
+                        invoiceebizclass: companyData.invoiceebizclass,
+                        invoiceecontactname1: companyData.invoiceecontactname1,
+                        invoiceetel1: companyData.invoiceetel1,
+                        invoiceeemail1: companyData.invoiceeemail1
+                    };
+
+                    _this.showInvoiceForm(defaultData);
+                    modalContainer.close();
+                });
+
+
+            }
+
+        }
+
+        let page = null;
+
+        $(document).ready(function (e) {
+
+            page = new SalesInvoicePage();
+
+            AjaxUtil.fillSelectOptions($('#cboStatecode'), 'system_code', 'all', '', 'state_code_pb');
+            AjaxUtil.fillSelectOptions($('#cboInvoice'), 'system_code', 'all', '', 'sale_type');
+
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            page.searchMainData();
+
+            // 검색
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            // 검색 키보드 엔터 클릭
+            $('#btnSearch').keydown(function (e) {
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    e.preventDefault();
+                    $(this).trigger('click');
+                }
+            });
+
+            $('#btnShipList').on('click', function () {
+                page.showShipListPopup();
+            });
+
+            $('#btnCompanySearch').on('keydown', function (e) {
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    e.preventDefault();
+
+                    const keyword = $('#btnCompanySearch').val().trim();
+
+                    let poppage = new PopCompComponent();
+
+                    // 콜백 공통 처리
+                    const callback = function (item) {
+                        $('#btnCompanySearch').val(item.compname);
+                        $('#cboCompanyHidden').val(item.id);
+                        $('#btnCompanySearch').trigger('input');
+
+                        setTimeout(() => {
+                            $('#btnSearch').focus();
+                        }, 0);
+                    };
+
+                    if (!keyword) {
+                        // 버튼 포커스 콜백
+                        poppage.focusAfterClose = document.getElementById('btnCompanySearch');
+                        // 빈 값이면 바로 모달 오픈
+                        poppage.show(callback);
+                        return;
+                    }
+
+                    // 임시 DOM으로 검색 템플릿 렌더링
+                    const $content = $(tmpl('popup_compSearchTemplate', {}));
+                    const $compName = $content.find('#compName');
+                    $compName.val(keyword);
+
+                    const data = {
+                        compCode: '',
+                        compName: keyword,
+                        business_number: ''
+                    };
+
+                    const result = AjaxUtil.getSyncData('/api/popup/search_Comp', data);
+                    const rows = result?.data || [];
+
+                    if (rows.length === 1) {
+                        // 검색 결과 1건이면 자동 선택
+                        callback(rows[0]);
+
+                    } else {
+                        // 0건이거나 2건 이상이면 모달 열고 검색 실행
+                        poppage.show(callback);
+                        setTimeout(() => {
+                            poppage.$compName.val(keyword);
+                            poppage.$btnCompSearch.trigger('click');
+                        }, 50);
+
+                    }
+                }
+            });
+
+
+            // input 감지 → x 버튼 표시/숨김, 히든값 클리어
+            $(document).on('input', '#btnCompanySearch', function () {
+                let $clearBtn = $(this).closest('.input-clear').find('.btn-clear');
+                let value = $(this).val().trim();
+
+                if (value) {
+                    $clearBtn.show();
+                } else {
+                    $clearBtn.hide();
+                    $('#cboCompanyHidden').val('');
+                }
+            });
+
+            // x 버튼 클릭 → 텍스트 초기화 및 input 이벤트 트리거
+            $(document).on('click', '.btn-clear', function () {
+                const $input = $(this).siblings('input[type="text"]');
+                $input.val('').trigger('input'); // input 이벤트 강제 발생
+            });
+
+            $(document).on('click', '.radio-box-mo', function (e) {
+                const $radio = $(this).find('input[type=radio]');
+                $radio.prop('checked', true).trigger('change');
+            });
+
+            $('#btnAddBatch').click(function (e) {
+                let data = {
+                    'id': '',
+                    'data_date': CommonUtil.getYYYYMMDD(),
+                };
+                page.showPopupExcelUpload(data);
+            });
+
+        })
+    </script>
+
+</th:block>
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html>

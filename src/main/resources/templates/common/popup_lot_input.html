@@ -1,0 +1,184 @@
+<th:block th:fragment="LotInputTemplate">
+    <script type="text/x-tmpl" id="LotInputTemplate">
+        <div class="content_wrap popup">
+            <!--<header>
+                <h4 id="popTitle">품목 선택</h4>
+                <div class="popup_close_box"><button class="btn_popup_close" id="btnClose"><i class="fas fa-times"></i></button></div>
+            </header>-->
+
+            <div class="table-wrap">
+                <table class="write-table">
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="mat_grp_name">품목그룹</label>
+                            </th>
+                            <td>
+                                 <input class="form-control2" type="text" id="mat_grp_name" name="mat_grp_name" readonly />
+                            </td>
+                            <th style="text-align: center">
+                                <label for="mat_name">품목명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="mat_name" name="mat_name" readonly/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="create_date">등록일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="create_date" name="create_date" readonly/>
+                            </td>
+                            <th style="text-align: center">
+                                <label for="effective_date">유효일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="effective_date" name="effective_date" readonly/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="cur_stock">현재고</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="cur_stock" name="cur_stock" readonly/>
+                                <input class="form-control2" type="hidden" id="lot_id" name="lot_id" />
+                            </td>
+                            <th style="text-align: center">
+                                <label for="popStoreHouse">창고</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="popStoreHouse" name="storehouse_name" readonly/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="lot_number">로트번호</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="lot_number" name="lot_number" readonly/>
+                            </td>
+                            <th style="text-align: center">
+                                <label for="input_qty">투입량</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" type="text" id="input_qty" name="input_qty" />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="popup-button">
+                <button type="button" class="btn-popup" id="btnSave" ><span data-commonCd="확인">확인</span></button>
+                <button type="button" class="btn-popup" id="btnClose"><span data-commonCd="닫기">닫기</span></button>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/javascript">
+
+        class PopupLotInputPage {
+            constructor() {
+                this.grid = null;
+                this.lot_number = null;
+                this.selectedItem = null;
+                this.callback = null;
+                this.modalContainer = new PopupDraggable('로트 투입');
+            }
+
+            selectData(item) {
+                if (typeof this.callback !== 'undefined' && this.callback != null) {
+                    this.callback(item);
+                }
+                this.close();
+            }
+
+            fillLotInfo(lot_number) {
+                let _this = this;
+
+                this.lot_number = lot_number;
+
+                let url = '/api/popup/pop_prod_input';
+                let data = {
+                    'action': 'lot_info',
+                    'lot_number': lot_number,
+                };
+
+                let result = AjaxUtil.getSyncData(url + "/lot_info", data);
+                //let row = {
+                //    'id': 0,
+                //    'mat_grp_name' : 'AAA',
+                //    'mat_name' : 'BBB',
+                //    'create_date' : '2022-03-01',
+                //    'effective_date' : '2022-03-18',
+                //    'cur_stock' : 100,
+                //};
+                let row = result.data
+                if (row != null) {
+                    this.$lot_id.val(row.id);
+                    this.$mat_grp_name.val(row.mat_grp_name);
+                    this.$mat_name.val(row.mat_name);
+                    this.$create_date.val(row.create_date);
+                    this.$effective_date.val(row.effective_date);
+                    this.$cur_stock.val(row.cur_stock);
+                    this.$input_qty.val(row.cur_stock);
+                    this.$popStoreHouse.val(row.storehouse_name);
+                }
+            }
+
+            show(lot_number, callback) {
+                let _this = this;
+
+                //this.lot_number = lot_number;
+                this.callback = callback;
+
+                let content = tmpl('LotInputTemplate', {});
+                let $content = $(content);
+                this.modalContainer.open({width: 1000, height: 320, $content});
+
+                this.$lot_number = $content.find('#lot_number');
+                this.$lot_id = $content.find('#lot_id');
+                this.$mat_grp_name = $content.find('#mat_grp_name');
+                this.$mat_name = $content.find('#mat_name');
+                this.$create_date = $content.find('#create_date');
+                this.$effective_date = $content.find('#effective_date');
+                this.$cur_stock = $content.find('#cur_stock');
+                this.$input_qty = $content.find('#input_qty');
+                this.$popStoreHouse = $content.find('#popStoreHouse');
+
+                this.$lot_number.val(lot_number);
+
+
+                this.fillLotInfo(lot_number);
+
+                this.$lot_number.on('keypress', function (e) {
+                    if (event.keyCode == 13) {
+                        let lot_number = this.$lot_number.val();
+                        //this.lot_number = lot_number;
+                        _this.fillLotInfo(lot_number)
+                    }
+                });
+
+                $content.find('#btnSave').on('click', function () {
+                    let row = {
+                        'lot_id': _this.$lot_id.val(),
+                        'lot_number': _this.lot_number,
+                        'input_qty': _this.$input_qty.val(),
+                    };
+                    _this.selectData(row);
+                });
+
+                //닫기버튼을 아래 ID로 사용한다면 호출하는 화면에서 이벤트 처리 필요없음
+                $content.find('#btnClose').on('click', function () {
+                    _this.close();
+                });
+
+            }
+
+            close() {
+                this.modalContainer.close();
+            }
+        }
+    </script>

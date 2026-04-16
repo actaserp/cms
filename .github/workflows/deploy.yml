@@ -1,0 +1,120 @@
+name: Actas Deploy
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  Deploy:
+    runs-on: self-hosted #label명이 self-hosted.......!!!
+    if: contains(github.event.head_commit.message, 'prod')
+    env:
+      #APPLICATION_PROPERTIES_8030: ${{ secrets.APPLICATION_PROPERTIES_8030 }}
+      RUNNER_TRACKING_ID: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Maven 빌드
+        shell: cmd
+        run: "C:\\maven\\apache-maven-3.9.10\\bin\\mvn.cmd clean package"
+
+
+      #톰캣 8030 종료
+      - name: ShutDown Tomcat 8030
+        if: contains(github.event.head_commit.message, '8030')
+        shell: cmd
+        run: |
+          start "TOMCAT-mes-SHUTDOWN" /D "C:\Program Files\Apache Software Foundation\tomcat-mes-8030\bin" shutdown.bat
+
+      #톰캣 8031 종료
+      - name: ShutDown Tomcat 8031
+        if: contains(github.event.head_commit.message, '8031')
+        shell: cmd
+        run: |
+          start "TOMCAT-dongyoung-SHUTDOWN" /D "C:\Program Files\Apache Software Foundation\tomcat-dongyoung-8031\bin" shutdown.bat
+
+      #톰캣 8032 종료
+      - name: ShutDown Tomcat 8032
+        if: contains(github.event.head_commit.message, '8032')
+        shell: cmd
+        run: |
+          start "TOMCAT-actas-SHUTDOWN" /D "C:\Program Files\Apache Software Foundation\tomcat-actas-8032\bin" shutdown.bat
+
+  ###########################################################################
+
+
+      #배포전 war 삭제 (8030)
+      - name: 기존 톰캣 war 삭제 8030
+        if: contains(github.event.head_commit.message, '8030')
+        shell: cmd
+        run: |
+          del /Q "C:\Program Files\Apache Software Foundation\tomcat-mes-8030\webapps\mes-0.0.1-SNAPSHOT.war"
+          rmdir /S /Q "C:\Program Files\Apache Software Foundation\tomcat-mes-8030\webapps\mes-0.0.1-SNAPSHOT"
+          rmdir /S /Q "C:\Program Files\Apache Software Foundation\tomcat-mes-8030\webapps\ROOT"      
+
+      #배포전 war 삭제 (8031)
+      - name: 기존 톰캣 war 삭제 8031
+        if: contains(github.event.head_commit.message, '8031')
+        shell: cmd
+        run: |
+          del /Q "C:\Program Files\Apache Software Foundation\tomcat-dongyoung-8031\webapps\mes-0.0.1-SNAPSHOT.war"
+          rmdir /S /Q "C:\Program Files\Apache Software Foundation\tomcat-dongyoung-8031\webapps\mes-0.0.1-SNAPSHOT"
+          rmdir /S /Q "C:\Program Files\Apache Software Foundation\tomcat-dongyoung-8031\webapps\ROOT"      
+
+      #배포전 war 삭제 (8032)
+      - name: 기존 톰캣 war 삭제 8032
+        if: contains(github.event.head_commit.message, '8032')
+        shell: cmd
+        run: |
+          del /Q "C:\Program Files\Apache Software Foundation\tomcat-actas-8032\webapps\mes-0.0.1-SNAPSHOT.war"
+          rmdir /S /Q "C:\Program Files\Apache Software Foundation\tomcat-actas-8032\webapps\mes-0.0.1-SNAPSHOT"
+          rmdir /S /Q "C:\Program Files\Apache Software Foundation\tomcat-actas-8032\webapps\ROOT"      
+
+    #####################################################################################
+
+      #복붙 8030
+      - name: webapps에다가 복붙 8030
+        if: contains(github.event.head_commit.message, '8030')
+        shell: cmd
+        run: |
+          copy /Y "C:\actions-runner\_work\haccpmes\haccpmes\target\mes-0.0.1-SNAPSHOT.war" "C:\Program Files\Apache Software Foundation\tomcat-mes-8030\webapps\mes-0.0.1-SNAPSHOT.war"
+
+      #복붙 8031
+      - name: webapps에다가 복붙 8031
+        if: contains(github.event.head_commit.message, '8031')
+        shell: cmd
+        run: |
+          copy /Y "C:\actions-runner\_work\haccpmes\haccpmes\target\mes-0.0.1-SNAPSHOT.war" "C:\Program Files\Apache Software Foundation\tomcat-dongyoung-8031\webapps\mes-0.0.1-SNAPSHOT.war"
+          
+      #복붙 8032
+      - name: webapps에다가 복붙 8032
+        if: contains(github.event.head_commit.message, '8032')
+        shell: cmd
+        run: |
+          copy /Y "C:\actions-runner\_work\haccpmes\haccpmes\target\mes-0.0.1-SNAPSHOT.war" "C:\Program Files\Apache Software Foundation\tomcat-actas-8032\webapps\mes-0.0.1-SNAPSHOT.war"
+      
+    ########################################################################################
+
+
+      #톰캣 시작 8030
+      - name: Start Tomcat 8030
+        if: contains(github.event.head_commit.message, '8030')
+        shell: cmd
+        run: |
+          start "TOMCAT-mes" /D "C:\Program Files\Apache Software Foundation\tomcat-mes-8030\bin" startup.bat
+
+      #톰캣 시작 8031
+      - name: Start Tomcat 8031
+        if: contains(github.event.head_commit.message, '8031')
+        shell: cmd
+        run: |
+          start "TOMCAT-dongyoung" /D "C:\Program Files\Apache Software Foundation\tomcat-dongyoung-8031\bin" startup.bat    
+          
+      #톰캣 시작 8032
+      - name: Start Tomcat 8032
+        if: contains(github.event.head_commit.message, '8032')
+        shell: cmd
+        run: |
+          start "TOMCAT-actas" /D "C:\Program Files\Apache Software Foundation\tomcat-actas-8032\bin" startup.bat    

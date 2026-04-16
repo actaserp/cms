@@ -1,0 +1,179 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .select2-container--open {
+            z-index: 9001;
+        }
+
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>이상발생 내역</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>이상발생 및 조치/결재</li>
+                <li>이상발생 내역</li>
+            </ul>
+        </div>
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label>
+                                점검일
+                            </label>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input type="date" id="srchStartDt" name="srchStartDt">
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input type="date" id="srchEndDt" name="srchEndDt">
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+
+                    <dl>
+                        <dt>
+                            <label>
+                                일지명<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" class="form-control2" id="keyword" name="keyword"/>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="theGrid" ></div>
+
+            </div>
+
+            <!--        <div class="grid_box">-->
+
+            <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
+            <!--        </div>-->
+        </section>
+
+
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+    <script type="text/javascript">
+        class DeviActionPage {
+            constructor() {
+                this.grid = null;
+                this.url = '/api/haccp/devi_action_list';
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+
+
+            }
+
+            init() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+
+                        {binding: 'happen_date', header: '점검일', width: '*', align: 'left'},
+                        {binding: 'happen_place', header: '일지명', width: '*', align: 'left'},
+                        {binding: 'abnormal_detail', header: '이상발생내역', width: '*', align: 'left'},
+                        {binding: 'action_detail', header: '조치내역 및 결과', width: '*', align: 'left'},
+                        {binding: 'creater_name', header: '조치자', width: '*', align: 'left'},
+                        {binding: 'action_name', header: '작성자', width: '*', align: 'left'},
+
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+
+                        }
+                    },
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '선행요건이상발생내역';
+
+            }
+
+            searchMainData() {
+                let _this = this;
+
+                let param = {
+                    'keyword': $('#keyword').val(),
+                    'date_from': $('#srchStartDt').val(),
+                    'date_to': $('#srchEndDt').val()
+                };
+
+
+                let result = AjaxUtil.getSyncData(_this.url + '/read', param);
+                if (result.data != null) {
+                    _this.viewData.sourceCollection = result.data;
+                }
+            }
+
+        }
+
+
+        let page = null;
+        let popup = null;
+        let modalContainer = null;
+
+        $(document.body).ready(function (e) {
+            page = new DeviActionPage();
+
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-15));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            page.searchMainData();
+
+        });
+
+    </script>
+</th:block>
+</html>

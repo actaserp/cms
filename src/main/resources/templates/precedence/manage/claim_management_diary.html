@@ -1,0 +1,534 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents" id="tab_week">
+        <input type="hidden" id="bhId" th:value="${bh_id}" />
+        <input type="hidden" id="data_date" th:value="${data_date}" />
+        <input type="hidden" id="search_cond" th:value="${searchcond}" />
+        <input type="hidden" id="viewMode" th:value="${view_mode}" />
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>클레임관리일지</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP 관리</li>
+                <li>클레임관리일지</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-card-wrap" style="margin-bottom: 0;">
+                <div class="col-5">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">일지명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="title" name="title" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="check_date">일자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="dataDate" name="dataDate"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="cboCheck">작성자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="firstName" name="firstName" disabled />
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-6">
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <h3>점검 목록</h3>
+                </div>
+                <div class="button-wrap">
+                    <button type="button" class="btn" id="btnReqAppr">결재상신</button>
+                    <button type="button" class="btn" id="btnAppr" style="display:none;">승인</button>
+                    <button type="button" class="btn" id="btnReject" style="display:none;">반려</button>
+                    <button type="button" class="btn" id="btnSave">저장</button>
+                    <button type="button" class="btn" id="btnList">목록</button>
+                    <button type="button" class="btn" id="btnNew" name="btnNew"><i class="fas fa-plus"></i></button>
+                </div>
+
+            </div>
+            <div>
+                <div>
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">발생장소</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="location" name="location" placeholder="직접입력해주세요"/>
+                            </td>
+                            <th style="text-align: center">
+                                <label for="check_date">발생일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="date" id="pickupDate1" name="pickupDate1"/>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">발생원인</label>
+                            </th>
+                            <td>
+                                <div class="col-7 mx-auto" id="image_upload"></div>
+                            </td>
+                            <th style="text-align: center">
+                                <label for="title">개선 후</label>
+                            </th>
+                            <td>
+                                <div class="col-7 mx-auto" id="image_upload1"></div>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th>
+                                <label for="title">발생내용</label>
+                            </th>
+                            <td colspan="8">
+                                <textarea class="form-control2" id="contents" name="contents"></textarea>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th>
+                                <label for="title">개선조치</label>
+                            </th>
+                            <td colspan="8">
+                                <textarea class="form-control2" id="improvement" name="improvement"></textarea>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th>
+                                <label for="title">기타사항</label>
+                            </th>
+                            <td colspan="8">
+                                <textarea class="form-control2" id="otherMat" name="otherMat"></textarea>
+                            </td>
+                        </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </section>
+
+
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box" ></th:block>
+    <script type="text/javascript">
+        class CheckResultDiaryPage {
+            constructor() {
+                this.grid = null;
+                this.uploader = null;
+                this.approveBoxUtil = null;
+                this.type = 1;
+                this.List = [];
+                this.resultGrid = null;
+                this.checkMasterName = '클레임관리일지'
+                this.baseUrl = '/api/precedence/claim_management';
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                this.gparam = {
+                    bh_id : $('#bhId').val(),
+                    data_date : $('#data_date').val(),
+                    search_cond: $('#search_cond').val(),
+                    view_mode: $('#viewMode').val(),
+                };
+
+                $('#firstName').val(userinfo.username);
+                $('#title').val('클레임관리일지');
+                $("#dataDate").val($('#data_date').val());
+                $("#pickupDate").val(data_date);
+
+            }
+
+            // 일지 리스트
+            searchMainData() {
+
+                let _this = this;
+                $('#btnDiaryPrint').hide();
+                $('#btnDelete').hide();
+
+                $('#firstName').val(userinfo.username);
+                $('#title').val('클레임관리일지');
+
+                let param = {
+                    //'action': 'read',
+                    'bhId': $('#bhId').val(),
+                    'data_date' : $("#data_date").val()
+                };
+
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/ListRead', param);
+
+
+                if (result != null) {
+                    _this.headInfo = result.data.head_info;
+                    _this.diaryInfo = result.data.diary_info;
+
+                    $("#contents").val(_this.diaryInfo.Text1);
+                    $("#improvement").val(_this.diaryInfo.Char2);
+                    $("#otherMat").val(_this.diaryInfo.Char3);
+                    $("#location").val(_this.diaryInfo.Char4);
+                    $("#pickupDate1").val(_this.diaryInfo.pickupdate);
+
+
+                    _this.viewModeSetting(_this.headInfo)
+                }
+
+                // head_id, task_code, src_data_pk, src_table_name, dept_id, shift
+                _this.approveBoxUtil = new ApproveBoxUtil(0, _this.checkMasterName, $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+            }
+
+
+            setImage() {
+                let pest_pk = $("#bhId").val();
+                let _this = this;
+                let file_pk = 0;
+                let data = {
+                    "action": 'detailFiles',
+                    "TableName": "claim_manage1",
+                    'DataPk': pest_pk,
+                    "attachName": 'photo'
+                };
+
+                let result = AjaxUtil.getSyncData('/api/common/attach_file/detailFiles', data);
+                if (result.data.length > 0) {
+                    file_pk = result.data[0].id;
+                }
+
+                _this.upload = new UploadOneImage(1, {
+                    table_name: 'claim_manage1',
+                    data_pk: pest_pk,
+                    attach_name: 'photo',
+                    file_id: file_pk,
+                    //upload_form_id: 'upload_form',
+                    upload_div_id: 'image_upload',
+                    image_width: '60%',
+                    image_height: 'auto',
+                    can_write: userinfo.can_write()
+                });
+                _this.upload.printFormDiv();
+            }
+
+            setImage1() {
+                let pest_pk = $("#bhId").val();
+                let _this = this;
+                let file_pk = 0;
+                let data = {
+                    "action": 'detailFiles',
+                    "TableName": "claim_manage2",
+                    'DataPk': pest_pk,
+                    "attachName": 'photo'
+                };
+
+                let result = AjaxUtil.getSyncData('/api/common/attach_file/detailFiles', data);
+                if (result.data.length > 0) {
+                    file_pk = result.data[0].id;
+                }
+
+                _this.upload = new UploadOneImage(2, {
+                    table_name: 'claim_manage2',
+                    data_pk: pest_pk,
+                    attach_name: 'photo',
+                    file_id: file_pk,
+                    //upload_form_id: 'upload_form',
+                    upload_div_id: 'image_upload1',
+                    image_width: '60%',
+                    image_height: 'auto',
+                    can_write: userinfo.can_write()
+                });
+                _this.upload.printFormDiv();
+            }
+
+            searchItemList() {
+                let _this = this;
+
+                let param = {
+                    //'action': 'read',
+                    'bhId' : $("#bhId").val(),
+                }
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl +'/read', param);
+
+
+                _this.resultGrid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: result.data.length,
+                    }
+                });
+            }
+
+            viewModeSetting(headInfo) {
+                // 데이터에 따른 버튼 설정
+                if ($('#viewMode').val().toLowerCase() == 'true') {
+                    //보기 모드일 경우 CRUD 버튼 숨김
+                    $('#btnDiaryPrint').hide();
+                    $('#btnReqAppr').hide();
+                    $('#btnSave').hide();
+                    $('#btnDelete').hide();
+                    $('#btnAllItem').hide();
+                    $("#btnNew").hide();
+                    if (headInfo.State == 'approval') {
+                        $('#btnDiaryPrint').show();
+                    }
+
+                    $('#title').attr('disabled', 'disabled');
+                    $('#dataDate').attr('disabled', 'disabled');
+                    $('#condition').attr('disabled', 'disabled');
+                    $('#inspecresult').attr('disabled', 'disabled');
+                    $('#collMethod').attr('disabled', 'disabled');
+                    $('#location').attr('disabled', 'disabled');
+                    $('#mast').attr('disabled', 'disabled');
+                    $('#pickupDate1').attr('disabled', 'disabled');
+                    $('#judgment').attr('disabled', 'disabled');
+
+
+
+                }
+                else {
+                    // State : 작성, 미결재, 승인, 반려, 재상신
+                    $('#btnDelete').show();
+                    $('#btnDiaryPrint').hide();
+                    if (headInfo.State == 'process' || headInfo.State == 'reprocess') {
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        $('#btnAllItem').hide();
+                    } else if (headInfo.State == 'approval') {
+                        $('#btnDiaryPrint').show();
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        $('#btnAllItem').hide();
+                    }
+
+                    if (parseInt($('#bhId').val(), 10) > 0) {
+                        $('#dataDate').attr('disabled', 'disabled');
+                    } else {
+                        $('#btnDelete').hide();
+                    }
+                }
+            }
+
+            // 일지 출력
+            printDiary() {
+                let param = {
+                    'title': $('#title').val(),
+                    'bh_id': $('#bhId').val(),
+                };
+
+                let result = AjaxUtil.postSyncData(this.baseUrl + '/print', param, function () { });
+                if (result.success) {
+                    CommonUtil.openWindow('/api/files/pdf_viewer?file_id=' + result.file_id)
+                }
+                else {
+                    Alert.alert('', '일지 생성 중 오류가 발생했습니다. 관리자에게 문의하세요.');
+                }
+            }
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    $('#btnList').click();
+                });
+            }
+
+            //결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit';
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'data_date': $('#dataDate').val(),
+                };
+
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+            //저장
+            save(isAppr) {
+                let _this = this;
+
+
+                if($("#pickupDate1").val() == ''){
+                    Alert.alert('', '발생일 입력해주세요.');
+                    return;
+                }
+
+                if($("#location").val() == ''){
+                    Alert.alert('', '발생장소를 입력해주세요.');
+                    return;
+                }
+
+                let callback = function () {
+
+                    let data = {
+                        bhId: $('#bhId').val(),
+                        title: $('#title').val(),
+                        data_date: $('#dataDate').val(),
+                        headInfo: JSON.stringify(_this.headInfo),
+                        contents : $("#contents").val(),
+                        improvement : $("#improvement").val(),
+                        otherMat : $("#otherMat").val(),
+                        pickupDate : $("#pickupDate1").val(),
+                        location : $("#location").val(),
+                        fileId : $("#srchFileId").val(),
+                    };
+
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                Notify.success('저장하였습니다.');
+                                $('#btnDelete').show();
+                                $('#dataDate').attr('disabled', 'disabled');
+                                // _this.searchMainData();
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/save', data, fnSuccess);
+                }
+
+                /* if (resultNullCheck) {
+                     Alert.alert("", "점검결과를 모두 입력해주세요.");
+                     return;
+                 }*/
+                if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+                else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+        }
+
+        $(document).ready(function (e) {
+
+            page = new CheckResultDiaryPage();
+
+            page.setImage(-1);
+            page.setImage1(-1);
+
+            $('#btnAllItem').click(function (e) {
+                page.checkAllItem();
+            });
+
+            // 일지 출력
+            $('#btnDiaryPrint').on('click', function () {
+                page.printDiary();
+            });
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            //$('#dataDate').val(CommonUtil.getYYYYMMDD());
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+
+            // 임시저장
+            $('#btnSave').on('click', function () {
+                page.save(false);
+            });
+
+            // 삭제
+            $('#btnDelete').on('click', function () {
+                page.delete();
+            });
+
+            // 목록
+            $('#btnList').on('click', function () {
+                if (page.gparam.appr_view) {
+                    location.href = encodeURI('/gui/' + page.gparam.appr_view + '?searchcond=' + page.gparam.search_cond);
+                }
+                else {
+                    location.href = encodeURI('/gui/' + gui.gui_code + '?searchcond=' + page.gparam.search_cond);
+                }
+            });
+
+            $("#btnNew").on('click',function(){
+                if($("#location").val() == ""){
+                    Alert.alert('', '구역명을 입력해주세요.');
+                    return
+                }
+                page.plusList();
+            });
+
+            page.searchMainData();
+        });
+    </script>
+
+</th:block>
+</html>

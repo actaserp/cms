@@ -1,0 +1,278 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .select2-container--open {
+            z-index: 9001;
+        }
+
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>나의 결재 현황</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>이상발생 및 조치/결재</li>
+                <li>결재할 내문서</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label>
+                                일자
+                            </label>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input type="date" id="date_from" name="date_from">
+                                    <label for="date_from" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input type="date" id="date_to" name="date_to">
+                                    <label for="date_to" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label>
+                                업무명
+                            </label>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <select class="form-control2" id="cboTaskName" name="cboTaskName"></select>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label>
+                                상태<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select class="form-control2" id="cboState" name="cboState">
+                                    <option value="do_list">결재할문서</option>
+                                    <option value="appr_list">승인(반려)한문서</option>
+                                    <option value="req_list">상신한문서</option>
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+
+                </div>
+            </div>
+            <div class="container-fluid">
+                <div id="theGrid" style="height: 700px;"></div>
+
+            </div>
+
+            <!--        <div class="grid_box">-->
+
+            <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
+            <!--        </div>-->
+        </section>
+
+
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <script type="text/javascript">
+        class MyApprove {
+            constructor() {
+                this.grid = null;
+                this.baseUrl = '/api/common/appr_result';
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+
+
+            }
+
+            init() {
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    columns: [
+
+
+
+                        { binding: 'BtnSearchState', header: '조회', width: 80, align: 'center' },
+                        { binding: 'BtnCollectYN', header: '회수', width: 80, align: 'center' },
+                        { binding: 'task_name', header: '업무명', width: '*', align: 'left' },
+                        { binding: 'Title', header: '결재명', width: '*', align: 'left' },
+                        { binding: 'StateName', header: '결재상태', width: 100, align: 'center' },
+                        { binding: 'LineName', header: '결재현황', width: '*', minWidth: 200, align: 'left' },
+                        { binding: 'ReqDate', header: '상신일', width: 200, align: 'center' },
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            const col = s.columns[e.col];
+                            const item = e.panel.rows[e.row].dataItem;
+
+                            // 결재현황 (LineName) 처리
+                            if (col.binding === 'LineName') {
+                                e.cell.innerHTML = CommonUtil.convertApprLineNameHtml(item.LineName, item.LineNameState);
+                            }
+
+                            if (col.binding === 'BtnSearchState') {
+
+                                e.cell.innerHTML = ''; // 기존 셀 콘텐츠 제거
+                                const button = document.createElement('button');
+                                button.className = 'btn-default';
+                                button.style.cssText = 'width: 100%; height: 25px;';
+                                button.textContent = '조회';
+                                button.addEventListener('click', () => {
+
+                                    _this.detail({item}, 'search');
+
+                                });
+                                e.cell.appendChild(button);
+
+                            }
+                        }
+                    },
+                });
+
+                /*this.grid.selectionChanged.addHandler((s, e) => {
+
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+
+                        /!*_this.detail(selectedRowData.id);*!/
+
+                        console.log(`선택된 행 인덱스: ${selectedRowIndex}`);
+                        console.log('선택된 행 데이터:', selectedRowData);
+
+                    }
+                });*/
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '결재문서';
+
+
+            }
+
+            detail(data, flag){
+                let _this = this;
+                console.log(JSON.stringify(data, null, 2)); // JSON 형태로 보기
+                console.dir(data, { depth: null }); // 모든 속성을 펼쳐보기
+
+
+
+                // console.log('data', data.item);
+                // console.log('data', data);
+                // console.log('data2', [data]);
+                //
+
+                let guiUrl = data.item.OriginGui;
+                let guiParam = JSON.parse(data.item.OriginGuiParam);
+                let param = '?appr_view=wm_common_my_approve';
+                for (let key in guiParam) {
+                    param += '&' + key + '=' + guiParam[key];
+                }
+
+                console.log('url2', guiUrl + param + '&view_mode=true' + _this.createSearchCond('&'));
+
+                location.href = guiUrl + param + '&view_mode=true' + _this.createSearchCond('&');
+
+                //TODO: 이거 결재 회수도 있는데 동작원리를 모르겠음.
+            }
+
+            // 검색조건만들기
+            createSearchCond(t) {
+                return t + 'date_from=' + $('#date_from').val() + '&date_to' + $('#date_to').val() + '&cboState' + $('#cboState').val() + '&cboTaskName' + $('#cboTaskName').val();
+            }
+
+            searchMainData() {
+                let _this = this;
+
+                let param = {
+                    'from_date': $('#date_from').val(),
+                    'to_date': $('#date_to').val(),
+                    'tm_id': $('#cboTaskName').val(),
+                    'state': $('#cboState').val(),
+                }
+
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl+'/my_approve_list', param);
+
+                if (result.data != null) {
+                    _this.viewData.sourceCollection = result.data;
+                }
+            }
+
+        }
+
+
+        let page = null;
+
+
+        $(document.body).ready(function (e) {
+            page = new MyApprove();
+
+
+            AjaxUtil.fillSelectOptions($('#cboTaskName'), 'task_master', 'choose', '');
+
+            $('#date_from').val(CommonUtil.getYYYYMMDD(-30));
+            $('#date_to').val(CommonUtil.getYYYYMMDD());
+
+
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+
+            // page.setSearchCond();
+            page.searchMainData();
+
+        });
+
+    </script>
+</th:block>
+</html>

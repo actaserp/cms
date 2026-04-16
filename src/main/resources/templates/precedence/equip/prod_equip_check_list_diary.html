@@ -1,0 +1,852 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <input type="hidden" id="bhId" th:value="${bh_id}"/>
+        <input type="hidden" id="viewMode" th:value="${view_mode}"/>
+        <input type="hidden" id="apprView" th:value="${appr_view}"/>
+        <input type="hidden" id="checkMasterId" th:value="${check_master_id}"/>
+        <input type="hidden" id="createrName" th:value="${creater_name}"/>
+
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>설비점검 일지</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>일지 및 데이터</li>
+                <li>선행요건일지</li>
+                <li>설비점검일지</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label>일지명</label>
+                        </dt>
+                        <dd>
+                            <input type="text" class="form-control2 tac" id="title" name="title" style="width: 150px;">
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            일자<span class="eq"></span>
+                        </dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li>
+                                    <input class="tac w150 date_from " type="date" id="srchStartDt" name="srchStartDt"/>
+                                    <label for="srchStartDt" class="hide">시작일</label>
+                                </li>
+                                <li>
+                                    <input class="tac w150 date_to" type="date" id="srchEndDt" name="srchEndDt"/>
+                                    <label for="srchEndDt" class="hide">종료일</label>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            <label>작성자</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" class="form-control2" id="firstName" name="firstName" readonly
+                                       style="width: 150px;">
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
+                            <label>점검</label>
+                        </dt>
+                        <dd>
+                            <select class="form-control2 tac" id="cboCheck" name="cboCheck"
+                                    style="width: 200px;"></select>
+                        </dd>
+                    </dl>
+
+                    <div>
+                        <div id="approveBox"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="grid_box" id="prodListGrid">
+                <div class="title_box">
+                   <span class="right_align rpt" data-labelCd="점검 목록">점검 목록</span>
+                    <!-- <button type="button" class="btn-default" id="btnExcel"><i class="fas fa-file-excel"></i></button>-->
+                    <button type="button" class="btn-default" id="btnDiaryPrint">일지출력</button>
+                    <button type="button" class="btn-default" id="btnAllItem">전체적합</button>
+                    <button type="button" class="btn-default" id="btnReqAppr">결재상신</button>
+                    <button type="button" class="btn-default" id="btnAppr" style="display:none;">승인</button>
+                    <button type="button" class="btn-cancel" id="btnReject" style="display:none;">반려</button>
+                    <button type="button" class="btn-default" id="btnSave">저장</button>
+                    <button type="button" class="btn-cancel btn-danger" id="btnDelete" style="width: 124px; height: 48px;">삭제</button>
+                    <button type="button" class="btn-default" id="btnList">목록</button>
+                </div>
+                <!-- <div class="grid_box" id="complainList">
+                     <div class="h-380" data-ax5grid="check_item_result_grid" ></div>
+                 </div>-->
+                <div class="container-fluid">
+                    <p id="selectedItem"></p>
+                    <div id="check_item_result_grid" style="height: 380px; max-height: 380px;"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <!-- <div class="grid_box" id="sub_grid">
+                 <div class="h-200" data-ax5grid="devi_action_grid"></div>
+             </div>-->
+            <div class="container-fluid">
+                <p id="selectedItem"></p>
+                <div id="devi_action_grid" style="height: 200px; max-height: 200px;"></div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/approve_box :: approve_box"></th:block>
+    <th:block th:replace="/common/popup_select_user_code.html :: popup_select_user_code"></th:block>
+    <script type="text/javascript">
+        class EquipResultDiaryPage {
+            constructor() {
+                this.grid = null;
+                this.grid2 = null;
+                this.approveBoxUtil = null;
+                this.check_class_code = '시설/설비/제조도구 점검표';
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+                this.baseUrl = '/api/precedence/equip_check_list';
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+                /*let resultConfig = {
+                    target: $('[data-ax5grid="check_item_result_grid"]'),
+                    frozenColumnIndex: 0, // 열 고정
+                    frozenRowIndex: 0,    // 행 고정
+                    showLineNumber: false, // 열의 번호 보이기 여부
+                    showRowSelector: false,  // checkbox(선택) 보이기 여부
+                    multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                    sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                    multiSort: false, // 다중 정렬 여부
+                    header: {
+                        align: 'center',  // 헤더의 기본 정렬
+                        columnHeight: 25  // 헤더 높이
+                    },
+                    body: {
+                        columnHeight: 25, // body의 기본 높이
+                        mergeCells: ["group1"],
+                        onClick: function (e) {
+                            if (e.column.key == 'result1' && !$('#viewMode').val()) {
+                                if (e.item.result1 == null && e.item.result_type == 'OX') {
+                                    e.item.result1 = 'O';
+                                    _this.resultGrid.repaint();
+                                }
+                                else if (e.item.result1 == 'O' && e.item.result_type == 'OX') {
+                                    e.item.result1 = 'X';
+                                    _this.resultGrid.repaint();
+                                }
+                                else if (e.item.result1 == 'X' && e.item.result_type == 'OX') {
+                                    e.item.result1 = null;
+                                    _this.resultGrid.repaint();
+                                }
+                            }
+                        }
+                    },
+                    page: {
+                        display: true,  // 페이징 보이기 여부
+                        statusDisplay: true,
+                    },
+                    columns: [
+                        { key: 'id', label: '번호', width: 100, align: 'right' },
+                        { key: 'group1', label: '구분1', width: 130, align: 'left' },
+                        { key: 'group2', label: '구분2', width: 130, align: 'left' , hidden: true},
+                        { key: 'group3', label: '구분3', width: 130, align: 'left', hidden: true },
+                        { key: 'item_name', label: '점검항목명', width: 450, align: 'left' },
+                        {
+                            key: 'result1', label: '<span class="editable_clr">점검결과(입력)</span>', width: 150, align: 'center',
+                            editor: {
+                                type: 'text', config: {}
+                            },
+                         },
+                    ]
+                }
+                this.resultGrid = new ax5.ui.grid(resultConfig);
+                this.result_grid_config = resultConfig;*/
+
+                this.grid = new wijmo.grid.FlexGrid('#check_item_result_grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false, // 클릭 이벤트를 처리하려면 편집 가능 상태로 설정
+                    allowMerging: wijmo.grid.AllowMerging.Cells, // 셀 병합 활성화
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        { binding: 'id', header: '번호', width: 100, align: 'right' },
+                        { binding: 'group1', header: '구분1', width: 170, align: 'left', allowMerging: true }, // 병합 활성화
+                        { binding: 'group2', header: '구분2', width: 130, align: 'left', visible: false },
+                        { binding: 'group3', header: '구분3', width: 130, align: 'left', visible: false },
+                        { binding: 'item_name', header: '점검항목명', width: 450, align: 'left' },
+                        {
+                            binding: 'result1',
+                            header: '점검결과(입력)',
+                            width: 150,
+                            align: 'center',
+                        },
+                        { binding: '', header: '', width: "*", align: 'left' },
+                    ],
+                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                });
+
+// FlexGrid의 셀 클릭 이벤트 처리
+                this.grid.hostElement.addEventListener('click', (e) => {
+                    let ht = this.grid.hitTest(e); // 클릭된 셀의 정보 확인
+                    if (ht.panel === this.grid.cells) {
+                        let item = this.grid.rows[ht.row].dataItem;
+                        let column = this.grid.columns[ht.col];
+
+                        // 'result1' 열 클릭 시 동작
+                        if (column.binding === 'result1' && !$('#viewMode').val()) {
+                            if (item.result1 == null && item.result_type === 'OX') {
+                                item.result1 = 'O';
+                            } else if (item.result1 === 'O' && item.result_type === 'OX') {
+                                item.result1 = 'X';
+                            } else if (item.result1 === 'X' && item.result_type === 'OX') {
+                                item.result1 = null;
+                            }
+                            this.grid.invalidate(); // 그리드 다시 렌더링
+                        }
+
+                    }
+                });
+
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '점검현황 점검목록';
+
+
+                /*let devi_action_config = {
+                        target: $('[data-ax5grid="devi_action_grid"]'),
+                        frozenColumnIndex: 0, // 열 고정
+                        frozenRowIndex: 0,    // 행 고정
+                        showLineNumber: false, // 열의 번호 보이기 여부
+                        showRowSelector: false,  // checkbox(선택) 보이기 여부
+                        multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                        sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                        multiSort: false, // 다중 정렬 여부
+                        header: {
+                            align: 'center',  // 헤더의 기본 정렬
+                            columnHeight: 38  // 헤더 높이
+                        },
+                        body: {
+                            columnHeight: 25, // body의 기본 높이
+                            onClick: function (e) {
+                                _this.deviResultGrid.select(this.dindex);
+
+                                if (e.column.key == 'action_detail' && !$('#viewMode').val()) {
+                                    _this.showDeviActionCodeSavePopup(e.item);
+                                }
+                            },
+                            onDataChanged: function (e) {
+                            }
+                        },
+                        page: {
+                            display: true,  // 페이징 보이기 여부
+                            statusDisplay: false,
+                        },
+                        columns: [
+                            { key: 'id', label: '번호', width: 80, align: 'right', hidden:true },
+                            { key: 'src_data_pk', label: '점검항목결과번호', width: 80, align: 'right', hidden:true},
+                            //{ key: 'happen_date', label: '발생일', width: 80, align: 'left' },
+                            { key: '_order', label: '순번', width: 50, align: 'center' },
+                            { key: 'abnormal_detail', label: '이상발생내역', width: 400, align: 'left' },
+                            { key: 'action_detail', label: '<span class="editable_clr">조치내역및결과</span>', width: 250, align: 'left', editor: {} },
+                            { key: 'actor_name', label: '조치자', width: 80, align: 'left' },
+                            { key: 'creater_name', label: '작성자', width: 80, align: 'left' },
+                            { key: 'confirm_state', label: '확인', width: 80, align: 'left', hidden:true },
+                        ]
+                };
+                this.deviResultGrid = new ax5.ui.grid(devi_action_config);
+                _this.deviTabType = this.deviResultGrid;*/
+
+                this.grid2 = new wijmo.grid.FlexGrid('#devi_action_grid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true, // 편집 가능하도록 설정
+                    allowSorting: false, // 정렬 비활성화 (선택 사항)
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+
+                            // "조치내역및결과" 헤더에 클래스 적용
+                            if (s.columns[e.col].binding === 'action_detail') {
+                                e.cell.innerHTML = '<span class="editable_clr">조치내역및결과</span>';
+                            }
+                        }
+                    },
+                    columns: [
+                        { binding: 'id', header: '번호', width: 120, align: 'right', visible: false },
+                        { binding: 'src_data_pk', header: '점검항목결과번호', width: 100, align: 'right', visible: false },
+                        { binding: '_order', header: '순번', width: 50, align: 'center', visible: false },
+                        { binding: 'abnormal_detail', header: '이상발생내역', width: 500, align: 'left' },
+                        {
+                            binding: 'action_detail',
+                            header: '조치내역및결과',
+                            width: 300,
+                            align: 'left',
+                            isReadOnly: false // 편집 가능
+                        },
+                        { binding: 'actor_name', header: '조치자', width: 150, align: 'center' },
+                        { binding: 'creater_name', header: '작성자', width: 150, align: 'center' },
+                        { binding: 'confirm_state', header: '확인', width: 80, align: 'left', visible: false },
+                        { binding: '', header: '', width: "*", align: 'left' },
+                    ],
+                    itemsSource: this.viewData2, // 데이터를 설정할 배열
+                });
+
+                this.grid2.hostElement.addEventListener("click", function (e) {
+                    let ht = _this.grid2.hitTest(e);
+
+                    if (!ht || ht.cellType !== wijmo.grid.CellType.Cell) {
+                        console.log("셀 클릭이 아님");
+                        return;
+                    }
+
+                    let col = _this.grid2.columns[ht.col];
+                    let item = _this.grid2.rows[ht.row]?.dataItem;
+
+                    // action_detail 컬럼 클릭 시, viewMode가 비어있거나 "true"일 때 팝업 실행
+                    if (col?.binding === 'action_detail' && (!$('#viewMode').val() || $('#viewMode').val() === "" || $('#viewMode').val() === "true")) {
+                        console.log("팝업 실행");
+
+                        // action_detail이 null이면 빈 문자열로 설정
+                        item.action_detail = item.action_detail || "";
+
+                        // 유효한 행인지 체크 후 select 실행
+                        if (ht.row != null && ht.row >= 0 && ht.row < _this.grid2.rows.length) {
+                            // 셀 범위로 선택 처리
+                            let cellRange = new wijmo.grid.CellRange(ht.row, ht.col);  // 셀 범위 객체 생성
+                            _this.grid2.select(cellRange); // CellRange 객체로 셀 선택
+                        }
+
+                        _this.showDeviActionCodeSavePopup(item);
+                    } else {
+                        console.log("팝업 실행 안 됨");
+                    }
+                });
+
+                new FlexGridContextMenu(this.grid2);
+                this.grid.downloadFileName = '점검현황 조치내역';
+
+
+            }
+
+            checkAllItem() {
+                let _this = this;
+                let itemsSource = _this.grid.itemsSource;
+
+                // itemsSource가 CollectionView인 경우 내부 데이터 배열을 접근
+                if (itemsSource && itemsSource.items) {
+                    let items = itemsSource.items;  // CollectionView의 내부 배열 접근
+
+                    // 각 항목을 순회하여 result1 값을 'O'로 설정
+                    items.forEach(function (item) {
+                        if (item.result_type === 'OX') {
+                            item.result1 = 'O';
+                        }
+                    });
+
+                    // CollectionView의 변경 사항 반영
+                    itemsSource.refresh();  // 데이터를 갱신하여 그리드에 반영
+                } else {
+                    console.error('itemsSource가 CollectionView이 아니거나 내부 배열에 접근할 수 없습니다.');
+                }
+            }
+
+
+
+
+            // 일지 조회
+            searchMainData() {
+                let _this = this;
+                $('#btnDiaryPrint').hide();
+                $('#btnDelete').hide();
+
+                $('#firstName').val(userinfo.username);
+                $('#title').val('설비점검 일지');
+
+                if ($('#bhId').val() > 0) {
+                    let param = {
+                        'action': 'read',
+                        'bh_id': $('#bhId').val(),
+                    };
+                    let result = AjaxUtil.getSyncData(_this.baseUrl + '/read', param);
+                    if (result.data != null) {
+                        let headInfo = result.data.head_info;
+                        let diaryInfo = result.data.diary_info;
+                        let itemDeviResult = result.data.item_devi_result
+
+                        $('#title').val(headInfo.Title);
+                        $('#srchStartDt').val(headInfo.StartDate);
+                        $('#srchEndDt').val(headInfo.EndDate);
+                        $('#firstName').val(headInfo.FirstName);
+                        $('#cboCheck').val(headInfo.CheckMasterId);
+
+                        _this.apprSetting(headInfo.CheckMasterId)
+
+                        console.log(result.data);
+                        // diaryInfo 배열을 viewData.sourceCollection에 할당
+                        _this.viewData.sourceCollection = Array.isArray(diaryInfo) ? diaryInfo : [diaryInfo];
+
+
+                        _this.viewData2.sourceCollection = itemDeviResult;
+
+                        _this.viewModeSetting(headInfo)
+                    }
+
+                } else if ($('#cboCheck').val() == '') {
+                    _this.viewData.sourceCollection = result.data;
+                } else {
+                    _this.searchItemList();
+                }
+
+            }
+
+            apprSetting(checkMasterId) {
+                // 결재 업무명과 checkmaster의 이름이 동일해야 가능
+                let _this = this;
+                let param = {
+                    'action': 'appr_list',
+                    'check_master_id': checkMasterId,
+                }
+
+                let result = AjaxUtil.getSyncData(_this.baseUrl + '/appr_list', param);
+
+                _this.approveBoxUtil = new ApproveBoxUtil(0, result.data.code, $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+            }
+
+            viewModeSetting(headInfo) {
+                // 데이터에 따른 버튼 설정
+                if ($('#viewMode').val().toLowerCase() == 'true') {
+                    //보기 모드일 경우 CRUD 버튼 숨김
+                    $('#btnDiaryPrint').hide();
+                    $('#btnReqAppr').hide();
+                    $('#btnSave').hide();
+                    $('#btnDelete').hide();
+                    $('#btnAllItem').hide();
+                    if (headInfo.State == 'approval') {
+                        $('#btnDiaryPrint').show();
+                    }
+
+                    $('#title').attr('disabled', 'disabled');
+                    $('#srchStartDt').attr('disabled', 'disabled');
+                    $('#srchEndDt').attr('disabled', 'disabled');
+                    $('#cboCheck').attr('disabled', 'disabled');
+
+                } else {
+                    // State : 작성, 미결재, 승인, 반려, 재상신
+                    $('#btnDelete').show();
+                    $('#btnDiaryPrint').hide();
+                    if (headInfo.State == 'process' || headInfo.State == 'reprocess') {
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        $('#btnAllItem').hide();
+                    } else if (headInfo.State == 'approval') {
+                        $('#btnDiaryPrint').show();
+                        $('#btnReqAppr').hide();
+                        $('#btnSave').hide();
+                        $('#btnDelete').hide();
+                        $('#btnAllItem').hide();
+                    }
+
+                    if (parseInt($('#bhId').val(), 10) > 0) {
+                        $('#srchStartDt').attr('disabled', 'disabled');
+                        $('#srchEndDt').attr('disabled', 'disabled');
+                        $('#cboCheck').attr('disabled', 'disabled');
+                    } else {
+                        $('#btnDelete').hide();
+                    }
+                }
+            }
+
+            searchItemList() {
+                let _this = this;
+
+                let param = {
+                    'action': 'read',
+                    'check_master_id': $('#cboCheck').val(),
+                    'start_date': $('#srchStartDt').val(),
+                    'end_date': $('#srchEndDt').val(),
+                }
+
+                let result = AjaxUtil.getSyncData('/api/check/check_item/read', param);
+                _this.apprSetting($('#cboCheck').val())
+
+                result.data.forEach(function (item, idx) {
+                    item.result1 = null;
+                })
+
+                _this.viewData.sourceCollection = result.data;
+            }
+
+            // 일지 출력
+            printDiary() {
+                Alert.alert('', '기능 준비중입니다.');
+            }
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    $('#btnList').click();
+                });
+            }
+
+            //결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit';
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'start_date': $('#srchStartDt').val(),
+                    'end_date': $('#srchEndDt').val(),
+                };
+
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+            // 점검내역 조치내역 팝업
+            showDeviActionCodeSavePopup(item) {
+                let _this = this;
+
+                // grid2에서 선택된 행 가져오기
+                let selectedRow = _this.grid2.selection.row > -1 ? _this.grid2.rows[_this.grid2.selection.row] : null;
+                let tempResult = selectedRow ? selectedRow.dataItem : {};
+
+                // item이 없을 경우 대비
+                let checkName = item?.check_name || tempResult?.abnormal_detail || "N/A";
+
+                let popupPage = new PopupSelectUserCodePage({
+                    'title': '점검내역 선택',
+                    'gridValueLabel': '점검항목',
+                    'infoData': [
+                        {label: '이상발생내역', value: checkName},
+                    ],
+                    'parentCode': '설비관리점검표',
+                    'closeManual': true,
+                });
+
+                popupPage.show(function (data) {
+                    if (data && data.selected?.Code === '직접입력') {
+                        tempResult.action_detail = data.input;
+                    } else {
+                        tempResult.action_detail = data.selected?.Value || "";
+                    }
+                    popupPage.close();
+                    _this.grid2.refresh();
+
+                    if (tempResult.action_detail) {
+                        _this.saveDeviAction();
+                    }
+                });
+            }
+
+
+            saveDeviAction() {
+                let _this = this;
+                let url = '/api/common/devi_action/save_multi_devi_action';
+                let happen_place = $('#cboCheck').text();
+
+                // `itemsSource`에서 실제 데이터를 추출하여 JSON으로 변환 (sourceCollection 사용)
+                let data = {
+                    data_pk: $('#bhId').val(),
+                    table_name: 'prod_equip_check_list',
+                    happen_date: CommonUtil.getYYYYMMDD(),
+                    happen_place: happen_place,
+                    // itemsSource에서 데이터를 가져와 배열로 처리
+                    Q: JSON.stringify(_this.grid2.itemsSource.sourceCollection.slice()) // sourceCollection을 배열로 변환 후 복사
+                };
+
+                let fnSuccess = function () {
+                    Alert.alert('', '저장되었습니다');
+                }
+
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+
+
+
+            //저장
+            save(isAppr) {
+                let _this = this;
+                let resultNullCheck = false;
+
+                // CollectionView의 sourceCollection을 사용하여 데이터 가져오기
+                let gridData = _this.grid.itemsSource.sourceCollection;
+
+                // 데이터가 비어 있거나 정의되지 않은 경우 처리
+                if (!gridData || gridData.length === 0) {
+                    Alert.alert("", "점검결과를 모두 입력해주세요.");
+                    return;
+                }
+
+                // 데이터의 각 항목에 대해 점검
+                for (let i = 0; i < gridData.length; i++) {
+                    if (gridData[i].result1 == null || gridData[i].result1 === '') {
+                        resultNullCheck = true;
+                    }
+                }
+
+                /*console.log(_this.grid.itemsSource);*/
+
+                let callback = function () {
+                    let items = [];
+
+                    // gridData에서 데이터를 추출하여 배열로 추가
+                    $.each(gridData, function (idx, item) {
+                        items.push({ id: item.id, 'result1': item.result1, 'order': item.__original_index });
+                    });
+
+                    let data = {
+                        bh_id: $('#bhId').val(),
+                        title: $('#title').val(),
+                        check_master_id: $('#cboCheck').val(),
+                        data_date: CommonUtil.getYYYYMMDD(),
+                        start_date: $('#srchStartDt').val(),
+                        end_date: $('#srchEndDt').val(),
+                        Q: JSON.stringify(items),
+                    };
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            $('#bhId').val(resp.data.id);
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                Notify.success('저장하였습니다.');
+                                $('#btnDelete').show();
+                                $('#srchStartDt').attr('disabled', 'disabled');
+                                $('#srchEndDt').attr('disabled', 'disabled');
+                                $('#cboCheck').attr('disabled', 'disabled');
+                                _this.searchMainData();
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+
+                    // 결재요청 시 추가 체크
+                    if (isAppr) {
+                        // Grid1과 Grid2에서 데이터를 가져옵니다. getList() 대신 itemsSource로 접근할 수 있습니다.
+                        let checkGrid1 = _this.grid.itemsSource ? _this.grid.itemsSource.sourceCollection : [];
+                        let checkGrid2 = _this.grid2.itemsSource ? _this.grid2.itemsSource.sourceCollection : [];
+
+                        // checkGrid1에서 result1이 "X"인 항목을 필터링
+                        let result = checkGrid1.filter(function (e) {
+                            return e.result1 === "X";
+                        });
+
+                        // result가 존재하면 checkGrid2가 비어있는지 체크
+                        if (result.length > 0 && checkGrid2.length === 0) {
+                            Alert.alert('결재상신', '조치내역을 입력해주세요.');
+                            return;
+                        }
+
+                        // checkGrid2에서 action_detail이 빈 값인 항목을 필터링
+                        let result2 = checkGrid2.filter(function (e) {
+                            return !e.action_detail || e.action_detail.trim() === "";
+                        });
+
+                        if (result2.length > 0) {
+                            Alert.alert('결재상신', '조치내역을 입력해주세요.');
+                            return;
+                        }
+                    }
+
+
+                    // 데이터 전송
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/save', data, fnSuccess);
+                };
+
+                // 점검결과가 비어 있는 경우 처리
+                if (resultNullCheck) {
+                    Alert.alert("", "점검결과를 모두 입력해주세요.");
+                    return;
+                } else if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                } else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+
+
+
+            //삭제
+            delete() {
+                let _this = this;
+                Alert.confirm('', '삭제하시겠습니까?', function () {
+                    // 삭제 서비스 호출
+                    let param = {
+                        bh_id: $('#bhId').val(),
+                    }
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            Notify.success('삭제하였습니다.');
+                            $('#btnList').click();
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    };
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/mst_delete', param, fnSuccess);
+                });
+            }
+
+            // 엑셀 다운로드
+            exportExcel() {
+                var targetview = this.resultGrid;
+                targetview.exportExcel('설비점검목록.xls');
+            }
+        }
+
+
+        let page = null;
+
+        $(document).ready(function (e) {
+            page = new EquipResultDiaryPage();
+
+            $('#srchDt').ax5DatePicker({direction: 'top'});
+            $('#srchDt').change(function () {
+                page.searchMainData();
+            });
+
+            picker.bind({
+                target: $('[data-ax5picker="multi"]'),
+                direction: "top",
+                content: {
+                    width: 206,  //130 270
+                    margin: 10,
+                    type: 'date',
+                    config: {
+                        control: {
+                            left: '<i class="fa fa-chevron-left"></i>',
+                            yearTmpl: '%s',
+                            monthTmpl: '%s',
+                            right: '<i class="fa fa-chevron-right"></i>'
+                        },
+                        lang: {
+                            yearTmpl: "%s년",
+                            months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                            dayTmpl: "%s"
+                        }
+                    }
+                }
+
+            });
+
+            AjaxUtil.fillSelectOptions($('#cboCheck'), 'check_master', '', '', page.check_class_code);
+
+            $('#cboCheck').change(function () {
+                page.searchMainData();
+            });
+
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-15));
+
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+            // 전체 적합
+            $('#btnAllItem').click(function (e) {
+                page.checkAllItem();
+            });
+
+            // 일지 출력
+            $('#btnDiaryPrint').on('click', function () {
+                page.printDiary();
+            });
+
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+
+            // 임시저장
+            $('#btnSave').on('click', function () {
+                page.save(false);
+            });
+
+            // 삭제
+            $('#btnDelete').on('click', function () {
+                page.delete();
+            });
+
+            // 목록
+            $('#btnList').on('click', function () {
+                //if (gparam.appr_view) {
+                //   location.href = '/gui/' + gparam.appr_view + '?searchcond=' + gparam.searchcond;
+                //}
+                // else {
+                location.href = '/gui/' + gui.gui_code //+ '?searchcond=' + gparam.searchcond;
+                //  }
+            });
+
+            // 엑셀 다운로드
+            $('#btnExcel').on('click', function () {
+                page.exportExcel();
+            });
+
+            page.searchMainData();
+
+        });
+    </script>
+</th:block>
+</html>

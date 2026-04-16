@@ -1,0 +1,564 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wx210{
+            width: 210px !important;
+        }
+        .wx190{
+            width: 150px !important;
+        }
+
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>HACCP 항목기준</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP 기준정보</li>
+                <li>HACCP 항목기준</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <form id="searchForm" autocomplete="off">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>
+                                    HACCP 공정<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <select class="form-control2" id="cboHaccpProcess" name="HaccpProcess_id"></select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label>
+                                    제품그룹<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <select class="form-control2" id="cboMaterialGroup" name="MaterialGroup_id"></select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
+                                <label>
+                                    제품<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <select class="form-control2" id="cboMaterial" name="Material_id"></select>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </form>
+            </div>
+            <div class="grid_box">
+                <div class="title_box">
+                    <button type="button" class="btn-default" id="btnNew" name="btnNew"><i class="fas fa-plus"></i></button>
+                    <button type="button" class="btn-default" id="btnSave"><i class="fas fa-save"></i></button>
+                </div>
+
+            </div>
+            <div id="theGrid" style="height: 500px;"></div>
+
+        </section>
+    </div>
+
+    <script type="text/x-tmpl" id="add_haccp_item_limit_tmpl">
+        <section class="section" style="border-bottom: none;">
+            <div class="section-top">
+                <form id="lotInputForm">
+                    <div class="search-wrap">
+                     <dl>
+                        <dt>
+                            <label>
+                                HACCP 공정<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <select class="form-control2" id="cboHaccpProcessPopup" name="HaccpProcess_id"></select>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
+                            <label>
+                                *제품<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <select class="form-control2" id="cboMaterialPopup" name="HaccpProcess_id"></select>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearchPop">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                    </div>
+                </form>
+            </div>
+            <div class="grid_box">
+                    <div class="title_box">
+                        <button type="button" class="btn-default align_left" id="btnSavePop"><i class="fas fa-save"></i></button>
+                    </div>
+                    <div id="theGrid2" style="height: 340px;"></div>
+                </div>
+            <div class="popup-button">
+
+                    <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+
+            </div>
+        </section>
+
+    </script>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+
+    <script type="text/javascript">
+
+        class HaccpProcessItemLimitPage {
+
+            constructor() {
+                this.url = '/api/haccp/haccp_item_limit';
+                this.grid = null;
+                this.$cboHaccpProcess = null;
+                this.$cboMaterial = null;
+
+
+                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData2 = new wijmo.collections.CollectionView();
+
+                this.init();
+
+            }
+
+            init(){
+                let _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false,
+                    columns: [
+                        //TODO: checking
+                        { binding: 'haccp_process_name', header: 'HACCP 공정', width: '*', align: 'center',isReadOnly: true },
+                        { binding: 'product_name', header: '제품', width: '*', align: 'left',isReadOnly: true },
+                        { binding: 'item_name', header: 'HACCP 항목', width: '*', align: 'left',isReadOnly: true },
+                        { binding: 'ResultTypeName', header: '결과값 유형', width: '*', align: 'center',isReadOnly: true },
+                        { binding: 'unit_name', header: '단위', width: '*', align: 'center',isReadOnly: true },
+                        {
+                            binding: 'LowSpec',
+                            header: '하한',
+                            maxWidth: 120,
+                            align: 'right',
+                            isReadOnly: false, // 편집 가능
+                            editor: new wijmo.input.InputNumber(document.createElement('div'), {
+                                format: 'n0', // 정수 형식
+                                min: null,       // 최소값 설정
+                                max: 99999,   // 최대값 설정
+                                step: 1,       // 증가/감소 단위
+                                isRequired: false,
+                                valueChanged: function (s) {
+                                    let grid = wijmo.Control.getControl(s.hostElement.closest('.wj-flexgrid'));
+                                    let cv = grid.collectionView;
+                                    let item = cv.currentItem;
+
+                                    if (s.value === null || s.value === '') {
+                                        item.LowSpec = null; // 빈값 유지
+                                    } else {
+                                        item.LowSpec = s.value; // 정상 값 저장
+                                    }
+
+                                    cv.refresh(); // 데이터 갱신
+                                }
+                            })
+                        },
+                        {
+                            binding: 'UpperSpec',
+                            header: '상한',
+                            maxWidth: 120,
+                            align: 'right',
+                            isReadOnly: false, // 편집 가능
+                            editor: new wijmo.input.InputNumber(document.createElement('div'), {
+                                format: 'n0', // 정수 형식
+                                min: null,       // 최소값 설정
+                                max: 99999,   // 최대값 설정
+                                step: 1,       // 증가/감소 단위
+                                isRequired: false,
+                                valueChanged: function (s) {
+                                    let grid = wijmo.Control.getControl(s.hostElement.closest('.wj-flexgrid'));
+                                    let cv = grid.collectionView;
+                                    let item = cv.currentItem;
+
+                                    if (s.value === null || s.value === '') {
+                                        item.UpperSpec = null; // 빈값 유지
+                                    } else {
+                                        item.UpperSpec = s.value; // 정상 값 저장
+                                    }
+
+                                    cv.refresh(); // 데이터 갱신
+                                }
+                            })
+                        },
+                        {
+                            binding: 'SpecText',
+                            header: '한계기준설명',
+                            width: '*',
+                            align: 'left',
+                            isReadOnly: false, // 편집 가능
+
+                        }
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                            const column = s.columns[e.col];
+                            if (column.binding === 'LowSpec' || column.binding === 'UpperSpec' || column.binding === 'SpecText') {
+                                e.cell.style.color = 'rgb(85, 103, 255)'; // 텍스트 색상 설정
+                                e.cell.style.fontWeight = 'bold'; // 텍스트 굵게
+                            }
+                        }
+                    },
+                });
+
+                this.grid.selectionChanged.addHandler((s, e) => {
+
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+
+                        _this.showDetail(selectedRowData.hp_id);
+
+                        console.log(`선택된 행 인덱스: ${selectedRowIndex}`);
+                        console.log('선택된 행 데이터:', selectedRowData);
+
+                    }
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = 'CCP 항목기준';
+
+                this.$cboHaccpProcess = $('#cboHaccpProcess');
+                this.$cboMaterial = $('#cboMaterial');
+                this.$cboMaterialGroup = $('#cboMaterialGroup');
+
+                AjaxUtil.fillSelectOptions(this.$cboHaccpProcess, 'haccp_process', 'all', false);
+                AjaxUtil.fillSelectOptions(this.$cboMaterialGroup, 'material_group', 'all', false, 'product');
+
+                let MaterialGroup_id = this.$cboMaterialGroup.val();
+                AjaxUtil.fillSelectOptions(this.$cboMaterial, 'material', 'all', false, MaterialGroup_id);
+                this.$cboMaterialGroup.change(function (e) {
+                    MaterialGroup_id = _this.$cboMaterialGroup.val();
+                    AjaxUtil.fillSelectOptions(_this.$cboMaterial, 'material', 'all', false, MaterialGroup_id);
+                });
+
+                let $btnNew = $('#btnNew');
+                $btnNew.click(function (e) {
+                    _this.showAddPopup();
+                });
+
+                let $btnSave = $('#btnSave');
+                $btnSave.click(function (e) {
+                    let items = _this.grid.collectionView.items;
+                    if (items.length === 0) {
+                        Alert.alert('항목기준 저장', '저장할 데이터가 없습니다.', function () { });
+                    } else {
+                        Alert.confirm('항목기준 저장', '저장하시겠습니까?', function () {
+                            _this.saveHaccpItemLimit(items);
+                        });
+                    }
+                });
+
+                $('#btnSearch').click(function (ex) {
+                    _this.searchDataBind();
+                });
+
+            }
+
+            showAddPopup(){
+                let _this = this;
+                let HaccpProcess_id = this.$cboHaccpProcess.val();
+                let Material_id = this.$cboMaterial.val();
+
+                let content = tmpl('add_haccp_item_limit_tmpl', {});
+                let $content = $(content);
+                let modalContainer = new PopupDraggable('HACCP 항목 기준 등록');
+                modalContainer.open({ width: 1600, height: 600, $content });
+                let $cboHaccpProcessPopup = $content.find('#cboHaccpProcessPopup');
+                let $cboMaterialPopup = $content.find('#cboMaterialPopup');
+
+                AjaxUtil.fillSelectOptions($cboHaccpProcessPopup, 'haccp_process', 'choose', HaccpProcess_id);
+                AjaxUtil.fillSelectOptions($cboMaterialPopup, 'material', 'choose', Material_id, '', '', 'product');
+
+
+                let itemGrid = new wijmo.grid.FlexGrid('#theGrid2', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: false,
+                    columns: [
+                        //TODO: checking
+                        { binding: 'haccp_process_name', header: 'HACCP 공정', width: '*', align: 'center',isReadOnly: true },
+                        { binding: 'item_name', header: 'HACCP 항목', width: '*', align: 'left', isReadOnly: true },
+                        { binding: 'unit_name', header: '단위', width: '*', align: 'center',isReadOnly: true },
+                        {
+                            binding: 'LowSpec',
+                            header: '하한',
+                            maxWidth: 120,
+                            align: 'right',
+                            isReadOnly: false, // 편집 가능
+                            editor: new wijmo.input.InputNumber(document.createElement('div'), {
+                                format: 'n0', // 정수 형식
+                                min: null,       // 최소값 설정
+                                max: 99999,   // 최대값 설정
+                                step: 1,       // 증가/감소 단위
+                                isRequired: false,
+                                valueChanged: function (s) {
+                                    let grid = wijmo.Control.getControl(s.hostElement.closest('.wj-flexgrid'));
+                                    let cv = grid.collectionView;
+                                    let item = cv.currentItem;
+
+                                    if (s.value === null || s.value === '') {
+                                        item.LowSpec = null; // 빈값 유지
+                                    } else {
+                                        item.LowSpec = s.value; // 정상 값 저장
+                                    }
+
+                                    cv.refresh(); // 데이터 갱신
+                                }
+                            })
+                        },
+                        {
+                            binding: 'UpperSpec',
+                            header: '상한',
+                            maxWidth: 120,
+                            align: 'right',
+                            isReadOnly: false, // 편집 가능
+                            editor: new wijmo.input.InputNumber(document.createElement('div'), {
+                                format: 'n0', // 정수 형식
+                                min: null,       // 최소값 설정
+                                max: 99999,   // 최대값 설정
+                                step: 1,       // 증가/감소 단위
+                                isRequired: false,
+                                valueChanged: function (s) {
+                                    let grid = wijmo.Control.getControl(s.hostElement.closest('.wj-flexgrid'));
+                                    let cv = grid.collectionView;
+                                    let item = cv.currentItem;
+
+                                    if (s.value === null || s.value === '') {
+                                        item.UpperSpec = null; // 빈값 유지
+                                    } else {
+                                        item.UpperSpec = s.value; // 정상 값 저장
+                                    }
+
+                                    cv.refresh(); // 데이터 갱신
+                                }
+                            })
+                        },
+                        {
+                            binding: 'SpecText',
+                            header: '한계기준설명',
+                            width: '*',
+                            align: 'left',
+                            isReadOnly: false // 편집 가능
+                        }
+                    ],
+                    itemsSource: this.viewData2,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                            const column = s.columns[e.col];
+                            if (column.binding === 'LowSpec' || column.binding === 'UpperSpec' || column.binding === 'SpecText') {
+                                e.cell.style.color = 'rgb(85, 103, 255)'; // 텍스트 색상 설정
+                                e.cell.style.fontWeight = 'bold'; // 텍스트 굵게
+                            }
+                        }
+                    },
+                });
+
+                this.viewData2.sourceCollection = [];
+
+
+                let popSearch = function () {
+
+                    HaccpProcess_id = $cboHaccpProcessPopup.val();
+                    Material_id = $cboMaterialPopup.val();
+                    if (HaccpProcess_id == '') {
+                        Alert.alert('검색오류', 'HACCP 공정을 선택하세요');
+                        return;
+                    }
+                    if (Material_id == '') {
+                        Alert.alert('검색오류', '제품을 선택하세요');
+                        return;
+                    }
+
+                    let param = {
+                        HaccpProcess_id: HaccpProcess_id,
+                        Material_id: Material_id
+                    };
+
+                    let fnsuccess = function (result) {
+                        //itemGrid.setData(result.data);
+                        _this.viewData2.sourceCollection = result.data;
+                    };
+                    AjaxUtil.getAsyncData(_this.url + '/haccp_item_list', param, fnsuccess);
+                };
+
+                if (HaccpProcess_id != '' && Material_id != '') {
+                    popSearch();
+                }
+
+                $content.find('#btnSearchPop').click(function (e) {
+                    popSearch();
+                });
+
+                $cboMaterialPopup.change(function (e) {
+                    Material_id = $cboMaterialPopup.val();
+                    HaccpProcess_id =$cboHaccpProcessPopup.val();
+                    if (HaccpProcess_id != '' && Material_id != '') {
+                        popSearch();
+                    }
+                });
+
+                $content.find('#btnSavePop').click(function (result) {
+
+                    if (itemGrid.collectionView.items.length === 0) {
+                        Alert.alert('저장오류', '저장할 데이터가 없습니다.');
+                        return;
+                    }
+
+                    Material_id = $cboMaterialPopup.val();
+                    if (Material_id == '') {
+                        Alert.alert('저장오류', '제품을 선택하세요');
+                        return;
+                    }
+
+                    let items = [];
+                    $.each(itemGrid.collectionView.items, function (idx, r) {
+                        let item = {
+                            LowSpec: parseFloat(r.LowSpec),
+                            UpperSpec: parseFloat(r.UpperSpec),
+                            SpecText: r.SpecText,
+                            HaccpItemLimit_id: parseInt(r.hil_id),
+                            HaccpProcess_id: parseInt(r.hp_id),
+                            HaccpItem_id: parseInt(r.item_id),
+                            Material_id: parseInt(r.Material_id)
+                        };
+                        items.push(item);
+                    });
+
+                    let strItems = JSON.stringify(items);
+                    let data = {
+                        Q: strItems
+                    };
+                    let fnsuccess = function (result) {
+                        if (result.success) {
+                            Notify.success('저장했습니다.');
+                            popSearch();
+                            _this.searchDataBind();
+                        }
+                    };
+                    let url = _this.url + "/haccp_item_limit_save";
+                    AjaxUtil.postAsyncData(url, data, fnsuccess);
+
+                });
+            }
+
+            saveHaccpItemLimit(rows) {
+                let _this = this;
+
+                let items = [];
+
+                $.each(rows, function (idx, r) {
+                    let item = {
+                        LowSpec: parseFloat(r.LowSpec),
+                        UpperSpec: parseFloat(r.UpperSpec),
+                        SpecText: r.SpecText,
+                        HaccpItemLimit_id: parseInt(r.hil_id),
+                        HaccpProcess_id: parseInt(r.hp_id),
+                        HaccpItem_id: parseInt(r.item_id),
+                        Material_id: parseInt(r.Material_id)
+                    };
+                    items.push(item);
+                });
+
+                let strItems = JSON.stringify(items);
+                let data = {
+                    Q: strItems
+                };
+
+                let fnsuccess = function (result) {
+                    if (result.success) {
+                        Notify.success('저장했습니다.');
+                        _this.searchDataBind();
+                    }
+                };
+
+                let url = this.url + "/haccp_item_limit_save";
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+            showDetail(item) {
+
+            }
+
+            searchDataBind() {
+                let _this = this;
+                let param = FormUtil.extractForm($('#searchForm'));
+                let result = AjaxUtil.getSyncData(this.url + '/read', param);
+                if (result.data != null) {
+                    _this.viewData.sourceCollection = result.data;
+                } else {
+                    _this.viewData.sourceCollection = [];
+                }
+            }
+        }
+
+
+        $(document).ready(function (e) {
+            let page = new HaccpProcessItemLimitPage();
+
+            page.searchDataBind();
+        });
+    </script>
+
+</th:block>
+</html>

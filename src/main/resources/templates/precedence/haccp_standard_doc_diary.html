@@ -1,0 +1,425 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+    <style>
+        .background-yellow {
+            background: #ffd800
+        }
+        .background-skyblue {
+            background: #00e0ff
+        }
+        .background-white {
+            background: #ffffff
+        }
+        table.type01 {
+            border-collapse: collapse;
+            text-align: left;
+            line-height: 1.5;
+            margin: 20px 10px;
+        }
+        table.type01 th {
+            width:150px;;
+            padding: 10px;
+            font-weight: bold;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+        table.type01 td {
+            width:950px;
+            padding: 10px;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>관리기준서</h2>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP 기준정보</li>
+                <li>관리기준서</li>
+            </ul>
+        </div>
+
+        <input type="hidden" id="bhId" th:value="${bh_id}" />
+        <input type="hidden" id="viewMode" th:value="${view_mode}" />
+        <input type="hidden" id="apprView" th:value="${appr_view}" />
+        <input type="hidden" id="createrName" th:value="${creater_name}" />
+
+        <section class="section">
+            <div class="section-top">
+                <div class="button-wrap">
+                    <button type="button" class="btn" id="btnReqAppr">결재상신</button>
+                    <button type="button" class="btn" id="btnAppr" style="display:none;">승인</button>
+                    <button type="button" class="btn-cancel" id="btnReject" style="display:none;">반려</button>
+                    <button type="button" class="btn" id="btnSave">저장</button>
+                    <button type="button" class="btn" id="btnList">목록</button>
+                </div>
+            </div>
+            <div class="section-card-wrap">
+
+                <div class="col-5">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">점검명</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="title" name="title" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="check_date">점검일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="check_date" name="check_date" readonly>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="creater_name">작성자</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="text" id="creater_name" name="creater_name" disabled />
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-6">
+                    <div id="approveBox"></div>
+                </div>
+            </div>
+            <!--@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ -->
+
+            <div class="section-card-wrap">
+
+                <div style="width: 100%">
+                    <form id="docForm">
+                        <input type="hidden" id="doc_id">
+                    <table class="write-table">
+                        <tbody>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="title">기준서</label>
+                            </th>
+                            <td>
+                                <select style="width: 100%" class="form-control2" id="cboDocForm" name="cboDocForm"></select>
+                            </td>
+                            <th style="text-align: center">
+                                <label for="check_date">개정일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2 tac" type="date" id="doc_date" name="doc_date" readonly/></td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="creater_name">문서명</label>
+                            </th>
+                            <td>
+                                <input style="width: 100%" class="form-control2" type="text" id="doc_name" name="doc_name" /></td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="creater_name">개정사유</label>
+                            </th>
+                            <td>
+                                <textarea class="form-control2" id="content" name="content"></textarea>
+                        </tr>
+
+                        </tbody>
+                    </table>
+                    </form>
+                </div>
+
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="grid_box" id="file_upload_div"></div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <th:block th:replace="/common/approve_box :: approve_box" ></th:block>
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader" ></th:block>
+    <script type="text/javascript" th:src="@{/js/fileupload.js}"></script>
+    <script type="text/javascript">
+        class HaccpStandardDocDiaryPage {
+            constructor() {
+                this.grid = null;
+                this.approveBoxUtil = null;
+                this.appr_view = null;
+                this.baseUrl = '/api/haccp/haccp_standard';
+
+                this.viewData = new wijmo.collections.CollectionView();
+
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+
+                $('#title').val('관리기준서');
+                //view mode
+                if ($('#viewMode').val().toLowerCase() == 'true') {
+                    $('#title').attr('disabled', 'disabled');
+                    $('#check_date').attr('disabled', 'disabled');
+                    $('#btnSave').hide();
+                    $('#btnReqAppr').hide();
+                    $('#cboDocForm').attr('disabled', 'disabled');
+                    $('#doc_date').attr('disabled', 'disabled');
+                    $('#doc_name').attr('disabled', 'disabled');
+                    $('#content').attr('disabled', 'disabled');
+
+                }
+            }
+
+            // 일지 리스트
+            searchMainData() {
+                let _this = this;
+
+                if ($('#bhId').val() > 0) {
+                    let param = {
+                        'action': 'result_list',
+                        'bh_id': $('#bhId').val(),
+                    }
+
+                    let result = AjaxUtil.getSyncData(_this.baseUrl + '/result_list', param);
+                    if (result.data != null) {
+                        console.log('detail', result.data);
+                        _this.mst_info = result.data.mst_info;
+                        _this.detail_info = result.data.detail_info;
+
+                        $('#check_date').val(_this.mst_info.DataDate);
+                        $('#title').val(_this.mst_info.title);
+                        $('#creater_name').val(_this.mst_info.createName);
+
+                        $('#doc_id').val(_this.detail_info.doc_id)
+                        $('#cboDocForm').val(_this.detail_info.cboDocForm)
+                        $('#doc_date').val(_this.detail_info.doc_date)
+                        $('#doc_name').val(_this.detail_info.doc_name)
+                        $('#content').val(_this.detail_info.content)
+                    }
+
+                    page.setUploader($('#bhId').val(), $('#viewMode').val().toLowerCase() );
+                } else {
+
+                    page.setUploader(-1, false);
+                }
+
+                _this.approveBoxUtil = new ApproveBoxUtil(0, '관리기준서', $('#bhId').val(), 'bundle_head', false, false);
+                _this.approveBoxUtil.print($('#viewMode').val());
+                if (_this.approveBoxUtil.isApprUser()) {
+                    // 결재자의 경우 버튼 처리
+                    $('#btnAppr').show();
+                    $('#btnReject').show();
+                }
+
+            }
+
+            save(isAppr) {
+                let _this = this;
+                let callback = null;
+
+                callback = function () {
+
+                    let form = FormUtil.extractForm($('#docForm'))
+
+                    let data = {
+                        bh_id: $('#bhId').val(),
+                        doc_id: $('#doc_id').val(),
+                        check_date: $('#check_date').val(),
+                        title: $('#title').val(),
+                        cboDocForm: form.cboDocForm,
+                        content: form.content,
+                        doc_date: form.doc_date,
+                        doc_name: form.doc_name,
+                        fild_id: $("#srchFileId").val()
+                    }
+
+
+                    let fnSuccess = function (resp) {
+                        if (resp.success) {
+                            $('#bhId').val(resp.data.id);
+                            if (isAppr) {
+                                // 결재요청
+                                _this.reqAppr();
+                            } else {
+                                // 임시저장
+                                Notify.success('저장하였습니다.');
+                                $('#btnDelete').show();
+                                _this.searchMainData();
+
+                            }
+                        } else {
+                            Alert.alert('', resp.message);
+                        }
+                    }
+
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/save', data, fnSuccess);
+                }
+
+                if (isAppr) {
+                    Alert.confirm('', '결재상신하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+                else {
+                    Alert.confirm('', '저장하시겠습니까?', function () {
+                        callback();
+                    });
+                }
+            }
+
+            setUploader(id, viewFlag) {
+                let _this = this;
+
+                //if (_this.uploader)
+                //    return;
+
+                let accept_files = 'zip,pdf,hwp,doc,docx';
+                let accept = '.' + accept_files.split(',').join(',.');
+
+                if (id > 0){
+                    $('#DataPk').val(id);
+                    //파일조회
+                    let attparam = { "action": 'detailFiles', "TableName": "doc_result", 'DataPk': id, "attachName": 'basic' };
+                    YuFileUploader.getAttachFiles(attparam);
+                }
+                let uploader = new ax5FileUploadClass('file_upload_div', id,
+                    {
+                        table_name: 'doc_result',
+                        attach_name: 'basic',
+                        accept_files: 'zip,pdf,hwp,doc,docx',
+                        multiple: true,
+                        max_count: 5,
+                        file_size: 100,
+                        upload_callback: function (param) { },
+                        delete_callback: function (param) { },
+                        can_write: userinfo.can_write() && !viewFlag,
+                    });
+
+            }
+
+            //결재
+            appr(isAppr) {
+                let _this = this;
+                _this.approveBoxUtil.approval(isAppr, function () {
+                    $('#btnList').click();
+                });
+            }
+
+            // 결재상신
+            reqAppr() {
+                let _this = this;
+                let title = $('#title').val();
+                let url = '/gui/' + gui.gui_code + '/edit'
+                let urlParam = {
+                    'bh_id': $('#bhId').val(),
+                    'data_date': $('#check_date').val(),
+                };
+
+                /**
+                 * 결재선 : 푸드/박원준 , 푸드/고형석
+                 * */
+                let ret = _this.approveBoxUtil.request($('#bhId').val(), title, url, JSON.stringify(urlParam));
+                if (ret.success) {
+                    Notify.success('결재상신하였습니다.');
+                    $('#btnList').click();
+                }
+            }
+
+
+        }
+
+        $(document).ready(function (e) {
+            this.appr_view = $('#apprView').val()
+
+            $('#creater_name').val(userinfo.username)
+
+            page = new HaccpStandardDocDiaryPage();
+
+            $('#check_date').val(CommonUtil.getYYYYMMDD());
+            $('#doc_date').val(CommonUtil.getYYYYMMDD());
+
+            // 목록
+            $('#btnList').on('click', function () {
+                if (this.appr_view) {
+                    location.href = '/gui/' + this.appr_view
+                } else {
+                    location.href = '/gui/' + gui.gui_code
+                }
+
+            });
+
+            AjaxUtil.fillSelectOptions($('#cboDocForm'), 'doc_form', 'choose', false, 'file');
+
+            // 신규저장
+            $('#btnSave').on('click', function () {
+                page.save(false);
+            });
+
+            // 결재상신
+            $('#btnReqAppr').on('click', function () {
+                page.save(true);
+            });
+
+            // 승인
+            $('#btnAppr').on('click', function () {
+                page.appr(true);
+            });
+            // 반려
+            $('#btnReject').on('click', function () {
+                page.appr(false);
+            });
+
+            page.searchMainData();
+
+        });
+    </script>
+
+    <style>
+        .background-yellow {
+            background: #ffd800
+        }
+        .background-skyblue {
+            background: #00e0ff
+        }
+        .background-white {
+            background: #ffffff
+        }
+        table.type01 {
+            border-collapse: collapse;
+            text-align: left;
+            line-height: 1.5;
+            margin: 20px 10px;
+        }
+        table.type01 th {
+            width: 150px;
+            padding: 10px;
+            font-weight: bold;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+        table.type01 td {
+            width: 650px;
+            padding: 10px;
+            vertical-align: middle;
+            border: 1px solid #ccc;
+        }
+    </style>
+</th:block>
+</html>

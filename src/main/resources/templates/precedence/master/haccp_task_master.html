@@ -1,0 +1,907 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>HACCP 업무설정</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>HACCP 기준정보</li>
+                <li>HACCP 업무설정</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label>
+                                업무명<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" class="form-control2" id="txtKeyword" name="txtKeyword" />
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+
+
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+
+            <div class="grid_box" id="divList">
+                <div class="title_box">
+                    <span class="right_align rpt" data-labelCd="출하 내역">HACCP 항목 목록</span>
+                </div>
+                <div id="theGrid" style="height: 350px;"></div>
+            </div>
+        </section>
+
+        <section>
+            <div class="grid_box">
+                <div class="title_box mb-2">
+                    <span class="right_align rpt" data-labelCd="상세정보">상세정보</span>
+                    <button type="button" class="btn-default" id="btnNew" name="btnNew"><i class="fas fa-plus"></i></button>
+                    <button type="button" class="btn-default" id="btnSave" style="float:none"><i class="fas fa-save"></i></button>
+                    <button type="button" class="btn-danger" id="btnDel" style="float:none; width: 124px; height: 48px;"><i class="fas fa-trash"></i></button>
+                </div>
+                <div class="tab-wrap">
+
+                    <ul class="tab-links">
+                        <li><a href="#tabJobRes" style="border-radius: 0">기본정보</a></li>
+                        <li><a href="#tabSemi" style="border-radius: 0">결재자</a></li>
+                    </ul>
+                    <div>
+                        <form id="taskForm" class="form-group" style="width: 100%">
+
+                            <section class="tab-item" id="tabJobRes" style="border-top-left-radius: 0;">
+                                <div class="section-top">
+                                    <div class="table-wrap">
+                                        <input type="hidden" id="id" name="id" />
+                                        <table class="write-table">
+                                            <caption>작업 지시 테이블</caption>
+                                            <tbody>
+                                            <tr>
+                                                <th style="text-align: center">
+                                                    <label>*업무그룹</label>
+                                                </th>
+                                                <td>
+                                                    <select class="form-control2" type="text" id="task_group_code" name="task_group_code" disabled></select>
+                                                </td>
+                                                <th style="text-align: center">
+                                                    <label>*업무</label>
+                                                </th>
+                                                <td>
+                                                    <input class="form-control2" type="text" id="task_name" name="task_name" disabled required />
+                                                </td>
+                                                <th style="text-align: center">
+                                                    <label>업무코드</label>
+                                                </th>
+                                                <td>
+                                                    <input class="form-control2" type="text" id="code" name="code" disabled />
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th style="text-align: center">
+                                                    <label>주기</label>
+                                                </th>
+                                                <td>
+                                                    <select class="form-control2" type="text" id="cycle_base" name="cycle_base" disabled></select>
+
+                                                    <!--오늘할일 작성을 위해 주기별 일자 지정 필요-->
+                                                    <select class="form-control2" id="cboWeek" name="cboWeek" style="display:none;"></select>
+
+                                                    <select class="form-control2" id="cboMonthDay" name="cboMonthDay" style="display:none;"></select>
+
+                                                    <select class="form-control2" id="cboYearMonth" name="cboYearMonth" style="display:none;"></select>
+                                                    <select class="form-control2" id="cboYearDay" name="cboYearDay" style="display:none;"></select>
+                                                    <span class="input-group-text fit_box_t4" data-labelCd="추가" id="btnQHAdd" style="cursor:pointer; display:none;">추가</span>
+                                                    <span class="input-group-text fit_box_t4" data-labelCd="초기화" id="btnQHDel" style="cursor:pointer; display:none;">초기화</span>
+
+                                                    <input class="form-control2 tar" type="text" id="cycle_number" name="cycle_number" disabled required style="display:none;" value="1" />
+                                                    <!--<span class="input-group-text fit_box_t4" data-labelCd="회">회</span>-->
+                                                </td>
+                                                <th style="text-align: center">
+                                                    <label>작성자그룹</label>
+                                                </th>
+                                                <td>
+                                                    <select class="form-control2" type="text" id="writer_group" name="writer_group" disabled></select>
+                                                </td>
+                                                <th style="text-align: center">
+                                                    <label>바로가기</label>
+                                                </th>
+                                                <td>
+                                                    <select class="form-control2" type="text" id="menu_link" name="menu_link" disabled></select>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th style="text-align: center">
+                                                    <label>점검일</label>
+                                                </th>
+                                                <td>
+                                                    <input class="form-control2 readonly" type="text" id="txtQHAdd" name="txtQHAdd" disabled readonly />
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th style="text-align: center">
+                                                    <label>사전알람</label>
+                                                </th>
+                                                <td>
+                                                    <input class="form-control2" type="checkbox" id="noti_yn" name="noti_yn" value="Y" disabled required />
+                                                </td>
+                                                <th style="text-align: center">
+                                                    <label>며칠전알람</label>
+                                                </th>
+                                                <td>
+                                                    <input class="form-control2 tar" type="number" id="noti_before" name="noti_before" disabled required />
+                                                </td>
+                                                <th style="text-align: center">
+                                                    <label>알람예정일</label>
+                                                </th>
+                                                <td>
+                                                    <input class="form-control2 readonly" type="text" id="nofi_plan_date" name="nofi_plan_date" disabled readonly />
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th style="text-align: center">
+                                                    <label>최근작성일</label>
+                                                </th>
+                                                <td>
+                                                    <input class="form-control2 readonly" type="text" id="last_write_date" name="last_write_date" disabled readonly />
+                                                </td>
+                                                <th style="text-align: center">
+                                                    <label>다음작성일</label>
+                                                </th>
+                                                <td>
+                                                    <input class="form-control2 readonly" type="text" id="next_write_date" name="next_write_date" disabled readonly />
+                                                </td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+
+                                    </div>
+                                </div>
+                            </section>
+                            <!-- ㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁㅁ -->
+
+                            <section class="tab-item" id="tabSemi" style="border-top-left-radius: 0;">
+                                <div class="tab_con_box">
+                                    <div class="tab_box">
+                                        <div class="row">
+                                            <div class="col-3 table_box sub">
+                                                <div class="grid_box">
+                                                    <div class="title_box">
+                                                        <span class="right_align" data-labelCd="결재선 1">결재선 1</span>
+                                                        <div class="row">
+                                                            <div class="col-10">
+                                                                <div class="input-group">
+                                                                    <dl>
+                                                                        <dt>
+                                                                            <label>
+                                                                                제목<span class="eq"></span>
+                                                                            </label>
+                                                                        </dt>
+                                                                        <dd>
+                                                                            <div class="srch-box">
+                                                                                <input type="text" class="form-control2" id="line1_name" name="line1_name" disabled required  />
+                                                                                <!--<button type="button" style="width: 90px" class="btn-default" id="btnApprover1" name="btnApprover1">결재자지정</button>
+                                                                                --><a class="btn btn-delete"
+                                                                                      style="margin-left: 5px; color: white; background: #03428E"
+                                                                                      title="검색" id="btnApprover1" name="btnApprover1">
+                                                                                <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                                                                결재자지정
+                                                                            </a>
+                                                                            </div>
+                                                                        </dd>
+                                                                    </dl>
+
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="h-180" id="approver1-grid" ></div>
+
+                                                </div>
+                                            </div>
+                                            <div class="col-3 table_box sub">
+                                                <div class="grid_box">
+                                                    <div class="title_box">
+                                                        <span class="right_align" data-labelCd="결재선 2">결재선 2</span>
+                                                        <div class="row">
+                                                            <div class="col-10">
+                                                                <div class="input-group">
+                                                                    <dl>
+                                                                        <dt>
+                                                                            <label>
+                                                                                제목<span class="eq"></span>
+                                                                            </label>
+                                                                        </dt>
+                                                                        <dd>
+                                                                            <div class="srch-box">
+                                                                                <input type="text" class="form-control2" id="line2_name" name="line2_name" disabled required  />
+                                                                                <!--<button type="button" style="width: 90px" class="btn-default" id="btnApprover1" name="btnApprover1">결재자지정</button>
+                                                                                --><a class="btn btn-delete"
+                                                                                      style="margin-left: 5px; color: white; background: #03428E"
+                                                                                      title="검색" id="btnApprover2" name="btnApprover2">
+                                                                                <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                                                                결재자지정
+                                                                            </a>
+                                                                            </div>
+                                                                        </dd>
+                                                                    </dl>
+
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="h-180" id="approver2-grid" ></div>
+                                                </div>
+                                            </div>
+                                            <div class="col-3 table_box sub">
+                                                <div class="grid_box">
+                                                    <div class="title_box">
+                                                        <span class="right_align" data-labelCd="결재선 3">결재선 3</span>
+                                                        <div class="row">
+                                                            <div class="col-10">
+                                                                <div class="input-group">
+                                                                    <dl>
+                                                                        <dt>
+                                                                            <label>
+                                                                                제목<span class="eq"></span>
+                                                                            </label>
+                                                                        </dt>
+                                                                        <dd>
+                                                                            <div class="srch-box">
+                                                                                <input type="text" class="form-control2" id="line3_name" name="line3_name" disabled required  />
+                                                                                <!--<button type="button" style="width: 90px" class="btn-default" id="btnApprover1" name="btnApprover1">결재자지정</button>
+                                                                                --><a class="btn btn-delete"
+                                                                                      style="margin-left: 5px; color: white; background: #03428E"
+                                                                                      title="검색" id="btnApprover3" name="btnApprover3">
+                                                                                <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                                                                결재자지정
+                                                                            </a>
+                                                                            </div>
+                                                                        </dd>
+                                                                    </dl>
+
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="h-180" id="approver3-grid" ></div>
+                                                </div>
+                                            </div>
+                                            <div class="col-3 table_box sub">
+                                                <div class="grid_box">
+                                                    <div class="title_box">
+                                                        <span class="right_align" data-labelCd="결재선 4">결재선 4</span>
+                                                        <div class="row">
+                                                            <div class="col-10">
+                                                                <div class="input-group">
+                                                                    <dl>
+                                                                        <dt>
+                                                                            <label>
+                                                                                제목<span class="eq"></span>
+                                                                            </label>
+                                                                        </dt>
+                                                                        <dd>
+                                                                            <div class="srch-box">
+                                                                                <input type="text" class="form-control2" id="line4_name" name="line4_name" disabled required  />
+                                                                                <!--<button type="button" style="width: 90px" class="btn-default" id="btnApprover1" name="btnApprover1">결재자지정</button>
+                                                                                --><a class="btn btn-delete"
+                                                                                      style="margin-left: 5px; color: white; background: #03428E"
+                                                                                      title="검색" id="btnApprover4" name="btnApprover4">
+                                                                                <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                                                                결재자지정
+                                                                            </a>
+                                                                            </div>
+                                                                        </dd>
+                                                                    </dl>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="h-180" id="approver4-grid" ></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        </form>
+
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <th:block th:replace="/common/popup_approver_multi :: personSearchTemplate" ></th:block>
+    <script type="text/javascript">
+
+        function createFlexGrid(gridId, options = {}){
+            let flexGrid = new wijmo.grid.FlexGrid(gridId, {
+                autoGenerateColumns: options.autoGenerateColumns || false,
+                showMarquee: options.showMarquee || true,
+                allowSorting: options.allowSorting || 'MultiColumn',
+                selectionMode: options.selectionMode || wijmo.grid.SelectionMode.Row,
+                isReadOnly: options.isReadOnly || false,
+                columns: options.columns || [],
+                itemsSource: options.itemsSource || [],
+                formatItem: (s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                    }
+                },
+            });
+
+            return flexGrid;
+        }
+
+
+        class HACCPItemPage {
+
+            constructor() {
+                this.url = '/api/haccp/task_master';
+                this.grid = null;
+                this.apprGrid1 = null;
+                this.apprGrid2 = null;
+                this.apprGrid3 = null;
+                this.apprGrid4 = null;
+
+                this.loading = true;
+
+                this.approver1 = [];
+                this.approver2 = [];
+                this.approver3 = [];
+                this.approver4 = [];
+
+                this.viewData = new wijmo.collections.CollectionView();
+
+                this.viewData_sub1 = new wijmo.collections.CollectionView();
+                this.viewData_sub2 = new wijmo.collections.CollectionView();
+                this.viewData_sub3 = new wijmo.collections.CollectionView();
+                this.viewData_sub4 = new wijmo.collections.CollectionView();
+
+
+
+                this.init();
+
+            }
+
+            init(){
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowSorting: 'MultiColumn',
+                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
+                    isReadOnly: true,
+                    columns: [
+                        {binding: 'task_name', header: '업무', width: 100,  },
+                        {binding: 'line1_name', header: '결재1', width: 100, },
+                        {binding: 'approver1_name', header: '결재자1', width: 130,},
+                        {binding: 'line2_name', header: '결재2', width: 100, },
+                        {binding: 'approver2_name', header: '결재자2', width: 130, },
+                        {binding: 'line3_name', header: '결재3', width: 100, },
+                        {binding: 'approver3_name', header: '결재자3', width: 130, },
+                        {binding: 'line4_name', header: '결재4', width: 100, },
+                        {binding: 'approver4_name', header: '결재자4', width: 130, },
+                        {binding: 'cycle_name', header: '주기', width: 100, align:'center' },
+                        {binding: 'cycle_weekday', header: '요일', width: 80, align: 'center' },
+                        {binding: 'writer_group_name', header: '작성그룹', width: 160, align: 'center' },
+                        {binding: 'menu_link_name', header: '바로가기', width: 160, align: 'left' },
+                        {binding: 'noti_yn', header: '사전알림', width: 100, align:'center' },
+                        {binding: 'noti_before', header: '알림며칠전', width: 100, align:'right' },
+                        {binding: 'last_write_date', header: '최근작성일', width: 100, },
+                        {binding: 'next_write_date', header: '다음작성일', width: 100, },
+                        {binding: 'noti_plan_date', header: '알림예정일', width: 100, },
+                    ],
+                    itemsSource : this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
+                        }
+                    },
+                });
+                this.grid.rowHeaders.columns.splice(0, 1);
+                this.grid.loadedRows.addHandler(() => {
+                    setTimeout(() => {
+                        this.grid.select(-1, -1); // 선택 상태 초기화
+                    }, 0); // 비동기로 처리하여 초기 선택 해제
+                });
+                this.grid.selectionChanged.addHandler((s, e) => {
+
+                    if(this.loading){
+                        return;
+                    }
+
+                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    if (selectedRowIndex >= 0) {
+                        //console.log('selected', selectedRowIndex)
+                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+
+                        _this.showDetail(selectedRowData.id);
+
+                        _this.setButtonState();
+                    }
+                });
+
+                const columns = [
+                    { binding: 'ShiftName', header: '근무조', width: 100,  },
+                    { binding: 'DepartName', header: '부서', width: 100, },
+                    { binding: 'Name', header: '이름', width: '*'},
+                    { binding: 'Depart_id', header: 'Depart_id', width: '*', visible: false},
+                    { binding: 'Shift', header: 'Shift', width: '*', visible: false},
+                    { binding: 'User_id', header: 'User_id', width: '*', visible: false},
+
+                ]
+
+                this.apprGrid1 = createFlexGrid('#approver1-grid', {
+                    isReadOnly : true,
+                    columns : columns,
+                    itemsSource : this.viewData_sub1
+                });
+                this.apprGrid1.rowHeaders.columns.splice(0, 1);
+
+
+                this.apprGrid2 = createFlexGrid('#approver2-grid', {
+                    isReadOnly : true,
+                    columns : columns,
+                    itemsSource : this.viewData_sub2
+                });
+                this.apprGrid2.rowHeaders.columns.splice(0, 1);
+
+
+
+                this.apprGrid3 = createFlexGrid('#approver3-grid', {
+                    isReadOnly : true,
+                    columns : columns,
+                    itemsSource : this.viewData_sub3
+                });
+                this.apprGrid3.rowHeaders.columns.splice(0, 1);
+
+                this.apprGrid4 = createFlexGrid('#approver4-grid', {
+                    isReadOnly : true,
+                    columns : columns,
+                    itemsSource : this.viewData_sub4
+                });
+                this.apprGrid4.rowHeaders.columns.splice(0, 1);
+
+                this.$btnNew = $('#btnNew');
+                this.$btnDel = $('#btnDel');
+                this.$btnSave = $('#btnSave');
+                this.$taskForm = $('#taskForm');
+                //여기까지
+
+                $('#btnSearch').click(function(){
+                    _this.searchDataBind();
+                });
+
+                this.$btnDel.click(function () {
+                    Alert.confirm('삭제', '삭제하시겠습니까?', function () {
+                        _this.deleteTask();
+                    });
+                });
+
+                this.$btnSave.click(function (e) {
+                    if ( _this.approver1.length > 0 && !$('#line1_name').val() ) {
+                        Alert.alert("", "결재선1의 제목을 입력해주세요.");
+                        return;
+                    }
+                    if ( _this.approver2.length > 0 && !$('#line2_name').val() ) {
+                        Alert.alert("", "결재선2의 제목을 입력해주세요.");
+                        return;
+                    }
+                    if ( _this.approver3.length > 0 && !$('#line3_name').val() ) {
+                        Alert.alert("", "결재선3의 제목을 입력해주세요.");
+                        return;
+                    }
+                    if ( _this.approver4.length > 0 && !$('#line4_name').val() ) {
+                        Alert.alert("", "결재선4의 제목을 입력해주세요.");
+                        return;
+                    }
+
+                    Alert.confirm('저장', '저장하시겠습니까?', function () {
+                        _this.saveItem();
+                    });
+                });
+            }
+
+            deleteTask(){
+                let _this = this;
+                let selected_tm = _this.grid.selectedItems[0];
+                let data = {
+                    id: selected_tm.id
+                }
+                let url = _this.url + '/delete';
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Notify.success(res.message);
+                        _this.searchDataBind();
+                    }
+                }
+
+                AjaxUtil.postAsyncData(url, data, fnSuccess);
+            }
+
+            showDetail(idx){
+                let _this = this;
+                let param = { 'id': idx, "action": 'detail' };
+                console.log('idx', idx);
+                let fnsuccess = function (result) {
+                    if (result != null) {
+                        console.log('result', result);
+                        FormUtil.BindDataForm(result.data.task_info, _this.$taskForm);
+
+                        _this.setCycleBase(result.data.cycle_data_list);
+
+                        _this.approver1 = result.data.approver1_list;
+                        _this.approver2 = result.data.approver2_list;
+                        _this.approver3 = result.data.approver3_list;
+                        _this.approver4 = result.data.approver4_list;
+
+                        _this.viewData_sub1.sourceCollection = _this.approver1;
+                        _this.viewData_sub2.sourceCollection = _this.approver2;
+                        _this.viewData_sub3.sourceCollection = _this.approver3;
+                        _this.viewData_sub4.sourceCollection = _this.approver4;
+                        _this.setButtonState();
+
+                    }
+                }
+                AjaxUtil.getAsyncData(this.url + '/detail', param, fnsuccess);
+                console.log('zz', document.getElementById('id').value)
+
+            }
+
+            setCycleBase(cycle_data_list) {
+                this.changeCycleBase();
+
+                if ($('#cycle_base').val() == 'W') {
+                    if (cycle_data_list && cycle_data_list.length > 0) {
+                        $('#cboWeek').val(cycle_data_list[0].Value);
+                    }
+                }
+                else if ($('#cycle_base').val() == 'M') {
+                    if (cycle_data_list && cycle_data_list.length > 0) {
+                        $('#cboMonthDay').val(cycle_data_list[0].Value);
+                    }
+                }
+                else if ($('#cycle_base').val() == 'Q') {
+                    let txt = '';
+                    if (cycle_data_list && cycle_data_list.length > 0) {
+                        let arr = cycle_data_list[0].Value.split('-');
+                        txt += arr[0] + '월/' + arr[1] + '일';
+                    }
+                    if (cycle_data_list && cycle_data_list.length > 1) {
+                        let arr = cycle_data_list[1].Value.split('-');
+                        txt += ', ' + arr[0] + '월/' + arr[1] + '일';
+                    }
+                    if (cycle_data_list && cycle_data_list.length > 2) {
+                        let arr = cycle_data_list[2].Value.split('-');
+                        txt += ', ' + arr[0] + '월/' + arr[1] + '일';
+                    }
+                    if (cycle_data_list && cycle_data_list.length > 3) {
+                        let arr = cycle_data_list[3].Value.split('-');
+                        txt += ', ' + arr[0] + '월/' + arr[1] + '일';
+                    }
+
+                    $('#txtQHAdd').val(txt);
+                }
+                else if ($('#cycle_base').val() == 'H') {
+                    let txt = '';
+                    if (cycle_data_list && cycle_data_list.length > 0) {
+                        let arr = cycle_data_list[0].Value.split('-');
+                        txt += arr[0] + '월/' + arr[1] + '일';
+                    }
+                    if (cycle_data_list && cycle_data_list.length > 1) {
+                        let arr = cycle_data_list[1].Value.split('-');
+                        txt += ', ' + arr[0] + '월/' + arr[1] + '일';
+                    }
+
+                    $('#txtQHAdd').val(txt);
+                }
+                else if ($('#cycle_base').val() == 'Y') {
+                    if (cycle_data_list && cycle_data_list.length > 0) {
+                        let arr = cycle_data_list[0].Value.split('-');
+                        $('#cboYearMonth').val(arr[0]);
+                        $('#cboYearDay').val(arr[1]);
+                    }
+                }
+            }
+
+            changeCycleBase() {
+                $('#cboWeek').hide();
+                $('#cboMonthDay').hide();
+                $('#cboYearMonth').hide();
+                $('#cboYearDay').hide();
+                $('#btnQHAdd').hide();
+                $('#btnQHDel').hide();
+                $('#divQHAdd').hide();
+                if ($('#cycle_base').val() == 'W') {
+                    $('#cboWeek').show();
+                }
+                else if ($('#cycle_base').val() == 'M') {
+                    $('#cboMonthDay').show();
+                }
+                else if ($('#cycle_base').val() == 'Q' || $('#cycle_base').val() == 'H' || $('#cycle_base').val() == 'Y') {
+                    $('#cboYearMonth').show();
+                    $('#cboYearDay').show();
+                    if ($('#cycle_base').val() == 'Q' || $('#cycle_base').val() == 'H') {
+                        $('#btnQHAdd').show();
+                        $('#btnQHDel').show();
+                        $('#divQHAdd').show();
+                    }
+                }
+            }
+
+            resetForm() {
+                this.$taskForm.find('#id').val('');
+                this.$taskForm[0].reset();
+                this.$taskForm.find('input, select').each(function () {
+                    $(this).removeAttr('disabled');
+                });
+                this.viewData_sub1.sourceCollection = [];
+                this.viewData_sub2.sourceCollection = [];
+                this.viewData_sub3.sourceCollection = [];
+                this.viewData_sub4.sourceCollection = [];
+                console.log('test', document.getElementById('id').value)
+            }
+
+            saveItem() {
+                let _this = this;
+                let url = this.url + "/save";
+                let data = FormUtil.extractForm(this.$taskForm);
+                console.log(data);
+                data.approver1_list = JSON.stringify(_this.approver1);
+                data.approver2_list = JSON.stringify(_this.approver2);
+                data.approver3_list = JSON.stringify(_this.approver3);
+                data.approver4_list = JSON.stringify(_this.approver4);
+
+                let fnsuccess = function (res) {
+                    if (res.success) {
+                        Notify.success('저장되었습니다.');
+                        _this.searchDataBind();
+                    }
+                    else{
+                        Alert.alert('', res.message);
+                    }
+                };
+                AjaxUtil.postAsyncData(url, data, fnsuccess);
+            }
+
+            searchDataBind() {
+
+                this.loading = true;
+
+                let _this = this;
+                //let param = $('#searchForm').serialize();
+                let keyword = $('#txtKeyword').val();
+                let param = {
+                    action: 'read',
+                    keyword: keyword,
+                };
+
+                let result = AjaxUtil.getSyncData(this.url + '/read', param);
+
+
+                this.grid.itemsSource = new wijmo.collections.CollectionView([]);
+
+                if (result != null) {
+
+                    this.grid.itemsSource = result.data;
+
+                    this.viewData_sub1.sourceCollection = [];
+                    this.viewData_sub2.sourceCollection = [];
+                    this.viewData_sub3.sourceCollection = [];
+                    this.viewData_sub4.sourceCollection = [];
+                }
+
+                setTimeout(() => {
+                    this.loading = false;
+                }, 0);
+
+                this.resetForm();
+
+                //this.$btnNew.removeAttr('disabled');
+                //this.$btnDel.attr('disabled', 'disabled');
+                //this.$btnSave.attr('disabled', 'disabled');
+                this.setButtonState();
+
+            }//searchDataBind
+
+            setButtonState() {
+                let pk = $('#id').val();
+                this.$btnNew.prop('disabled', false);
+                this.$btnSave.prop('disabled', false);
+                if (pk) {
+                    this.$btnDel.prop('disabled', false);
+                }
+                else {
+                    this.$btnDel.prop('disabled', true);
+                }
+            }
+
+            addTaskApprover(lineNum) {
+                let _this = this;
+
+                let popCallback = function (personList) {
+                    let nameArr = [];
+
+                    switch (lineNum) {
+                        case 1:
+                            console.log('switch문', personList);
+
+                            _this.approver1 = structuredClone(personList);
+                            _this.viewData_sub1.sourceCollection = [];
+                            _this.viewData_sub1.sourceCollection = _this.approver1;
+
+                            break;
+                        case 2:
+
+                            _this.approver2 = structuredClone(personList);
+                            _this.viewData_sub2.sourceCollection = [];
+                            _this.viewData_sub2.sourceCollection = _this.approver2;
+
+                            break;
+                        case 3:
+                            _this.approver3 =structuredClone(personList);
+                            _this.viewData_sub3.sourceCollection = [];
+                            _this.viewData_sub3.sourceCollection = _this.approver3;
+                            break;
+                        case 4:
+                            _this.approver4 = structuredClone(personList);
+                            _this.viewData_sub4.sourceCollection = [];
+                            _this.viewData_sub4.sourceCollection = _this.approver4;
+                            break;
+                    }
+                }
+
+                let preApproverlist = [];
+                switch (lineNum) {
+                    case 1:
+                        preApproverlist = _this.approver1;
+                        break;
+                    case 2:
+                        preApproverlist = _this.approver2;
+                        break;
+                    case 3:
+                        preApproverlist = _this.approver3;
+                        break;
+                    case 4:
+                        preApproverlist = _this.approver4;
+                        break;
+                }
+
+                let popupPage = new PopupApproverMultiPage();
+                popupPage.approverList = structuredClone(preApproverlist);
+                console.log('pre', preApproverlist);
+
+
+
+                popupPage.show(popCallback);
+            }
+
+        }
+
+        $(document).ready(function (e) {
+            let page = new HACCPItemPage();
+
+            let searchVal = document.getElementById('txtKeyword');
+            searchVal.addEventListener('keyup', event => submitTextarea(event, () => page.searchDataBind()))
+
+            AjaxUtil.fillSelectOptions($('#task_group_code'), 'system_code', 'choose', '', 'task_group_code');
+            AjaxUtil.fillSelectOptions($('#cycle_base'), 'system_code', 'choose', '', 'cycle_base');
+            AjaxUtil.fillSelectOptions($('#approver1_id'), 'user_profile', 'choose', '');
+            AjaxUtil.fillSelectOptions($('#approver2_id'), 'user_profile', 'choose', '');
+            AjaxUtil.fillSelectOptions($('#approver3_id'), 'user_profile', 'choose', '');
+            AjaxUtil.fillSelectOptions($('#approver4_id'), 'user_profile', 'choose', '');
+
+
+            // 작성자그룹 콤보박스
+            AjaxUtil.fillSelectOptions($('#writer_group'), 'user_group', 'choose', '');
+
+            //바로가기
+            AjaxUtil.fillSelectOptions($('#menu_link'), 'menu_item', 'choose', '');
+
+
+            page.$btnNew.click(function (e) {
+                page.resetForm();
+                page.setButtonState();
+            });
+
+
+            $('#btnApprover1').on('click',function () {
+                page.addTaskApprover(1);
+            });
+            $('#btnApprover2').on('click',function () {
+                page.addTaskApprover(2);
+            });
+            $('#btnApprover3').on('click',function () {
+                page.addTaskApprover(3);
+            });
+            $('#btnApprover4').on('click',function () {
+                page.addTaskApprover(4);
+            });
+
+            // 주기콤보박스 설정, 일단보류
+            let optWeek = ['토요일', '일요일', '월요일', '화요일', '수요일', '목요일', '금요일'];
+            let optMonth = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+            let optDay = ['1일', '2일', '3일', '4일', '5일', '6일', '7일', '8일', '9일', '10일', '11일', '12일', '13일', '14일', '15일', '16일', '17일', '18일', '19일', '20일', '21일', '22일', '23일', '24일', '25일', '26일', '27일', '28일', '29일', '30일', '31일', '말일'];
+
+            $.each(optWeek, function (index, item) {
+                $('#cboWeek').append('<option value="' + index + '">' + item + '</option>');
+            });
+            $.each(optMonth, function (index, item) {
+                $('#cboYearMonth').append('<option value="' + ((index + 1) < 10 ? '0' + (index + 1) : (index + 1)) + '">' + item + '</option>');
+            });
+            $.each(optDay, function (index, item) {
+                $('#cboMonthDay').append('<option value="' + ((index + 1) < 10 ? '0' + (index + 1) : (index + 1)) + '">' + item + '</option>');
+                if (index < 31) {
+                    $('#cboYearDay').append('<option value="' + ((index + 1) < 10 ? '0' + (index + 1) : (index + 1)) + '">' + item + '</option>');
+                }
+            });
+
+            $('#cycle_base').on('change', function () {
+                $('#txtQHAdd').val('');
+                page.changeCycleBase();
+            });
+
+            $('#btnQHAdd').on('click', function (e) {
+                let month = $('#cboYearMonth').val() + '월';
+                let day = $('#cboYearDay').val() + '일';
+                let prevTxt = $('#txtQHAdd').val() == '' ? '' : $('#txtQHAdd').val() + ', ';
+
+                let valid = false;
+                if ($('#cycle_base').val() == 'Q') {
+                    valid = $('#txtQHAdd').val().split(',').length < 4;
+
+                } else if ($('#cycle_base').val() == 'H') {
+                    valid = $('#txtQHAdd').val().split(',').length < 2;
+                }
+
+                if (valid) {
+                    $('#txtQHAdd').val(prevTxt + month + '/' + day);
+                } else {
+                    Notify.warn('더이상 추가할 수 없습니다.');
+                }
+            });
+
+            $('#btnQHDel').on('click', function (e) {
+                $('#txtQHAdd').val('');
+            });
+
+            page.searchDataBind();
+
+        })
+    </script>
+
+</th:block>
+</html>

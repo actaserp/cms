@@ -1,0 +1,295 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+        .analysis-result-box {
+            border: 1px solid #ddd;
+            padding: 12px;
+            background-color: #f9f9f9;
+            height: auto;                /* ✅ 기존에는 고정 height: 400px */
+            min-height: 350px;           /* ✅ 내용 없을 때도 공간 확보 */
+            overflow-y: auto;
+            color: #333;
+            white-space: normal;
+            word-break: break-word;
+            .table-scroll {
+                max-height: 400px;
+                overflow-y: auto;
+            }
+
+        }
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>MES AI 분석</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>AI 분석</li>
+                <li>GPT 분석</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top" style="width: 100%;">
+                <div class="search-wrap" style="width: 50%;">
+                    <dl style="width: 100%; display: block;"> <!-- ✅ dl이 block으로 -->
+                        <dt>
+                            <label for="gpt_prompt">질문 입력</label>
+                        </dt>
+                        <dd style="width: 100%; display: block;"> <!-- ✅ dd도 block으로 -->
+                            <div class="srch-box" style="width: 100%;">
+                                <!-- 기존 (한 줄 input) -->
+                                <!-- <input type="text" id="queryInput" ... /> -->
+                                <!-- 수정된 (멀티라인 입력창) -->
+                                <textarea id="queryInput"
+                                          rows="10"
+                                          style="width: 100%; max-width: 100%; min-height: 200px; resize: vertical;"
+                                          placeholder="질문을 입력하세요. Shift+Enter로 줄바꿈, Enter로 실행"></textarea>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt><span class="eq"></span></dt>
+                        <dd>
+                            <div class="button-wrap" style=" margin-left: 20px">
+                                <ul>
+                                    <li>
+                                        <a class="btn btn-delete" title="GPT 분석" id="btnAnalyzeGPT">
+                                            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                            분석
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="btn btn-edit" title="수정" id="btnResetGPT">
+                                            🗑️ 초기화
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="btn btn-copy" title="복사" id="btnCopyResult">
+                                            📋 복사
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="container-fluid">
+                <div class="result-layout" style="display: flex; gap: 16px; width: 100%;">
+                    <!-- GPT 답변 영역 -->
+                    <div style="flex: 1;">
+                        <div class="table-scroll" style="max-height: 400px; overflow-y: auto;">
+                            <div id="gpt_result_box" class="analysis-result-box">
+                                분석 결과가 여기에 표시됩니다.
+                            </div>
+                        </div>
+                        <!-- X/Y축 선택 UI -->
+                        <div style="margin-top: 10px;">
+                            <label for="xAxisSelect">X축:</label>
+                            <input type="text" id="xAxisSelect" placeholder="예: 일자" style="width: 150px; margin-right: 10px;">
+                            <label for="yAxisSelect">Y축:</label>
+                            <input type="text" id="yAxisSelect" placeholder="예: 금액" style="width: 150px; margin-right: 10px;">
+                            <button id="btnShowChart" class="btn">📊 그래프 보기</button>
+                        </div>
+                    </div>
+
+                    <!-- 그래프 영역 -->
+                    <div id="gpt_chart_box" style="flex: 1; display: none;">
+                        <canvas id="gpt_result_chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        $('#btnResetGPT').click(function () {
+            $('#queryInput').val('');
+            $('#gpt_result_box').html(''); // 또는 .text('')
+            $('#queryInput').focus();
+        });
+
+        $('#btnCopyResult').click(function () {
+            const text = $('#gpt_result_box').text().trim();
+            if (!text) {
+                Alert.alert('알림', '복사할 분석 결과가 없습니다.');
+                return;
+            }
+
+            navigator.clipboard.writeText(text).then(function () {
+                Alert.alert('안내', '복사되었습니다!');
+            }).catch(function (err) {
+                Alert.alert('오류', '복사에 실패했습니다.');
+                console.error(err);
+            });
+        });
+        document.getElementById("queryInput").addEventListener("keydown", function (e) {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault(); // 줄바꿈 막고
+                document.getElementById("queryButton").click(); // 또는 runQuery();
+            }
+        });
+
+        $('#btnAnalyzeGPT').click(function () {
+            const prompt = $('#queryInput').val();
+            if (!prompt.trim()) {
+                Alert.alert('알림', '질문을 입력해주세요.');
+                return;
+            }
+
+            $('#gpt_result_box').html('<span style="color:#888;">GPT가 분석 중입니다...</span>');
+            $('#gpt_chart_box').hide(); // 초기 상태로 숨김
+            const requestData = {
+                prompt: prompt,
+                data: []
+            };
+            const fncallback = function (result) {
+                console.log("GPT 응답:", result);
+                let html = '';
+                let data = [];
+                let sql = result.sql || ''; // 실행된 SQL 쿼리 (백엔드에서 포함시켜야 함)
+
+                const messageObj = result.message || {};
+                const tableData = messageObj.tableData || result.tableData || [];
+
+                if (result.answer) {
+                    // 🎯 자연어 응답 처리
+                    // html = `<p>${result.answer.replaceAll('\n', '<br/>')}</p>`;
+                    html = `<p style="white-space: pre-wrap;">${result.answer}</p>`;
+                    window.gptData = [];
+                    $('#gpt_chart_box').hide();
+                } else if (typeof messageObj.message === 'string' && tableData.length === 0) {
+                    html = messageObj.message;
+                } else {
+                    // 🎯 SQL 결과 처리
+                    html = result.message?.message || result.message || '';
+                    data = result.message?.tableData || result.tableData || [];
+                    if (data.length === 0) {
+                        // ⚠ 결과 데이터 없음 + 쿼리 표시
+                        html = `
+                                <div style="color: orange;">
+                                    <b>⚠ 결과 데이터가 없습니다.</b><br>
+                                    ${sql ? `
+                                        <div style="margin-top: 8px;">
+                                            <span style="font-size: 13px; color: #555;">실행된 쿼리:</span>
+                                            <pre style="background:#f9f9f9; padding:8px; border:1px solid #ccc;">${sql}</pre>
+                                        </div>` : ''
+                        }
+                                </div>
+                            `;
+                        window.gptData = [];
+                        $('#gpt_chart_box').hide();
+                    }
+                }
+
+                if (html  && html.trim()) {
+                    $('#gpt_result_box').html(html);
+                    window.gptData = data;
+                    $('#gpt_chart_box').hide(); // 그래프는 클릭 전까지 숨김
+                } else {
+                    $('#gpt_result_box').html('<span style="color:red;">분석 결과가 없습니다.</span>');
+                    window.gptData = [];
+                    $('#gpt_chart_box').hide();
+                }
+            };
+
+
+            AjaxUtil.postJsonData('/api/mes/gpt-analyze', requestData, fncallback);
+        });
+
+
+        $('#btnShowChart').click(function () {
+            const xKey = $('#xAxisSelect').val().trim();
+            const yKey = $('#yAxisSelect').val().trim();
+
+            if (!xKey || !yKey) {
+                Alert.alert('알림', 'X축과 Y축 항목을 모두 입력해주세요.');
+                return;
+            }
+
+            const result = window.gptData || [];
+
+            if (result.length === 0) {
+                Alert.alert('알림', '표 데이터가 없습니다.');
+                return;
+            }
+
+            try {
+                // ✅ 답변 영역은 비우고
+                // $('#gpt_result_box').html('');
+
+                // ✅ 그래프 영역은 보여줌
+                $('#gpt_chart_box').show();
+
+                // ✅ X축, Y축 데이터 추출
+                const labels = [];
+                const data = [];
+
+                window.gptData.forEach(row => {
+                    const x = row[xKey];
+                    const y = parseFloat(row[yKey]);
+                    if (!isNaN(y)) {
+                        labels.push(x);
+                        data.push(y);
+                    }
+                });
+
+                if (labels.length === 0 || data.length === 0) {
+                    alert("그래프로 표시할 수 있는 숫자 데이터가 없습니다.");
+                    return;
+                }
+
+                const ctx = document.getElementById('gpt_result_chart').getContext('2d');
+
+                // ✅ 기존 차트 삭제 (중복 방지)
+                if (window.gptChart) {
+                    window.gptChart.destroy();
+                }
+
+                // ✅ 새로 차트 생성 및 저장
+                window.gptChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: yKey,
+                            data: data,
+                            backgroundColor: '#4e79a7'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: true }
+                        }
+                    }
+                });
+
+            } catch (e) {
+                console.error(e);
+                Alert.alert('오류', '그래프 생성 중 오류가 발생했습니다.');
+            }
+        });
+
+
+
+    </script>
+</th:block>
+
+</html>

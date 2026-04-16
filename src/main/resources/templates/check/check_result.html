@@ -1,0 +1,624 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+
+<div class="content_wrap">
+    <section class="section">
+        <div class="title_box">
+            <div class="left_align">
+                <h3 data-labelCd="점검결과">점검 결과</h3>
+            </div>
+            <button type="button" class="btn-default pull-right" id="btnHeaderFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
+            <button type="button" class="btn-default pull-right" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress"></i></button>
+        </div>
+        <div class="table_box search">
+            <div class="row">
+                <div class="col-11 col-md-6 col-lg-5" >
+                    <div class="input-group" >
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_sm" data-labelCd="점검일">점검일</span>
+                        </div> 
+                        <div data-ax5picker="multi" id="srchDt">
+                            <div class="input-group-append">
+                                <input class="tac " type="text" id="srchStartDt" name="srchStartDt" />
+                                <span class="input-group-text fs-xl">
+                                    <i class="fas fa-calendar-alt calendar_color" ></i>
+                                </span>
+                                <span class="slow_sign">~</span>
+                                <input class="tac " type="text" id="srchEndDt" name="srchEndDt" />
+                                <span class="input-group-text fs-xl">
+                                    <i class="fas fa-calendar-alt calendar_color"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                 <div class="col-6 col-md-3 col-lg-3 col-xl-2">
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text fit_box_md" data-labelCd="점검">점검</span>
+                        </div>
+                        <select class="form-control2" id="cboCheck" name="cboCheck"></select>
+                    </div>
+                </div>
+
+                <div class="col-1">
+                    <button type="button" class="btn-default" id="btnSearch" title="조회"><i class="fas fa-search"></i></button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="grid_box">
+            <div class="title_box">
+                <label class="switch">
+                    <input type="checkbox" checked id="btnGridToggle"><span class="slider round"></span>
+                </label>
+                 <span class="right_align rpt" data-labelCd="점검 이력">점검 이력</span>
+                <button type="button" class="btn-default" id="btnAdd"><i class="fas fa-plus"></i></button>
+                <button type="button" class="btn-danger" id="btnDelete" ><i class="fas fa-trash"></i></button>
+                <button type="button" class="btn-default y_write_auth" id="btnSrch"><span data-labelCd="일지조회">일지조회</span></button>
+                <button type="button" class="btn-default" id="btnExcel"><i class="fas fa-file-excel"></i></button>
+                <button type="button" class="btn-default" id="btnGridSetting" style="visibility:hidden"><i class=" fast fa-cog"></i>Setting</button>
+            </div>
+            <div class="h-300" data-ax5grid="check_result_grid" id="checkResultList"></div>
+        </div>
+    </section>
+    <section >        
+        <div class="table_box sub">
+            <form id="checkResultForm">
+                <input type="hidden" id="id_info" name="id_info" />
+                <div class ="row">
+
+                    <div class="col-6 ">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="점검명">점검명</span>
+                            </div>
+                            <input class="form-control2" type="text" id="check_name_info" name="check_name_info" readonly />
+                        </div>
+                     </div>
+
+
+                </div>
+                <div class="row">
+
+
+                    <div class="col-3">
+                        <div class="input-group" data-ax5picker="basic" id="srchDt">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5" data-labelCd="점검일">점검일</span>
+                            </div>
+                            <input class="form-control2 tac" type="text" id="check_date_info" name="check_date_info" readonly>
+                        </div>
+                    </div>
+
+                    <div class="col-3">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5" data-labelCd="점검시간">점검시간</span>
+                            </div>
+                            <input class="form-control2 tac timepicker" type="text" id="check_time_info" name="check_time_info" readonly/>
+                        </div>
+                    </div>
+
+
+                    <div class="col-3">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5" data-labelCd="점검대상(장소)">점검대상(장소)</span>
+                            </div>
+                                <input class="form-control2 tal" type="text" id="target_name_info" name="target_name_info" readonly />
+                        </div>
+                    </div>
+
+                    
+                    <div class="col-3">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5" data-labelCd="점검자">점검자</span>
+                            </div>
+                                <input class="form-control2 tal" type="text" id="checker_name_info" name="checker_name_info" readonly/>
+                        </div>
+                    </div>
+
+                </div>  
+
+               
+                                 
+            </form>
+        </div>
+    </section>
+           
+    <section>
+        <div class="grid_box">
+            <div class="title_box">
+                 <span class="right_align rpt" data-labelCd="점검표">점검표</span>
+                <button type="button" class="btn-default" id="btnAllItem">전체적합</button>
+                <button type="button" class="btn-default" id="btnResultSave"><i class="fas fa-save"></i></button>
+            </div>
+            <div class="h-300" data-ax5grid="check_item_result_grid"></div>
+            <div class="col-12">
+                <div class="input-group">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text fit_box_t5_area" data-labelCd="특이사항">특이사항</span>
+                    </div>
+                    <textarea class="form-control2 tal" id="description" name="description" ></textarea>
+                </div>
+            </div>
+            
+        </div>
+    </section>
+
+</div>
+<script type="text/x-tmpl" id="addResultPopup">
+<div class="content_wrap popup">
+    <section class="section popupcontent">        
+        <div class="table_box sub">
+            <form id="checkResultFormPopup">
+                <input type="hidden" id="id" name="id" />
+                <div class ="row">
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_md" data-labelCd="점검명">점검명</span>
+                            </div>
+                            <select class="form-control2" id="check_name" name="check_name" ></select>
+                        </div>
+                    </div>
+
+                    <div class="col-6">
+                        <div class="input-group" data-ax5picker="basic" id="srchDtPopup">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5" data-labelCd="점검일">점검일</span>
+                            </div>
+                            <input class="form-control2 tac" type="text" id="check_date" name="check_date">
+                        </div>
+                    </div>
+
+                    <div class="col-6">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5" data-labelCd="점검시간">점검시간</span>
+                            </div>
+                            <input class="form-control2 tac timepicker" type="text" id="check_time" name="check_time" />
+                        </div>
+                    </div>
+
+
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5" data-labelCd="점검대상">점검대상</span>
+                            </div>
+                                <input class="form-control2 tal" type="text" id="target_name" name="target_name" />
+                        </div>
+                    </div>
+
+
+
+                    <div class="col-12">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text fit_box_t5" data-labelCd="점검자">점검자</span>
+                            </div>
+                                <input class="form-control2 tal" type="text" id="checker_name" name="checker_name" />
+                        </div>
+                    </div>
+ 
+                </div>                   
+            </form>
+        </div>
+        
+    </section>
+    <section>
+        <div class="align_left popup_button_group bottom">
+            <button type="button" class="btn-popup y_write_auth" id="btnSave" ><span data-labelCd="저장">저장</span></button>
+            <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+
+    </section>
+</div>
+</script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+<script type="text/javascript">
+    class CheckResultPage {
+        constructor() {
+            this.grid = null;
+            this.resultGrid = null;
+            this.url = '/api/check/check_result';
+            this.init();
+        } 
+
+        init() {
+            let _this = this;
+            let config = {
+                target: $('[data-ax5grid="check_result_grid"]'),
+                sortable: true,
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: true, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: true, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 38  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        _this.grid.select(this.dindex);
+                        _this.showDetail(e.item.id);
+                        _this.showCheckItemResult(e.item.id);
+                        _this.setButtonState();
+                    }
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'check_name', label: '점검', width: 200, align: 'left' },
+                    { key: 'check_date', label: '점검일', width: 120, align: 'left' },
+                    { key: 'check_time', label: '점검시간', width: 120, align: 'left' },
+                    { key: 'target_name', label: '점검대상', width: 120, align: 'left' },
+                    { key: 'checker_name', label: '점검자', width: 120, align: 'left' },
+                ]
+            };
+            this.grid = new ax5.ui.grid(config);
+            this.grid_config = config;
+
+            let resultConfig = {
+                target: $('[data-ax5grid="check_item_result_grid"]'),
+                frozenColumnIndex: 0, // 열 고정
+                frozenRowIndex: 0,    // 행 고정
+                showLineNumber: false, // 열의 번호 보이기 여부
+                showRowSelector: false,  // checkbox(선택) 보이기 여부
+                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
+                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
+                multiSort: false, // 다중 정렬 여부
+                header: {
+                    align: 'center',  // 헤더의 기본 정렬
+                    columnHeight: 30  // 헤더 높이
+                },
+                body: {
+                    columnHeight: 25, // body의 기본 높이
+                    onClick: function (e) {
+                        if (e.column.key == 'result1') {
+                            if (this.item.result_type == 'OX') {
+                                this.column.editor.type = 'select';
+                            } else if (this.item.result_type == 'N') {
+                                this.column.editor.type = 'number';
+                            } else if (this.item.result_type == 'D') {
+                                this.column.editor.type = 'text';
+                            }
+
+                            this.column.editor.config = _this.setConfig(this.column.editor.type);
+                            //_this.setFormatter(this.column.editor.type, this.column);
+                        }
+                    }
+                },
+                page: {
+                    display: true,  // 페이징 보이기 여부
+                    statusDisplay: true,
+                },
+                columns: [
+                    { key: 'group1', label: '구분1', width: 130, align: 'left' },
+                    { key: 'group2', label: '구분2', width: 130, align: 'left' },
+                    { key: 'group3', label: '구분3', width: 130, align: 'left' },
+                    { key: 'check_item_name', label: '점검항목명', width: 450, align: 'left' },
+                    {
+                        key: 'result1', label: '<span class="editable_clr">점검결과(입력)</span>', width: 150, align: 'left',
+                        editor: {
+                            type: '', config: {}
+                        },
+                        //formatter: function () { 'money' }
+                     },
+                ]
+            }
+            this.resultGrid = new ax5.ui.grid(resultConfig);
+            this.grid_config2 = resultConfig;
+
+        }
+
+        setConfig(editorType) {
+            let config = {};
+            if (editorType == 'select') {
+                config = {
+                    columnKeys: {
+                        optionValue: "val",
+                        optionText: "text"
+                    },
+                    options: [
+                        { val: "", text: "" },
+                        { val: "O", text: "O:적합" },
+                        { val: "X", text: "X:부적합" }
+                    ]
+                };
+            }
+            return config;
+        }
+
+        //setFormatter(editorType, col) {
+        //    let _this = this;
+        //    let formatter = '';
+        //    if (editorType == 'number') {
+        //        col.formatter = 'money';
+        //    }
+            
+        //}
+
+        setButtonState() {
+            let pk = $('#id_info').val();
+
+            $('#btnNew').prop('disabled', false);
+
+            if (pk) {
+                $('#btnDelete').prop('disabled', false);
+            } else {
+                $('#btnDelete').prop('disabled', true);
+            }
+        }
+
+        searchMainData() {
+            let _this = this;
+            
+            let param = {
+                'check_master_id': $('#cboCheck').val(),
+                'date_from': $('#srchStartDt').val(),
+                'date_to': $('#srchEndDt').val()
+            };
+			
+            let result = AjaxUtil.getSyncData(_this.url + '/read', param);
+            if (result != null) {
+                let recordsTotal = result.data.length;
+                _this.grid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal,
+                    }
+                });
+            }
+
+            $('#checkResultForm')[0].reset();
+            $('#description').val('');
+            $('#checkResultForm').find('#id_info').val('');
+
+            $('#detailBox').find('input, select').each(function () {
+                if (!$(this).is(':disabled')) {
+                    $(this).attr('disabled', 'disabled');
+                }
+            });
+            this.resultGrid.setData([]);
+            _this.setButtonState();
+        }
+
+
+        showDetail(check_result_id) {
+            let _this = this;
+            let param = {
+                'check_result_id': check_result_id,
+            };
+             
+            let result = AjaxUtil.getSyncData(_this.url + '/detail', param);
+            if (result != null) {
+                FormUtil.BindDataForm(result.data, $('#checkResultForm'));
+                
+            }
+        }
+
+        showCheckItemResult(check_result_id) {
+            let _this = this;
+            let param = {
+                'check_result_id': check_result_id,
+            };
+            
+            let description = this.grid.getList('selected')[0].description
+            
+            $('#description').val(description);
+
+            let result = AjaxUtil.getSyncData(_this.url + '/check_item_result_list', param);
+            if (result) {
+                let recordsTotal = result.data.length;
+                this.resultGrid.setData({
+                    list: result.data,
+                    page: {
+                        display: true,
+                        totalElements: recordsTotal
+                    }
+                });
+            }
+        }
+
+        insertItems() {
+            let _this = this;
+            let content = tmpl('addResultPopup', {});
+            let $content = $(content);
+            let form = $('#checkResultFormPopup');
+            
+            modalContainer = new PopupDraggable('점검일지 작성');
+            modalContainer.open({ width: 400, height: 300, $content });
+            popup = new checkResultPopup();
+            AjaxUtil.fillSelectOptions($('#check_name'), 'check_master', 'choose', false);
+
+            $content.find('#check_date').val(CommonUtil.getYYYYMMDD());
+            $content.find('#check_time').timepicker({
+                show2400: true,
+                timeFormat: 'H:i',
+            }).val('09:00');
+
+            $content.find('#btnSave').on('click', function () {
+                 Alert.confirm('',
+                '저장하시겠습니까?',
+                function () { popup.insertData(form, modalContainer.modal)},
+                function () { }
+            )
+                
+            });
+        }
+
+        deleteItems() {
+            let _this = this;
+            let check_result_id = $('#checkResultForm').find('#id_info').val();
+            let data = {
+                'check_result_id': check_result_id
+            };
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Notify.success('삭제되었습니다.');
+                    _this.searchMainData();
+                } else {
+                    Alert.alert('', res.message);
+                }
+            }
+
+            AjaxUtil.postAsyncData(_this.url+'/delete', data, fnSuccess);
+
+        }
+
+        checkAllItem() {
+            let _this = this;
+            let items = [];
+            _this.resultGrid.list.forEach(function (item, idx) {
+                if (item.result_type == 'OX')
+                    item.result1 = 'O';
+            });
+            _this.resultGrid.repaint();
+        }
+
+        saveCheckItemResult() {
+            let _this = this;
+            let items = [];
+            $.each(_this.resultGrid.list, function (idx, item) {
+                items.push({ id: item.id, 'result1': item.result1 });
+            });
+          
+            let param = {
+                Q: JSON.stringify(items),
+                'check_result_id': $('#checkResultForm').find('#id_info').val(),
+                'description': $('#description').val()
+            };
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Notify.success('저장되었습니다.');
+                    _this.searchMainData();
+                } else {
+                    Alert.alert('', res.message);
+                }
+            }
+            AjaxUtil.postAsyncData(_this.url + '/save', param, fnSuccess);
+        }
+    }
+
+    class checkResultPopup {
+        constructor() {
+            //this.init();
+            this.url = '/api/check/check_result';
+        }
+
+        //init() {
+        //    let _this = this;
+        //}
+
+        insertData(form, modal) {
+            let _this = this;
+
+            let data = FormUtil.extractForm($('#checkResultFormPopup'));
+
+            let result = AjaxUtil.postSyncData(_this.url + '/insert', data);
+            if (result != null) {
+                if (result.success) {
+                    Notify.success('저장되었습니다.');
+                    page.searchMainData();
+                    modal.close();
+                } else {
+                    Alert.alert('', result.message);
+                }
+
+            }
+
+        }
+    }
+
+    let page = null;
+    let popup = null;
+    let modalContainer = null;
+    var picker = new ax5.ui.picker();
+
+    $(document).ready(function (e) {
+        page = new CheckResultPage();
+
+
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+        picker.bind({
+            target: $('[data-ax5picker="multi"]'),
+            direction: "top",
+            content: {
+                width: 206,  //130 270
+                margin: 10,
+                type: 'date',
+                config: {
+                    control: {
+                        left: '<i class="fa fa-chevron-left"></i>',
+                        yearTmpl: '%s',
+                        monthTmpl: '%s',
+                        right: '<i class="fa fa-chevron-right"></i>'
+                    },
+                    lang: {
+                        yearTmpl: "%s년",
+                        months: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
+                        dayTmpl: "%s"
+                    }
+                }
+            }
+           
+        });
+
+        $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-15));
+        $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-15));
+        $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+        $('#srchDt').ax5DatePicker({ direction: 'top' });
+        AjaxUtil.fillSelectOptions($('#cboCheck'), 'check_master', 'all', false);
+
+
+        $('#btnSearch').click(function (e) {
+            page.searchMainData();
+        });
+
+        $('#btnGridToggle').click(function (e) {
+            //$("#prod-result-grid").toggle(300);
+            $("#checkResultList").toggle(300);
+        });
+
+        $('#btnAdd').click(function (e) {
+            page.insertItems();
+        });
+        
+        $('#btnDelete').click(function (e) {
+            Alert.confirm('',
+                '삭제하시겠습니까?',
+                function () { page.deleteItems() },
+                function () { }
+            )
+        });
+
+        $('#btnAllItem').click(function (e) {
+            page.checkAllItem();
+        });
+        $('#btnResultSave').click(function (e) {
+            page.saveCheckItemResult();
+        });
+        page.searchMainData();
+    });
+
+</script>
+</th:block>
+</html>
