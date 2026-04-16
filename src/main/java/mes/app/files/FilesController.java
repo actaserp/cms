@@ -6,6 +6,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.net.URLEncoder;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -15,7 +17,11 @@ import java.util.UUID;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import lombok.extern.slf4j.Slf4j;
+import mes.app.common.TenantContext;
+import mes.domain.services.SqlRunner;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,343 +40,205 @@ import mes.domain.entity.User;
 import mes.domain.model.AjaxResult;
 import mes.domain.repository.AttachFileRepository;
 import mes.domain.services.CommonUtil;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/files")
 public class FilesController {
 
 	@Autowired
-	private FileService fileService;
-	
-	
-	@Autowired
-	FileService attachFileService;
-	
-	@Autowired
-	AttachFileRepository attachFileRepository;
+	SqlRunner sqlRunner;
 
 	@Autowired
-	Settings settings;
-	
+	NcpObjectStorageService storageService;
+
+	private static final List<String> BLOCKED_EXT = Arrays.asList(
+			"py", "js", "aspx", "asp", "jsp", "php", "cs", "ini", "htaccess", "exe", "dll");
+
+	private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd");
+
+
 	@PostMapping("/upload")
 	public Object upload(
 			MultipartHttpServletRequest multiRequest,
-			@RequestParam("uploadfile") MultipartFile files,
-			@RequestParam(value="DataPk", required = false) Integer DataPk,
-			@RequestParam(value="tableName", required = false) String tableName,
-			@RequestParam(value="attachName", required = false) String attachName,
-			@RequestParam(value="onlyOne", required = false) Integer onlyOne,
-			@RequestParam(value="others", required = false) String others,
-			@RequestParam(value="accepts", required = false) String accepts,
-			@RequestParam(value="addfileext", required = false) String addfileext,
-			@RequestParam(value="thumbnailYN", required = false) String thumbnailYN,			
+			@RequestParam("uploadfile") MultipartFile file,
+			@RequestParam(value = "DataPk", required = false) Integer dataPk,
+			@RequestParam(value = "tableName", required = false) String tableName,
+			@RequestParam(value = "attachName", required = false) String attachName,
+			@RequestParam(value = "accepts", required = false) String accepts,
 			RedirectAttributes redirectAttributes,
 			Authentication auth) {
-				
-		if (DataPk == null || DataPk < 0) {
-			DataPk = 0;
-		}
-		
-		User user = (User)auth.getPrincipal();
-		AttachFile attachFile = null;
-		List<String> not_ext = Arrays.asList("py", "js", "aspx", "asp", "jsp", "php", "cs", "ini", "htaccess","exe","dll");
+
 		AjaxResult result = new AjaxResult();
-		
-		Integer fileSize = (int) files.getSize();
-		
+		if (dataPk == null || dataPk < 0) dataPk = 0;
+		if (attachName == null) attachName = "basic";
+
+		User user = (User) auth.getPrincipal();
+		String spjangcd = user.getSpjangcd();
+
 		try {
-			
-			if (files != null) {
-				
-				if (fileSize > 52428800) { // 50m
-					result.success = false;
-					result.message = "Exceeded the allowed size";
-					return result;
-				}
-			}
-			
-			String fileName = files.getOriginalFilename();
-			
-			String ext = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
-			
-			if (StringUtils.isEmpty(accepts)==false) {
-				if (accepts.contains(ext)==false) {		//accept에 ext가 들어있지 않은 경우
-					result.success = false;
-					result.message = "This file is not allowed to upload.";
-					return result;
-				}
-			}
-				
-			if (not_ext.contains(ext)) { 		// 지원하지 않는 파일 list에 ext가 들어있는 경우
+			long fileSize = file.getSize();
+			if (fileSize > 20971520L) { // 20MB
 				result.success = false;
-				result.message = "This file is not allowed to upload.";
+				result.message = "파일 크기가 20MB를 초과합니다.";
 				return result;
 			}
-			
-			String path = settings.getProperty("file_upload_path") + others;
-			
-			// 2021-04-06 업무룰로 인한 추가
-			if (attachName == null) {
-				attachName = "basic";
-			}
 
-			try {
-				// 트랜젝션 필요
-				// 1. 파일저장
-				String file_uuid_name = UUID.randomUUID().toString() + "." + ext;
-				String saveFilePath = path ;
-				File saveDir = new File(saveFilePath);
-				MultipartFile mFile = null;
-				
-				mFile = files;
-				
-				// 디렉토리 없으면 생성
-				if (!saveDir.isDirectory()) {
-					saveDir.mkdir();
-				}
-				
-				File saveFile = new File(path + File.separator + file_uuid_name);
-				
-				mFile.transferTo(saveFile);				
-				
-				if (onlyOne !=null && onlyOne != 0 && DataPk != 0) {
-					// 구현안됨
-					//attachFile = this.attachFileService.getAttachFileByData(tableName, DataPk, attachName);
-					List<AttachFile> aList = this.attachFileRepository.findByTableNameAndDataPkAndAttachNameAndFileIndex(tableName,DataPk,attachName,0);
-					
-					if (aList.size() > 0) {
-						attachFile = aList.get(0);						
-					}
-				}
-				
-				if (attachFile == null) {
-					attachFile = new AttachFile();	
-				}
-				
-				// attachFile 정보저장
-				if (attachFile.getDataPk()==null) {	//attachFile이 비어있을 경우 
-					attachFile.setTableName(tableName);
-					attachFile.setDataPk(DataPk);
-					attachFile.setAttachName(attachName);
-				}
-				
-				attachFile.setPhysicFileName(file_uuid_name);
-				attachFile.setFileIndex(0);
-				attachFile.setFileName(fileName);
-				attachFile.setExtName(ext);
-				attachFile.setFilePath(path);
-				attachFile.setFileSize(fileSize);
-				attachFile.set_audit(user);
-				
-				
-				attachFile = this.attachFileRepository.save(attachFile);
-				
-				result.data = attachFile;
-				
-				// 2. 썸네일파일 저장 ==>구현중				
-				if("Y".equals(thumbnailYN)) {
-					// 추후개발
-					//thumb_path = settings.FILE_UPLOAD_PATH + others + "\\thumbnail\\"
-					String thumb_path = settings.getProperty("FILE_UPLOAD_PATH") + others +"\\thumbnail\\"; 
-					
-					File thumbPath = new File(thumb_path);
-					if(!thumbPath.isDirectory()) {
-						thumbPath.mkdir();
-					}
-					
-				}
-				
-			} catch(Exception e) {
+			String fileName = file.getOriginalFilename();
+			String ext = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+
+			if (!StringUtils.isEmpty(accepts) && !accepts.contains(ext)) {
 				result.success = false;
-				result.message = "업로드 오류";
+				result.message = "허용되지 않는 파일 형식입니다.";
+				return result;
 			}
-			
-			
-		} catch (Exception e) {
-			result.success = false;
-			result.message = "업로드 오류";
-		}
-		
-		HashMap<String,Object> res = new HashMap<String,Object>();
-		res.put("success", true);
-		res.put("fileExt", attachFile.getExtName());
-		res.put("fileNm", attachFile.getFileName());
-		res.put("fileSize", attachFile.getFileSize());
-		res.put("fileId", attachFile.getId());
-		res.put("TableName", attachFile.getTableName());
-		res.put("AttachName", attachFile.getAttachName());
+			if (BLOCKED_EXT.contains(ext)) {
+				result.success = false;
+				result.message = "허용되지 않는 파일 형식입니다.";
+				return result;
+			}
 
-		return res;
+			// tableName = 기능 식별자 (예: NOTICE, QNA) — TB_FILEINFO.CHECKSEQ 와 동일
+			String uuidFileName = UUID.randomUUID().toString() + "." + ext;
+			String objectKey = storageService.buildObjectKey(spjangcd, tableName, uuidFileName);
+			String filePrefix = storageService.getFilePrefix(spjangcd, tableName);
+
+			java.io.File tempFile = java.io.File.createTempFile("upload_", "." + ext);
+			try {
+				file.transferTo(tempFile);
+				try (java.io.FileInputStream fis = new java.io.FileInputStream(tempFile)) {
+					storageService.upload(objectKey, fis, fileSize,
+							file.getContentType() != null ? file.getContentType() : "application/octet-stream");
+				}
+			} finally {
+				tempFile.delete(); // 성공/실패 상관없이 항상 삭제
+			}
+
+			// TB_FILEINFO에 메타데이터 저장 (MSSQL, OUTPUT으로 PK 수신)
+			String today = LocalDate.now().format(YYYYMMDD);
+			MapSqlParameterSource paramMap = new MapSqlParameterSource();
+			String username = user.getUsername();
+			if (username != null && username.length() > 20) username = username.substring(0, 20);
+
+			paramMap.addValue("filedate", today);
+			paramMap.addValue("checkseq", NcpObjectStorageService.toCheckseq(tableName));   // varchar(2)
+			paramMap.addValue("bbsseq", dataPk);
+			paramMap.addValue("filepath", filePrefix);
+			paramMap.addValue("filesvnm", uuidFileName);
+			paramMap.addValue("fileextns", ext);
+			paramMap.addValue("fileornm", fileName);
+			paramMap.addValue("filesize", (int) fileSize);
+			paramMap.addValue("inuserid", username);
+			paramMap.addValue("spjangcd", spjangcd);
+
+			// FILEURL 은 FILEPATH + '/' + FILESVNM 으로 조합 가능하므로 저장하지 않음
+			String sql = """
+					INSERT INTO TB_FILEINFO
+						 (FILEDATE, CHECKSEQ, bbsseq, FILEPATH, FILESVNM, FILEEXTNS, FILEORNM, FILESIZE, INDATEM, INUSERID, spjangcd)
+					 VALUES
+						 (:filedate, :checkseq, :bbsseq, :filepath, :filesvnm, :fileextns, :fileornm, :filesize, NOW(), :inuserid, :spjangcd)
+					 RETURNING fileseq
+					""";
+
+			Map<String, Object> row = sqlRunner.getRow(sql, paramMap);
+			if (row == null) {
+				result.success = false;
+				result.message = "파일 정보 저장 실패";
+				return result;
+			}
+
+			int fileseq = ((Number) row.get("fileseq")).intValue();
+
+			HashMap<String, Object> res = new HashMap<>();
+			res.put("success", true);
+			res.put("fileExt", ext);
+			res.put("fileNm", fileName);
+			res.put("fileSize", (int) fileSize);
+			res.put("fileId", fileseq);
+			res.put("TableName", tableName);
+			res.put("AttachName", attachName);
+			return res;
+
+		} catch (Exception e) {
+			log.error("[FileUpload] 업로드 오류: {}", e.getMessage(), e);
+			result.success = false;
+			result.message = "업로드 오류: " + e.getMessage();
+			return result;
+		}
 	}
-				
-	
+
+	@GetMapping("/master-guide")
+	public void masterGuide(HttpServletResponse response, Authentication auth) throws Exception {
+
+		User user = (User) auth.getPrincipal();
+		String groupCode = user.getUserProfile().getUserGroup().getCode();
+
+		if (!"Master".equals(groupCode)) {
+			response.sendError(HttpServletResponse.SC_FORBIDDEN, "접근 권한이 없습니다.");
+			return;
+		}
+
+		String objectKey = "guide/ACTAS_시스템설정_매뉴얼.pdf";
+
+		try (ResponseInputStream<GetObjectResponse> s3Stream = storageService.download(objectKey);
+			 BufferedOutputStream out = new BufferedOutputStream(response.getOutputStream())) {
+
+			response.setContentType("application/pdf");
+			response.setHeader("Content-Disposition",
+					"inline; filename*=UTF-8''ACTAS_%EC%8B%9C%EC%8A%A4%ED%85%9C%EC%84%A4%EC%A0%95_%EB%A7%A4%EB%89%B4%EC%96%BC.pdf");
+
+			byte[] buffer = new byte[8192];
+			int bytesRead;
+			while ((bytesRead = s3Stream.read(buffer)) != -1) {
+				out.write(buffer, 0, bytesRead);
+			}
+			out.flush();
+
+		} catch (Exception e) {
+			log.error("[MasterGuide] 다운로드 오류: {}", e.getMessage(), e);
+			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "다운로드 오류");
+		}
+	}
 
 	@GetMapping("/download")
 	public void download(
-			@RequestParam(value="file_id", required = false) Integer file_id,
-			@RequestParam(value="TableName", required = false) String tableName,
-			@RequestParam(value="AttachName", required = false) String attachName,
+			@RequestParam("file_id") Integer fileseq,
 			HttpServletRequest request,
 			HttpServletResponse response) throws Exception {
-		
-		Map<String, Object> row = fileService.getAttachFileDetail(file_id);
-		
-		if (row != null) {
-			
-			String FILE_UPLOAD_PATH = settings.getProperty("file_upload_path");
-			
-			String TableName = (String) row.get("TableName");
-			//String AttachName = (String) row.get("AttachName");
-			String PhysicFileName = (String) row.get("PhysicFileName");
-			String FileName = (String) row.get("FileName");
 
-			if (FILE_UPLOAD_PATH == null || FILE_UPLOAD_PATH == "") {
-				throw new Exception("파일 경로가 설정되지 않았습니다.");
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
+		paramMap.addValue("fileseq", fileseq);
+
+		Map<String, Object> row = sqlRunner.getRow(
+				"select FILEPATH, FILESVNM, FILEORNM from TB_FILEINFO where fileseq = :fileseq", paramMap);
+
+		if (row == null) {
+			response.sendError(HttpServletResponse.SC_NOT_FOUND, "파일을 찾을 수 없습니다.");
+			return;
+		}
+
+		String objectKey = row.get("FILEPATH") + "/" + row.get("FILESVNM");
+		String fileName  = (String) row.get("FILEORNM");
+
+		try (ResponseInputStream<GetObjectResponse> s3Stream = storageService.download(objectKey);
+			 BufferedOutputStream out = new BufferedOutputStream(response.getOutputStream())) {
+
+			String encodedFilename = "attachment; filename*=UTF-8''" + URLEncoder.encode(fileName, "UTF-8");
+			response.setContentType("application/octet-stream");
+			response.setHeader("Content-Disposition", encodedFilename);
+
+			byte[] buffer = new byte[8192];
+			int bytesRead;
+			while ((bytesRead = s3Stream.read(buffer)) != -1) {
+				out.write(buffer, 0, bytesRead);
 			}
-			
-			String filePath = FILE_UPLOAD_PATH + TableName + "\\";
-    		String file_name = PhysicFileName;
-    		
-    		try {
-    			// 경로와 파일명으로 파일 객체 생성
-    			File dFile = new File(filePath, file_name);
-    			
-    			// 파일 길이를 가져온다
-    			int fSize = (int) dFile.length();
-    			
-    			// 파일이 존재한 경우
-    			if (fSize > 0) {
-    				    				
-    				// 파일명을 URLEncoder하여 attachment, Content-disposition Header로 설정
-    				String encodedFilename = "attachment; filename*=UTF-8" + "''" + URLEncoder.encode(FileName, "UTF-8");
-    				
-    				// ContentType 설정
-    				response.setContentType("application/excel; charset=utf-8");
-    				
-    				// Header 설정
-    				response.setHeader("Content-Disposition", encodedFilename);
-    				
-    				// ContentLength 설정
-    				response.setContentLengthLong(fSize);
-    				
-    				BufferedInputStream in = null;
-    				BufferedOutputStream out = null;
-    				
-    				// 입력 스트림 생성
-    				in = new BufferedInputStream(new FileInputStream(dFile));
-    				
-    				// 츨력 스트림 생성
-    				out = new BufferedOutputStream(response.getOutputStream());
-    				
-    				try {
-    					
-    					byte[] buffer = new byte[4096];
-    					int bytesRead = 0;
-    					
-    					// 현재 파일 포인터 기준으로 함 
-    					while ((bytesRead = in.read(buffer)) != -1) {
-    						out.write(buffer, 0, bytesRead);
-    					}
-    					
-    					// 버퍼에 남은 내용이 있다면, 모두 파일에 출력
-    					out.flush();    					
-    				} catch (Exception e) {    					
-    					System.out.println(e.getMessage());
-					} finally {						
-						// 현재 열려있는 in, out 스트림 닫기
-						if (in != null) {
-							in.close();
-						}
-						
-						if (out != null) {
-							out.close();
-						}						
-					}
-    			} else {
-    				throw new FileNotFoundException("파일이 없습니다.");
-    			}    			
-    		} catch (Exception ex) {
-				System.out.println(ex.getMessage());
-    		}			
-		}
-	}
-	
-	@GetMapping("/mes_form")
-	public void mes_form(
-			@RequestParam("file_name") String file_name,
-			HttpServletRequest request,
-			HttpServletResponse response) throws Exception {
-    
-		String file_path = settings.getProperty("mes_form_path");
+			out.flush();
 
-		if (file_path == null || file_path == "") {
-			throw new Exception("파일 경로가 설정되지 않았습니다.");
+		} catch (Exception e) {
+			log.error("[FileDownload] 다운로드 오류 (key={}): {}", objectKey, e.getMessage(), e);
+			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "다운로드 오류");
 		}
-		
-		//String file_path = MES_FORM_PATH + tableName + "\\";
-		
-		try {
-			// 경로와 파일명으로 파일 객체 생성
-			File dFile = new File(file_path, file_name);
-			
-			// 파일 길이를 가져온다
-			int fSize = (int) dFile.length();
-			
-			// 파일이 존재한 경우
-			if (fSize > 0) {
-				// 파일명을 URLEncoder하여 attachment, Content-disposition Header로 설정
-				String encodedFilename = "attachment; filename*=UTF-8" + "''" + CommonUtil.getUtf8FileName(file_name);
-				
-				// ContentType 설정
-				//response.setContentType("application/ms-excel");
-				response.setContentType("application/excel; charset=utf-8");
-				
-				// Header 설정
-				response.setHeader("Content-Disposition", encodedFilename);
-				response.setHeader("Set-Cookie", "fileDownload=true; path=/");
-				
-				// ContentLength 설정
-				response.setContentLengthLong(fSize);
-				
-				BufferedInputStream in = null;
-				BufferedOutputStream out = null;
-				
-				// 입력 스트림 생성
-				in = new BufferedInputStream(new FileInputStream(dFile));
-				
-				// 츨력 스트림 생성
-				out = new BufferedOutputStream(response.getOutputStream());
-				
-				try {
-					
-					byte[] buffer = new byte[4096];
-					int bytesRead = 0;
-					
-					// 현재 파일 포인터 기준으로 함 
-					while ((bytesRead = in.read(buffer)) != -1) {
-						out.write(buffer, 0, bytesRead);
-					}
-					
-					// 버퍼에 남은 내용이 있다면, 모두 파일에 출력
-					out.flush();    					
-				} catch (Exception e) {    					
-					System.out.println(e.getMessage());
-				} finally {						
-					// 현재 열려있는 in, out 스트림 닫기
-					if (in != null) {
-						in.close();
-					}
-					
-					if (out != null) {
-						out.close();
-					}						
-				}
-			} else {
-				throw new FileNotFoundException("파일이 없습니다.");
-			}    			
-		} catch (Exception ex) {
-			System.out.println(ex.getMessage());
-		}	
 	}
-	
 }

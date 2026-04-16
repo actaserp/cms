@@ -68,6 +68,7 @@ public class HomeController {
 		String userid = user.getUsername();
 		Integer groupid = user.getUserProfile().getUserGroup().getId();
 		String groupname = user.getUserProfile().getUserGroup().getName();
+		String groupCode = user.getUserProfile().getUserGroup().getCode();
 		String spjangcd = user.getSpjangcd();
                 
         SystemOption sysOpt= this.systemOptionRepository.getByCode("LOGO_TITLE");
@@ -87,6 +88,7 @@ public class HomeController {
 		mv.addObject("username", username);
 		mv.addObject("userid", userid);
 		mv.addObject("groupname", groupname);
+		mv.addObject("groupCode", groupCode);
 		session.setAttribute("spjangcd", spjangcd);
 		session.setAttribute("username", username);
 		session.setAttribute("userid", userid);

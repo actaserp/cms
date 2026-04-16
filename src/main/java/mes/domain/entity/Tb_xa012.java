@@ -137,4 +137,23 @@ public class Tb_xa012 {
 
     @Column(name = "bill_plans_id")
     private Integer bill_plans_id;
+
+    // CMS 서비스 정보
+    @Column(name = "cms_code", length = 10)
+    private String cmsCode;          // CMS이용기관코드 (금융결제원 부여)
+
+    @Column(name = "cms_pw", length = 20)
+    private String cmsPw;            // CMS비밀번호
+
+    @Column(name = "cms_memo", length = 50)
+    private String cmsMemo;          // 통장기재내용
+
+    @Column(name = "cms_bank_code", length = 3)
+    private String cmsBankCode;      // 입금은행코드
+
+    @Column(name = "cms_bank_acct", length = 20)
+    private String cmsBankAcct;      // 입금계좌번호
+
+    @Column(name = "cms_state", length = 10)
+    private String cmsState;         // CMS서비스상태 (apply/approve/stop)
 }

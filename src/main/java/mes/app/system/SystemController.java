@@ -38,70 +38,66 @@ public class SystemController {
 	public AjaxResult menus(Authentication auth) {
 
 		User user = (User) auth.getPrincipal();
-       
-        List<Map<String, Object>> items = this.systemService.getWebMenuList(user);
-        
-        Map<Integer, Object> nodeMap = new HashMap<Integer, Object>(); 
-        List<Map<String, Object>> menuItems = new ArrayList<>();
-        
-        for(int idx=0; idx<items.size();idx++) {
-        	Map<String, Object> dicData = items.get(idx);
-        	Integer id = (Integer)dicData.get("id");
-        	String menu_code=(String)dicData.get("menu_code");
-        	Integer pid = (Integer)dicData.get("pid");
-        	String name=(String)dicData.get("name");
-        	boolean isbookmark = (boolean)dicData.get("isbookmark");
-        	String css = (String)dicData.get("css");
 
-//			boolean isbookmark = (dicData.get("isbookmark") != null) && ((int) dicData.get("isbookmark") != 0);
+		List<Map<String, Object>> items = this.systemService.getWebMenuList(user);
+		List<Map<String, Object>> frontFolders = this.systemService.getFrontFolderList();
+		if (items == null) items = new ArrayList<>();
+		if (frontFolders == null) frontFolders = new ArrayList<>();
+
+		Map<Integer, Object> nodeMap = new HashMap<Integer, Object>();
+		List<Map<String, Object>> menuItems = new ArrayList<>();
+
+		for(int idx=0; idx<items.size();idx++) {
+			Map<String, Object> dicData = items.get(idx);
+			Integer id = (Integer)dicData.get("id");
+			String menu_code=(String)dicData.get("menu_code");
+			Integer pid = (Integer)dicData.get("pid");
+			String name=(String)dicData.get("name");
+			boolean isbookmark = (boolean)dicData.get("isbookmark");
+			String css = (String)dicData.get("css");
+
 			Integer frontfolder_id = (Integer) dicData.get("frontfolder_id");
-        	
-        	//String log = String.format("id:%s, menu_code:%s, pid:%s, name:%s",id,menu_code, pid, name);
-        	//System.out.println(log);
-        	
-        	
-        	if (id!=null) {
-        		List<Map<String, Object>> nodes = new ArrayList<Map<String, Object>>();
-        		
-        		Map<String, Object> folder = new HashMap<>();
+
+			if (id!=null) {
+				List<Map<String, Object>> nodes = new ArrayList<Map<String, Object>>();
+
+				Map<String, Object> folder = new HashMap<>();
 				folder.put("folder_id", id);
 				folder.put("folder_name", name);
 				folder.put("frontfolder_id", frontfolder_id);
-//        		folder.put("objId", menu_code);
-//        		folder.put("objNm", name);
-//        		folder.put("objUrl", "");
-//        		folder.put("menuIconCls", css);
-        		folder.put("nodes", nodes);
-        		folder.put("ismanual", false);
-        		folder.put("isbookmark", false);
-        		folder.put("menuDepth", 1);
-        		
-        		menuItems.add(folder);
-        		nodeMap.put(id, nodes);
-        	}
-        	else {
-        		String url = String.format("/gui/%s", menu_code);
-        		List<Map<String, Object>> nodes =(ArrayList<Map<String, Object>>)nodeMap.get(pid);
-        		
-        		Map<String, Object> menuItem = new HashMap<>();
-        		menuItem.put("objId", menu_code);
-        		menuItem.put("objNm", name);
-        		menuItem.put("objUrl", url);
-//        		menuItem.put("menuIconCls", css);
-//        		menuItem.put("nodes", new ArrayList<Map<String, Object>>());
-        		menuItem.put("ismanual", false);
-        		menuItem.put("isbookmark", isbookmark);
-        		menuItem.put("menuDepth", 2);
+				folder.put("nodes", nodes);
+				folder.put("ismanual", false);
+				folder.put("isbookmark", false);
+				folder.put("menuDepth", 1);
 
-                nodes.add(menuItem);
-            }
+				menuItems.add(folder);
+				nodeMap.put(id, nodes);
+			}
+			else {
+				String url = String.format("/gui/%s", menu_code);
+				List<Map<String, Object>> nodes =(ArrayList<Map<String, Object>>)nodeMap.get(pid);
 
-        }
-        
-        AjaxResult result = new AjaxResult();
-        result.success = true;
-        result.data = menuItems;        				
-        
+				Map<String, Object> menuItem = new HashMap<>();
+				menuItem.put("objId", menu_code);
+				menuItem.put("objNm", name);
+				menuItem.put("objUrl", url);
+				menuItem.put("ismanual", false);
+				menuItem.put("isbookmark", isbookmark);
+				menuItem.put("menuDepth", 2);
+
+				nodes.add(menuItem);
+			}
+
+		}
+
+		Map<String, Object> resultData = new HashMap<>();
+		resultData.put("menuItems", menuItems);
+		resultData.put("frontFolders", frontFolders);
+
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+		result.data = resultData;
+
 		return result;
 	}
 

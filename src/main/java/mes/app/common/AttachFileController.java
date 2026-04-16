@@ -5,7 +5,11 @@ import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
 
+import lombok.extern.slf4j.Slf4j;
+import mes.app.files.NcpObjectStorageService;
+import mes.domain.services.SqlRunner;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,76 +22,83 @@ import mes.domain.model.AjaxResult;
 import mes.domain.repository.AttachFileRepository;
 import mes.domain.repository.FileRepository;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/common/attach_file")
 public class AttachFileController {
-	
+
 	@Autowired
-	FileRepository fileRepository;
-	
+	SqlRunner sqlRunner;
+
 	@Autowired
-	AttachFileRepository attachfileRepository;
-	
-	@Autowired
-	private FileService fileService;
-	
+	NcpObjectStorageService storageService;
+
+	// 첨부파일 목록 조회 (ax5_uploader용)
 	@GetMapping("/detailFiles")
 	public AjaxResult detailFiles(
-			@RequestParam(value="attachName") String attachName,
-			@RequestParam(value="TableName", required = true) String TableName,
-			@RequestParam(value="DataPk", required = true) Integer DataPk,
-			//@RequestParam(value="limit", required = true) Integer limit,
-			HttpServletRequest request
-			) {
-		
-		List<Map<String, Object>> items = this.fileService.getAttachFile(TableName, DataPk, attachName);      
-   		
-        AjaxResult result = new AjaxResult();
-        result.data = items;        				
-        
-		return result;
-	}
-	
-	//파일 삭제
-	@SuppressWarnings("unused")
-	@PostMapping("/deleteFile")
-	public AjaxResult deleteFile(
-			@RequestParam(value="fileId", required = false) Integer id,
-			@RequestParam(value="tableName", required = false) String TableName,
-			@RequestParam(value="DataPk", required = false) Integer dataPk,
-			//@RequestParam(value="physicFileName", required = true) String physicFileName,
+			@RequestParam("TableName") String tableName,
+			@RequestParam("DataPk") Integer dataPk,
+			@RequestParam(value = "attachName", required = false) String attachName,
 			HttpServletRequest request) {
-		
+
+		String spjangcd = TenantContext.get();
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
+		paramMap.addValue("checkseq", NcpObjectStorageService.toCheckseq(tableName));
+		paramMap.addValue("bbsseq", dataPk);
+		paramMap.addValue("spjangcd", spjangcd);
+
+		String sql = """
+				select fileseq as "fileId"
+				, FILEORNM as "fileNm"
+				, FILEEXTNS as "fileExt"
+				, FILESIZE as "fileSize"
+				, FILEURL
+				from TB_FILEINFO
+				where CHECKSEQ = :checkseq
+				and bbsseq = :bbsseq
+				and spjangcd = :spjangcd
+				order by fileseq
+				""";
+
+		List<Map<String, Object>> items = sqlRunner.getRows(sql, paramMap);
+
 		AjaxResult result = new AjaxResult();
-		AttachFile af = null;
-		//AttachFile q = null;
-		
-		af = new AttachFile();
-		//q = new AttachFile();
-		if (dataPk == null) {
-  		  af = this.fileRepository.getFileById(id);
-		} else {
-		  // 리스트에서 선택하여 삭제시 파일도 같이 삭제하기 위해 로직 추가
-		  List<AttachFile> dId = this.fileRepository.findByDataPk(dataPk);
-		  if (dId.size() > 0) {
-			  af = this.fileRepository.getFileById(dId.get(0).getId());
-			  this.fileService.deleteByDataPk(dataPk);
-		  }
-		}
-		//String physicFileName = af.getPhysicFileName();
-		//Integer dataPk = af.getDataPk();
-		
-		if (id != null) {
-			this.fileRepository.deleteById(id);
-			
-			//thumbnail 지우기
-			// q = this.attachfileRepository.getAttachFileByTableName(TableName);
-			// q.filter dataPk, AttachName=thumbnail, PhysicFileName
-			// q.delete();
-		}
-		
+		result.data = items;
 		return result;
-		
 	}
 
+	// 첨부파일 삭제 (NCP + TB_FILEINFO)
+	@PostMapping("/deleteFile")
+	public AjaxResult deleteFile(
+			@RequestParam(value = "fileId") Integer fileseq,
+			HttpServletRequest request) {
+
+		AjaxResult result = new AjaxResult();
+
+		// NCP 오브젝트 키 조회
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
+		paramMap.addValue("fileseq", fileseq);
+
+		Map<String, Object> row = sqlRunner.getRow(
+				"select FILEPATH, FILESVNM from TB_FILEINFO where fileseq = :fileseq", paramMap);
+
+		if (row == null) {
+			result.success = false;
+			result.message = "파일을 찾을 수 없습니다.";
+			return result;
+		}
+
+		// NCP에서 삭제
+		try {
+			String objectKey = row.get("FILEPATH") + "/" + row.get("FILESVNM");
+			storageService.delete(objectKey);
+		} catch (Exception e) {
+			log.error("[FileDelete] NCP 삭제 오류 (fileseq={}): {}", fileseq, e.getMessage(), e);
+		}
+
+		// TB_FILEINFO에서 삭제
+		sqlRunner.execute("delete from TB_FILEINFO where fileseq = :fileseq", paramMap);
+
+		return result;
+	}
 }
