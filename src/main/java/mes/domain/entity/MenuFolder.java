@@ -33,4 +33,7 @@ public class MenuFolder extends AbstractAuditModel {
 
 	@Column(name = "\"Parent_id\"")
 	Integer parentId;
+
+	@Column(name = "\"FrontFolder_id\"")
+	Integer frontFolderId;
 }

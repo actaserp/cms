@@ -24,6 +24,9 @@ public class TenantSqlInspector implements StatementInspector {
                 || lowSql.contains("label_code")
                 || lowSql.contains("label_code_lang")
                 || lowSql.contains("sys_code")
+                || lowSql.contains("menu_item")
+                || lowSql.contains("menu_folder")
+                || lowSql.contains("menu_front_folder")
         ) {
             return sql;
         }

@@ -34,4 +34,7 @@ public class MenuItem extends AbstractAuditModel {
 
 	@Column(name = "\"MenuFolder_id\"")
 	Integer menuFolderId;
+
+	@Column(name = "template")
+	String template;
 }

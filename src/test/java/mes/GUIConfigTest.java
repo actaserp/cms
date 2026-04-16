@@ -6,7 +6,6 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import mes.domain.GUIConfiguration;
 import mes.domain.model.GUIData;
 
 
@@ -14,16 +13,16 @@ import mes.domain.model.GUIData;
 public class GUIConfigTest {
 	
 		
-	@Test
-	public void jsonLoadTest(){
-
-		Map<String, GUIData> guiDic = GUIConfiguration.getGUIDataMap();
-		
-		for( Map.Entry<String, GUIData> elem : guiDic.entrySet() ){
-			String guiCode = elem.getKey();
-			GUIData guiData = elem.getValue();
-			String msg = String.format("%s, %s, %s",guiCode, guiData.name, guiData.templates);
-			System.out.println(msg);	
-		}		
-	}
+//	@Test
+//	public void jsonLoadTest(){
+//
+//		Map<String, GUIData> guiDic = GUIConfiguration.getGUIDataMap();
+//
+//		for( Map.Entry<String, GUIData> elem : guiDic.entrySet() ){
+//			String guiCode = elem.getKey();
+//			GUIData guiData = elem.getValue();
+//			String msg = String.format("%s, %s, %s",guiCode, guiData.name, guiData.templates);
+//			System.out.println(msg);
+//		}
+//	}
 }

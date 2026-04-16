@@ -1,0 +1,524 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header { text-align: center !important; }
+        .tab-bar { display: flex; gap: 4px; margin-bottom: 12px; }
+        .tab-btn {
+            padding: 6px 20px; border: 1px solid #ccc; border-radius: 4px 4px 0 0;
+            background: #f5f5f5; cursor: pointer; font-size: 13px;
+        }
+        .tab-btn.active { background: #fff; border-bottom-color: #fff; font-weight: 600; color: #1a5276; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* 모달 */
+        .modal-overlay {
+            display: none; position: fixed; top:0; left:0;
+            width:100%; height:100%; background:rgba(0,0,0,.5); z-index:1000;
+        }
+        .modal-box {
+            position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+            background:#fff; border-radius:8px; padding:28px 32px; min-width:420px;
+            box-shadow:0 4px 24px rgba(0,0,0,.18);
+        }
+        .modal-box h3 { margin:0 0 18px; font-size:15px; font-weight:600; }
+        .mrow { display:flex; align-items:center; margin-bottom:10px; gap:10px; }
+        .mrow label { width:90px; font-size:13px; color:#444; flex-shrink:0; }
+        .mrow input, .mrow select {
+            flex:1; height:32px; border:1px solid #ccc; border-radius:4px;
+            padding:0 8px; font-size:13px;
+        }
+        .modal-footer { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+<div class="layout-contents">
+    <div class="page-title-wrap">
+        <div class="left"><h2>메뉴 관리</h2></div>
+        <ul class="page-navi">
+            <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+            <li>시스템관리</li>
+            <li>메뉴 관리</li>
+        </ul>
+    </div>
+
+    <section class="section">
+        <!-- 탭 -->
+        <div class="tab-bar">
+            <div class="tab-btn active" data-tab="tab-front">Front Folder</div>
+            <div class="tab-btn" data-tab="tab-folder">Folder</div>
+            <div class="tab-btn" data-tab="tab-item">Menu Item</div>
+        </div>
+
+        <!-- ① Front Folder 탭 -->
+        <div id="tab-front" class="tab-panel active">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl><dt></dt><dd>
+                        <button type="button" class="btn-delete" id="btnFrontAdd" style="width:80px;height:36px;">추가</button>
+                    </dd></dl>
+                    <dl><dt></dt><dd>
+                        <button type="button" class="btn-delete" id="btnFrontEdit" style="width:80px;height:36px;background:#5d8aa8;">수정</button>
+                    </dd></dl>
+                    <dl><dt></dt><dd>
+                        <button type="button" class="btn-delete" id="btnFrontDel" style="width:80px;height:36px;background:#888;">삭제</button>
+                    </dd></dl>
+                </div>
+            </div>
+            <div id="gridFront" style="height:520px;"></div>
+        </div>
+
+        <!-- ② Folder 탭 -->
+        <div id="tab-folder" class="tab-panel">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl><dt></dt><dd>
+                        <button type="button" class="btn-delete" id="btnFolderAdd" style="width:80px;height:36px;">추가</button>
+                    </dd></dl>
+                    <dl><dt></dt><dd>
+                        <button type="button" class="btn-delete" id="btnFolderEdit" style="width:80px;height:36px;background:#5d8aa8;">수정</button>
+                    </dd></dl>
+                    <dl><dt></dt><dd>
+                        <button type="button" class="btn-delete" id="btnFolderDel" style="width:80px;height:36px;background:#888;">삭제</button>
+                    </dd></dl>
+                </div>
+            </div>
+            <div id="gridFolder" style="height:520px;"></div>
+        </div>
+
+        <!-- ③ Menu Item 탭 -->
+        <div id="tab-item" class="tab-panel">
+            <div class="section-top">
+                <div class="search-wrap" style="align-items: flex-end;">
+                    <dl>
+                        <dt><label>Folder</label></dt>
+                        <dd>
+                            <select id="selFolder" class="form-control2" style="width:200px;">
+                                <option value="">-- 전체 --</option>
+                            </select>
+                        </dd>
+                    </dl>
+                    <dl><dt></dt><dd>
+                        <button type="button" class="btn-delete" id="btnItemSearch" style="width:80px;height:36px;">
+                            <img th:src="@{/images/icon/btn-srch.svg}" alt="">검색
+                        </button>
+                    </dd></dl>
+                    <dl><dt></dt><dd>
+                        <button type="button" class="btn-delete" id="btnItemAdd" style="width:80px;height:36px;">추가</button>
+                    </dd></dl>
+                    <dl><dt></dt><dd>
+                        <button type="button" class="btn-delete" id="btnItemEdit" style="width:80px;height:36px;background:#5d8aa8;">수정</button>
+                    </dd></dl>
+                    <dl><dt></dt><dd>
+                        <button type="button" class="btn-delete" id="btnItemDel" style="width:80px;height:36px;background:#888;">삭제</button>
+                    </dd></dl>
+                </div>
+            </div>
+            <div id="gridItem" style="height:520px;"></div>
+        </div>
+    </section>
+</div>
+
+<!-- 모달: Front Folder -->
+<div class="modal-overlay" id="modalFront">
+    <div class="modal-box">
+        <h3 id="modalFrontTitle">Front Folder 추가</h3>
+        <input type="hidden" id="fFrontId"/>
+        <div class="mrow"><label>폴더명 *</label><input type="text" id="fFrontName"/></div>
+        <div class="mrow"><label>아이콘CSS</label><input type="text" id="fFrontIcon" placeholder="fa-home"/></div>
+        <div class="mrow"><label>DOM ID</label><input type="text" id="fFrontDomId"/></div>
+        <div class="mrow"><label>순서</label><input type="number" id="fFrontOrder" value="10"/></div>
+        <div class="mrow">
+            <label>사용여부</label>
+            <select id="fFrontUseYn"><option value="Y">Y</option><option value="N">N</option></select>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-delete" id="btnFrontSave" style="width:70px;height:34px;">저장</button>
+            <button type="button" class="btn-delete" onclick="closeModal('modalFront')" style="width:70px;height:34px;background:#888;">취소</button>
+        </div>
+    </div>
+</div>
+
+<!-- 모달: Folder -->
+<div class="modal-overlay" id="modalFolder">
+    <div class="modal-box">
+        <h3 id="modalFolderTitle">Folder 추가</h3>
+        <input type="hidden" id="fFolderId"/>
+        <div class="mrow"><label>폴더명 *</label><input type="text" id="fFolderName"/></div>
+        <div class="mrow"><label>아이콘CSS</label><input type="text" id="fFolderIcon" placeholder="fa-folder"/></div>
+        <div class="mrow">
+            <label>Front Folder</label>
+            <select id="fFolderFrontId"><option value="">-- 없음 --</option></select>
+        </div>
+        <div class="mrow"><label>순서</label><input type="number" id="fFolderOrder" value="10"/></div>
+        <div class="modal-footer">
+            <button type="button" class="btn-delete" id="btnFolderSave" style="width:70px;height:34px;">저장</button>
+            <button type="button" class="btn-delete" onclick="closeModal('modalFolder')" style="width:70px;height:34px;background:#888;">취소</button>
+        </div>
+    </div>
+</div>
+
+<!-- 모달: Menu Item -->
+<div class="modal-overlay" id="modalItem">
+    <div class="modal-box" style="min-width:500px;">
+        <h3 id="modalItemTitle">Menu Item 추가</h3>
+        <div class="mrow"><label>MenuCode *</label><input type="text" id="fItemCode" placeholder="예: wm_tenant_db"/></div>
+        <div class="mrow"><label>메뉴명 *</label><input type="text" id="fItemName"/></div>
+        <div class="mrow"><label>Template</label><input type="text" id="fItemTemplate" placeholder="예: system/manage_tenant_db"/></div>
+        <div class="mrow">
+            <label>Folder</label>
+            <select id="fItemFolderId"><option value="">-- 미배치 --</option></select>
+        </div>
+        <div class="mrow"><label>아이콘CSS</label><input type="text" id="fItemIcon" placeholder="fa-cog"/></div>
+        <div class="mrow"><label>순서</label><input type="number" id="fItemOrder" value="10"/></div>
+        <div class="modal-footer">
+            <button type="button" class="btn-delete" id="btnItemSave" style="width:70px;height:34px;">저장</button>
+            <button type="button" class="btn-delete" onclick="closeModal('modalItem')" style="width:70px;height:34px;background:#888;">취소</button>
+        </div>
+    </div>
+</div>
+
+<footer style="margin-top:24px;"><p>Copyrightⓒ 0000 corp. All rights reserved.</p></footer>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<script>
+/* ───── 탭 전환 ───── */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+});
+
+/* ───── 공통 모달 ───── */
+function openModal(id) { document.getElementById(id).style.display = 'block'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', e => { if (e.target === el) el.style.display = 'none'; });
+});
+
+/* ───── 그리드 변수 ───── */
+var gridFront, gridFolder, gridItem;
+var frontFolders = [];  // 캐시
+
+document.addEventListener('DOMContentLoaded', () => {
+    initGrids();
+    loadFrontFolders();
+    loadFolders();
+    loadMenuItems();
+});
+
+/* ══════════════════════════════════════════
+   ① Front Folder 그리드
+══════════════════════════════════════════ */
+function initGrids() {
+    gridFront = new wijmo.grid.FlexGrid('#gridFront', {
+        selectionMode: wijmo.grid.SelectionMode.Row,
+        isReadOnly: true,
+        autoGenerateColumns: false,
+        headersVisibility: wijmo.grid.HeadersVisibility.Column,
+        formatItem: centerHeader,
+        columns: [
+            {binding:'id',          header:'ID',       width:60,  align:'center'},
+            {binding:'folder_name', header:'폴더명',    width:'*', align:'left'},
+            {binding:'icon_css',    header:'아이콘CSS', width:130, align:'left'},
+            {binding:'dom_id',      header:'DOM ID',   width:130, align:'left'},
+            {binding:'_order',      header:'순서',      width:70,  align:'center'},
+            {binding:'use_yn',      header:'사용',      width:60,  align:'center'},
+        ],
+        itemsSource: new wijmo.collections.CollectionView([])
+    });
+    new FlexGridContextMenu(gridFront);
+
+    gridFront.hostElement.addEventListener('dblclick', () => {
+        let item = getSelectedItem(gridFront);
+        if (item) openFrontModal(item);
+    });
+
+    $('#btnFrontAdd').on('click', () => openFrontModal(null));
+    $('#btnFrontEdit').on('click', () => {
+        let item = getSelectedItem(gridFront);
+        if (!item) { Alert.alert('', '수정할 항목을 선택하세요.'); return; }
+        openFrontModal(item);
+    });
+    $('#btnFrontDel').on('click', () => {
+        let item = getSelectedItem(gridFront);
+        if (!item) { Alert.alert('', '삭제할 항목을 선택하세요.'); return; }
+        Alert.confirm('', `[${item.folder_name}] 을(를) 삭제하시겠습니까?`, () => {
+            AjaxUtil.postJsonData('/api/system/menu_setup/front_folder_delete', {id: item.id}, res => {
+                Alert.alert('', res.success ? '삭제되었습니다.' : (res.message || '삭제 실패'));
+                if (res.success) loadFrontFolders();
+            });
+        });
+    });
+    $('#btnFrontSave').on('click', saveFrontFolder);
+
+    /* ── Folder 그리드 ── */
+    gridFolder = new wijmo.grid.FlexGrid('#gridFolder', {
+        selectionMode: wijmo.grid.SelectionMode.Row,
+        isReadOnly: true,
+        autoGenerateColumns: false,
+        headersVisibility: wijmo.grid.HeadersVisibility.Column,
+        formatItem: centerHeader,
+        columns: [
+            {binding:'id',            header:'ID',          width:60,  align:'center'},
+            {binding:'FolderName',      header:'폴더명',       width:'*', align:'left'},
+            {binding:'FrontFolderName', header:'Front Folder', width:160, align:'left'},
+            {binding:'IconCSS',       header:'아이콘CSS',    width:120, align:'left'},
+            {binding:'_order',        header:'순서',         width:70,  align:'center'},
+        ],
+        itemsSource: new wijmo.collections.CollectionView([])
+    });
+    new FlexGridContextMenu(gridFolder);
+
+    gridFolder.hostElement.addEventListener('dblclick', () => {
+        let item = getSelectedItem(gridFolder);
+        if (item) openFolderModal(item);
+    });
+
+    $('#btnFolderAdd').on('click', () => openFolderModal(null));
+    $('#btnFolderEdit').on('click', () => {
+        let item = getSelectedItem(gridFolder);
+        if (!item) { Alert.alert('', '수정할 항목을 선택하세요.'); return; }
+        openFolderModal(item);
+    });
+    $('#btnFolderDel').on('click', () => {
+        let item = getSelectedItem(gridFolder);
+        if (!item) { Alert.alert('', '삭제할 항목을 선택하세요.'); return; }
+        Alert.confirm('', `[${item.FolderName}] 을(를) 삭제하시겠습니까?`, () => {
+            AjaxUtil.postJsonData('/api/system/menu_setup/folder_delete', {Folder_id: item.id}, res => {
+                Alert.alert('', res.success ? '삭제되었습니다.' : (res.message || '삭제 실패'));
+                if (res.success) loadFolders();
+            });
+        });
+    });
+    $('#btnFolderSave').on('click', saveFolder);
+
+    /* ── Menu Item 그리드 ── */
+    gridItem = new wijmo.grid.FlexGrid('#gridItem', {
+        selectionMode: wijmo.grid.SelectionMode.Row,
+        isReadOnly: true,
+        autoGenerateColumns: false,
+        headersVisibility: wijmo.grid.HeadersVisibility.Column,
+        formatItem: centerHeader,
+        columns: [
+            {binding:'MenuCode',     header:'MenuCode',  width:160, align:'left'},
+            {binding:'MenuName',     header:'메뉴명',     width:180, align:'left'},
+            {binding:'template',     header:'Template',  width:'*', align:'left'},
+            {binding:'FolderName',   header:'Folder',    width:150, align:'left'},
+            {binding:'IconCSS',      header:'아이콘CSS',  width:110, align:'left'},
+            {binding:'_order',       header:'순서',       width:70,  align:'center'},
+            {binding:'Url',          header:'URL',       width:180, align:'left'},
+        ],
+        itemsSource: new wijmo.collections.CollectionView([])
+    });
+    new FlexGridContextMenu(gridItem);
+
+    gridItem.hostElement.addEventListener('dblclick', () => {
+        let item = getSelectedItem(gridItem);
+        if (item) openItemModal(item);
+    });
+
+    $('#btnItemSearch').on('click', loadMenuItems);
+    $('#btnItemAdd').on('click', () => openItemModal(null));
+    $('#btnItemEdit').on('click', () => {
+        let item = getSelectedItem(gridItem);
+        if (!item) { Alert.alert('', '수정할 항목을 선택하세요.'); return; }
+        openItemModal(item);
+    });
+    $('#btnItemDel').on('click', () => {
+        let item = getSelectedItem(gridItem);
+        if (!item) { Alert.alert('', '삭제할 항목을 선택하세요.'); return; }
+        Alert.confirm('', `[${item.MenuCode}] 을(를) 삭제하시겠습니까?`, () => {
+            AjaxUtil.postJsonData('/api/system/menu_setup/menu_item_delete', {MenuCode: item.MenuCode}, res => {
+                Alert.alert('', res.success ? '삭제되었습니다.' : (res.message || '삭제 실패'));
+                if (res.success) loadMenuItems();
+            });
+        });
+    });
+    $('#btnItemSave').on('click', saveMenuItem);
+}
+
+function centerHeader(s, e) {
+    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader)
+        e.cell.style.textAlign = 'center';
+}
+
+function getSelectedItem(grid) {
+    let sel = grid.selection;
+    return sel.row >= 0 ? grid.rows[sel.row].dataItem : null;
+}
+
+/* ══════════════════════════════════════════
+   데이터 로드
+══════════════════════════════════════════ */
+function loadFrontFolders() {
+    $.get('/api/system/menu_setup/front_folder_read', res => {
+        if (!res.success) return;
+        frontFolders = res.data || [];
+        gridFront.itemsSource.sourceCollection = frontFolders;
+        gridFront.refresh();
+
+        // Front Folder 선택박스 갱신
+        let $sel = $('#fFolderFrontId');
+        $sel.find('option:not(:first)').remove();
+        frontFolders.forEach(f => $sel.append(`<option value="${f.id}">${f.folder_name}</option>`));
+    });
+}
+
+function loadFolders() {
+    $.get('/api/system/menu_setup/read', res => {
+        if (!res.success) return;
+        let rows = res.data || [];
+
+        gridFolder.itemsSource.sourceCollection = rows;
+        gridFolder.refresh();
+
+        // Folder 선택박스 갱신 (Item 탭 + 모달)
+        let $selF = $('#selFolder');
+        $selF.find('option:not(:first)').remove();
+        let $selIF = $('#fItemFolderId');
+        $selIF.find('option:not(:first)').remove();
+
+        rows.forEach(r => {
+            let opt = `<option value="${r.id}">${r.FolderName}</option>`;
+            $selF.append(opt);
+            $selIF.append(opt);
+        });
+    });
+}
+
+function loadMenuItems() {
+    let folderId = $('#selFolder').val();
+    $.get('/api/system/menu_setup/gui_use_list', res => {
+        if (!res.success) return;
+
+        // gui_use_list는 template 있는 것만, 없는 것도 보이게 submenu_list 병합이 필요하므로
+        // 여기서는 전체 menu_item을 별도 쿼리로 가져온다
+        loadAllMenuItems(folderId);
+    });
+}
+
+function loadAllMenuItems(folderId) {
+    let url = '/api/system/menu_setup/submenu_list';
+    if (folderId) {
+        $.get(url, {folder_id: folderId}, res => {
+            if (res.success) {
+                gridItem.itemsSource.sourceCollection = res.data || [];
+                gridItem.refresh();
+            }
+        });
+    } else {
+        // folder_id 없이 전체 → gui_use_list 활용
+        $.get('/api/system/menu_setup/gui_use_list', res => {
+            if (res.success) {
+                gridItem.itemsSource.sourceCollection = res.data || [];
+                gridItem.refresh();
+            }
+        });
+    }
+}
+
+/* ══════════════════════════════════════════
+   모달 열기
+══════════════════════════════════════════ */
+function openFrontModal(item) {
+    $('#modalFrontTitle').text(item ? 'Front Folder 수정' : 'Front Folder 추가');
+    $('#fFrontId').val(item ? item.id : '');
+    $('#fFrontName').val(item ? item.folder_name : '');
+    $('#fFrontIcon').val(item ? item.icon_css : '');
+    $('#fFrontDomId').val(item ? item.dom_id : '');
+    $('#fFrontOrder').val(item ? item._order : 10);
+    $('#fFrontUseYn').val(item ? item.use_yn : 'Y');
+    openModal('modalFront');
+}
+
+function openFolderModal(item) {
+    $('#modalFolderTitle').text(item ? 'Folder 수정' : 'Folder 추가');
+    $('#fFolderId').val(item ? item.id : '');
+    $('#fFolderName').val(item ? item.FolderName : '');
+    $('#fFolderIcon').val(item ? item.IconCSS : '');
+    $('#fFolderFrontId').val(item && item.FrontFolder_id ? item.FrontFolder_id : '');
+    $('#fFolderOrder').val(item ? item._order : 10);
+    openModal('modalFolder');
+}
+
+function openItemModal(item) {
+    $('#modalItemTitle').text(item ? 'Menu Item 수정' : 'Menu Item 추가');
+    $('#fItemCode').val(item ? item.MenuCode : '').prop('disabled', !!item);
+    $('#fItemName').val(item ? item.MenuName : '');
+    $('#fItemTemplate').val(item ? item.template : '');
+    $('#fItemFolderId').val(item && item.MenuFolder_id ? item.MenuFolder_id : '');
+    $('#fItemIcon').val(item ? item.IconCSS : '');
+    $('#fItemOrder').val(item ? item._order : 10);
+    openModal('modalItem');
+}
+
+/* ══════════════════════════════════════════
+   저장
+══════════════════════════════════════════ */
+function saveFrontFolder() {
+    let name = $('#fFrontName').val().trim();
+    if (!name) { Alert.alert('', '폴더명은 필수입니다.'); return; }
+
+    let data = {
+        folder_name: name,
+        icon_css:    $('#fFrontIcon').val().trim(),
+        dom_id:      $('#fFrontDomId').val().trim(),
+        _order:      $('#fFrontOrder').val(),
+        use_yn:      $('#fFrontUseYn').val()
+    };
+    let id = $('#fFrontId').val();
+    if (id) data.id = id;
+
+    AjaxUtil.postJsonData('/api/system/menu_setup/front_folder_save', data, res => {
+        Alert.alert('', res.success ? '저장되었습니다.' : (res.message || '저장 실패'));
+        if (res.success) { closeModal('modalFront'); loadFrontFolders(); }
+    });
+}
+
+function saveFolder() {
+    let name = $('#fFolderName').val().trim();
+    if (!name) { Alert.alert('', '폴더명은 필수입니다.'); return; }
+
+    let data = {
+        FolderName:     name,
+        IconCSS:        $('#fFolderIcon').val().trim(),
+        frontFolderId:  $('#fFolderFrontId').val() || '',
+        _order:         $('#fFolderOrder').val()
+    };
+    let id = $('#fFolderId').val();
+    if (id) data.id = id;
+
+    AjaxUtil.postJsonData('/api/system/menu_setup/folder_save', data, res => {
+        Alert.alert('', res.success ? '저장되었습니다.' : (res.message || '저장 실패'));
+        if (res.success) { closeModal('modalFolder'); loadFolders(); }
+    });
+}
+
+function saveMenuItem() {
+    let code = $('#fItemCode').val().trim();
+    let name = $('#fItemName').val().trim();
+    if (!code || !name) { Alert.alert('', 'MenuCode와 메뉴명은 필수입니다.'); return; }
+
+    let data = {
+        MenuCode:  code,
+        MenuName:  name,
+        template:  $('#fItemTemplate').val().trim(),
+        Folder_id: $('#fItemFolderId').val() || '',
+        IconCSS:   $('#fItemIcon').val().trim(),
+        _order:    $('#fItemOrder').val()
+    };
+
+    AjaxUtil.postJsonData('/api/system/menu_setup/menu_item_save', data, res => {
+        Alert.alert('', res.success ? '저장되었습니다.' : (res.message || '저장 실패'));
+        if (res.success) { closeModal('modalItem'); loadMenuItems(); }
+    });
+}
+</script>
+</th:block>
+</html>

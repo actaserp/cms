@@ -32,7 +32,7 @@ public class DotenvEnvironmentPostProcessor
 
         Dotenv serverEnv = Dotenv.configure()
                 .directory(confPath)
-                .filename("server.env")
+                .filename("server_cms.env")
                 .ignoreIfMissing()
                 .load();
 
