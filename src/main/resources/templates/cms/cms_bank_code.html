@@ -1,0 +1,206 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header { text-align: center !important; }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>CMS 은행코드 관리</h2>
+                <a title="북마크" class="bookmark toggle">내메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>CMS</li>
+                <li>은행코드 관리</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px;">
+
+            <!-- 목록 섹션 -->
+            <section class="section" style="width: 60%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt><label>은행명</label></dt>
+                            <dd><div class="srch-box"><input type="text" class="form-control2" id="srchBankName"></div></dd>
+                        </dl>
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li><a class="btn btn-delete" id="btnSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색">검색</a></li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <div id="theGrid"></div>
+                </div>
+            </section>
+
+            <!-- 폼 섹션 -->
+            <section style="width: 40%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <ul>
+                            <li><button type="button" class="btn-default" id="btnNew">신규등록</button></li>
+                            <li><button type="button" class="btn-default" id="btnSave">저장</button></li>
+                            <li><button type="button" class="btn-danger"  id="btnDel">삭제</button></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <form id="bankCodeForm">
+                        <input type="hidden" id="id" name="id"/>
+                        <table class="write-table" style="width:100%; border-collapse:collapse;">
+                            <colgroup><col style="width:30%"><col style="width:70%"></colgroup>
+                            <tbody>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center; background:#f5f6fa;">
+                                    <label><span class="eq">*</span>은행코드</label>
+                                </th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="bank_code" name="bank_code"
+                                           maxlength="3" placeholder="3자리" style="width:100%;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center; background:#f5f6fa;">
+                                    <label><span class="eq">*</span>은행명</label>
+                                </th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="bank_name" name="bank_name" style="width:100%;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center; background:#f5f6fa;">
+                                    <label>사용여부</label>
+                                </th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <select id="use_yn" name="use_yn" style="width:100%;">
+                                        <option value="Y">사용</option>
+                                        <option value="N">미사용</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <footer style="margin-top: 24px;">
+        <p>Copyright&#169; 0000 corp. All rights reserved.</p>
+    </footer>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<script type="text/javascript">
+    var theGrid;
+    var viewdata;
+
+    var columns = [
+        {binding: 'id',        header: 'ID',     width: 60,  align: 'center', visible: false},
+        {binding: 'bank_code', header: '은행코드', width: 90,  align: 'center'},
+        {binding: 'bank_name', header: '은행명',  width: 200, align: 'left'},
+        {binding: 'use_yn',    header: '사용여부', width: 80,  align: 'center'},
+    ];
+
+    document.readyState === 'complete' ? init() : window.onload = init;
+
+    function init() {
+        searchList();
+    }
+
+    function searchList() {
+        $.ajax({
+            url: withCtx('/api/cms/bank_code/list'),
+            type: 'GET',
+            data: {bank_name: $('#srchBankName').val()},
+            success: function(result) {
+                if (result.success) {
+                    if (theGrid) theGrid.dispose();
+                    bindGrid(result.data);
+                }
+            }
+        });
+    }
+
+    function bindGrid(data) {
+        viewdata = new wijmo.collections.CollectionView(data);
+        theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+            autoGenerateColumns: false,
+            showMarquee: true,
+            columns: columns,
+            isReadOnly: true,
+            itemsSource: viewdata
+        });
+        theGrid.rowHeaders.columns.splice(0, 1);
+        theGrid.hostElement.addEventListener('dblclick', function() {
+            var item = theGrid.selectedItems[0];
+            if (!item) return;
+            $('#id').val(item.id);
+            $('#bank_code').val(item.bank_code);
+            $('#bank_name').val(item.bank_name);
+            $('#use_yn').val(item.use_yn);
+        });
+    }
+
+    function saveBankCode() {
+        if (!$('#bank_code').val()) {
+            Alert.alert('', '은행코드를 입력해주세요.'); $('#bank_code').focus(); return;
+        }
+        if (!$('#bank_name').val()) {
+            Alert.alert('', '은행명을 입력해주세요.'); $('#bank_name').focus(); return;
+        }
+        Alert.confirm('', '저장하시겠습니까?', function() {
+            AjaxUtil.postAsyncData(withCtx('/api/cms/bank_code/save'),
+                FormUtil.extractForm($('#bankCodeForm')),
+                function(result) {
+                    if (result.success) {
+                        Alert.alert('', '저장되었습니다.');
+                        searchList();
+                    } else {
+                        Alert.alert('저장 실패', result.message);
+                    }
+                });
+        });
+    }
+
+    function deleteBankCode() {
+        var id = $('#id').val();
+        if (!id) { Alert.alert('', '삭제할 대상을 선택하세요.'); return; }
+        Alert.confirm('', '삭제하시겠습니까?', function() {
+            AjaxUtil.postAsyncData(withCtx('/api/cms/bank_code/delete'), {id: id}, function(result) {
+                if (result.success) {
+                    Alert.alert('', '삭제되었습니다.');
+                    $('#bankCodeForm')[0].reset();
+                    $('#id').val('');
+                    searchList();
+                } else {
+                    Alert.alert('삭제 실패', result.message);
+                }
+            });
+        });
+    }
+
+    $(document).ready(function() {
+        $('#btnSearch').click(searchList);
+        $('#srchBankName').keypress(function(e) { if (e.which === 13) searchList(); });
+        $('#btnNew').click(function() { $('#bankCodeForm')[0].reset(); $('#id').val(''); });
+        $('#btnSave').click(saveBankCode);
+        $('#btnDel').click(deleteBankCode);
+    });
+</script>
+</th:block>
+
+</html>

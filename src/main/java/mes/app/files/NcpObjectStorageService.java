@@ -98,7 +98,8 @@ public class NcpObjectStorageService {
         "QNA",       "02",
         "MARKETING", "03",
         "PDF","04",
-        "ATCH","05"
+        "ATCH","05",
+            "AGREE","06"
     );
 
     public static String toCheckseq(String tableName) {

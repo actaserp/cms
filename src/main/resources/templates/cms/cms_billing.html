@@ -1,0 +1,582 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header { text-align: center !important; }
+        .write-table th { background: #f5f6fa; font-weight: 600; white-space: nowrap; }
+        .write-table td input:not([type=radio]):not([type=checkbox]),
+        .write-table td select { width: 100%; box-sizing: border-box; }
+        .section-title { font-size: 13px; font-weight: 700; color: #4a6cf7;
+                          padding: 6px 0 4px; border-bottom: 1px solid #e0e4ef; margin-bottom: 6px; }
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px;
+                         font-size: 11px; font-weight: 600; }
+        .status-PENDING   { background: #fff3cd; color: #856404; }
+        .status-REQUESTED { background: #cce5ff; color: #004085; }
+        .status-SUCCESS   { background: #d4edda; color: #155724; }
+        .status-FAIL      { background: #f8d7da; color: #721c24; }
+        .status-CANCEL    { background: #e2e3e5; color: #383d41; }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>수납 청구 관리</h2>
+                <a title="북마크" class="bookmark toggle">내메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>수납 관리</li>
+                <li>수납 청구 관리</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px;">
+
+            <!-- 목록 섹션 -->
+            <section class="section" style="width: 60%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt><label><span class="eq">*</span>청구년월</label></dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="month" class="form-control2" id="srchBillingYm" style="width:130px;">
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><label>납부자명</label></dt>
+                            <dd><div class="srch-box"><input type="text" class="form-control2" id="srchMemberName"></div></dd>
+                        </dl>
+                        <dl>
+                            <dt><label>상태</label></dt>
+                            <dd>
+                                <select id="srchStatus" class="form-control2" style="min-width:90px;">
+                                    <option value="">전체</option>
+                                    <option value="PENDING">대기</option>
+                                    <option value="REQUESTED">출금요청</option>
+                                    <option value="SUCCESS">성공</option>
+                                    <option value="FAIL">실패</option>
+                                    <option value="CANCEL">취소</option>
+                                </select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li><a class="btn btn-delete" id="btnSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색">검색</a></li>
+                            </dd>
+                        </dl>
+                    </div>
+                    <!-- 액션 버튼 -->
+                    <div style="padding: 6px 0; display:flex; gap:4px;">
+                        <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>
+                        <button type="button" class="btn-default" id="btnCancel"   style="background:#6c757d; color:#fff;">청구취소</button>
+                        <span style="width:1px; background:#ddd; margin:0 4px;"></span>
+                        <button type="button" class="btn-default" id="btnNew">신규등록</button>
+                        <button type="button" class="btn-default" id="btnSave">저장</button>
+                        <button type="button" class="btn-danger"  id="btnDel">삭제</button>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <div id="theGrid"></div>
+                </div>
+            </section>
+
+            <!-- 폼 섹션 -->
+            <section style="width: 40%;">
+                <div class="table-wrap" style="overflow-y: auto; max-height: calc(100vh - 160px); padding-top: 8px;">
+                    <form id="billingForm">
+                        <input type="hidden" id="id" name="id"/>
+
+                        <!-- 청구 기본 -->
+                        <div class="section-title">청구 정보</div>
+                        <table class="write-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+                            <colgroup><col style="width:35%"><col style="width:65%"></colgroup>
+                            <tbody>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">청구년월</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="month" id="billing_ym_input" name="billing_ym">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">청구번호</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="billing_seq" name="billing_seq"
+                                           readonly style="background:#f5f6fa; color:#888;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;"><span class="eq">*</span>납부자</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <div style="display:flex; gap:4px;">
+                                        <select id="member_id" name="member_id" style="flex:1;"></select>
+                                    </div>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 출금 정보 -->
+                        <div class="section-title">출금 정보</div>
+                        <table class="write-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+                            <colgroup><col style="width:35%"><col style="width:65%"></colgroup>
+                            <tbody>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">출금은행</th>
+                                <td style="padding:5px; border:1px solid #ddd;" id="td_bank_name">-</td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">계좌번호</th>
+                                <td style="padding:5px; border:1px solid #ddd;" id="td_bank_account">-</td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">예금주명</th>
+                                <td style="padding:5px; border:1px solid #ddd;" id="td_account_holder">-</td>
+                            </tr>
+                            <!-- 서버 전송용 hidden -->
+                            <input type="hidden" id="bank_code"      name="bank_code">
+                            <input type="hidden" id="bank_account"   name="bank_account">
+                            <input type="hidden" id="account_holder" name="account_holder">
+                            <input type="hidden" id="member_name"    name="member_name">
+                            </tbody>
+                        </table>
+
+                        <!-- 청구 금액/일정 -->
+                        <div class="section-title">금액 / 일정</div>
+                        <table class="write-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+                            <colgroup><col style="width:35%"><col style="width:65%"></colgroup>
+                            <tbody>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;"><span class="eq">*</span>청구금액</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="billing_amount" name="billing_amount"
+                                           placeholder="0" inputmode="numeric">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">출금일</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <select id="deduct_day" name="deduct_day"></select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">출금일자</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="deduct_date" name="deduct_date"
+                                           placeholder="YYYYMMDD" maxlength="8">
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 상태/결과 -->
+                        <div class="section-title">상태 / 결과</div>
+                        <table class="write-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+                            <colgroup><col style="width:35%"><col style="width:65%"></colgroup>
+                            <tbody>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">상태</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <!-- PENDING/CANCEL만 수동 변경 가능 -->
+                                    <select id="status" name="status">
+                                        <option value="PENDING">대기</option>
+                                        <option value="CANCEL">취소</option>
+                                    </select>
+                                    <!-- REQUESTED/SUCCESS/FAIL은 시스템 자동 설정 → 텍스트로만 표시 -->
+                                    <span id="statusReadonly" style="display:none;"></span>
+                                    <input type="hidden" id="statusHidden" name="status">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">결과코드</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="result_code" readonly style="background:#f5f6fa; color:#888;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">결과메시지</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="result_msg" readonly style="background:#f5f6fa; color:#888;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">처리일자</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="result_date" readonly style="background:#f5f6fa; color:#888;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">메모</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="memo" name="memo">
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+
+                    </form>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <footer style="margin-top: 24px;">
+        <p>Copyright&#169; 0000 corp. All rights reserved.</p>
+    </footer>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<script type="text/javascript">
+    var theGrid;
+    var viewdata;
+    var memberList = [];  // 납부자 목록 캐시
+
+    var STATUS_MAP = {
+        PENDING:   '대기',
+        REQUESTED: '출금요청',
+        SUCCESS:   '성공',
+        FAIL:      '실패',
+        CANCEL:    '취소'
+    };
+
+    var columns = [
+        {binding: 'id',             header: 'ID',     width: 60,  align: 'center', visible: false},
+        {binding: 'billing_seq',    header: '청구번호', width: 120, align: 'center'},
+        {binding: 'member_name',    header: '납부자명', width: 100, align: 'left'},
+        {binding: 'bank_name',      header: '은행',    width: 80,  align: 'center'},
+        {binding: 'bank_account',   header: '계좌번호', width: 150, align: 'center'},
+        {binding: 'deduct_day',     header: '출금일',  width: 80,  align: 'center',
+            cellTemplate: function(ctx) {
+                return ctx.value === '99' ? '말일' : (ctx.value ? ctx.value + '일' : '');
+            }},
+        {binding: 'billing_amount', header: '청구금액', width: 110, align: 'right',
+            cellTemplate: function(ctx) {
+                return ctx.value != null ? Number(ctx.value).toLocaleString() : '';
+            }},
+        {binding: 'status',         header: '상태',    width: 75,  align: 'center',
+            cellTemplate: function(ctx) {
+                var label = STATUS_MAP[ctx.value] || ctx.value || '';
+                return '<span class="status-badge status-' + ctx.value + '">' + label + '</span>';
+            }},
+        {binding: 'result_date',    header: '처리일자', width: 90,  align: 'center'},
+    ];
+
+    document.readyState === 'complete' ? init() : window.onload = init;
+
+    function init() {
+        buildDeductDayOptions();
+        loadMembers();
+        bindAmountFormat();
+
+        // 기본 청구년월: 이번 달
+        var now = new Date();
+        var ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        $('#srchBillingYm').val(ym);
+        $('#billing_ym_input').val(ym);
+
+        searchList();
+    }
+
+    // 약정일 드롭다운
+    function buildDeductDayOptions() {
+        var opts = '<option value="">선택</option>';
+        for (var d = 1; d <= 31; d++) {
+            var v = String(d).padStart(2, '0');
+            opts += '<option value="' + v + '">' + d + '일</option>';
+        }
+        opts += '<option value="99">말일</option>';
+        $('#deduct_day').html(opts);
+    }
+
+    // 납부자 드롭다운 로드 (ACTIVE + agree_yn=Y)
+    function loadMembers() {
+        $.ajax({
+            url: withCtx('/api/cms/member/list'),
+            type: 'GET',
+            data: { status: 'ACTIVE' },
+            success: function(result) {
+                if (result.success && result.data) {
+                    memberList = result.data;
+                    var opts = '<option value="">납부자 선택</option>';
+                    result.data.forEach(function(m) {
+                        opts += '<option value="' + m.id + '"'
+                              + ' data-bank_code="'      + (m.bank_code      || '') + '"'
+                              + ' data-bank_name="'      + (m.bank_name      || '') + '"'
+                              + ' data-bank_account="'   + (m.bank_account   || '') + '"'
+                              + ' data-account_holder="' + (m.account_holder || '') + '"'
+                              + ' data-deduct_amount="'  + (m.deduct_amount  || '') + '"'
+                              + ' data-deduct_day="'     + (m.deduct_day     || '') + '"'
+                              + '>' + m.member_name + '</option>';
+                    });
+                    $('#member_id').html(opts);
+                }
+            }
+        });
+    }
+
+    // 납부자 선택 시 관련 필드 자동 채움
+    $('#member_id').on('change', function() {
+        var opt = $(this).find('option:selected');
+        if (!opt.val()) {
+            clearMemberFields();
+            return;
+        }
+        $('#td_bank_name').text(opt.data('bank_name') || '-');
+        $('#td_bank_account').text(opt.data('bank_account') || '-');
+        $('#td_account_holder').text(opt.data('account_holder') || '-');
+        $('#bank_code').val(opt.data('bank_code'));
+        $('#bank_account').val(opt.data('bank_account'));
+        $('#account_holder').val(opt.data('account_holder'));
+        $('#member_name').val(opt.text());
+
+        var amount = opt.data('deduct_amount');
+        $('#billing_amount').val(amount ? Number(amount).toLocaleString() : '');
+        $('#deduct_day').val(opt.data('deduct_day') || '');
+        calcDeductDate();
+    });
+
+    // billing_ym 또는 deduct_day 변경 시 deduct_date 자동 계산
+    $('#billing_ym_input, #deduct_day').on('change', calcDeductDate);
+
+    function calcDeductDate() {
+        var ym = $('#billing_ym_input').val().replace('-', '');  // 'YYYY-MM' → 'YYYYMM'
+        var day = $('#deduct_day').val();
+        if (!ym || !day) return;
+
+        if (day === '99') {
+            // 말일 계산: JS Date로 다음달 0일 = 이번달 마지막날
+            var y = parseInt(ym.substring(0, 4));
+            var m = parseInt(ym.substring(4, 6));
+            var lastDay = new Date(y, m, 0).getDate();
+            $('#deduct_date').val(ym + String(lastDay).padStart(2, '0'));
+        } else {
+            $('#deduct_date').val(ym + day);
+        }
+    }
+
+    function clearMemberFields() {
+        $('#td_bank_name').text('-');
+        $('#td_bank_account').text('-');
+        $('#td_account_holder').text('-');
+        $('#bank_code, #bank_account, #account_holder, #member_name').val('');
+        $('#billing_amount').val('');
+    }
+
+    // 청구금액 천단위 콤마
+    function bindAmountFormat() {
+        $('#billing_amount').on('input', function() {
+            var raw = $(this).val().replace(/[^0-9]/g, '');
+            $(this).val(raw ? Number(raw).toLocaleString() : '');
+        });
+    }
+
+    function searchList() {
+        var ymVal = $('#srchBillingYm').val();
+        if (!ymVal) {
+            Alert.alert('', '청구년월을 선택하세요.');
+            return;
+        }
+        $.ajax({
+            url: withCtx('/api/cms/billing/list'),
+            type: 'GET',
+            data: {
+                billing_ym:  ymVal.replace('-', ''),
+                member_name: $('#srchMemberName').val(),
+                status:      $('#srchStatus').val()
+            },
+            success: function(result) {
+                if (result.success) {
+                    if (theGrid) theGrid.dispose();
+                    bindGrid(result.data);
+                }
+            }
+        });
+    }
+
+    function bindGrid(data) {
+        viewdata = new wijmo.collections.CollectionView(data);
+        theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+            autoGenerateColumns: false,
+            showMarquee: true,
+            columns: columns,
+            isReadOnly: true,
+            itemsSource: viewdata
+        });
+        theGrid.rowHeaders.columns.splice(0, 1);
+        theGrid.hostElement.addEventListener('dblclick', function() {
+            var item = theGrid.selectedItems[0];
+            if (!item) return;
+            fillForm(item);
+        });
+    }
+
+    function fillForm(item) {
+        $('#id').val(item.id || '');
+        // billing_ym: 'YYYYMM' → 'YYYY-MM'
+        var ym = item.billing_ym || '';
+        $('#billing_ym_input').val(ym.length === 6 ? ym.substring(0,4) + '-' + ym.substring(4,6) : '');
+        $('#billing_seq').val(item.billing_seq || '');
+
+        // 납부자 select
+        $('#member_id').val(item.member_id || '');
+        $('#td_bank_name').text(item.bank_name || '-');
+        $('#td_bank_account').text(item.bank_account || '-');
+        $('#td_account_holder').text(item.account_holder || '-');
+        $('#bank_code').val(item.bank_code || '');
+        $('#bank_account').val(item.bank_account || '');
+        $('#account_holder').val(item.account_holder || '');
+        $('#member_name').val(item.member_name || '');
+
+        $('#billing_amount').val(item.billing_amount != null ? Number(item.billing_amount).toLocaleString() : '');
+        $('#deduct_day').val(item.deduct_day || '');
+        $('#deduct_date').val(item.deduct_date || '');
+
+        applyStatusField(item.status || 'PENDING');
+        $('#result_code').val(item.result_code || '');
+        $('#result_msg').val(item.result_msg || '');
+        $('#result_date').val(item.result_date || '');
+        $('#memo').val(item.memo || '');
+    }
+
+    // 시스템 상태(REQUESTED/SUCCESS/FAIL)는 select 숨기고 텍스트로만 표시
+    function applyStatusField(status) {
+        var systemStatus = ['REQUESTED', 'SUCCESS', 'FAIL'];
+        if (systemStatus.indexOf(status) >= 0) {
+            $('#status').hide();
+            $('#statusHidden').val(status);
+            var badge = '<span class="status-badge status-' + status + '">'
+                      + (STATUS_MAP[status] || status) + '</span>'
+                      + '<span style="font-size:11px; color:#aaa; margin-left:6px;">(시스템 자동 설정)</span>';
+            $('#statusReadonly').html(badge).show();
+        } else {
+            $('#status').show().val(status);
+            $('#statusHidden').val('');
+            $('#statusReadonly').hide();
+        }
+    }
+
+    function clearForm() {
+        $('#billingForm')[0].reset();
+        $('#id').val('');
+        var ym = $('#srchBillingYm').val();
+        $('#billing_ym_input').val(ym);
+        $('#billing_seq').val('');
+        clearMemberFields();
+        applyStatusField('PENDING');
+        $('#result_code, #result_msg, #result_date').val('');
+    }
+
+    function saveBilling() {
+        var ymInput = $('#billing_ym_input').val();
+        if (!ymInput) { Alert.alert('', '청구년월을 입력하세요.'); return; }
+        if (!$('#member_id').val() && !$('#member_name').val()) {
+            Alert.alert('', '납부자를 선택하세요.'); return;
+        }
+        if (!$('#billing_amount').val()) { Alert.alert('', '청구금액을 입력하세요.'); return; }
+
+        var data = FormUtil.extractForm($('#billingForm'));
+        // billing_ym: 'YYYY-MM' → 'YYYYMM'
+        data.billing_ym = ymInput.replace('-', '');
+        // 청구금액 콤마 제거
+        data.billing_amount = (data.billing_amount || '').replace(/,/g, '');
+        // 시스템 상태인 경우 hidden 값 사용 (select가 숨겨져 있으므로)
+        if ($('#statusHidden').val()) data.status = $('#statusHidden').val();
+
+        Alert.confirm('', '저장하시겠습니까?', function() {
+            AjaxUtil.postAsyncData('/api/cms/billing/save', data, function(result) {
+                if (result.success) {
+                    Alert.alert('', '저장되었습니다.');
+                    searchList();
+                } else {
+                    Alert.alert('저장 실패', result.message);
+                }
+            });
+        });
+    }
+
+    function deleteBilling() {
+        var item = theGrid && theGrid.selectedItems[0];
+        if (!item || !item.id) { Alert.alert('', '삭제할 항목을 그리드에서 선택하세요.'); return; }
+        if (item.status !== 'PENDING') { Alert.alert('', 'PENDING(대기) 상태인 건만 삭제할 수 있습니다.'); return; }
+
+        Alert.confirm('', '삭제하시겠습니까?', function() {
+            $.ajax({
+                url: withCtx('/api/cms/billing/' + item.id),
+                type: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
+                success: function(result) {
+                    if (result.success) {
+                        Alert.alert('', '삭제되었습니다.');
+                        clearForm();
+                        searchList();
+                    } else {
+                        Alert.alert('삭제 실패', result.message);
+                    }
+                }
+            });
+        });
+    }
+
+    // 청구 자동생성
+    function generateBilling() {
+        var ymVal = $('#srchBillingYm').val();
+        if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
+        var billingYm = ymVal.replace('-', '');
+
+        Alert.confirm('', '[' + ymVal + '] 청구를 자동생성하시겠습니까?\n이미 생성된 건은 건너뜁니다.', function() {
+            AjaxUtil.postAsyncData('/api/cms/billing/generate',
+                { billing_ym: billingYm },
+                function(result) {
+                    if (result.success) {
+                        var count = result.data ? result.data.count : 0;
+                        Alert.alert('', count + '건이 생성되었습니다.');
+                        searchList();
+                    } else {
+                        Alert.alert('생성 실패', result.message);
+                    }
+                });
+        });
+    }
+
+    // 청구 취소 (그리드 선택 항목)
+    function cancelBilling() {
+        var items = theGrid ? theGrid.selectedItems : [];
+        if (!items || items.length === 0) { Alert.alert('', '취소할 항목을 그리드에서 선택하세요.'); return; }
+
+        var pendingIds = items.filter(function(i) { return i.status === 'PENDING'; })
+                              .map(function(i) { return i.id; });
+
+        if (pendingIds.length === 0) { Alert.alert('', 'PENDING(대기) 상태인 건이 없습니다.'); return; }
+
+        Alert.confirm('', pendingIds.length + '건을 취소하시겠습니까?', function() {
+            AjaxUtil.postAsyncData('/api/cms/billing/cancel',
+                { ids: pendingIds.join(',') },
+                function(result) {
+                    if (result.success) {
+                        Alert.alert('', result.data + '건이 취소되었습니다.');
+                        searchList();
+                    } else {
+                        Alert.alert('취소 실패', result.message);
+                    }
+                });
+        });
+    }
+
+    $(document).ready(function() {
+        $('#btnSearch').click(searchList);
+        $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
+        $('#btnGenerate').click(generateBilling);
+        $('#btnCancel').click(cancelBilling);
+        $('#btnNew').click(clearForm);
+        $('#btnSave').click(saveBilling);
+        $('#btnDel').click(deleteBilling);
+    });
+</script>
+</th:block>
+
+</html>

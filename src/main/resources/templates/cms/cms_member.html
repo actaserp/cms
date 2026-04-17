@@ -1,0 +1,746 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header { text-align: center !important; }
+        .write-table th { background: #f5f6fa; font-weight: 600; white-space: nowrap; }
+        .write-table td input:not([type=radio]):not([type=checkbox]),
+        .write-table td select { width: 100%; box-sizing: border-box; }
+        .section-title { font-size: 13px; font-weight: 700; color: #4a6cf7;
+                          padding: 6px 0 4px; border-bottom: 1px solid #e0e4ef; margin-bottom: 6px; }
+        /* 구분 선택 강조 */
+        .member-type-group { display: flex; gap: 6px; }
+        .member-type-group label {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 4px 10px; border: 2px solid transparent;
+            border-radius: 4px; cursor: pointer; font-size: 13px;
+            transition: border-color .15s;
+        }
+        .member-type-group label.selected {
+            border-color: #4a6cf7; background: #f0f2ff;
+        }
+        input{
+            width: 100%;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>납부자 관리</h2>
+                <a title="북마크" class="bookmark toggle">내메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>수납 관리</li>
+                <li>납부자 관리</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px;">
+
+            <!-- 목록 섹션 -->
+            <section class="section" style="width: 50%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt><label>납부자명</label></dt>
+                            <dd><div class="srch-box"><input type="text" class="form-control2" id="srchMemberName"></div></dd>
+                        </dl>
+                        <dl>
+                            <dt><label>납부자번호</label></dt>
+                            <dd><div class="srch-box"><input type="text" class="form-control2" id="srchMemberNo"></div></dd>
+                        </dl>
+                        <dl>
+                            <dt><label>상태</label></dt>
+                            <dd>
+                                <select id="srchStatus" class="form-control2" style="min-width:90px;">
+                                    <option value="">전체</option>
+                                    <option value="ACTIVE">활성</option>
+                                    <option value="INACTIVE">비활성</option>
+                                    <option value="STOP">중지</option>
+                                </select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li><a class="btn btn-delete" id="btnSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색">검색</a></li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <div id="theGrid"></div>
+                </div>
+            </section>
+
+            <!-- 폼 섹션 -->
+            <section style="width: 50%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <ul>
+                            <li><button type="button" class="btn-default" id="btnNew">신규등록</button></li>
+                            <li><button type="button" class="btn-default" id="btnSave">저장</button></li>
+                            <li><button type="button" class="btn-danger"  id="btnDel">삭제</button></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="table-wrap" style="overflow-y: auto; max-height: calc(100vh - 200px);">
+                    <form id="memberForm">
+                        <input type="hidden" id="id" name="id"/>
+
+                        <!-- 기본정보 -->
+                        <div class="section-title">기본정보</div>
+                        <table class="write-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+                            <colgroup>
+                                <col style="width:20%"><col style="width:30%">
+                                <col style="width:20%"><col style="width:30%">
+                            </colgroup>
+                            <tbody>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">
+                                    <label><span class="eq">*</span>구분</label>
+                                </th>
+                                <td colspan="3" style="padding:5px; border:1px solid #ddd;">
+                                    <div class="member-type-group">
+                                        <label id="lbl-P">
+                                            <input type="radio" name="member_type" value="P"> 개인
+                                        </label>
+                                        <label id="lbl-S">
+                                            <input type="radio" name="member_type" value="S"> 개인사업자
+                                        </label>
+                                        <label id="lbl-C" class="selected">
+                                            <input type="radio" name="member_type" value="C" checked> 법인
+                                        </label>
+                                        <!-- 페이지 로드 시 라벨 초기화는 init()에서 처리 -->
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">
+                                    <label><span class="eq">*</span>납부자명</label>
+                                </th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="member_name" name="member_name">
+                                </td>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">납부자번호</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="member_no" name="member_no">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;" id="idNumberLabel">사업자등록번호</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="id_number" name="id_number"
+                                           placeholder="YYYYMMDD" maxlength="20">
+                                </td>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">연락처</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="phone" name="phone">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">이메일</th>
+                                <td colspan="3" style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="email" name="email">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">주소</th>
+                                <td colspan="3" style="padding:5px; border:1px solid #ddd;">
+                                    <div style="display:flex; gap:4px; align-items:center; margin-bottom:4px;">
+                                        <input type="text" id="zipcd" name="zipcd"
+                                               placeholder="우편번호" readonly
+                                               style="width:100px; cursor:pointer;"
+                                               onclick="setZipCode()">
+                                        <button type="button" class="btn-default" onclick="setZipCode()" style="white-space:nowrap;">주소검색</button>
+                                    </div>
+                                    <input type="text" id="adresa" name="adresa"
+                                           placeholder="기본주소" readonly style="margin-bottom:4px;">
+                                    <input type="text" id="adresb" name="adresb" placeholder="상세주소">
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 출금계좌 -->
+                        <div class="section-title">출금계좌 정보</div>
+                        <table class="write-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+                            <colgroup>
+                                <col style="width:20%"><col style="width:30%">
+                                <col style="width:20%"><col style="width:30%">
+                            </colgroup>
+                            <tbody>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">출금은행</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <select id="bank_code" name="bank_code">
+                                        <option value="">선택</option>
+                                    </select>
+                                </td>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">예금주명</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="account_holder" name="account_holder">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">출금계좌번호</th>
+                                <td colspan="3" style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="bank_account" name="bank_account" placeholder="하이픈 제외">
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 약정정보 -->
+                        <div class="section-title">출금 약정 정보</div>
+                        <table class="write-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+                            <colgroup>
+                                <col style="width:20%"><col style="width:30%">
+                                <col style="width:20%"><col style="width:30%">
+                            </colgroup>
+                            <tbody>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">약정일</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <select id="deduct_day" name="deduct_day" style="width:100%;"></select>
+                                    <div id="deductDayNote" style="display:none; font-size:11px; color:#888; margin-top:3px;">
+                                        매월 마지막 영업일로 결제일이 설정됩니다.
+                                    </div>
+                                </td>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">출금금액</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="deduct_amount" name="deduct_amount"
+                                           placeholder="0" style="width:100%;" inputmode="numeric">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">청구기간</th>
+                                <td colspan="3" style="padding:5px; border:1px solid #ddd;">
+                                    <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                                        <input type="date" id="start_date" name="start_date" style="width:130px;">
+                                        <span>~</span>
+                                        <input type="date" id="end_date" name="end_date" style="width:130px;">
+                                        <label style="margin-left:6px; white-space:nowrap; display: flex;">
+                                            <input type="checkbox" id="chkUnlimited" style="margin-right: 5px;"> 무제한
+                                        </label>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">결제주기</th>
+                                <td colspan="3" style="padding:5px; border:1px solid #ddd;">
+                                    <div style="margin-bottom:6px;">
+                                        <label style="margin-right:16px;">
+                                            <input type="radio" name="cycle_type" value="REGULAR" checked> 정기
+                                        </label>
+                                        <label>
+                                            <input type="radio" name="cycle_type" value="IRREGULAR"> 비정기
+                                        </label>
+                                    </div>
+                                    <!-- 월 체크박스 (정기일 때만 활성) -->
+                                    <div id="cycleMonthsWrap" style="display:flex; flex-wrap:wrap; gap:4px;">
+                                        <label><input type="checkbox" class="chk-month" value="1"> 1월</label>
+                                        <label><input type="checkbox" class="chk-month" value="2"> 2월</label>
+                                        <label><input type="checkbox" class="chk-month" value="3"> 3월</label>
+                                        <label><input type="checkbox" class="chk-month" value="4"> 4월</label>
+                                        <label><input type="checkbox" class="chk-month" value="5"> 5월</label>
+                                        <label><input type="checkbox" class="chk-month" value="6"> 6월</label>
+                                        <label><input type="checkbox" class="chk-month" value="7"> 7월</label>
+                                        <label><input type="checkbox" class="chk-month" value="8"> 8월</label>
+                                        <label><input type="checkbox" class="chk-month" value="9"> 9월</label>
+                                        <label><input type="checkbox" class="chk-month" value="10"> 10월</label>
+                                        <label><input type="checkbox" class="chk-month" value="11"> 11월</label>
+                                        <label><input type="checkbox" class="chk-month" value="12"> 12월</label>
+                                    </div>
+                                    <!-- cycle_months 는 hidden 으로 서버 전송 -->
+                                    <input type="hidden" id="cycle_months" name="cycle_months">
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 동의정보 -->
+                        <div class="section-title">동의 정보</div>
+                        <table class="write-table" style="width:100%; border-collapse:collapse; margin-bottom:6px;">
+                            <colgroup><col style="width:30%"><col style="width:70%"></colgroup>
+                            <tbody>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">동의여부</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <select id="agree_yn" name="agree_yn">
+                                        <option value="N">미동의</option>
+                                        <option value="Y" selected>동의</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">동의방식</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <div style="display:flex; flex-direction:column; gap:6px;">
+                                        <div style="display:flex; gap:12px;">
+                                            <label style="color:#aaa; cursor:not-allowed;" title="준비 중">
+                                                <input type="radio" name="agree_method" value="SIMPLE" disabled> 간편서명동의
+                                                <span style="font-size:11px;">(준비 중)</span>
+                                            </label>
+                                            <label>
+                                                <input type="radio" name="agree_method" value="FILE"> 파일업로드
+                                            </label>
+                                            <label>
+                                                <input type="radio" name="agree_method" value="LATER" checked> 나중에 등록
+                                            </label>
+                                        </div>
+                                        <!-- 파일업로드 선택 시 표시 -->
+                                        <div id="agreeUploaderWrap" style="display:none; border:1px solid #e0e4ef; border-radius:4px; padding:6px;">
+                                            <div id="agreeUploaderDiv"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 상태/메모 -->
+                        <div class="section-title">상태 / 메모</div>
+                        <table class="write-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+                            <colgroup><col style="width:30%"><col style="width:70%"></colgroup>
+                            <tbody>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">상태</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <select id="status" name="status">
+                                        <option value="ACTIVE">활성</option>
+                                        <option value="INACTIVE">비활성</option>
+                                        <option value="STOP">중지</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">메모</th>
+                                <td style="padding:5px; border:1px solid #ddd;">
+                                    <input type="text" id="memo" name="memo">
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+
+                    </form>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <footer style="margin-top: 24px;">
+        <p>Copyright&#169; 0000 corp. All rights reserved.</p>
+    </footer>
+</th:block>
+
+<th:block layout:fragment="scripts">
+<th:block th:replace="common/ax5_uploader :: ax5_uploader"></th:block>
+<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<script type="text/javascript">
+    var theGrid;
+    var viewdata;
+    var agreeUploader = null;
+
+    var columns = [
+        {binding: 'id',               header: 'ID',       width: 60,  align: 'center', visible: false},
+        {binding: 'member_type_name', header: '구분',      width: 55,  align: 'center'},
+        {binding: 'member_no',        header: '납부자번호', width: 120, align: 'center'},
+        {binding: 'member_name',      header: '납부자명',  width: 110, align: 'left'},
+        {binding: 'bank_name',        header: '은행',      width: 90,  align: 'center'},
+        {binding: 'bank_account',     header: '계좌번호',  width: 150, align: 'center'},
+        {binding: 'deduct_day',       header: '출금일',    width: 60,  align: 'center'},
+        {binding: 'deduct_amount',    header: '출금금액',  width: 100, align: 'right',
+            cellTemplate: function(ctx) {
+                var v = ctx.value;
+                return v != null ? Number(v).toLocaleString() : '';
+            }},
+        {binding: 'agree_yn',         header: '동의',      width: 50,  align: 'center'},
+        {binding: 'status',           header: '상태',      width: 65,  align: 'center',
+            cellTemplate: function(ctx) {
+                var map = { ACTIVE: '활성', INACTIVE: '비활성', STOP: '중지' };
+                return map[ctx.value] || ctx.value || '';
+            }},
+    ];
+
+    document.readyState === 'complete' ? init() : window.onload = init;
+
+    function init() {
+        buildDeductDayOptions();
+        loadBankCodes();
+        searchList();
+        bindMemberTypeChange();
+        bindContractEvents();
+        bindAgreeMethodChange();
+        bindAmountFormat();
+        applyMemberTypeLabel('C');  // 초기 구분: 법인
+    }
+
+    // 약정일 드롭다운 생성 (01~31일 + 말일)
+    function buildDeductDayOptions() {
+        var opts = '<option value="">선택</option>';
+        for (var d = 1; d <= 31; d++) {
+            var v = String(d).padStart(2, '0');
+            opts += '<option value="' + v + '">' + d + '일</option>';
+        }
+        opts += '<option value="99">말일</option>';
+        $('#deduct_day').html(opts);
+    }
+
+    // 날짜 변환 헬퍼
+    // 'YYYYMMDD' → 'YYYY-MM-DD' (date input 용)
+    function toDateInput(v) {
+        if (!v || v === '99991231') return '';
+        return v.substring(0, 4) + '-' + v.substring(4, 6) + '-' + v.substring(6, 8);
+    }
+    // 'YYYY-MM-DD' → 'YYYYMMDD' (서버 전송용)
+    function fromDateInput(v) {
+        return v ? v.replace(/-/g, '') : '';
+    }
+
+    // 약정 섹션 이벤트 바인딩
+    function bindContractEvents() {
+        // 말일 선택 시 안내문구 표시
+        $('#deduct_day').on('change', function() {
+            $('#deductDayNote').toggle($(this).val() === '99');
+        });
+
+        // 무제한 체크박스: type="date" 는 '99991231' 직접 세팅 불가 → 비활성화만
+        $('#chkUnlimited').on('change', function() {
+            if ($(this).is(':checked')) {
+                $('#end_date').val('').prop('disabled', true);
+            } else {
+                $('#end_date').prop('disabled', false);
+            }
+        });
+
+        // 결제주기 라디오
+        $('input[name="cycle_type"]').on('change', function() {
+            applyCycleType($(this).val());
+        });
+    }
+
+    function applyCycleType(type) {
+        var isRegular = (type === 'REGULAR');
+        $('.chk-month').prop('disabled', !isRegular);
+        $('#cycleMonthsWrap').css('opacity', isRegular ? '1' : '0.4');
+        if (!isRegular) $('.chk-month').prop('checked', false);
+    }
+
+    // 동의방식 라디오 변경 이벤트
+    function bindAgreeMethodChange() {
+        $('input[name="agree_method"]').on('change', function() {
+            applyAgreeMethod($(this).val());
+        });
+    }
+
+    function applyAgreeMethod(method) {
+        var isFile = (method === 'FILE');
+        $('#agreeUploaderWrap').toggle(isFile);
+        if (isFile && !agreeUploader) {
+            initAgreeUploader($('#id').val() || 0);
+        }
+    }
+
+    // 동의서 파일 업로더 초기화
+    function initAgreeUploader(memberId) {
+        agreeUploader = new ax5FileUploadClass('agreeUploaderDiv', memberId, {
+            table_name:  'cms_member',
+            attach_name: 'AGREE',
+            accept_files: 'pdf,jpg,jpeg,png,hwp,doc,docx',
+            multiple:    false,
+            max_count:   1,
+            file_size:   10,
+            manual_upload: true,   // 저장 후 업로드 (신규 등록 PK 동시성 방지)
+            upload_callback:     function() {},
+            delete_callback:     function() {},
+            file_click_callback: function() {},
+            can_write: true,
+        });
+    }
+
+    // 출금금액 천단위 콤마 포맷
+    function bindAmountFormat() {
+        $('#deduct_amount').on('input', function() {
+            var raw = $(this).val().replace(/[^0-9]/g, '');
+            $(this).val(raw ? Number(raw).toLocaleString() : '');
+        });
+    }
+
+    // 구분 라디오 변경 시 라벨·outline 동적 변경
+    function bindMemberTypeChange() {
+        $('input[name="member_type"]').on('change', function() {
+            applyMemberTypeLabel($(this).val());
+        });
+    }
+
+    function applyMemberTypeLabel(type) {
+        // outline 강조
+        $('.member-type-group label').removeClass('selected');
+        $('#lbl-' + type).addClass('selected');
+
+        // 식별번호 라벨·placeholder
+        if (type === 'P') {
+            $('#idNumberLabel').text('생년월일');
+            $('#id_number').attr('placeholder', 'YYYYMMDD').attr('maxlength', '8');
+        } else {
+            $('#idNumberLabel').text('사업자등록번호');
+            $('#id_number').attr('placeholder', '숫자 10자리 (하이픈 제외)').attr('maxlength', '10');
+        }
+    }
+
+    // 은행 드롭다운 로드 (cms_bank_code 테이블 기준)
+    function loadBankCodes() {
+        $.ajax({
+            url: '/api/cms/bank_code/list',
+            type: 'GET',
+            success: function(result) {
+                if (result.success && result.data) {
+                    var options = '<option value="">선택</option>';
+                    result.data.forEach(function(item) {
+                        options += '<option value="' + item.bank_code + '">'
+                                 + item.bank_name + '</option>';
+                    });
+                    $('#bank_code').html(options);
+                }
+            }
+        });
+    }
+
+    function searchList() {
+        $.ajax({
+            url: '/api/cms/member/list',
+            type: 'GET',
+            data: {
+                member_name: $('#srchMemberName').val(),
+                member_no:   $('#srchMemberNo').val(),
+                status:      $('#srchStatus').val()
+            },
+            success: function(result) {
+                if (result.success) {
+                    if (theGrid) theGrid.dispose();
+                    bindGrid(result.data);
+                }
+            }
+        });
+    }
+
+    function bindGrid(data) {
+        viewdata = new wijmo.collections.CollectionView(data);
+
+        theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+            autoGenerateColumns: false,
+            showMarquee: true,
+            columns: columns,
+            isReadOnly: true,
+            itemsSource: viewdata
+        });
+
+        theGrid.rowHeaders.columns.splice(0, 1);
+
+        theGrid.hostElement.addEventListener('dblclick', function() {
+            var item = theGrid.selectedItems[0];
+            if (!item) return;
+            fillForm(item);
+        });
+    }
+
+    function fillForm(item) {
+        $('#id').val(item.id || '');
+
+        // 구분 라디오 세팅 (먼저 처리해야 라벨이 올바르게 바뀜)
+        var type = item.member_type || 'P';
+        $('input[name="member_type"][value="' + type + '"]').prop('checked', true);
+        applyMemberTypeLabel(type);
+
+        $('#member_name').val(item.member_name || '');
+        $('#member_no').val(item.member_no || '');
+        $('#id_number').val(item.id_number || '');
+        $('#phone').val(item.phone || '');
+        $('#email').val(item.email || '');
+        $('#zipcd').val(item.zipcd || '');
+        $('#adresa').val(item.adresa || '');
+        $('#adresb').val(item.adresb || '');
+        $('#bank_code').val(item.bank_code || '');
+        $('#bank_account').val(item.bank_account || '');
+        $('#account_holder').val(item.account_holder || '');
+        $('#deduct_day').val(item.deduct_day || '');
+        $('#deductDayNote').toggle(item.deduct_day === '99');
+        $('#deduct_amount').val(item.deduct_amount != null ? Number(item.deduct_amount).toLocaleString() : '');
+
+        // 청구기간 (DB: YYYYMMDD → date input: YYYY-MM-DD)
+        var endDate = item.end_date || '';
+        var isUnlimited = (endDate === '99991231');
+        $('#chkUnlimited').prop('checked', isUnlimited);
+        $('#start_date').val(toDateInput(item.start_date));
+        $('#end_date').val(isUnlimited ? '' : toDateInput(endDate)).prop('disabled', isUnlimited);
+
+        // 결제주기
+        var cycleType = item.cycle_type || 'REGULAR';
+        $('input[name="cycle_type"][value="' + cycleType + '"]').prop('checked', true);
+        applyCycleType(cycleType);
+        // 월 체크박스 복원
+        $('.chk-month').prop('checked', false);
+        if (item.cycle_months) {
+            var months = item.cycle_months.split(',');
+            months.forEach(function(m) {
+                $('.chk-month[value="' + m.trim() + '"]').prop('checked', true);
+            });
+        }
+        $('#agree_yn').val(item.agree_yn || 'Y');
+
+        // 동의방식 라디오 복원
+        var method = item.agree_method || 'LATER';
+        $('input[name="agree_method"][value="' + method + '"]').prop('checked', true);
+        agreeUploader = null;  // 업로더 리셋
+        if (method === 'FILE') {
+            $('#agreeUploaderWrap').show();
+            initAgreeUploader(item.id);
+        } else {
+            $('#agreeUploaderWrap').hide();
+        }
+
+        $('#status').val(item.status || 'ACTIVE');
+        $('#memo').val(item.memo || '');
+    }
+
+    function clearForm() {
+        $('#memberForm')[0].reset();
+        $('#id').val('');
+        $('input[name="member_type"][value="C"]').prop('checked', true);
+        applyMemberTypeLabel('C');
+        // 약정 초기화
+        $('#deductDayNote').hide();
+        $('#chkUnlimited').prop('checked', false);
+        $('#end_date').prop('disabled', false);
+        $('input[name="cycle_type"][value="REGULAR"]').prop('checked', true);
+        applyCycleType('REGULAR');
+        $('.chk-month').prop('checked', false);
+        $('#cycle_months').val('');
+
+        $('#agree_yn').val('Y');
+        $('input[name="agree_method"][value="LATER"]').prop('checked', true);
+        agreeUploader = null;
+        $('#agreeUploaderWrap').hide();
+        $('#agreeUploaderDiv').empty();
+
+        $('#status').val('ACTIVE');
+    }
+
+    function saveMember() {
+        if (!$('#member_name').val()) {
+            Alert.alert('', '납부자명을 입력해주세요.');
+            $('#member_name').focus();
+            return;
+        }
+
+        // 동의방식 = 파일업로드인데 첨부 파일이 없으면 저장 차단
+        var agreeMethod = $('input[name="agree_method"]:checked').val();
+        if (agreeMethod === 'FILE') {
+            var pendingCount  = agreeUploader && agreeUploader._pendingFiles
+                                ? agreeUploader._pendingFiles.length : 0;
+            var uploadedCount = agreeUploader && agreeUploader.UPLOAD && agreeUploader.UPLOAD.uploadedFiles
+                                ? agreeUploader.UPLOAD.uploadedFiles.length : 0;
+            if (pendingCount + uploadedCount === 0) {
+                Alert.alert('', '동의서 파일을 첨부해주세요.');
+                return;
+            }
+        }
+
+        // 저장 전: 선택된 월을 콤마 문자열로 hidden 필드에 세팅
+        var cycleType = $('input[name="cycle_type"]:checked').val();
+        if (cycleType === 'REGULAR') {
+            var selected = [];
+            $('.chk-month:checked').each(function() { selected.push($(this).val()); });
+            $('#cycle_months').val(selected.join(','));
+        } else {
+            $('#cycle_months').val('');
+        }
+
+        var data = FormUtil.extractForm($('#memberForm'));
+
+        // 출금금액 콤마 제거
+        data.deduct_amount = data.deduct_amount ? data.deduct_amount.replace(/,/g, '') : '';
+
+        // date input 값(YYYY-MM-DD)을 YYYYMMDD 로 변환 후 덮어쓰기
+        data.start_date = fromDateInput($('#start_date').val());
+        data.end_date   = $('#chkUnlimited').is(':checked') ? '99991231' : fromDateInput($('#end_date').val());
+
+        Alert.confirm('', '저장하시겠습니까?', function() {
+            AjaxUtil.postAsyncData('/api/cms/member/save', data, function(result) {
+                if (result.success) {
+                    var savedId = result.data;
+                    // FILE 방식이고 업로더에 대기 파일이 있으면 먼저 업로드
+                    if (agreeUploader && data.agree_method === 'FILE') {
+                        // 업로더의 data_pk를 저장된 id 로 갱신
+                        agreeUploader.data_pk = savedId;
+                        agreeUploader.uploadNow(savedId, function() {
+                            Alert.alert('', '저장되었습니다.');
+                            searchList();
+                        });
+                    } else {
+                        Alert.alert('', '저장되었습니다.');
+                        searchList();
+                    }
+                } else {
+                    Alert.alert('저장 실패', result.message);
+                }
+            });
+        });
+    }
+
+    function deleteMember() {
+        var item = theGrid && theGrid.selectedItems[0];
+        if (!item || !item.id) {
+            Alert.alert('', '삭제할 대상을 그리드에서 선택하세요.');
+            return;
+        }
+        var id = item.id;
+
+        Alert.confirm('', '삭제(비활성화)하시겠습니까?', function() {
+            $.ajax({
+                url: withCtx('/api/cms/member/' + id),
+                type: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
+                success: function(result) {
+                    if (result.success) {
+                        Alert.alert('', '삭제(비활성화)되었습니다.');
+                        clearForm();
+                        searchList();
+                    } else {
+                        Alert.alert('삭제 실패', result.message);
+                    }
+                }
+            });
+        });
+    }
+
+    function setZipCode() {
+        new daum.Postcode({
+            oncomplete: function (data) {
+                $('#zipcd').val(data.zonecode);
+                $('#adresa').val(data.roadAddress);
+                $('#adresb').focus();
+            }
+        }).open();
+    }
+
+    $(document).ready(function() {
+        $('#btnSearch').click(searchList);
+        $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
+        $('#srchMemberNo').keypress(function(e)   { if (e.which === 13) searchList(); });
+        $('#btnNew').click(clearForm);
+        $('#btnSave').click(saveMember);
+        $('#btnDel').click(deleteMember);
+
+    });
+</script>
+</th:block>
+
+</html>

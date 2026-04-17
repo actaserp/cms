@@ -122,6 +122,7 @@ public class NoticeService {
                 , BBSTODATE   = :bbstodate
                 , notice_yn   = :noticeYn
                 where BBSSEQ = :bbsseq
+                and spjangcd = :spjangcd
                 """;
             int affected = this.sqlRunner.execute(sql, paramMap);
             return affected > 0 ? bbsseq : null;
