@@ -22,38 +22,43 @@ public class CmsBillingService {
     SqlRunner sqlRunner;
 
     /** 청구 목록 조회 */
-    public List<Map<String, Object>> getBillingList(String billingYm, String memberName, String status) {
+    public List<Map<String, Object>> getBillingList(String billingYm, String deductDate, String memberName, String status) {
         String spjangcd = TenantContext.get();
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
         param.addValue("billingYm", billingYm);
 
         String sql = """
-                SELECT b.id
-                     , b.billing_ym
-                     , b.billing_seq
-                     , b.member_id
-                     , b.member_name
-                     , b.bank_code
-                     , bc.bank_name
-                     , b.bank_account
-                     , b.account_holder
-                     , b.billing_amount
-                     , b.deduct_day
-                     , b.deduct_date
-                     , b.status
-                     , b.result_code
-                     , b.result_msg
-                     , b.result_date
-                     , b.memo
-                     , b._created
-                     , b._modified
-                FROM cms_billing b
-                LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
-                WHERE b.spjangcd = :spjangcd
-                  AND b.billing_ym = :billingYm
-                """;
+            SELECT b.id
+                 , b.billing_ym
+                 , b.billing_seq
+                 , b.member_id
+                 , b.member_name
+                 , b.bank_code
+                 , bc.bank_name
+                 , b.bank_account
+                 , b.account_holder
+                 , b.billing_amount
+                 , b.deduct_day
+                 , b.deduct_date
+                 , TO_CHAR(TO_DATE(b.deduct_date, 'YYYYMMDD') - INTERVAL '1 day', 'YYYYMMDD') AS send_date
+                 , b.status
+                 , b.result_code
+                 , b.result_msg
+                 , b.result_date
+                 , b.memo
+                 , b._created
+                 , b._modified
+            FROM cms_billing b
+            LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
+            WHERE b.spjangcd = :spjangcd
+              AND b.billing_ym = :billingYm
+            """;
 
+        if (StringUtils.hasText(deductDate)) {
+            sql += " AND b.deduct_date = :deductDate";
+            param.addValue("deductDate", deductDate);
+        }
         if (StringUtils.hasText(memberName)) {
             sql += " AND b.member_name LIKE '%' || :memberName || '%'";
             param.addValue("memberName", memberName);
@@ -298,6 +303,26 @@ public class CmsBillingService {
                   AND status   = 'PENDING'
                 """;
         return sqlRunner.execute(sql, param);
+    }
+
+    /**
+     * EB파일 전송 후 PENDING → REQUESTED 배치 전환 (스케줄러 전용 — skip_tenant_check)
+     * billingIds 전체를 단일 UPDATE로 처리
+     */
+    public int updateStatusToRequested(List<Long> billingIds, Long ebFileId) {
+        if (billingIds == null || billingIds.isEmpty()) return 0;
+        var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
+        param.addValue("ids",      billingIds);
+        param.addValue("ebFileId", ebFileId);
+        return sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_billing
+                SET    status     = 'REQUESTED',
+                       eb_file_id = :ebFileId,
+                       _modified  = NOW()
+                WHERE  id IN (:ids)
+                  AND  status = 'PENDING'
+                """, param);
     }
 
     // ─── 내부 헬퍼 ───────────────────────────────────────────────────────────

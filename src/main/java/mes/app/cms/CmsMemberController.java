@@ -1,6 +1,8 @@
 package mes.app.cms;
 
+import mes.app.Scheduler.SchedulerService.CmsBillingAutoGenerateService;
 import mes.app.cms.service.CmsMemberService;
+import mes.app.common.TenantContext;
 import mes.domain.entity.User;
 import mes.domain.model.AjaxResult;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +19,9 @@ public class CmsMemberController {
 
     @Autowired
     private CmsMemberService cmsMemberService;
+
+    @Autowired
+    private CmsBillingAutoGenerateService cmsBillingAutoGenerateService;
 
     /** 목록 조회 */
     @GetMapping("/list")
@@ -85,6 +90,16 @@ public class CmsMemberController {
             result.message = "저장에 실패했습니다.";
         } else {
             result.data = savedId;
+            // 신규 등록(id == null)이고 ACTIVE 상태면 이번달 청구 즉시 생성
+            if (id == null && "ACTIVE".equals(status)) {
+                try {
+                    cmsBillingAutoGenerateService.generateForNewMember(
+                            TenantContext.get(), savedId, user.getUsername());
+                } catch (Exception e) {
+                    // 청구 생성 실패는 납부자 저장 자체를 롤백하지 않음 — 로그만
+                    result.message = "납부자 등록 완료. 이번달 청구 자동생성 중 오류가 발생했습니다.";
+                }
+            }
         }
         return result;
     }

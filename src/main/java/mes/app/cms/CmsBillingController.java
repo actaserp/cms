@@ -23,12 +23,13 @@ public class CmsBillingController {
     /** 목록 조회 */
     @GetMapping("/list")
     public AjaxResult getList(
-            @RequestParam(value = "billing_ym"              ) String billingYm,
+            @RequestParam(value = "billing_ym"                   ) String billingYm,
+            @RequestParam(value = "deduct_date", required = false) String deductDate,
             @RequestParam(value = "member_name", required = false) String memberName,
             @RequestParam(value = "status",      required = false) String status,
             HttpServletRequest request) {
 
-        List<Map<String, Object>> items = cmsBillingService.getBillingList(billingYm, memberName, status);
+        List<Map<String, Object>> items = cmsBillingService.getBillingList(billingYm, deductDate, memberName, status);
         AjaxResult result = new AjaxResult();
         result.data = items;
         return result;

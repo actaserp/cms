@@ -1,16 +1,13 @@
 package mes.app.Scheduler;
 
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import mes.app.Scheduler.SchedulerService.AccountSyncService;
-import mes.app.Scheduler.SchedulerService.ApiUsageService;
-import mes.app.Scheduler.SchedulerService.NginxTrafficService;
+import mes.app.Scheduler.SchedulerService.*;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 import java.util.concurrent.Executor;
 
 @Component
@@ -20,46 +17,45 @@ public class ScheduledTaskRunner {
 
     private final Executor schedulerExecutor;
 
-    private final AccountSyncService accountSyncService;
-    private final ApiUsageService apiUsageService;
-    private final NginxTrafficService nginxTrafficService;
+    private final AccountSyncService          accountSyncService;
+    private final ApiUsageService             apiUsageService;
+    private final NginxTrafficService         nginxTrafficService;
+    private final CmsBillingAutoGenerateService cmsBillingAutoGenerateService;
+    private final CmsEbFileGenerateService    cmsEbFileGenerateService;
+    private final CmsEb22ReceiveService       cmsEb22ReceiveService;
 
-    //@Scheduled(cron = "0 5 * * * *")
-    @Scheduled(cron = "0 0 * * * *") //5분주기
-    public void runScheduledTasks() {
-        //TODO: 작업 추가할거면 SchedulerThreadPoolConfig 에서 쓰레드풀 조정해주삼 지금 작업하나밖에 없어서 2개로 해놨삼
+    /** 매일 00:30 실행, 말일에만 다음달 청구 생성 */
+    @Scheduled(cron = "0 30 0 * * *", zone = "Asia/Seoul")
+    public void runCmsBillingAutoGenerate() {
+        // 오늘이 말일인지 체크
+        LocalDate today = LocalDate.now();
+        if (!today.equals(today.with(TemporalAdjusters.lastDayOfMonth()))) return;
 
-        //log.info("[스케줄러 시작] 계좌수집 작업 시작 - Thread: {}", Thread.currentThread().getName());
-
-        //schedulerExecutor.execute(() -> safeRun(accountSyncService::run, "계좌수집"));
-        //schedulerExecutor.execute(() -> safeRun(apiTimeLogCollectService::run, "API경과시간"));
+        schedulerExecutor.execute(() -> safeRun(cmsBillingAutoGenerateService::run, "CMS 청구 자동생성"));
     }
 
-    @Scheduled(cron = "0 0 3 * * *") // 매일 새벽 3시
+    /** D-1 13:00 — PENDING 청구 EB21 생성 + SFTP 전송 */
+    @Scheduled(cron = "0 0 13 * * *", zone = "Asia/Seoul")
+    public void runCmsEbFileGenerate() {
+        schedulerExecutor.execute(() -> safeRun(cmsEbFileGenerateService::run, "CMS EB21 생성+전송"));
+    }
+
+    /** D+1 04:00 — EB22 결과파일 수신 → billing SUCCESS/FAIL 처리 */
+    @Scheduled(cron = "0 0 4 * * *", zone = "Asia/Seoul")
+    public void runCmsEb22Receive() {
+        schedulerExecutor.execute(() -> safeRun(cmsEb22ReceiveService::run, "CMS EB22 결과수신"));
+    }
+
+    /** 매일 새벽 3시 — nginx 트래픽 집계 */
+    @Scheduled(cron = "0 0 3 * * *")
     public void runDailyTrafficCollect() {
         schedulerExecutor.execute(() -> safeRun(nginxTrafficService::collectYesterdayTraffic, "nginx트래픽집계"));
     }
 
-
-    /**
-     * todo: 만약 해당 스케줄러 작업이 실패했을 경우에 대한 대비책도 강구해야함.
-     */
-//    @Scheduled(cron = "0 0 3 1 * *", zone = "Asia/Seoul") /// 매월 1일 새벽 3시
-//    //@Scheduled(cron = "0 07 14 * * *", zone = "Asia/Seoul")
-//    public void runApiUsageMigration(){
-//
-//        // 스케줄러가 인식하는 현재 시간 로그 출력
-//        String currentTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-//        log.info("[스케줄러 감지] 현재 서버 시간: {} | 작업명: api 콜 집계", currentTime);
-//
-//        schedulerExecutor.execute(() -> safeRun(apiUsageService::migrateMonthlyApiUsage, "api 콜 집계"));
-//    }
-
-
-    private void safeRun(Runnable task, String taskName){
-        try{
+    private void safeRun(Runnable task, String taskName) {
+        try {
             task.run();
-        }catch (Exception e){
+        } catch (Exception e) {
             log.error("스케줄러 작업 실패: {} - {}", taskName, e.getMessage(), e);
         }
     }

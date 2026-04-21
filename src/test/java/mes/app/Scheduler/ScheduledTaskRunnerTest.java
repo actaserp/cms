@@ -17,7 +17,7 @@ class ScheduledTaskRunnerTest {
         System.out.println("=== 테스트 시작 ===");
 
         // 스케줄러 작업 직접 실행
-        taskRunner.runScheduledTasks();
+//        taskRunner.runScheduledTasks();
 
         // 출력이 완료될 때까지 기다림 (비동기라 메인 스레드가 먼저 끝나면 로그 못 봄)
         Thread.sleep(5000); // 5초 정도 대기
