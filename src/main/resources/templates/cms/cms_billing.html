@@ -379,6 +379,12 @@
             $('#member_name').val(opt.text());
         });
 
+        function fmtDate8(v) {
+            if (!v) return '';
+            var s = String(v).replace(/-/g, '');
+            return s.length === 8 ? s.substring(0,4) + '-' + s.substring(4,6) + '-' + s.substring(6,8) : v;
+        }
+
         // 출금일자 변경 시 D-1 신청일 자동계산
         $('#deduct_date').on('change', function() {
             var val = $(this).val(); // yyyy-MM-dd
@@ -389,11 +395,11 @@
                 type: 'GET',
                 data: { deduct_date: compact },
                 success: function(result) {
-                    $('#send_date').val(
+                    $('#send_date').val(fmtDate8(
                         (result.success && result.data) ? result.data.send_date : calcSimplePrevDay(compact)
-                    );
+                    ));
                 },
-                error: function() { $('#send_date').val(calcSimplePrevDay(compact)); }
+                error: function() { $('#send_date').val(fmtDate8(calcSimplePrevDay(compact))); }
             });
         });
 
@@ -405,11 +411,11 @@
                 type: 'GET',
                 data: { deduct_date: deductDate },
                 success: function(result) {
-                    $('#send_date').val(
+                    $('#send_date').val(fmtDate8(
                         (result.success && result.data) ? result.data.send_date : calcSimplePrevDay(deductDate)
-                    );
+                    ));
                 },
-                error: function() { $('#send_date').val(calcSimplePrevDay(deductDate)); }
+                error: function() { $('#send_date').val(fmtDate8(calcSimplePrevDay(deductDate))); }
             });
         }
 
@@ -550,7 +556,9 @@
             var dd = item.deduct_date || '';
             if (dd.length === 8) dd = dd.substring(0,4) + '-' + dd.substring(4,6) + '-' + dd.substring(6,8);
             $('#deduct_date').val(dd);
-            $('#send_date').val(item.send_date || item.deduct_date || '');
+            var sd = item.send_date || item.deduct_date || '';
+            if (sd.length === 8) sd = sd.substring(0,4) + '-' + sd.substring(4,6) + '-' + sd.substring(6,8);
+            $('#send_date').val(sd);
             applyStatusField(item.status || 'PENDING');
             $('#result_code').val(item.result_code || '');
             $('#result_msg').val(item.result_msg || '');
@@ -643,7 +651,12 @@
                     { billing_ym: ymVal.replace('-', '') },
                     function(result) {
                         if (result.success) {
-                            Alert.alert('', (result.data ? result.data.count : 0) + '건이 생성되었습니다.');
+                            var d = result.data || {};
+                            var cnt = d.count || 0;
+                            var skipped = d.skippedCount || 0;
+                            var msg = cnt + '건이 생성되었습니다.';
+                            if (skipped > 0) msg += ' (' + skipped + '건은 출금일이 지나 제외되었습니다.)';
+                            Alert.alert('', msg);
                             searchList();
                         } else {
                             Alert.alert('생성 실패', result.message);

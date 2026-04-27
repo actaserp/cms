@@ -248,9 +248,23 @@ public class CmsBillingService {
 
         // 건별 INSERT
         int count = 0;
+        int skippedCount = 0;
+        java.time.LocalDate today = java.time.LocalDate.now();
+        int nowHour = java.time.LocalTime.now().getHour();
+        String todayStr = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String tomorrowStr = today.plusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String effectiveDeductType = deductType != null ? deductType : "EB";
+
         for (Map<String, Object> m : members) {
             String deductDay = (String) m.get("deduct_day");
             String deductDate = "99".equals(deductDay) ? lastDay : billingYm + deductDay;
+
+            // 오늘 이전 날짜 스킵
+            if (deductDate.compareTo(todayStr) < 0) { skippedCount++; continue; }
+            // EB: 내일 날짜인데 15시 이후 스킵
+            if ("EB".equals(effectiveDeductType) && deductDate.equals(tomorrowStr) && nowHour >= 15) { skippedCount++; continue; }
+            // EC: 오늘 날짜인데 11시 이후 스킵
+            if ("EC".equals(effectiveDeductType) && deductDate.equals(todayStr) && nowHour >= 11) { skippedCount++; continue; }
 
             String billingSeq = billingYm + "-" + String.format("%04d", nextSeq++);
 
@@ -288,6 +302,7 @@ public class CmsBillingService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("count", count);
+        result.put("skippedCount", skippedCount);
         return result;
     }
 

@@ -145,6 +145,20 @@ public class CmsBillingAutoGenerateService {
         String lastDay   = ym.atEndOfMonth().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String deductDay = str(m.get("deduct_day"));
         String deductDate = "99".equals(deductDay) ? lastDay : billingYm + deductDay;
+
+        // EB 고정 — 오늘 이전 또는 내일인데 15시 이후 스킵
+        String todayStr    = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String tomorrowStr = LocalDate.now().plusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        int nowHour = java.time.LocalTime.now().getHour();
+        if (deductDate.compareTo(todayStr) < 0) {
+            log.info("[BillingAutoGenerate] 스킵 - 오늘 이전 출금일: {} member={}", deductDate, m.get("member_name"));
+            return;
+        }
+        if (deductDate.equals(tomorrowStr) && nowHour >= 15) {
+            log.info("[BillingAutoGenerate] 스킵 - 내일 출금일이나 15시 이후: {} member={}", deductDate, m.get("member_name"));
+            return;
+        }
+
         String billingSeq = billingYm + "-" + String.format("%04d", seq);
 
         var p = new MapSqlParameterSource();
