@@ -593,6 +593,30 @@
                     e.preventDefault();
                     e.stopPropagation();
 
+                    // dep3 메뉴가 1개면 바로 addTab
+                    if (folder.nodes.length === 1) {
+                        const item = folder.nodes[0];
+
+                        // 클릭 CSS 처리
+                        $li.siblings().removeClass('active');
+                        $li.addClass('active');
+                        $FrontFolderElement.find('.dep3 li').removeClass('on');
+
+                        if (nthTabs.isExistsTab('#' + item.objId)) {
+                            nthTabs.toggleTab('#' + item.objId);
+                        } else {
+                            nthTabs.addTab({
+                                id: item.objId,
+                                title: item.objNm,
+                                url: withCtx('/gui/' + item.objId + '/default'),
+                                active: true,
+                                allowClose: true,
+                                isbookmark: item.isbookmark
+                            });
+                        }
+                        return;
+                    }
+
                     const isActive = $li.hasClass('active');
 
                     if (isActive) {
@@ -708,10 +732,10 @@
             $('.menu_area').toggleClass('hidden');
             const isMenuHidden = $('.menu_area').hasClass('hidden');
 
-            $('.con_area, .tab-content').css({
-                'width': isMenuHidden ? '100%' : 'calc(100% - 250px)', // 메뉴가 닫히면 전체 확장
-                'left': isMenuHidden ? '0' : '250px' // 왼쪽으로 확장
-            });
+            // $('.con_area, .tab-content').css({
+            //     'width': isMenuHidden ? '100%' : 'calc(100% - 250px)', // 메뉴가 닫히면 전체 확장
+            //     'left': isMenuHidden ? '0' : '250px' // 왼쪽으로 확장
+            // });
         });
 
         // 북마크 및 default_menu를 한 번에 처리
@@ -920,7 +944,7 @@
         // // 내정보 클릭
         $('#myinfo').on('click', function (e) {
             e.preventDefault();
-            Ax5Modal.open({url: CTX + 'page/account/myinfo', width: 300, height: 450});
+            Ax5Modal.open({url: CTX + 'page/account/myinfo', width: 500, height: 450});
             $(".profile_contbox").hide();
         });
         //

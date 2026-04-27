@@ -23,6 +23,8 @@ public class ScheduledTaskRunner {
     private final CmsBillingAutoGenerateService cmsBillingAutoGenerateService;
     private final CmsEbFileGenerateService    cmsEbFileGenerateService;
     private final CmsEb22ReceiveService       cmsEb22ReceiveService;
+    private final CmsEc21FileGenerateService  cmsEc21FileGenerateService;
+    private final CmsEc22ReceiveService       cmsEc22ReceiveService;
 
     /** 매일 00:30 실행, 말일에만 다음달 청구 생성 */
     @Scheduled(cron = "0 30 0 * * *", zone = "Asia/Seoul")
@@ -44,6 +46,18 @@ public class ScheduledTaskRunner {
     @Scheduled(cron = "0 0 4 * * *", zone = "Asia/Seoul")
     public void runCmsEb22Receive() {
         schedulerExecutor.execute(() -> safeRun(cmsEb22ReceiveService::run, "CMS EB22 결과수신"));
+    }
+
+    /** D 11:00 — PENDING 당일청구 EC21 생성 + SFTP 전송 (마감 D 12:00) */
+    @Scheduled(cron = "0 0 11 * * *", zone = "Asia/Seoul")
+    public void runCmsEc21FileGenerate() {
+        schedulerExecutor.execute(() -> safeRun(cmsEc21FileGenerateService::run, "CMS EC21 생성+전송"));
+    }
+
+    /** D 22:00 — EC22 결과파일 수신 → billing SUCCESS/FAIL 처리 (수신 가능 D 23:00) */
+    @Scheduled(cron = "0 0 22 * * *", zone = "Asia/Seoul")
+    public void runCmsEc22Receive() {
+        schedulerExecutor.execute(() -> safeRun(cmsEc22ReceiveService::run, "CMS EC22 결과수신"));
     }
 
     /** 매일 새벽 3시 — nginx 트래픽 집계 */

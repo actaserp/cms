@@ -17,13 +17,13 @@
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>EB파일 관리</h2>
+                <h2>EC파일 관리</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>관리자 메뉴</li>
-                <li>EB파일 관리</li>
+                <li>EC파일 관리</li>
             </ul>
         </div>
 
@@ -80,7 +80,7 @@
                 <!-- 액션 버튼 -->
                 <div style="padding: 6px 0; display:flex; gap:4px; align-items:center;">
                     <button type="button" class="btn-default" id="btnGenerate"
-                            style="width:130px; background:#4a6cf7; color:#fff;">EB파일 수동생성</button>
+                            style="width:130px; background:#4a6cf7; color:#fff;">EC파일 수동생성</button>
                     <button type="button" class="btn-default" id="btnDownload">다운로드</button>
                     <button type="button" class="btn-default" id="btnSendSftp"
                             style="background:#17a2b8; color:#fff;">SFTP전송</button>
@@ -98,7 +98,7 @@
     <div id="modalGenerate" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
          background:rgba(0,0,0,0.4); z-index:9999; align-items:center; justify-content:center;">
         <div style="background:#fff; border-radius:8px; padding:28px 32px; min-width:320px; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
-            <h3 style="margin:0 0 16px; font-size:15px;">EB파일 수동 생성</h3>
+            <h3 style="margin:0 0 16px; font-size:15px;">EC파일 수동 생성</h3>
             <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
                 <tr>
                     <th style="padding:6px 8px; text-align:left; white-space:nowrap; color:#555;">출금일자</th>
@@ -171,7 +171,7 @@
 
     function searchList() {
         $.ajax({
-            url: withCtx('/api/cms/eb-files'),
+            url: withCtx('/api/cms/ec-files'),
             type: 'GET',
             data: {
                 date_from:   $('#srchDateFrom').val(),
@@ -208,7 +208,7 @@
     function downloadFile() {
         var item = selectedItem();
         if (!item) { Alert.alert('', '다운로드할 파일을 목록에서 선택하세요.'); return; }
-        window.location.href = withCtx('/api/cms/eb-files/' + item.id + '/download');
+        window.location.href = withCtx('/api/cms/ec-files/' + item.id + '/download');
     }
 
     // SFTP 전송
@@ -219,7 +219,7 @@
             Alert.alert('', 'PENDING(대기) 상태인 파일만 SFTP 전송할 수 있습니다.'); return;
         }
         Alert.confirm('', '[' + item.file_name + '] 파일을 SFTP 전송하시겠습니까?', function() {
-            AjaxUtil.postAsyncData('/api/cms/eb-files/' + item.id + '/send-sftp', {}, function(result) {
+            AjaxUtil.postAsyncData('/api/cms/ec-files/' + item.id + '/send-sftp', {}, function(result) {
                 if (result.success) {
                     Alert.alert('', 'SFTP 전송이 완료되었습니다.');
                     searchList();
@@ -239,7 +239,7 @@
         }
         Alert.confirm('', '[' + item.file_name + '] 파일을 삭제하시겠습니까?\n연결된 청구 건의 상태가 PENDING으로 복원됩니다.', function() {
             $.ajax({
-                url: withCtx('/api/cms/eb-files/' + item.id),
+                url: withCtx('/api/cms/ec-files/' + item.id),
                 type: 'DELETE',
                 headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
                 success: function(result) {
@@ -271,12 +271,12 @@
         if (!targetDate) { Alert.alert('', '출금일자를 선택하세요.'); return; }
 
         $('#modalGenerate').hide();
-        AjaxUtil.postAsyncData('/api/cms/eb-files/generate',
+        AjaxUtil.postAsyncData('/api/cms/ec-files/generate',
             { target_date: targetDate.replace(/-/g, '') },
             function(result) {
                 if (result.success && result.data) {
                     var d = result.data;
-                    Alert.alert('', 'EB파일이 생성되었습니다.\n파일명: ' + d.file_name
+                    Alert.alert('', 'EC파일이 생성되었습니다.\n파일명: ' + d.file_name
                                   + '\n청구건수: ' + d.billing_count
                                   + '\n청구금액: ' + Number(d.billing_amount).toLocaleString() + '원');
                     searchList();

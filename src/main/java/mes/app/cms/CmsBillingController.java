@@ -27,9 +27,10 @@ public class CmsBillingController {
             @RequestParam(value = "deduct_date", required = false) String deductDate,
             @RequestParam(value = "member_name", required = false) String memberName,
             @RequestParam(value = "status",      required = false) String status,
+            @RequestParam(value = "deduct_type", required = false) String deductType,
             HttpServletRequest request) {
 
-        List<Map<String, Object>> items = cmsBillingService.getBillingList(billingYm, deductDate, memberName, status);
+        List<Map<String, Object>> items = cmsBillingService.getBillingList(billingYm, deductDate, memberName, status, deductType);
         AjaxResult result = new AjaxResult();
         result.data = items;
         return result;
@@ -59,12 +60,13 @@ public class CmsBillingController {
             @RequestParam(value = "deduct_date",     required = false) String deductDate,
             @RequestParam(value = "status",          required = false) String status,
             @RequestParam(value = "memo",            required = false) String memo,
+            @RequestParam(value = "deduct_type",     required = false) String deductType,
             Authentication auth) {
 
         User user = (User) auth.getPrincipal();
         Long savedId = cmsBillingService.saveBilling(
                 id, billingYm, memberId, memberName, bankCode, bankAccount, accountHolder,
-                billingAmount, deductDay, deductDate, status, memo, user.getUsername());
+                billingAmount, deductDay, deductDate, status, memo, deductType, user.getUsername());
 
         AjaxResult result = new AjaxResult();
         if (savedId == null) {
@@ -95,9 +97,10 @@ public class CmsBillingController {
             @RequestParam(value = "result_date", required = false) String resultDate,
             @RequestParam(value = "status",      required = false) String status,
             @RequestParam(value = "member_name", required = false) String memberName,
+            @RequestParam(value = "deduct_type", required = false) String deductType,
             HttpServletRequest request) {
 
-        List<Map<String, Object>> items = cmsBillingService.getBillingResultList(billingYm, resultDate, status, memberName);
+        List<Map<String, Object>> items = cmsBillingService.getBillingResultList(billingYm, resultDate, status, memberName, deductType);
         AjaxResult result = new AjaxResult();
         result.data = items;
         return result;
@@ -133,11 +136,12 @@ public class CmsBillingController {
     /** 청구 자동생성 */
     @PostMapping("/generate")
     public AjaxResult generate(
-            @RequestParam("billing_ym") String billingYm,
+            @RequestParam("billing_ym")                        String billingYm,
+            @RequestParam(value = "deduct_type", required = false) String deductType,
             Authentication auth) {
 
         User user = (User) auth.getPrincipal();
-        Map<String, Object> res = cmsBillingService.generateBilling(billingYm, user.getUsername());
+        Map<String, Object> res = cmsBillingService.generateBilling(billingYm, deductType, user.getUsername());
 
         AjaxResult result = new AjaxResult();
         result.data = res;

@@ -516,7 +516,7 @@
     <!-- [구독정보] 팝업  -->
     <div class="dashboard-layout-popup">
         <div class="popup-overlay" id="popup2"></div>
-        <div class="popup-wrapper" id="wrapper2">
+        <div class="popup-wrapper" id="wrapper2" style="min-width: 340px;">
             <div class="popup-title">
                 <h3>구독 플랜 안내</h3>
                 <a onclick="subscriptionModalClose()" title="팝업닫기" class="btn-popup-close">
@@ -532,8 +532,8 @@
             </div>
 
             <div style="text-align: center; margin-top: 25px;">
-                <button type="button" onclick="subscriptionModalClose()" style="width: 100px; padding: 10px; background: white; border: 1px solid #ccc; border-radius: 5px; cursor:pointer;">닫기</button>
                 <button type="button" id="btnRequestSub" style="width: 150px; padding: 10px; border: none; border-radius: 5px; color: white; background: #03428E; cursor:pointer; font-weight: bold;">구독 신청하기</button>
+                <button type="button" onclick="subscriptionModalClose()" style="width: 100px; padding: 10px; background: white; border: 1px solid #ccc; border-radius: 5px; cursor:pointer;">닫기</button>
             </div>
         </div>
     </div> <!-- //dashboard-layout-popup end -->
@@ -690,15 +690,19 @@
                         <h3>${plan.name}</h3>
                         <p class="price">월 ${formattedPrice}원</p>
                         <ul>
-                            <li>사용자 ${plan.user_limit}인 포함</li>
-                            <li>Api호출 ${formattedLimit}건 무료</li>
-                            <li class="extra-charge">초과 호출 시 건당 ${plan.extra_api_unit_price}원 (종량제)</li>
+<!--                            <li>사용자 ${plan.user_limit}인 포함</li>-->
+                            <li>CMS 출금이체 월 ${formattedLimit}건 무료</li>
+                            <li class="extra-charge">초과 건당 ${plan.extra_api_unit_price}원 (종량제)</li>
                         </ul>
                     </div>
                 `;
                 });
 
                 document.querySelector('.plan-container').innerHTML = html;
+
+                if (list.length > 0) {
+                    document.getElementById('btnRequestSub').dataset.selectedPlanId = list[0].id;
+                }
 
                 popup.style.display = 'block';
                 wrapper.style.display = 'block';
@@ -751,57 +755,33 @@
 
     // 1. 구독 모달에서 [구독 신청하기] 버튼 클릭 시
     $('#btnRequestSub').click(function() {
-        // 현재 선택된 플랜 확인 (active 클래스가 붙은 카드)
-        let selectedPlanValue = "";
-        if ($('.plan-box.active h3').text().toLowerCase().indexOf('standard') !== -1) {
-            selectedPlanValue = "1";
-        } else {
-            selectedPlanValue = "2";
-        }
-
-        // 구독 모달 닫기
+        const selectedPlanId = $(this).data('selectedPlanId');
         subscriptionModalClose();
-
-        // 사업장 신청 모달 열기
-        RegisterUserOpen();
-
-        // 신청 모달 내의 select 박스 값을 해당 플랜으로 자동 변경
-        $('#spjangcd').val(selectedPlanValue);
+        RegisterUserOpen(selectedPlanId);  // planId 전달
     });
 
     // 2. 사업장 신청 모달 열기 함수 (기존 함수 보완)
-    function RegisterUserOpen() {
-        // 1. 폼 초기화
+    function RegisterUserOpen(preSelectedPlanId) {
         $('#registerForm')[0].reset();
-
-        // 2. 요금제 정보 로드
-        let fnSuccess = function (res) {
+        AjaxUtil.getAsyncData("/bill_plan_read", {}, function(res) {
             if (res.success) {
-                let list = res.data;
                 let $select = $('#bill_plan');
-
-                // 기본 옵션만 남기고 초기화
                 $select.empty();
                 $select.append('<option value="">플랜을 선택해 주세요</option>');
-
-                // API로 가져온 리스트 추가
-                list.forEach(plan => {
+                res.data.forEach(plan => {
                     let formattedPrice = Number(plan.price).toLocaleString();
-                    // value값은 테이블의 id, 텍스트는 이름과 가격 표시
-                    let optionHtml = `<option value="${plan.id}">${plan.name} (월 ${formattedPrice}원)</option>`;
-                    $select.append(optionHtml);
+                    $select.append(`<option value="${plan.id}">${plan.name} (월 ${formattedPrice}원)</option>`);
                 });
 
-                // 3. 팝업 표시
+                // ajax 완료 후 선택
+                if (preSelectedPlanId) {
+                    $('#bill_plan').val(preSelectedPlanId);
+                }
+
                 $('#popup1').fadeIn();
                 $('#wrapper1').fadeIn();
-            } else {
-                Alert.alert('', '요금제 정보를 불러오는데 실패했습니다.');
             }
-        };
-
-        // 요금제 데이터 조회 호출
-        AjaxUtil.getAsyncData("/bill_plan_read", {}, fnSuccess);
+        });
     }
 
     var isChangeLang = 'N';

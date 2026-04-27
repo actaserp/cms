@@ -22,11 +22,12 @@ public class CmsBillingService {
     SqlRunner sqlRunner;
 
     /** 청구 목록 조회 */
-    public List<Map<String, Object>> getBillingList(String billingYm, String deductDate, String memberName, String status) {
+    public List<Map<String, Object>> getBillingList(String billingYm, String deductDate, String memberName, String status, String deductType) {
         String spjangcd = TenantContext.get();
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
         param.addValue("billingYm", billingYm);
+        param.addValue("deductType", deductType != null ? deductType : "EB");
 
         String sql = """
             SELECT b.id
@@ -51,8 +52,9 @@ public class CmsBillingService {
                  , b._modified
             FROM cms_billing b
             LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
-            WHERE b.spjangcd = :spjangcd
-              AND b.billing_ym = :billingYm
+            WHERE b.spjangcd    = :spjangcd
+              AND b.billing_ym  = :billingYm
+              AND b.deduct_type = :deductType
             """;
 
         if (StringUtils.hasText(deductDate)) {
@@ -109,7 +111,7 @@ public class CmsBillingService {
                             String memberName, String bankCode, String bankAccount,
                             String accountHolder, Long billingAmount,
                             String deductDay, String deductDate,
-                            String status, String memo, String userId) {
+                            String status, String memo, String deductType, String userId) {
         String spjangcd = TenantContext.get();
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
@@ -124,6 +126,7 @@ public class CmsBillingService {
         param.addValue("deductDate", deductDate);
         param.addValue("status", status != null ? status : "PENDING");
         param.addValue("memo", memo);
+        param.addValue("deductType", deductType != null ? deductType : "EB");
         param.addValue("userId", userId);
 
         if (id == null) {
@@ -136,13 +139,13 @@ public class CmsBillingService {
                         spjangcd, billing_ym, billing_seq,
                         member_id, member_name, bank_code, bank_account, account_holder,
                         billing_amount, deduct_day, deduct_date,
-                        status, memo,
+                        deduct_type, status, memo,
                         _creater_id, _created, _modifier_id, _modified
                     ) VALUES (
                         :spjangcd, :billingYm, :billingSeq,
                         :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
                         :billingAmount, :deductDay, :deductDate,
-                        :status, :memo,
+                        :deductType, :status, :memo,
                         :userId, NOW(), :userId, NOW()
                     ) RETURNING id
                     """;
@@ -186,7 +189,7 @@ public class CmsBillingService {
 
     /** 청구 자동생성 */
     @Transactional
-    public Map<String, Object> generateBilling(String billingYm, String userId) {
+    public Map<String, Object> generateBilling(String billingYm, String deductType, String userId) {
         String spjangcd = TenantContext.get();
 
         // 청구년월 → 해당 월의 첫날/마지막날
@@ -202,6 +205,7 @@ public class CmsBillingService {
         param.addValue("firstDay", firstDay);
         param.addValue("lastDay", lastDay);
         param.addValue("monthStr", monthStr);
+        param.addValue("deductType", deductType != null ? deductType : "EB");
 
         // 자동생성 대상 납부자 조회
         String memberSql = """
@@ -223,9 +227,10 @@ public class CmsBillingService {
                   AND :monthStr      = ANY(STRING_TO_ARRAY(m.cycle_months, ','))
                   AND NOT EXISTS (
                       SELECT 1 FROM cms_billing b
-                      WHERE b.member_id  = m.id
-                        AND b.billing_ym = :billingYm
-                        AND b.spjangcd   = :spjangcd
+                      WHERE b.member_id   = m.id
+                        AND b.billing_ym  = :billingYm
+                        AND b.spjangcd    = :spjangcd
+                        AND b.deduct_type = :deductType
                   )
                 ORDER BY m.id
                 """;
@@ -261,6 +266,7 @@ public class CmsBillingService {
             ip.addValue("billingAmount", m.get("deduct_amount"));
             ip.addValue("deductDay",     deductDay);
             ip.addValue("deductDate",    deductDate);
+            ip.addValue("deductType",    deductType != null ? deductType : "EB");
             ip.addValue("userId",        userId);
 
             String insertSql = """
@@ -268,12 +274,12 @@ public class CmsBillingService {
                         spjangcd, billing_ym, billing_seq,
                         member_id, member_name, bank_code, bank_account, account_holder,
                         billing_amount, deduct_day, deduct_date,
-                        status, _creater_id, _created, _modifier_id, _modified
+                        deduct_type, status, _creater_id, _created, _modifier_id, _modified
                     ) VALUES (
                         :spjangcd, :billingYm, :billingSeq,
                         :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
                         :billingAmount, :deductDay, :deductDate,
-                        'PENDING', :userId, NOW(), :userId, NOW()
+                        :deductType, 'PENDING', :userId, NOW(), :userId, NOW()
                     )
                     """;
             sqlRunner.execute(insertSql, ip);
@@ -305,12 +311,13 @@ public class CmsBillingService {
         return sqlRunner.execute(sql, param);
     }
 
-    /** 수납결과 조회 (billing_ym 필수, result_date/status/member_name 선택) */
-    public List<Map<String, Object>> getBillingResultList(String billingYm, String resultDate, String status, String memberName) {
+    /** 수납결과 조회 (billing_ym 필수, result_date/status/member_name/deduct_type 선택) */
+    public List<Map<String, Object>> getBillingResultList(String billingYm, String resultDate, String status, String memberName, String deductType) {
         String spjangcd = TenantContext.get();
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
         param.addValue("billingYm", billingYm);
+        param.addValue("deductType", deductType != null ? deductType : "EB");
 
         String sql = """
             SELECT b.id
@@ -327,8 +334,9 @@ public class CmsBillingService {
                  , b.result_date
             FROM cms_billing b
             LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
-            WHERE b.spjangcd   = :spjangcd
-              AND b.billing_ym = :billingYm
+            WHERE b.spjangcd    = :spjangcd
+              AND b.billing_ym  = :billingYm
+              AND b.deduct_type = :deductType
             """;
 
         if (StringUtils.hasText(resultDate)) {
@@ -338,6 +346,8 @@ public class CmsBillingService {
         if (StringUtils.hasText(status)) {
             sql += " AND b.status = :status";
             param.addValue("status", status);
+        } else {
+            sql += " AND b.status IN ('SUCCESS', 'FAIL')";
         }
         if (StringUtils.hasText(memberName)) {
             sql += " AND b.member_name LIKE '%' || :memberName || '%'";

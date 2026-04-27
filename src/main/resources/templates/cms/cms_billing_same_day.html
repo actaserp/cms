@@ -32,13 +32,13 @@
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>수납 청구 관리</h2>
+                <h2>당일수납 청구 관리</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>수납 관리</li>
-                <li>수납 청구 관리</li>
+                <li>당일수납 청구 관리</li>
             </ul>
         </div>
 
@@ -89,13 +89,13 @@
                             </dd>
                         </dl>
                     </div>
-                    <div style="padding: 6px 0; display:flex; gap:4px; width:100%; justify-content: space-between;">
-                        <div style="display:flex; gap:4px;">
-                            <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>
-                            <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>
-                        </div>
+<!--                    <div style="padding: 6px 0; display:flex; gap:4px; width:100%; justify-content: space-between;">-->
+<!--                        <div style="display:flex; gap:4px;">-->
+<!--                            <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>-->
+<!--                            <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>-->
+<!--                        </div>-->
 
-                    </div>
+<!--                    </div>-->
                 </div>
                 <div class="container-fluid">
                     <div id="theGrid"></div>
@@ -118,6 +118,7 @@
                 <div class="table-wrap" style="overflow-y: auto; max-height: calc(100vh - 160px); padding-top: 8px;">
                     <form id="billingForm">
                         <input type="hidden" id="id" name="id"/>
+                        <input type="hidden" name="deduct_type" value="EC"/>
 
                         <div class="section-title">청구 정보</div>
                         <table class="write-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
@@ -195,7 +196,7 @@
                             <tr>
                                 <th style="padding:5px; border:1px solid #ddd; text-align:center;">
                                     청구신청일
-                                    <div style="font-size:10px; font-weight:400; color:#aaa;">(D-1, 영업일)</div>
+                                    <div style="font-size:10px; font-weight:400; color:#aaa;">(출금 당일)</div>
                                 </th>
                                 <td style="padding:5px; border:1px solid #ddd;">
                                     <input type="text" id="send_date" readonly
@@ -407,36 +408,9 @@
             loadSendDate(deductDate);
         }
 
-        // 신청일 계산: 백엔드 API (영업일 기준 D-1)
-        // TODO: 공공데이터포털 공휴일 API 연동
+        // 당일출금: 신청일 = 출금일 당일
         function loadSendDate(deductDate) {
-            if (!deductDate || deductDate.length !== 8) { $('#send_date').val(''); return; }
-            $.ajax({
-                url: withCtx('/api/cms/billing/send-date'),
-                type: 'GET',
-                data: { deduct_date: deductDate },
-                success: function(result) {
-                    $('#send_date').val(
-                        (result.success && result.data) ? result.data.send_date : calcSimplePrevDay(deductDate)
-                    );
-                },
-                error: function() {
-                    $('#send_date').val(calcSimplePrevDay(deductDate));
-                }
-            });
-        }
-
-        // 단순 D-1 (fallback)
-        function calcSimplePrevDay(yyyymmdd) {
-            var dt = new Date(
-                parseInt(yyyymmdd.substring(0,4)),
-                parseInt(yyyymmdd.substring(4,6)) - 1,
-                parseInt(yyyymmdd.substring(6,8))
-            );
-            dt.setDate(dt.getDate() - 1);
-            return dt.getFullYear()
-                + String(dt.getMonth() + 1).padStart(2,'0')
-                + String(dt.getDate()).padStart(2,'0');
+            $('#send_date').val(deductDate || '');
         }
 
         function clearMemberFields() {
@@ -463,9 +437,10 @@
                 type: 'GET',
                 data: {
                     billing_ym:   ymVal.replace('-', ''),
-                    deduct_date:  ($('#srchDeductDate').val() || '').replace(/-/g, ''),  // 날짜 picker 값
+                    deduct_date:  ($('#srchDeductDate').val() || '').replace(/-/g, ''),
                     member_name:  $('#srchMemberName').val(),
-                    status:       $('#srchStatus').val()
+                    status:       $('#srchStatus').val(),
+                    deduct_type:  'EC'
                 },
                 success: function(result) {
                     if (result.success) {
@@ -648,7 +623,7 @@
             if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
             Alert.confirm('', '[' + ymVal + '] 청구를 자동생성하시겠습니까?\n이미 생성된 건은 건너뜁니다.', function() {
                 AjaxUtil.postAsyncData('/api/cms/billing/generate',
-                    { billing_ym: ymVal.replace('-', '') },
+                    { billing_ym: ymVal.replace('-', ''), deduct_type: 'EC' },
                     function(result) {
                         if (result.success) {
                             Alert.alert('', (result.data ? result.data.count : 0) + '건이 생성되었습니다.');
