@@ -31,7 +31,7 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * D-1 13:00 실행 — 익일 출금 PENDING 청구 → EB21 생성 + NCP 업로드 + SFTP 전송
+ * D-1 15:00 실행 — 익일 출금 PENDING 청구 → EB21 생성 + NCP 업로드 + SFTP 전송
  * billing.status: PENDING → REQUESTED
  *
  * SFTP 연동 방식: 금결원 오픈API로 1회용 SFTP 계정 획득 후 접속
@@ -42,7 +42,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class CmsEbFileGenerateService {
+public class CmsEb21SendService {
 
     private static final String FEATURE_CODE = "EB_FILE";
     private static final Charset EUC_KR = Charset.forName("EUC-KR");
@@ -101,8 +101,8 @@ public class CmsEbFileGenerateService {
     public Map<String, Object> runForSpjang(String spjangcd, String targetDate, String userId) {
         var result = new java.util.HashMap<String, Object>();
         try {
-            long ebFileId = generateAndSend(spjangcd, targetDate);
-            result.put("eb_file_id", ebFileId);
+            long fileId = generateAndSend(spjangcd, targetDate);
+            result.put("file_id", fileId);
         } catch (Exception e) {
             result.put("error", e.getMessage());
         }
@@ -142,7 +142,7 @@ public class CmsEbFileGenerateService {
             storageService.upload(objectKey, bis, fileBytes.length, "text/plain");
         }
 
-        // 4. cms_eb_file INSERT
+        // 4. cms_file INSERT
         long totalAmount = billings.stream()
                 .mapToLong(b -> b.get("billing_amount") != null ? ((Number) b.get("billing_amount")).longValue() : 0L)
                 .sum();
@@ -155,21 +155,21 @@ public class CmsEbFileGenerateService {
         fp.addValue("billingCount",  billings.size());
         fp.addValue("billingAmount", totalAmount);
 
-        Map<String, Object> ebFileRow = sqlRunner.getRow(/* skip_tenant_check */
+        Map<String, Object> cmsFileRow = sqlRunner.getRow(/* skip_tenant_check */
                 """
-                INSERT INTO cms_eb_file (
+                INSERT INTO cms_file (
                     spjangcd, file_name, file_type, file_path,
                     target_date, billing_count, billing_amount,
                     send_status, _creater_id, _created, _modifier_id, _modified
                 ) VALUES (
-                    :spjangcd, :fileName, 'REQUEST', :filePath,
+                    :spjangcd, :fileName, 'EB_REQUEST', :filePath,
                     CAST(:targetDate AS DATE), :billingCount, :billingAmount,
                     'PENDING', 'SYSTEM', NOW(), 'SYSTEM', NOW()
                 ) RETURNING id
                 """, fp);
 
-        if (ebFileRow == null) throw new IllegalStateException("cms_eb_file INSERT 실패");
-        long ebFileId = ((Number) ebFileRow.get("id")).longValue();
+        if (cmsFileRow == null) throw new IllegalStateException("cms_file INSERT 실패");
+        long fileId = ((Number) cmsFileRow.get("id")).longValue();
 
         // 5. SFTP 전송 (1회용 계정 획득 후)
         boolean sent = false;
@@ -182,39 +182,39 @@ public class CmsEbFileGenerateService {
             log.error("[CmsEbFileGenerate] SFTP 전송 실패 spjangcd={}: {}", spjangcd, e.getMessage());
         }
 
-        // 6. cms_eb_file 상태 업데이트
-        var up = new MapSqlParameterSource("id", ebFileId);
+        // 6. cms_file 상태 업데이트
+        var up = new MapSqlParameterSource("id", fileId);
         if (sent) {
             sqlRunner.execute(/* skip_tenant_check */
-                    "UPDATE cms_eb_file SET send_status='SENT', send_type='SFTP', sent_at=NOW(), _modified=NOW() WHERE id=:id", up);
+                    "UPDATE cms_file SET send_status='SENT', send_type='SFTP', sent_at=NOW(), _modified=NOW() WHERE id=:id", up);
         } else {
             up.addValue("errMsg", errMsg);
             sqlRunner.execute(/* skip_tenant_check */
-                    "UPDATE cms_eb_file SET send_status='FAILED', error_message=:errMsg, _modified=NOW() WHERE id=:id", up);
+                    "UPDATE cms_file SET send_status='FAILED', error_message=:errMsg, _modified=NOW() WHERE id=:id", up);
         }
 
-        // 7. cms_eb_file_billing 매핑 INSERT (line_seq 부여, 1건씩)
+        // 7. cms_file_billing 매핑 INSERT (line_seq 부여, 1건씩)
         int seq = 1;
         List<Long> billingIds = new java.util.ArrayList<>();
         for (Map<String, Object> b : billings) {
             long billingId = ((Number) b.get("id")).longValue();
             billingIds.add(billingId);
             var mp = new MapSqlParameterSource();
-            mp.addValue("ebFileId", ebFileId);
+            mp.addValue("fileId", fileId);
             mp.addValue("billingId", billingId);
             mp.addValue("lineSeq", seq++);
             sqlRunner.execute(/* skip_tenant_check */
-                    "INSERT INTO cms_eb_file_billing(eb_file_id,billing_id,line_seq,_created) VALUES(:ebFileId,:billingId,:lineSeq,NOW()) ON CONFLICT(billing_id) DO NOTHING",
+                    "INSERT INTO cms_file_billing(file_id,billing_id,line_seq,_created) VALUES(:fileId,:billingId,:lineSeq,NOW()) ON CONFLICT(billing_id) DO NOTHING",
                     mp);
         }
 
         // 8. billing PENDING → REQUESTED 배치 업데이트
-        int updatedCount = cmsBillingService.updateStatusToRequested(billingIds, ebFileId);
+        int updatedCount = cmsBillingService.updateStatusToRequested(billingIds, fileId);
         log.info("[CmsEbFileGenerate] billing REQUESTED 전환: {}건", updatedCount);
 
         log.info("[CmsEbFileGenerate] spjangcd={} 파일={} {}건 {}원 SFTP={}",
                 spjangcd, fileName, billings.size(), totalAmount, sent ? "OK" : "FAILED");
-        return ebFileId;
+        return fileId;
     }
 
     /** 수동 SFTP 재전송 (CmsEbFileService에서 호출) */

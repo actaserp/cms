@@ -96,6 +96,9 @@
 <!--                        </div>-->
 
 <!--                    </div>-->
+                    <div style="padding:6px 10px; background:#e8f4fd; border-left:3px solid #4a90d9; font-size:12px; color:#2c5f8a;">
+                        당일 출금은 오전 11시까지 입력하셔야 당일 출금 신청됩니다. (추가된 내역은 오전 11시에 일괄 신청됩니다.)
+                    </div>
                 </div>
                 <div class="container-fluid">
                     <div id="theGrid"></div>
@@ -181,26 +184,10 @@
                                 </td>
                             </tr>
                             <tr>
-                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">출금일</th>
-                                <td style="padding:5px; border:1px solid #ddd;">
-                                    <select id="deduct_day" name="deduct_day"></select>
-                                </td>
-                            </tr>
-                            <tr>
                                 <th style="padding:5px; border:1px solid #ddd; text-align:center;">출금일자</th>
                                 <td style="padding:5px; border:1px solid #ddd;">
-                                    <input type="text" id="deduct_date" name="deduct_date"
-                                           placeholder="YYYYMMDD" maxlength="8">
-                                </td>
-                            </tr>
-                            <tr>
-                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">
-                                    청구신청일
-                                    <div style="font-size:10px; font-weight:400; color:#aaa;">(출금 당일)</div>
-                                </th>
-                                <td style="padding:5px; border:1px solid #ddd;">
-                                    <input type="text" id="send_date" readonly
-                                           style="background:#f5f6fa; color:#888;" placeholder="자동계산">
+                                    <input type="date" id="deduct_date" name="deduct_date">
+                                    <input type="hidden" id="send_date" name="send_date">
                                 </td>
                             </tr>
                             </tbody>
@@ -317,14 +304,27 @@
         document.readyState === 'complete' ? init() : window.onload = init;
 
         function init() {
-            buildDeductDayOptions();
             loadMembers();
             bindAmountFormat();
 
             var now = new Date();
             var ym  = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+            var isAfterNoon = now.getHours() >= 11;
 
-            // 내일 날짜 계산
+            // min date: 12시 이전→오늘, 12시 이후→내일
+            var minDate = new Date(now);
+            if (isAfterNoon) minDate.setDate(minDate.getDate() + 1);
+            var minDateStr = minDate.getFullYear() + '-'
+                + String(minDate.getMonth() + 1).padStart(2, '0') + '-'
+                + String(minDate.getDate()).padStart(2, '0');
+
+            $('#deduct_date').attr('min', minDateStr).val(minDateStr);
+
+            if (isAfterNoon) {
+                $('#divAfterNoonWarning').show();
+            }
+
+            // 내일 날짜 계산 (srchDeductDate 디폴트)
             var tomorrow = new Date(now);
             tomorrow.setDate(tomorrow.getDate() + 1);
             var tomorrowStr = tomorrow.getFullYear() + '-'
@@ -336,15 +336,6 @@
             $('#billing_ym_input').val(ym);
 
             searchList();
-        }
-
-        function buildDeductDayOptions() {
-            var opts = '<option value="">선택</option>';
-            for (var d = 1; d <= 31; d++) {
-                opts += '<option value="' + String(d).padStart(2,'0') + '">' + d + '일</option>';
-            }
-            opts += '<option value="99">말일</option>';
-            $('#deduct_day').html(opts);
         }
 
         function loadMembers() {
@@ -382,31 +373,13 @@
             $('#bank_account').val(opt.data('bank_account'));
             $('#account_holder').val(opt.data('account_holder'));
             $('#member_name').val(opt.text());
-            var amount = opt.data('deduct_amount');
-            $('#billing_amount').val(amount ? Number(amount).toLocaleString() : '');
-            $('#deduct_day').val(opt.data('deduct_day') || '');
-            calcDeductDate();
         });
 
-        $('#billing_ym_input, #deduct_day').on('change', calcDeductDate);
-
-        function calcDeductDate() {
-            var ym  = $('#billing_ym_input').val().replace('-', '');
-            var day = $('#deduct_day').val();
-            if (!ym || !day) return;
-
-            var deductDate;
-            if (day === '99') {
-                var y = parseInt(ym.substring(0, 4));
-                var m = parseInt(ym.substring(4, 6));
-                var lastDay = new Date(y, m, 0).getDate();
-                deductDate = ym + String(lastDay).padStart(2, '0');
-            } else {
-                deductDate = ym + day;
-            }
-            $('#deduct_date').val(deductDate);
-            loadSendDate(deductDate);
-        }
+        $('#deduct_date').on('change', function() {
+            var val = $(this).val(); // yyyy-MM-dd
+            var compact = val ? val.replace(/-/g, '') : '';
+            $('#send_date').val(compact);
+        });
 
         // 당일출금: 신청일 = 출금일 당일
         function loadSendDate(deductDate) {
@@ -535,9 +508,11 @@
             $('#account_holder').val(item.account_holder || '');
             $('#member_name').val(item.member_name || '');
             $('#billing_amount').val(item.billing_amount != null ? Number(item.billing_amount).toLocaleString() : '');
-            $('#deduct_day').val(item.deduct_day || '');
-            $('#deduct_date').val(item.deduct_date || '');
-            $('#send_date').val(item.send_date || '');
+            // deduct_date: YYYYMMDD → yyyy-MM-dd (date input 형식)
+            var dd = item.deduct_date || '';
+            if (dd.length === 8) dd = dd.substring(0,4) + '-' + dd.substring(4,6) + '-' + dd.substring(6,8);
+            $('#deduct_date').val(dd);
+            $('#send_date').val(item.send_date || item.deduct_date || '');
             applyStatusField(item.status || 'PENDING');
             $('#result_code').val(item.result_code || '');
             $('#result_msg').val(item.result_msg || '');
@@ -569,6 +544,9 @@
             clearMemberFields();
             applyStatusField('PENDING');
             $('#result_code, #result_msg, #result_date').val('');
+            // 출금일자 기본값 = min date (가장 빠른 날짜)
+            $('#deduct_date').val($('#deduct_date').attr('min'));
+            $('#send_date').val(($('#deduct_date').attr('min') || '').replace(/-/g, ''));
         }
 
         function saveBilling() {
@@ -582,6 +560,9 @@
             var data = FormUtil.extractForm($('#billingForm'));
             data.billing_ym     = ymInput.replace('-', '');
             data.billing_amount = (data.billing_amount || '').replace(/,/g, '');
+            // date input → YYYYMMDD
+            data.deduct_date = (data.deduct_date || '').replace(/-/g, '');
+            data.send_date   = data.deduct_date;
             if ($('#statusHidden').val()) data.status = $('#statusHidden').val();
 
             Alert.confirm('', '저장하시겠습니까?', function() {

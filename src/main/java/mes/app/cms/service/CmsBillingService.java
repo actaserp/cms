@@ -452,16 +452,16 @@ public class CmsBillingService {
      * EB파일 전송 후 PENDING → REQUESTED 배치 전환 (스케줄러 전용 — skip_tenant_check)
      * billingIds 전체를 단일 UPDATE로 처리
      */
-    public int updateStatusToRequested(List<Long> billingIds, Long ebFileId) {
+    public int updateStatusToRequested(List<Long> billingIds, Long fileId) {
         if (billingIds == null || billingIds.isEmpty()) return 0;
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("ids",      billingIds);
-        param.addValue("ebFileId", ebFileId);
+        param.addValue("fileId", fileId);
         return sqlRunner.execute(/* skip_tenant_check */
                 """
                 UPDATE cms_billing
                 SET    status     = 'REQUESTED',
-                       eb_file_id = :ebFileId,
+                       file_id = :fileId,
                        _modified  = NOW()
                 WHERE  id IN (:ids)
                   AND  status = 'PENDING'

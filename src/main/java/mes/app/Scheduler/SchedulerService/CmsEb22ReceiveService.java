@@ -35,7 +35,7 @@ public class CmsEb22ReceiveService {
 
     private final SqlRunner sqlRunner;
     private final NcpObjectStorageService storageService;
-    private final CmsEbFileGenerateService cmsEbFileGenerateService;
+    private final CmsEb21SendService cmsEb21SendService;
 
     @Value("${cms.sftp-host:tsftp.cmsedi.or.kr}")
     private String sftpHost;
@@ -71,12 +71,12 @@ public class CmsEb22ReceiveService {
 
             sqlRunner.execute(/* skip_tenant_check */
                     """
-                    INSERT INTO cms_eb_file (
+                    INSERT INTO cms_file (
                         spjangcd, file_name, file_type, file_path,
                         target_date, billing_count, billing_amount,
                         send_status, _creater_id, _created, _modifier_id, _modified
                     ) VALUES (
-                        'SYSTEM', :fileName, 'RESULT', :filePath,
+                        'SYSTEM', :fileName, 'EB_RESULT', :filePath,
                         CAST(:targetDate AS DATE), 0, 0,
                         'RECEIVED', 'SYSTEM', NOW(), 'SYSTEM', NOW()
                     )
@@ -204,7 +204,7 @@ public class CmsEb22ReceiveService {
     }
 
     private byte[] sftpDownloadWithApiCredential(String fileName, String targetDate) throws Exception {
-        String[] cred = cmsEbFileGenerateService.getSftpReceiveCredential("EB22", targetDate);
+        String[] cred = cmsEb21SendService.getSftpReceiveCredential("EB22", targetDate);
         String sftpUser = cred[0];
         String sftpPass = cred[1];
 

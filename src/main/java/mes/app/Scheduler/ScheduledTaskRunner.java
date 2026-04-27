@@ -21,9 +21,9 @@ public class ScheduledTaskRunner {
     private final ApiUsageService             apiUsageService;
     private final NginxTrafficService         nginxTrafficService;
     private final CmsBillingAutoGenerateService cmsBillingAutoGenerateService;
-    private final CmsEbFileGenerateService    cmsEbFileGenerateService;
+    private final CmsEb21SendService cmsEb21SendService;
     private final CmsEb22ReceiveService       cmsEb22ReceiveService;
-    private final CmsEc21FileGenerateService  cmsEc21FileGenerateService;
+    private final CmsEc21SendService cmsEc21SendService;
     private final CmsEc22ReceiveService       cmsEc22ReceiveService;
 
     /** 매일 00:30 실행, 말일에만 다음달 청구 생성 */
@@ -36,10 +36,10 @@ public class ScheduledTaskRunner {
         schedulerExecutor.execute(() -> safeRun(cmsBillingAutoGenerateService::run, "CMS 청구 자동생성"));
     }
 
-    /** D-1 13:00 — PENDING 청구 EB21 생성 + SFTP 전송 */
-    @Scheduled(cron = "0 0 13 * * *", zone = "Asia/Seoul")
+    /** D-1 15:00 — PENDING 청구 EB21 생성 + SFTP 전송 */
+    @Scheduled(cron = "0 0 15 * * *", zone = "Asia/Seoul")
     public void runCmsEbFileGenerate() {
-        schedulerExecutor.execute(() -> safeRun(cmsEbFileGenerateService::run, "CMS EB21 생성+전송"));
+        schedulerExecutor.execute(() -> safeRun(cmsEb21SendService::run, "CMS EB21 생성+전송"));
     }
 
     /** D+1 04:00 — EB22 결과파일 수신 → billing SUCCESS/FAIL 처리 */
@@ -51,7 +51,7 @@ public class ScheduledTaskRunner {
     /** D 11:00 — PENDING 당일청구 EC21 생성 + SFTP 전송 (마감 D 12:00) */
     @Scheduled(cron = "0 0 11 * * *", zone = "Asia/Seoul")
     public void runCmsEc21FileGenerate() {
-        schedulerExecutor.execute(() -> safeRun(cmsEc21FileGenerateService::run, "CMS EC21 생성+전송"));
+        schedulerExecutor.execute(() -> safeRun(cmsEc21SendService::run, "CMS EC21 생성+전송"));
     }
 
     /** D 22:00 — EC22 결과파일 수신 → billing SUCCESS/FAIL 처리 (수신 가능 D 23:00) */

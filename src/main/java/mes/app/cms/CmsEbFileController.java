@@ -86,6 +86,8 @@ public class CmsEbFileController {
             @RequestParam(value = "send_status", required = false) String sendStatus,
             HttpServletRequest request) {
 
+        // EC 목록만 조회 — file_type 미지정 시 EC% 필터 적용
+        if (!org.springframework.util.StringUtils.hasText(fileType)) fileType = "EC_REQUEST";
         List<Map<String, Object>> items = cmsEbFileService.getEcFileList(dateFrom, dateTo, fileType, sendStatus);
         AjaxResult result = new AjaxResult();
         result.data = items;
