@@ -305,6 +305,139 @@ public class CmsBillingService {
         return sqlRunner.execute(sql, param);
     }
 
+    /** 수납결과 조회 (billing_ym 필수, result_date/status/member_name 선택) */
+    public List<Map<String, Object>> getBillingResultList(String billingYm, String resultDate, String status, String memberName) {
+        String spjangcd = TenantContext.get();
+        var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
+        param.addValue("spjangcd", spjangcd);
+        param.addValue("billingYm", billingYm);
+
+        String sql = """
+            SELECT b.id
+                 , b.billing_seq
+                 , b.member_name
+                 , b.bank_code
+                 , bc.bank_name
+                 , b.bank_account
+                 , b.billing_amount
+                 , b.deduct_date
+                 , b.status
+                 , b.result_code
+                 , b.result_msg
+                 , b.result_date
+            FROM cms_billing b
+            LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
+            WHERE b.spjangcd   = :spjangcd
+              AND b.billing_ym = :billingYm
+            """;
+
+        if (StringUtils.hasText(resultDate)) {
+            sql += " AND b.result_date = :resultDate";
+            param.addValue("resultDate", resultDate);
+        }
+        if (StringUtils.hasText(status)) {
+            sql += " AND b.status = :status";
+            param.addValue("status", status);
+        }
+        if (StringUtils.hasText(memberName)) {
+            sql += " AND b.member_name LIKE '%' || :memberName || '%'";
+            param.addValue("memberName", memberName);
+        }
+
+        sql += " ORDER BY b.billing_seq";
+        return sqlRunner.getRows(sql, param);
+    }
+
+    /** 불능 건 재청구 — FAIL 상태 건을 납부자 현재 정보 기준으로 새 PENDING 생성 */
+    @Transactional
+    public Map<String, Object> rechargeBilling(List<Long> ids, String userId) {
+        String spjangcd = TenantContext.get();
+        int count = 0;
+
+        for (Long id : ids) {
+            var pOrig = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
+            pOrig.addValue("id", id);
+            pOrig.addValue("spjangcd", spjangcd);
+
+            Map<String, Object> orig = sqlRunner.getRow("""
+                SELECT billing_ym, member_id, member_name,
+                       bank_code, bank_account, account_holder,
+                       billing_amount, deduct_day, deduct_date, result_code
+                FROM cms_billing
+                WHERE id = :id AND spjangcd = :spjangcd AND status = 'FAIL'
+                """, pOrig);
+            if (orig == null) continue;
+
+            String billingYm     = (String) orig.get("billing_ym");
+            Object memberIdObj   = orig.get("member_id");
+            String memberName    = (String) orig.get("member_name");
+            String bankCode      = (String) orig.get("bank_code");
+            String bankAccount   = (String) orig.get("bank_account");
+            String accountHolder = (String) orig.get("account_holder");
+            Object billingAmount = orig.get("billing_amount");
+            String deductDay     = (String) orig.get("deduct_day");
+            String deductDate    = (String) orig.get("deduct_date");
+            String resultCode    = (String) orig.get("result_code");
+
+            // 납부자 현재 정보로 은행/계좌/금액 갱신
+            if (memberIdObj != null) {
+                var pMember = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
+                pMember.addValue("id", ((Number) memberIdObj).longValue());
+                pMember.addValue("spjangcd", spjangcd);
+                Map<String, Object> member = sqlRunner.getRow("""
+                    SELECT bank_code, bank_account, account_holder, deduct_amount, deduct_day
+                    FROM cms_member WHERE id = :id AND spjangcd = :spjangcd
+                    """, pMember);
+                if (member != null) {
+                    bankCode      = (String) member.get("bank_code");
+                    bankAccount   = (String) member.get("bank_account");
+                    accountHolder = (String) member.get("account_holder");
+                    if (member.get("deduct_amount") != null) billingAmount = member.get("deduct_amount");
+                    if (member.get("deduct_day")    != null) deductDay     = (String) member.get("deduct_day");
+                }
+            }
+
+            String memo = (StringUtils.hasText(resultCode) ? resultCode + " 불능" : "불능") + " / 재청구";
+            String billingSeq = generateBillingSeq(spjangcd, billingYm);
+
+            var pIns = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
+            pIns.addValue("spjangcd",      spjangcd);
+            pIns.addValue("billingYm",     billingYm);
+            pIns.addValue("billingSeq",    billingSeq);
+            pIns.addValue("memberId",      memberIdObj != null ? ((Number) memberIdObj).longValue() : null);
+            pIns.addValue("memberName",    memberName);
+            pIns.addValue("bankCode",      bankCode);
+            pIns.addValue("bankAccount",   bankAccount);
+            pIns.addValue("accountHolder", accountHolder);
+            pIns.addValue("billingAmount", billingAmount);
+            pIns.addValue("deductDay",     deductDay);
+            pIns.addValue("deductDate",    deductDate);
+            pIns.addValue("memo",          memo);
+            pIns.addValue("userId",        userId);
+
+            sqlRunner.execute("""
+                INSERT INTO cms_billing (
+                    spjangcd, billing_ym, billing_seq,
+                    member_id, member_name, bank_code, bank_account, account_holder,
+                    billing_amount, deduct_day, deduct_date,
+                    status, memo,
+                    _creater_id, _created, _modifier_id, _modified
+                ) VALUES (
+                    :spjangcd, :billingYm, :billingSeq,
+                    :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
+                    :billingAmount, :deductDay, :deductDate,
+                    'PENDING', :memo,
+                    :userId, NOW(), :userId, NOW()
+                )
+                """, pIns);
+            count++;
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("count", count);
+        return result;
+    }
+
     /**
      * EB파일 전송 후 PENDING → REQUESTED 배치 전환 (스케줄러 전용 — skip_tenant_check)
      * billingIds 전체를 단일 UPDATE로 처리

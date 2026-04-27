@@ -104,15 +104,15 @@ public class CmsEb22ReceiveService {
                 """,
                 new MapSqlParameterSource("targetDate", targetDate));
 
-        String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         int successCount = 0, failCount = 0;
 
         for (Map<String, Object> b : requestedBillings) {
             long   billingId = ((Number) b.get("id")).longValue();
             String memberNo  = str(b.get("member_no"));
             var    p         = new MapSqlParameterSource("billingId", billingId);
-            p.addValue("resultDate", today);
+            p.addValue("resultDate", targetDate );
 
+            // FAIL → result_date null
             if (failMap.containsKey(memberNo)) {
                 String resultCode = failMap.get(memberNo);
                 p.addValue("resultCode", resultCode);
@@ -123,7 +123,7 @@ public class CmsEb22ReceiveService {
                             status      = 'FAIL',
                             result_code = :resultCode,
                             result_msg  = :resultMsg,
-                            result_date = :resultDate,
+                            result_date = NULL,
                             _modified   = NOW()
                         WHERE id = :billingId AND status = 'REQUESTED'
                         """, p);

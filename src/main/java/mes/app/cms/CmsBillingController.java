@@ -88,6 +88,48 @@ public class CmsBillingController {
         return result;
     }
 
+    /** 수납결과 조회 */
+    @GetMapping("/result/list")
+    public AjaxResult getResultList(
+            @RequestParam(value = "billing_ym"                   ) String billingYm,
+            @RequestParam(value = "result_date", required = false) String resultDate,
+            @RequestParam(value = "status",      required = false) String status,
+            @RequestParam(value = "member_name", required = false) String memberName,
+            HttpServletRequest request) {
+
+        List<Map<String, Object>> items = cmsBillingService.getBillingResultList(billingYm, resultDate, status, memberName);
+        AjaxResult result = new AjaxResult();
+        result.data = items;
+        return result;
+    }
+
+    /** 불능 건 재청구 */
+    @PostMapping("/recharge")
+    public AjaxResult recharge(
+            @RequestParam("ids") String idsStr,
+            Authentication auth) {
+
+        List<Long> ids = Arrays.stream(idsStr.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::parseLong)
+                .collect(Collectors.toList());
+
+        if (ids.isEmpty()) {
+            AjaxResult result = new AjaxResult();
+            result.success = false;
+            result.message = "재청구할 항목을 선택하세요.";
+            return result;
+        }
+
+        User user = (User) auth.getPrincipal();
+        Map<String, Object> res = cmsBillingService.rechargeBilling(ids, user.getUsername());
+
+        AjaxResult result = new AjaxResult();
+        result.data = res;
+        return result;
+    }
+
     /** 청구 자동생성 */
     @PostMapping("/generate")
     public AjaxResult generate(
