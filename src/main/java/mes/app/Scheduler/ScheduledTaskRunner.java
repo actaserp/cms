@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.concurrent.Executor;
 
@@ -58,6 +59,34 @@ public class ScheduledTaskRunner {
     @Scheduled(cron = "0 0 22 * * *", zone = "Asia/Seoul")
     public void runCmsEc22Receive() {
         schedulerExecutor.execute(() -> safeRun(cmsEc22ReceiveService::run, "CMS EC22 결과수신"));
+    }
+
+    /** EC21 재시도 1차 — D 11:10 */
+    @Scheduled(cron = "0 10 11 * * *", zone = "Asia/Seoul")
+    public void runCmsEc21Retry1() {
+        String targetDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        schedulerExecutor.execute(() -> safeRun(() -> cmsEc21SendService.retry(targetDate), "CMS EC21 재시도1"));
+    }
+
+    /** EC21 재시도 2차 — D 11:20 */
+    @Scheduled(cron = "0 20 11 * * *", zone = "Asia/Seoul")
+    public void runCmsEc21Retry2() {
+        String targetDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        schedulerExecutor.execute(() -> safeRun(() -> cmsEc21SendService.retry(targetDate), "CMS EC21 재시도2"));
+    }
+
+    /** EB21 재시도 1차 — D-1 15:10 */
+    @Scheduled(cron = "0 10 15 * * *", zone = "Asia/Seoul")
+    public void runCmsEb21Retry1() {
+        String targetDate = LocalDate.now().plusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        schedulerExecutor.execute(() -> safeRun(() -> cmsEb21SendService.retry(targetDate), "CMS EB21 재시도1"));
+    }
+
+    /** EB21 재시도 2차 — D-1 15:20 */
+    @Scheduled(cron = "0 20 15 * * *", zone = "Asia/Seoul")
+    public void runCmsEb21Retry2() {
+        String targetDate = LocalDate.now().plusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        schedulerExecutor.execute(() -> safeRun(() -> cmsEb21SendService.retry(targetDate), "CMS EB21 재시도2"));
     }
 
     /** 매일 새벽 3시 — nginx 트래픽 집계 */

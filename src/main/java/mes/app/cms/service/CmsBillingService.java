@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import mes.app.common.TenantContext;
 import mes.domain.services.SqlRunner;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -387,7 +388,7 @@ public class CmsBillingService {
             Map<String, Object> orig = sqlRunner.getRow("""
                 SELECT billing_ym, member_id, member_name,
                        bank_code, bank_account, account_holder,
-                       billing_amount, deduct_day, deduct_date, result_code
+                       billing_amount, deduct_day, deduct_date, result_code, deduct_type
                 FROM cms_billing
                 WHERE id = :id AND spjangcd = :spjangcd AND status = 'FAIL'
                 """, pOrig);
@@ -403,6 +404,7 @@ public class CmsBillingService {
             String deductDay     = (String) orig.get("deduct_day");
             String deductDate    = (String) orig.get("deduct_date");
             String resultCode    = (String) orig.get("result_code");
+            String deductType    = (String) orig.get("deduct_type");
 
             // 납부자 현재 정보로 은행/계좌/금액 갱신
             if (memberIdObj != null) {
@@ -422,6 +424,14 @@ public class CmsBillingService {
                 }
             }
 
+            // deduct_date가 오늘 이전이면 오늘(EC) 또는 내일(EB)로 변경
+            String todayStr    = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+            String tomorrowStr = java.time.LocalDate.now().plusDays(1).format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+            if (deductDate != null && deductDate.compareTo(todayStr) < 0) {
+                deductDate = "EB".equals(deductType) ? tomorrowStr : todayStr;
+                log.info("[rechargeBilling] id={} deduct_date 과거 → {} 변경", id, deductDate);
+            }
+
             String memo = (StringUtils.hasText(resultCode) ? resultCode + " 불능" : "불능") + " / 재청구";
             String billingSeq = generateBillingSeq(spjangcd, billingYm);
 
@@ -437,6 +447,7 @@ public class CmsBillingService {
             pIns.addValue("billingAmount", billingAmount);
             pIns.addValue("deductDay",     deductDay);
             pIns.addValue("deductDate",    deductDate);
+            pIns.addValue("deductType",    deductType != null ? deductType : "EB");
             pIns.addValue("memo",          memo);
             pIns.addValue("userId",        userId);
 
@@ -445,13 +456,13 @@ public class CmsBillingService {
                     spjangcd, billing_ym, billing_seq,
                     member_id, member_name, bank_code, bank_account, account_holder,
                     billing_amount, deduct_day, deduct_date,
-                    status, memo,
+                    deduct_type, status, memo,
                     _creater_id, _created, _modifier_id, _modified
                 ) VALUES (
                     :spjangcd, :billingYm, :billingSeq,
                     :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
                     :billingAmount, :deductDay, :deductDate,
-                    'PENDING', :memo,
+                    :deductType, 'PENDING', :memo,
                     :userId, NOW(), :userId, NOW()
                 )
                 """, pIns);
@@ -467,19 +478,21 @@ public class CmsBillingService {
      * EB파일 전송 후 PENDING → REQUESTED 배치 전환 (스케줄러 전용 — skip_tenant_check)
      * billingIds 전체를 단일 UPDATE로 처리
      */
+    // REQUESTED 전환 시 (재시도 성공)
     public int updateStatusToRequested(List<Long> billingIds, Long fileId) {
         if (billingIds == null || billingIds.isEmpty()) return 0;
-        var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
-        param.addValue("ids",      billingIds);
+        var param = new MapSqlParameterSource();
+        param.addValue("ids", billingIds);
         param.addValue("fileId", fileId);
         return sqlRunner.execute(/* skip_tenant_check */
                 """
                 UPDATE cms_billing
                 SET    status     = 'REQUESTED',
-                       file_id = :fileId,
+                       file_id    = :fileId,
+                       result_msg = NULL,
                        _modified  = NOW()
                 WHERE  id IN (:ids)
-                  AND  status = 'PENDING'
+                  AND  status IN ('PENDING', 'ERROR')
                 """, param);
     }
 
@@ -505,4 +518,71 @@ public class CmsBillingService {
         int seq = getNextBillingSeqNo(spjangcd, billingYm);
         return billingYm + "-" + String.format("%04d", seq);
     }
+
+    /** 수납내역 조회 (기간별, EB+EC 통합) */
+    public List<Map<String, Object>> getBillingHistoryList(String startDate, String endDate, String billingType, String status, String memberName) {
+        String spjangcd = TenantContext.get();
+        var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
+        param.addValue("spjangcd", spjangcd);
+        param.addValue("startDate", startDate);
+        param.addValue("endDate", endDate);
+
+        String sql = """
+        SELECT b.id
+             , b.billing_seq
+             , b.deduct_type  AS billing_type
+             , b.member_name
+             , b.bank_code
+             , bc.bank_name
+             , b.bank_account
+             , b.billing_amount
+             , b.deduct_date
+             , b.status
+             , b.result_code
+             , b.result_msg
+             , b.result_date
+        FROM cms_billing b
+        LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
+        WHERE b.spjangcd  = :spjangcd
+          AND b.deduct_date BETWEEN :startDate AND :endDate
+          AND b.status IN ('SUCCESS', 'FAIL')
+        """;
+
+        if (StringUtils.hasText(billingType)) {
+            sql += " AND b.deduct_type = :billingType";
+            param.addValue("billingType", billingType);
+        }
+        if (StringUtils.hasText(status)) {
+            sql += " AND b.status = :status";
+            param.addValue("status", status);
+        }
+        if (StringUtils.hasText(memberName)) {
+            sql += " AND b.member_name LIKE '%' || :memberName || '%'";
+            param.addValue("memberName", memberName);
+        }
+
+        sql += " ORDER BY b.deduct_date DESC, b.billing_seq";
+        return sqlRunner.getRows(sql, param);
+    }
+
+    // SFTP 실패 시
+    public int updateStatusToError(List<Long> billingIds, String errorMsg) {
+        if (billingIds == null || billingIds.isEmpty()) return 0;
+        var param = new MapSqlParameterSource();
+        param.addValue("ids", billingIds);
+        param.addValue("errorMsg", errorMsg);
+        return sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_billing
+                SET    status     = 'ERROR',
+                       result_msg = :errorMsg,
+                       _modified  = NOW()
+                WHERE  id IN (:ids)
+                  AND  status = 'PENDING'
+                """, param);
+    }
+
+
+
+
 }

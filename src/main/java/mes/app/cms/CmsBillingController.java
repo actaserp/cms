@@ -1,5 +1,7 @@
 package mes.app.cms;
 
+import mes.app.Scheduler.SchedulerService.CmsEb21SendService;
+import mes.app.Scheduler.SchedulerService.CmsEc21SendService;
 import mes.app.cms.service.CmsBillingService;
 import mes.domain.entity.User;
 import mes.domain.model.AjaxResult;
@@ -19,6 +21,12 @@ public class CmsBillingController {
 
     @Autowired
     private CmsBillingService cmsBillingService;
+
+    @Autowired
+    private CmsEb21SendService cmsEb21SendService;
+
+    @Autowired
+    private CmsEc21SendService cmsEc21SendService;
 
     /** 목록 조회 */
     @GetMapping("/list")
@@ -176,6 +184,50 @@ public class CmsBillingController {
             result.success = false;
             result.message = "취소 가능한 건이 없습니다. (PENDING 상태만 취소 가능)";
         }
+        return result;
+    }
+
+    /** 수동 재전송 — PENDING 건 선택 후 SFTP 재전송 */
+    @PostMapping("/resend")
+    public AjaxResult resend(
+            @RequestParam("ids")         String idsStr,
+            @RequestParam("deduct_type") String deductType) {
+
+        List<Long> ids = Arrays.stream(idsStr.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::parseLong)
+                .collect(Collectors.toList());
+
+        if (ids.isEmpty()) {
+            AjaxResult result = new AjaxResult();
+            result.success = false;
+            result.message = "재전송할 항목을 선택하세요.";
+            return result;
+        }
+
+        Map<String, Object> res = "EC".equals(deductType)
+                ? cmsEc21SendService.resendBilling(ids)
+                : cmsEb21SendService.resendBilling(ids);
+
+        AjaxResult result = new AjaxResult();
+        result.data = res;
+        return result;
+    }
+
+    /** 수납내역 조회 (기간, EB+EC 통합) */
+    @GetMapping("/history/list")
+    public AjaxResult getHistoryList(
+            @RequestParam(value = "start_date"                   ) String startDate,
+            @RequestParam(value = "end_date"                     ) String endDate,
+            @RequestParam(value = "billing_type", required = false) String billingType,
+            @RequestParam(value = "status",       required = false) String status,
+            @RequestParam(value = "member_name",  required = false) String memberName,
+            HttpServletRequest request) {
+
+        List<Map<String, Object>> items = cmsBillingService.getBillingHistoryList(startDate, endDate, billingType, status, memberName);
+        AjaxResult result = new AjaxResult();
+        result.data = items;
         return result;
     }
 }

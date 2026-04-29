@@ -81,7 +81,7 @@ public class CmsEb21SendService {
         log.info("[CmsEbFileGenerate] 시작 - 출금대상일: {}", targetDate);
 
         List<Map<String, Object>> spjangs = sqlRunner.getRows(/* skip_tenant_check */
-                "SELECT DISTINCT spjangcd FROM cms_billing WHERE deduct_date = :td AND status = 'PENDING'",
+                "SELECT DISTINCT spjangcd FROM cms_billing WHERE deduct_date = :td AND status = 'PENDING' AND deduct_type = 'EB'",
                 new MapSqlParameterSource("td", targetDate));
 
         log.info("[CmsEbFileGenerate] 대상 사업장 수: {}", spjangs.size());
@@ -124,10 +124,32 @@ public class CmsEb21SendService {
                 WHERE b.spjangcd    = :spjangcd
                   AND b.deduct_date = :targetDate
                   AND b.status      = 'PENDING'
+                  AND b.deduct_type = 'EB'
                 ORDER BY b.id
                 """, param);
 
         if (billings.isEmpty()) throw new IllegalStateException("PENDING 청구 건 없음");
+
+        // 필수 요소 검증 — 누락 건은 ERROR 처리, 유효 건만 파일에 포함
+        List<Long> invalidIds = new java.util.ArrayList<>();
+        List<Map<String, Object>> validBillings = new java.util.ArrayList<>();
+        for (Map<String, Object> b : billings) {
+            if (StringUtils.hasText(str(b.get("bank_code")))
+                    && StringUtils.hasText(str(b.get("bank_account")))
+                    && StringUtils.hasText(str(b.get("account_holder")))
+                    && b.get("billing_amount") != null) {
+                validBillings.add(b);
+            } else {
+                invalidIds.add(((Number) b.get("id")).longValue());
+                log.warn("[CmsEb21] 필수 항목 누락 billing_id={}", b.get("id"));
+            }
+        }
+        if (!invalidIds.isEmpty()) {
+            cmsBillingService.updateStatusToError(invalidIds, "필수 항목 누락(은행코드/계좌/예금주/금액)");
+            log.warn("[CmsEb21] 필수 항목 누락 ERROR 처리: {}건", invalidIds.size());
+        }
+        if (validBillings.isEmpty()) throw new IllegalStateException("유효한 PENDING 청구 건 없음");
+        billings = validBillings;
 
         // 2. EB21 생성
         byte[] fileBytes = buildEb21File(spjangcd, billings);
@@ -204,13 +226,18 @@ public class CmsEb21SendService {
             mp.addValue("billingId", billingId);
             mp.addValue("lineSeq", seq++);
             sqlRunner.execute(/* skip_tenant_check */
-                    "INSERT INTO cms_file_billing(file_id,billing_id,line_seq,_created) VALUES(:fileId,:billingId,:lineSeq,NOW()) ON CONFLICT(billing_id) DO NOTHING",
+                    "INSERT INTO cms_file_billing(file_id,billing_id,line_seq,_created) VALUES(:fileId,:billingId,:lineSeq,NOW()) ON CONFLICT(billing_id) DO UPDATE SET file_id=EXCLUDED.file_id,line_seq=EXCLUDED.line_seq",
                     mp);
         }
 
-        // 8. billing PENDING → REQUESTED 배치 업데이트
-        int updatedCount = cmsBillingService.updateStatusToRequested(billingIds, fileId);
-        log.info("[CmsEbFileGenerate] billing REQUESTED 전환: {}건", updatedCount);
+        // 8. billing 상태 업데이트
+        if (sent) {
+            int updatedCount = cmsBillingService.updateStatusToRequested(billingIds, fileId);
+            log.info("[CmsEb21FileGenerate] billing REQUESTED 전환: {}건", updatedCount);
+        } else {
+            cmsBillingService.updateStatusToError(billingIds, errMsg);
+            log.warn("[CmsEb21FileGenerate] billing ERROR 전환: {}건", billingIds.size());
+        }
 
         log.info("[CmsEbFileGenerate] spjangcd={} 파일={} {}건 {}원 SFTP={}",
                 spjangcd, fileName, billings.size(), totalAmount, sent ? "OK" : "FAILED");
@@ -220,6 +247,91 @@ public class CmsEb21SendService {
     /** 수동 SFTP 재전송 (CmsEbFileService에서 호출) */
     public void sftpSendBytes(byte[] fileBytes, String fileName, String targetDate) throws Exception {
         sftpSendWithApiCredential(fileBytes, fileName, targetDate);
+    }
+
+    /** EB21 재시도 — ERROR 건을 PENDING으로 리셋 후 재전송 (스케줄러 호출) */
+    public void retry(String targetDate) {
+        List<Map<String, Object>> spjangs = sqlRunner.getRows(/* skip_tenant_check */
+                "SELECT DISTINCT spjangcd FROM cms_billing WHERE deduct_date=:td AND status='ERROR' AND deduct_type='EB'",
+                new MapSqlParameterSource("td", targetDate));
+
+        if (spjangs.isEmpty()) {
+            log.info("[CmsEb21Retry] ERROR 건 없음 - 재시도 종료");
+            return;
+        }
+        log.info("[CmsEb21Retry] 재시도 시작 - 대상 사업장: {}", spjangs.size());
+
+        for (Map<String, Object> row : spjangs) {
+            String spjangcd = (String) row.get("spjangcd");
+            sqlRunner.execute(/* skip_tenant_check */
+                    "UPDATE cms_billing SET status='PENDING',result_msg=NULL,_modified=NOW() WHERE spjangcd=:s AND deduct_date=:td AND status='ERROR' AND deduct_type='EB'",
+                    new MapSqlParameterSource("s", spjangcd).addValue("td", targetDate));
+            try {
+                generateAndSend(spjangcd, targetDate);
+            } catch (Exception e) {
+                log.error("[CmsEb21Retry] 실패 spjangcd={}: {}", spjangcd, e.getMessage(), e);
+            }
+        }
+        log.info("[CmsEb21Retry] 재시도 완료");
+    }
+
+    /** 사용자 수동 재전송 — PENDING 건 선택 후 재전송 */
+    public Map<String, Object> resendBilling(List<Long> billingIds) {
+        List<Map<String, Object>> groups = sqlRunner.getRows(/* skip_tenant_check */
+                "SELECT DISTINCT spjangcd, deduct_date FROM cms_billing WHERE id IN (:ids) AND status='PENDING' AND deduct_type='EB'",
+                new MapSqlParameterSource("ids", billingIds));
+
+        int sent = 0, failed = 0;
+        for (Map<String, Object> g : groups) {
+            String spjangcd  = (String) g.get("spjangcd");
+            String targetDate = (String) g.get("deduct_date");
+            try {
+                Map<String, Object> failedFile = sqlRunner.getRow(/* skip_tenant_check */
+                        """
+                        SELECT id, file_path, file_name FROM cms_file
+                        WHERE spjangcd=:s AND target_date=CAST(:td AS DATE) AND file_type='EB_REQUEST' AND send_status='FAILED'
+                        ORDER BY id DESC LIMIT 1
+                        """,
+                        new MapSqlParameterSource("s", spjangcd).addValue("td", targetDate));
+
+                if (failedFile != null) {
+                    long   fileId   = ((Number) failedFile.get("id")).longValue();
+                    String filePath = (String) failedFile.get("file_path");
+                    String fileName = (String) failedFile.get("file_name");
+
+                    byte[] fileBytes;
+                    try (var stream = storageService.download(filePath)) {
+                        fileBytes = stream.readAllBytes();
+                    }
+                    sftpSendWithApiCredential(fileBytes, fileName, targetDate);
+
+                    sqlRunner.execute(/* skip_tenant_check */
+                            "UPDATE cms_file SET send_status='SENT',send_type='SFTP',sent_at=NOW(),_modified=NOW() WHERE id=:id",
+                            new MapSqlParameterSource("id", fileId));
+
+                    List<Long> linkedIds = sqlRunner.getRows(/* skip_tenant_check */
+                            "SELECT cfb.billing_id FROM cms_file_billing cfb JOIN cms_billing cb ON cb.id=cfb.billing_id WHERE cfb.file_id=:fid AND cb.status='PENDING'",
+                            new MapSqlParameterSource("fid", fileId))
+                            .stream().map(r -> ((Number) r.get("billing_id")).longValue())
+                            .collect(java.util.stream.Collectors.toList());
+
+                    if (!linkedIds.isEmpty()) cmsBillingService.updateStatusToRequested(linkedIds, fileId);
+                    log.info("[CmsEb21Resend] 기존 파일 재전송 성공: spjangcd={} file={}", spjangcd, fileName);
+                } else {
+                    generateAndSend(spjangcd, targetDate);
+                    log.info("[CmsEb21Resend] 파일 새로 생성+전송: spjangcd={} targetDate={}", spjangcd, targetDate);
+                }
+                sent++;
+            } catch (Exception e) {
+                failed++;
+                log.error("[CmsEb21Resend] 실패 spjangcd={}: {}", spjangcd, e.getMessage(), e);
+            }
+        }
+
+        var result = new java.util.HashMap<String, Object>();
+        result.put("sent", sent);
+        result.put("failed", failed);
+        return result;
     }
 
     // ── OAuth2 토큰 관리 ───────────────────────────────────────────────────────

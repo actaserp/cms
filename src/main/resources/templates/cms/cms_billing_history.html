@@ -1,0 +1,363 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header { text-align: center !important; }
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 11px; font-weight: 600; }
+        .status-PENDING   { background: #fff3cd; color: #856404; }
+        .status-REQUESTED { background: #cce5ff; color: #004085; }
+        .status-SUCCESS   { background: #d4edda; color: #155724; }
+        .status-FAIL      { background: #f8d7da; color: #721c24; }
+        .status-CANCEL    { background: #e2e3e5; color: #383d41; }
+        .type-badge { display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 11px; font-weight: 600; }
+        .type-EB { background: #e8eaff; color: #3a4bbf; }
+        .type-EC { background: #fff0e8; color: #bf6a3a; }
+        .summary-cards {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .summary-card {
+            flex: 1;
+            background: #fff;
+            border: 1px solid #dde0ea;
+            border-radius: 8px;
+            padding: 14px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .summary-card .card-label {
+            font-size: 11px;
+            color: #888;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .summary-card .card-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #222;
+        }
+        .summary-card .card-sub {
+            font-size: 12px;
+            color: #aaa;
+        }
+        .summary-card.success { border-top: 3px solid #28a745; }
+        .summary-card.fail    { border-top: 3px solid #dc3545; }
+        .summary-card.rate    { border-top: 3px solid #4a6cf7; }
+        .grid-summary {
+            display: flex;
+            gap: 16px;
+            padding: 6px 10px;
+            background: #f5f6fa;
+            border: 1px solid #dde0ea;
+            border-top: none;
+            font-size: 12px;
+            color: #444;
+        }
+        .grid-summary span { font-weight: 700; color: #4a6cf7; }
+        .date-range-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .date-range-wrap .range-sep {
+            color: #888;
+            font-size: 13px;
+        }
+        .shortcut-btns {
+            display: flex;
+            gap: 4px;
+            margin-left: 4px;
+        }
+        .shortcut-btns button {
+            padding: 2px 8px;
+            font-size: 11px;
+            border: 1px solid #c8ccd8;
+            border-radius: 4px;
+            background: #fff;
+            color: #555;
+            cursor: pointer;
+            line-height: 1.6;
+        }
+        .shortcut-btns button:hover {
+            background: #f0f2ff;
+            border-color: #4a6cf7;
+            color: #4a6cf7;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>수납내역조회</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>수납내역조회</li>
+                <li>수납내역조회</li>
+            </ul>
+        </div>
+
+        <!-- 요약 카드 -->
+        <div class="summary-cards">
+            <div class="summary-card success">
+                <div class="card-label">성공 건수</div>
+                <div class="card-value" id="cardSuccessCount">0건</div>
+                <div class="card-sub" id="cardSuccessAmt">0원</div>
+            </div>
+            <div class="summary-card fail">
+                <div class="card-label">실패 건수</div>
+                <div class="card-value" id="cardFailCount">0건</div>
+                <div class="card-sub" id="cardFailAmt">0원</div>
+            </div>
+            <div class="summary-card rate">
+                <div class="card-label">수납률</div>
+                <div class="card-value" id="cardRate">0%</div>
+                <div class="card-sub" id="cardRateSub">성공금액 / 전체금액</div>
+            </div>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <!-- 기간 검색 -->
+                    <dl>
+                        <dt><label><span class="eq">*</span>출금기간</label></dt>
+                        <dd>
+                            <div class="srch-box">
+                                <div class="date-range-wrap">
+                                    <input type="date" class="form-control2" id="srchStartDate" style="width:130px;">
+                                    <span class="range-sep">~</span>
+                                    <input type="date" class="form-control2" id="srchEndDate" style="width:130px;">
+                                    <div class="shortcut-btns">
+                                        <button type="button" id="btnThisMonth">이번달</button>
+                                        <button type="button" id="btnLastMonth">전달</button>
+                                        <button type="button" id="btn3Month">3개월</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </dd>
+                    </dl>
+                    <!-- 출금유형 -->
+                    <dl>
+                        <dt><label>출금유형</label></dt>
+                        <dd>
+                            <select id="srchBillingType" class="form-control2" style="min-width:90px;">
+                                <option value="">전체</option>
+                                <option value="EB">익일</option>
+                                <option value="EC">당일</option>
+                            </select>
+                        </dd>
+                    </dl>
+                    <!-- 상태 -->
+                    <dl>
+                        <dt><label>상태</label></dt>
+                        <dd>
+                            <select id="srchStatus" class="form-control2" style="min-width:90px;">
+                                <option value="">전체</option>
+                                <option value="SUCCESS">성공</option>
+                                <option value="FAIL">실패</option>
+                            </select>
+                        </dd>
+                    </dl>
+                    <!-- 납부자명 -->
+                    <dl>
+                        <dt><label>납부자명</label></dt>
+                        <dd><div class="srch-box"><input type="text" class="form-control2" id="srchMemberName"></div></dd>
+                    </dl>
+                    <dl>
+                        <dt><span class="eq"></span></dt>
+                        <dd>
+                            <li><a class="btn btn-delete" id="btnSearch">
+                                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색">검색</a></li>
+                        </dd>
+                    </dl>
+                </div>
+
+            </div>
+            <div class="container-fluid">
+                <div id="theGrid"></div>
+                <div class="grid-summary">
+                    <div>전체 건수: <span id="summaryTotal">0</span>건</div>
+                    <div>전체 합계: <span id="summaryTotalAmt">0</span>원</div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer style="margin-top: 24px;">
+        <p>Copyright&#169; 0000 corp. All rights reserved.</p>
+    </footer>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        var theGrid;
+        var viewdata;
+
+        var STATUS_MAP = {
+            PENDING:   '대기',
+            REQUESTED: '출금요청',
+            SUCCESS:   '성공',
+            FAIL:      '실패',
+            CANCEL:    '취소'
+        };
+
+        var columns = [
+            {binding: 'billing_type', header: '유형', width: 70, align: 'center',
+                cellTemplate: function(ctx) {
+                    var v = ctx.value || '';
+                    return '<span class="type-badge type-' + v + '">' + v + '</span>';
+                }},
+            {binding: 'billing_seq',  header: '청구번호',  width: 130, align: 'center'},
+            {binding: 'member_name',  header: '납부자명',  width: 110, align: 'left'},
+            {binding: 'bank_name',    header: '은행',      width: 80,  align: 'center'},
+            {binding: 'bank_account', header: '계좌번호',  width: 150, align: 'center'},
+            {binding: 'billing_amount', header: '청구금액', width: 110, align: 'right',
+                cellTemplate: function(ctx) {
+                    return ctx.value != null ? Number(ctx.value).toLocaleString() : '';
+                }},
+            {binding: 'deduct_date',  header: '출금일자',  width: 100, align: 'center',
+                cellTemplate: function(ctx) {
+                    if (!ctx.value) return '-';
+                    var v = String(ctx.value);
+                    return v.length === 8
+                        ? v.substring(0,4) + '-' + v.substring(4,6) + '-' + v.substring(6,8)
+                        : v;
+                }},
+            {binding: 'status', header: '상태', width: 80, align: 'center',
+                cellTemplate: function(ctx) {
+                    var label = STATUS_MAP[ctx.value] || ctx.value || '';
+                    return '<span class="status-badge status-' + ctx.value + '">' + label + '</span>';
+                }},
+            {binding: 'result_code',  header: '결과코드',  width: 90,  align: 'center'},
+            {binding: 'result_msg',   header: '결과메시지', width: 200, align: 'left'},
+            {binding: 'result_date',  header: '처리일자',  width: 100, align: 'center'},
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            setThisMonth();
+            searchList();
+        }
+
+        /* ── 날짜 유틸 ── */
+        function toDateStr(date) {
+            var y = date.getFullYear();
+            var m = String(date.getMonth() + 1).padStart(2, '0');
+            var d = String(date.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + d;
+        }
+
+        function setThisMonth() {
+            var now = new Date();
+            var start = new Date(now.getFullYear(), now.getMonth(), 1);
+            var end   = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            $('#srchStartDate').val(toDateStr(start));
+            $('#srchEndDate').val(toDateStr(end));
+        }
+
+        function setLastMonth() {
+            var now = new Date();
+            var start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            var end   = new Date(now.getFullYear(), now.getMonth(), 0);
+            $('#srchStartDate').val(toDateStr(start));
+            $('#srchEndDate').val(toDateStr(end));
+        }
+
+        function set3Month() {
+            var now = new Date();
+            var start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+            var end   = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            $('#srchStartDate').val(toDateStr(start));
+            $('#srchEndDate').val(toDateStr(end));
+        }
+
+        /* ── 검색 ── */
+        function searchList() {
+            var startDate = $('#srchStartDate').val();
+            var endDate   = $('#srchEndDate').val();
+
+            if (!startDate || !endDate) {
+                Alert.alert('', '출금기간을 선택하세요.');
+                return;
+            }
+            if (startDate > endDate) {
+                Alert.alert('', '시작일이 종료일보다 클 수 없습니다.');
+                return;
+            }
+
+            $.ajax({
+                url: withCtx('/api/cms/billing/history/list'),
+                type: 'GET',
+                data: {
+                    start_date:   startDate.replace(/-/g, ''),
+                    end_date:     endDate.replace(/-/g, ''),
+                    billing_type: $('#srchBillingType').val(),
+                    status:       $('#srchStatus').val(),
+                    member_name:  $('#srchMemberName').val()
+                },
+                success: function(result) {
+                    if (result.success) {
+                        bindGrid(result.data || []);
+                        updateSummary(result.data || []);
+                    }
+                }
+            });
+        }
+
+        /* ── 그리드 ── */
+        function bindGrid(data) {
+            if (theGrid) theGrid.dispose();
+            viewdata = new wijmo.collections.CollectionView(data);
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+            theGrid.rowHeaders.columns.splice(0, 1);
+        }
+
+        /* ── 요약 ── */
+        function updateSummary(data) {
+            var successItems = data.filter(function(i) { return i.status === 'SUCCESS'; });
+            var failItems    = data.filter(function(i) { return i.status === 'FAIL'; });
+
+            var successAmt = successItems.reduce(function(s, i) { return s + (Number(i.billing_amount) || 0); }, 0);
+            var failAmt    = failItems.reduce(function(s, i)    { return s + (Number(i.billing_amount) || 0); }, 0);
+            var totalAmt   = data.reduce(function(s, i)         { return s + (Number(i.billing_amount) || 0); }, 0);
+
+            var rate = totalAmt > 0 ? (successAmt / totalAmt * 100).toFixed(1) : '0.0';
+
+            $('#cardSuccessCount').text(successItems.length.toLocaleString() + '건');
+            $('#cardSuccessAmt').text(successAmt.toLocaleString() + '원');
+            $('#cardFailCount').text(failItems.length.toLocaleString() + '건');
+            $('#cardFailAmt').text(failAmt.toLocaleString() + '원');
+            $('#cardRate').text(rate + '%');
+            $('#cardRateSub').text(successAmt.toLocaleString() + '원 / ' + totalAmt.toLocaleString() + '원');
+
+            $('#summaryTotal').text(data.length.toLocaleString());
+            $('#summaryTotalAmt').text(totalAmt.toLocaleString());
+        }
+
+        /* ── 이벤트 바인딩 ── */
+        $(document).ready(function() {
+            $('#btnSearch').click(searchList);
+            $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
+
+            $('#btnThisMonth').click(function() { setThisMonth(); searchList(); });
+            $('#btnLastMonth').click(function() { setLastMonth(); searchList(); });
+            $('#btn3Month').click(function()    { set3Month();    searchList(); });
+        });
+    </script>
+</th:block>
+
+</html>

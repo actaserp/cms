@@ -29,7 +29,7 @@ public class CmsEbFileController {
             @RequestParam(value = "file_type",   required = false) String fileType,
             @RequestParam(value = "send_status", required = false) String sendStatus,
             HttpServletRequest request) {
-
+        if (!org.springframework.util.StringUtils.hasText(fileType)) fileType = "EB_REQUEST";
         List<Map<String, Object>> items = cmsEbFileService.getEbFileList(dateFrom, dateTo, fileType, sendStatus);
         AjaxResult result = new AjaxResult();
         result.data = items;

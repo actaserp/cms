@@ -14,6 +14,8 @@
         .status-SUCCESS   { background: #d4edda; color: #155724; }
         .status-FAIL      { background: #f8d7da; color: #721c24; }
         .status-CANCEL    { background: #e2e3e5; color: #383d41; }
+        .status-ERROR     { background: #f0d0ff; color: #6a0dad; }
+        #btnResend:disabled { opacity: 0.4; cursor: not-allowed; }
         .grid-summary {
             display: flex;
             gap: 16px;
@@ -78,6 +80,7 @@
                                     <option value="SUCCESS">성공</option>
                                     <option value="FAIL">실패</option>
                                     <option value="CANCEL">취소</option>
+                                    <option value="ERROR">오류</option>
                                 </select>
                             </dd>
                         </dl>
@@ -91,11 +94,12 @@
                     </div>
                     <div style="padding: 6px 0; display:flex; gap:4px; width:100%; justify-content: space-between;">
                         <div style="padding:10px 10px; background:#e8f4fd; border-left:3px solid #4a90d9; font-size:12px; color:#2c5f8a;">
-                            익일 출금은 오후 3시까지 입력하셔야 출금 신청됩니다. (추가된 내역은 오후 3시에 일괄 신청됩니다.)
+                            익일 출금은 오후 3시까지 입력하셔야 출금 신청됩니다. (출금신청일 당일 대기 건은 오후 3시에 일괄 신청됩니다.)
                         </div>
                         <div style="display:flex; gap:4px;">
                             <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>
                             <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>
+                            <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;" disabled>재전송</button>
                         </div>
 
                     </div>
@@ -265,11 +269,12 @@
             REQUESTED: '출금요청',
             SUCCESS:   '성공',
             FAIL:      '실패',
-            CANCEL:    '취소'
+            CANCEL:    '취소',
+            ERROR:     '오류'
         };
 
         var columns = [
-            {binding: 'id',             header: 'ID',     width: 60,  align: 'center', visible: false},
+            {binding: 'id', header: 'ID',     width: 60,  align: 'center', visible: false},
             {
                 binding: 'selected',
                 header: '',
@@ -283,9 +288,17 @@
             {binding: 'member_name',    header: '납부자명', width: 100, align: 'left'},
             {binding: 'bank_name',      header: '은행',    width: 80,  align: 'center'},
             {binding: 'bank_account',   header: '계좌번호', width: 150, align: 'center'},
-            {binding: 'deduct_day',     header: '출금일',  width: 70,  align: 'center',
+            {binding: 'deduct_day',     header: '약정일',  width: 70,  align: 'center',
                 cellTemplate: function(ctx) {
                     return ctx.value === '99' ? '말일' : (ctx.value ? ctx.value + '일' : '');
+                }},
+            {binding: 'deduct_date', header: '출금일자', width: 100, align: 'center',
+                cellTemplate: function(ctx) {
+                    if (!ctx.value) return '-';
+                    var v = String(ctx.value);
+                    return v.length === 8
+                        ? v.substring(0,4) + '-' + v.substring(4,6) + '-' + v.substring(6,8)
+                        : v;
                 }},
             {binding: 'send_date',      header: '청구신청일',  width: 100, align: 'center',
                 cellTemplate: function(ctx) {
@@ -501,14 +514,15 @@
                                 if (r.status === 'PENDING') r.selected = checked;
                             });
                             theGrid.refresh();
+                            updateResendBtn();
                         };
                     }
                 }
 
-                // PENDING 아닌 행은 체크박스 비활성
+                // PENDING/ERROR 외 행은 체크박스 비활성
                 if (e.panel.cellType === wijmo.grid.CellType.Cell && col.binding === 'selected') {
                     var item = s.rows[e.row].dataItem;
-                    if (item && item.status !== 'PENDING') {
+                    if (item && item.status !== 'PENDING' && item.status !== 'ERROR') {
                         e.cell.innerHTML = '<span style="color:#ccc;">-</span>';
                     } else {
                         e.cell.innerHTML = '<input type="checkbox" class="row-check"'
@@ -523,6 +537,7 @@
                         var item = viewdata.items[row];
                         if (item) item.selected = $(this).is(':checked');
                     }
+                    updateResendBtn();
                 });
             });
 
@@ -572,8 +587,7 @@
                 $('#status').hide();
                 $('#statusHidden').val(status);
                 var badge = '<span class="status-badge status-' + status + '">'
-                    + (STATUS_MAP[status] || status) + '</span>'
-                    + '<span style="font-size:11px; color:#aaa; margin-left:6px;">(시스템 자동 설정)</span>';
+                    + (STATUS_MAP[status] || status) + '</span>';
                 $('#statusReadonly').html(badge).show();
             } else {
                 $('#status').show().val(status);
@@ -665,6 +679,34 @@
             });
         }
 
+        function updateResendBtn() {
+            var hasError = (viewdata ? viewdata.items : [])
+                .some(function(i) { return i.selected && i.status === 'ERROR'; });
+            $('#btnResend').prop('disabled', !hasError);
+        }
+
+        function resendBilling() {
+            var errorIds = (viewdata ? viewdata.items : [])
+                .filter(function(i) { return i.selected && i.status === 'ERROR'; })
+                .map(function(i) { return i.id; });
+
+            if (errorIds.length === 0) { Alert.alert('', '재전송할 오류 건을 체크하세요.'); return; }
+
+            Alert.confirm('', errorIds.length + '건을 재전송하시겠습니까?', function() {
+                AjaxUtil.postAsyncData('/api/cms/billing/resend',
+                    { ids: errorIds.join(','), deduct_type: 'EB' },
+                    function(result) {
+                        if (result.success) {
+                            var d = result.data || {};
+                            Alert.alert('', '재전송 완료: 성공 ' + (d.sent || 0) + '건, 실패 ' + (d.failed || 0) + '건');
+                            searchList();
+                        } else {
+                            Alert.alert('재전송 실패', result.message);
+                        }
+                    });
+            });
+        }
+
         function cancelBilling() {
             var pendingIds = (viewdata ? viewdata.items : [])
                 .filter(function(i) { return i.selected && i.status === 'PENDING'; })
@@ -691,6 +733,7 @@
             $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
             $('#btnGenerate').click(generateBilling);
             $('#btnCancel').click(cancelBilling);
+            $('#btnResend').click(resendBilling);
             $('#btnNew').click(clearForm);
             $('#btnSave').click(saveBilling);
             $('#btnDel').click(deleteBilling);
