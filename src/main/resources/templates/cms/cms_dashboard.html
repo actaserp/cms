@@ -1,0 +1,276 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .status-PENDING   { background: #fff3cd; color: #856404; }
+        .status-REQUESTED { background: #cce5ff; color: #004085; }
+        .status-SUCCESS   { background: #d4edda; color: #155724; }
+        .status-FAIL      { background: #f8d7da; color: #721c24; }
+        .status-CANCEL    { background: #e2e3e5; color: #383d41; }
+        .status-ERROR     { background: #f0d0ff; color: #6a0dad; }
+
+        .summary-cards {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .summary-card {
+            flex: 1;
+            background: #fff;
+            border: 1px solid #e0e4ef;
+            border-left: 4px solid #4a6cf7;
+            border-radius: 6px;
+            padding: 14px 18px;
+        }
+        .summary-card.danger { border-left-color: #dc3545; }
+        .summary-card.success { border-left-color: #28a745; }
+        .summary-label { font-size: 12px; color: #888; margin-bottom: 6px; }
+        .summary-value { font-size: 22px; font-weight: 700; color: #222; }
+        .summary-card.danger .summary-value { color: #dc3545; }
+        .summary-card.success .summary-value { color: #155724; }
+
+        .wj-header { text-align: center !important; }
+
+        #dailyTitle {
+            font-size: 13px;
+            color: #555;
+            font-weight: 400;
+            margin: 0;
+            padding: 6px 0 8px;
+        }
+
+        /* FullCalendar 이벤트 텍스트 줄 바꿈 */
+        .fc-event-title { white-space: normal !important; }
+        .fc-daygrid-event { font-size: 11px !important; }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>CMS 대시보드</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>대시보드</li>
+                <li>CMS 대시보드</li>
+            </ul>
+        </div>
+
+        <!-- 통계 카드 -->
+        <div class="summary-cards">
+            <div class="summary-card">
+                <div class="summary-label">총 청구건수</div>
+                <div class="summary-value" id="cardTotalCount">-</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">총 청구금액</div>
+                <div class="summary-value" id="cardTotalAmount">-</div>
+            </div>
+            <div class="summary-card success">
+                <div class="summary-label">성공률</div>
+                <div class="summary-value" id="cardSuccessRate">-</div>
+            </div>
+            <div class="summary-card danger">
+                <div class="summary-label">FAIL / ERROR 건수</div>
+                <div class="summary-value" id="cardFailCount">-</div>
+            </div>
+        </div>
+
+        <!-- 메인: 캘린더(60%) + 상세 그리드(40%) -->
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+
+            <!-- 왼쪽: 캘린더 -->
+            <section class="section" style="flex:6; min-width:0;">
+                <div id="calendar"></div>
+            </section>
+
+            <!-- 오른쪽: 날짜별 상세 목록 -->
+            <section class="section" style="flex:4; min-width:0;">
+                <div class="title-wrap" style="padding-bottom:6px;">
+                    <h3 id="dailyTitle">날짜를 클릭하면 상세 목록을 볼 수 있습니다</h3>
+                </div>
+                <div id="dailyGrid" style="height:580px;"></div>
+            </section>
+
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        var calendar;
+        var dailyGrid;
+        var dailyViewdata;
+        var currentYm;
+
+        var STATUS_MAP = {
+            PENDING:   '대기',
+            REQUESTED: '출금요청',
+            SUCCESS:   '성공',
+            FAIL:      '실패',
+            CANCEL:    '취소',
+            ERROR:     '오류'
+        };
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            var now   = new Date();
+            currentYm = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0');
+
+            initDailyGrid();
+            initCalendar();
+        }
+
+        // ── 통계 카드 ────────────────────────────────────────────────────────────
+        function loadSummary(ym) {
+            $.ajax({
+                url: withCtx('/api/cms/dashboard/summary'),
+                type: 'GET',
+                data: { ym: ym },
+                success: function(result) {
+                    if (!result.success || !result.data) return;
+                    var d = result.data;
+                    $('#cardTotalCount').text(Number(d.total_count || 0).toLocaleString() + '건');
+                    $('#cardTotalAmount').text(Number(d.total_amount || 0).toLocaleString() + '원');
+                    $('#cardSuccessRate').text((d.success_rate != null ? d.success_rate : '-') + '%');
+                    $('#cardFailCount').text(Number(d.fail_count || 0).toLocaleString() + '건');
+                }
+            });
+        }
+
+        // ── 캘린더 ───────────────────────────────────────────────────────────────
+        function initCalendar() {
+            var el = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(el, {
+                locale: 'ko',
+                headerToolbar: {
+                    left:   'prev,next today',
+                    center: 'title',
+                    right:  ''
+                },
+                initialView: 'dayGridMonth',
+                height: 640,
+                dayHeaderFormat: { weekday: 'short' },
+                views: {
+                    dayGridMonth: {
+                        dayCellContent: function(arg) {
+                            return arg.dayNumberText.replace('일', '');
+                        }
+                    }
+                },
+                datesSet: function(info) {
+                    var d  = calendar.getDate();
+                    var ym = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0');
+                    currentYm = ym;
+                    loadSummary(ym);
+                    loadCalendarEvents(ym);
+                },
+                dateClick: function(info) {
+                    var date = info.dateStr.replace(/-/g, '');
+                    loadDailyList(date, info.dateStr);
+                },
+                events: []
+            });
+            calendar.render();
+        }
+
+        function loadCalendarEvents(ym) {
+            $.ajax({
+                url: withCtx('/api/cms/dashboard/calendar'),
+                type: 'GET',
+                data: { ym: ym },
+                success: function(result) {
+                    if (!result.success) return;
+
+                    // 기존 이벤트 제거
+                    calendar.getEvents().forEach(function(e) { e.remove(); });
+
+                    (result.data || []).forEach(function(row) {
+                        var raw = String(row.deduct_date);  // YYYYMMDD
+                        var isoDate = raw.substring(0,4) + '-' + raw.substring(4,6) + '-' + raw.substring(6,8);
+
+                        var totalCount  = Number(row.total_count || 0);
+                        var failCount   = Number(row.fail_count  || 0);
+                        var pendingCount= Number(row.pending_count|| 0);
+                        var totalAmount = Number(row.total_amount || 0);
+                        var nonPending  = totalCount - pendingCount;
+
+                        // 출금 건수 이벤트 (PENDING 제외)
+                        if (nonPending > 0) {
+                            var hasFail = failCount > 0;
+                            calendar.addEvent({
+                                title: nonPending.toLocaleString() + '건 / ' + totalAmount.toLocaleString() + '원',
+                                start: isoDate,
+                                backgroundColor: hasFail ? '#dc3545' : '#4a6cf7',
+                                borderColor:     hasFail ? '#c82333' : '#3a5bd9',
+                                textColor: '#fff',
+                                allDay: true
+                            });
+                        }
+
+                        // 대기 건수 이벤트
+                        if (pendingCount > 0) {
+                            calendar.addEvent({
+                                title: '대기 ' + pendingCount.toLocaleString() + '건',
+                                start: isoDate,
+                                backgroundColor: '#adb5bd',
+                                borderColor:     '#868e96',
+                                textColor: '#fff',
+                                allDay: true
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        // ── 날짜별 상세 목록 ──────────────────────────────────────────────────────
+        function loadDailyList(date, dateStr) {
+            $('#dailyTitle').text(dateStr + ' 청구 목록');
+            $.ajax({
+                url: withCtx('/api/cms/dashboard/daily'),
+                type: 'GET',
+                data: { date: date },
+                success: function(result) {
+                    if (!result.success) return;
+                    var data = result.data || [];
+                    dailyViewdata.sourceCollection = data;
+                    dailyViewdata.refresh();
+                }
+            });
+        }
+
+        // ── 상세 그리드 ──────────────────────────────────────────────────────────
+        function initDailyGrid() {
+            dailyViewdata = new wijmo.collections.CollectionView([]);
+            dailyGrid = new wijmo.grid.FlexGrid('#dailyGrid', {
+                autoGenerateColumns: false,
+                isReadOnly: true,
+                showMarquee: true,
+                itemsSource: dailyViewdata,
+                columns: [
+                    { binding: 'billing_seq',    header: '청구번호', width: 120, align: 'center' },
+                    { binding: 'member_name',    header: '납부자명', width: 90,  align: 'left'   },
+                    { binding: 'bank_name',      header: '은행',    width: 70,  align: 'center' },
+                    { binding: 'billing_amount', header: '청구금액', width: 100, align: 'right',
+                        cellTemplate: function(ctx) {
+                            return ctx.value != null ? Number(ctx.value).toLocaleString() : '';
+                        }},
+                    { binding: 'status', header: '상태', width: 80, align: 'center',
+                        cellTemplate: function(ctx) {
+                            var label = STATUS_MAP[ctx.value] || ctx.value || '';
+                            return '<span class="status-badge status-' + ctx.value + '">' + label + '</span>';
+                        }},
+                    { binding: 'result_date', header: '처리일자', width: 90, align: 'center' }
+                ]
+            });
+            dailyGrid.rowHeaders.columns.splice(0, 1);
+        }
+    </script>
+</th:block>
+
+</html>

@@ -59,10 +59,10 @@
                             </dd>
                         </dl>
                         <dl>
-                            <dt><label>출금일자<span style="font-size:11px; color:#aaa;"> (삭제시 전체 검색)</span></label></dt>
+                            <dt><label>출금신청일<span style="font-size:11px; color:#aaa;"> (삭제시 전체 검색)</span></label></dt>
                             <dd>
                                 <div class="srch-box">
-                                    <input type="date" class="form-control2" id="srchDeductDate" style="width:130px;">
+                                    <input type="date" class="form-control2" id="srchSendDate" style="width:130px;">
                                 </div>
                             </dd>
                         </dl>
@@ -100,6 +100,8 @@
                             <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>
                             <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>
                             <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;" disabled>재전송</button>
+                            <button type="button" class="btn-default" id="btnSendNow"
+                                    style="background:#27ae60; color:#fff;" disabled>즉시전송</button>
                         </div>
 
                     </div>
@@ -341,15 +343,12 @@
             $('#deduct_date').attr('min', minDateStr).val(minDateStr);
             $('#deduct_date').trigger('change');
 
-            // 내일 날짜 계산 (srchDeductDate 디폴트)
-            var tomorrow = new Date(now);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            var tomorrowStr = tomorrow.getFullYear() + '-'
-                + String(tomorrow.getMonth() + 1).padStart(2, '0') + '-'
-                + String(tomorrow.getDate()).padStart(2, '0');
+            var todayStr = now.getFullYear() + '-'
+                + String(now.getMonth() + 1).padStart(2, '0') + '-'
+                + String(now.getDate()).padStart(2, '0');
 
             $('#srchBillingYm').val(ym);
-            $('#srchDeductDate').val(tomorrowStr);
+            $('#srchSendDate').val(todayStr);
             $('#billing_ym_input').val(ym);
 
             searchList();
@@ -468,10 +467,10 @@
                 url: withCtx('/api/cms/billing/list'),
                 type: 'GET',
                 data: {
-                    billing_ym:   ymVal.replace('-', ''),
-                    deduct_date:  ($('#srchDeductDate').val() || '').replace(/-/g, ''),  // 날짜 picker 값
-                    member_name:  $('#srchMemberName').val(),
-                    status:       $('#srchStatus').val()
+                    billing_ym:  ymVal.replace('-', ''),
+                    send_date:   ($('#srchSendDate').val() || '').replace(/-/g, ''),
+                    member_name: $('#srchMemberName').val(),
+                    status:      $('#srchStatus').val()
                 },
                 success: function(result) {
                     if (result.success) {
@@ -682,7 +681,37 @@
         function updateResendBtn() {
             var hasError = (viewdata ? viewdata.items : [])
                 .some(function(i) { return i.selected && i.status === 'ERROR'; });
+            var hasPending = (viewdata ? viewdata.items : [])
+                .some(function(i) { return i.selected && i.status === 'PENDING'; });
             $('#btnResend').prop('disabled', !hasError);
+            $('#btnSendNow').prop('disabled', !hasPending);
+        }
+
+        function sendNow() {
+            var pendingItems = (viewdata ? viewdata.items : [])
+                .filter(function(i) { return i.selected && i.status === 'PENDING'; });
+
+            if (pendingItems.length === 0) {
+                Alert.alert('', '즉시전송할 대기(PENDING) 건을 체크하세요.');
+                return;
+            }
+
+            // deduct_date 여러 개일 수 있으므로 그룹별로 묶어서 전송
+            var ids = pendingItems.map(function(i) { return i.id; });
+
+            Alert.confirm('', pendingItems.length + '건을 즉시 전송하시겠습니까?', function() {
+                AjaxUtil.postAsyncData('/api/cms/billing/send-now',
+                    { ids: ids.join(','), deduct_type: 'EB' },
+                    function(result) {
+                        if (result.success) {
+                            var d = result.data || {};
+                            Alert.alert('', '전송 완료: 성공 ' + (d.sent || 0) + '건, 실패 ' + (d.failed || 0) + '건');
+                            searchList();
+                        } else {
+                            Alert.alert('전송 실패', result.message);
+                        }
+                    });
+            });
         }
 
         function resendBilling() {
@@ -737,6 +766,7 @@
             $('#btnNew').click(clearForm);
             $('#btnSave').click(saveBilling);
             $('#btnDel').click(deleteBilling);
+            $('#btnSendNow').click(sendNow);
         });
     </script>
 </th:block>

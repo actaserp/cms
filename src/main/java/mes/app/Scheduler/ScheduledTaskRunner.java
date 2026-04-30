@@ -3,12 +3,16 @@ package mes.app.Scheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mes.app.Scheduler.SchedulerService.*;
+import mes.app.notification.NotificationService;
+import mes.app.notification.NotificationTargetService;
+import mes.domain.entity.Notification;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
+import java.util.List;
 import java.util.concurrent.Executor;
 
 @Component
@@ -18,19 +22,20 @@ public class ScheduledTaskRunner {
 
     private final Executor schedulerExecutor;
 
-    private final AccountSyncService          accountSyncService;
-    private final ApiUsageService             apiUsageService;
-    private final NginxTrafficService         nginxTrafficService;
+    private final AccountSyncService            accountSyncService;
+    private final ApiUsageService               apiUsageService;
+    private final NginxTrafficService           nginxTrafficService;
     private final CmsBillingAutoGenerateService cmsBillingAutoGenerateService;
-    private final CmsEb21SendService cmsEb21SendService;
-    private final CmsEb22ReceiveService       cmsEb22ReceiveService;
-    private final CmsEc21SendService cmsEc21SendService;
-    private final CmsEc22ReceiveService       cmsEc22ReceiveService;
+    private final CmsEb21SendService            cmsEb21SendService;
+    private final CmsEb22ReceiveService         cmsEb22ReceiveService;
+    private final CmsEc21SendService            cmsEc21SendService;
+    private final CmsEc22ReceiveService         cmsEc22ReceiveService;
+    private final NotificationService           notificationService;
+    private final NotificationTargetService     notificationTargetService;
 
     /** 매일 00:30 실행, 말일에만 다음달 청구 생성 */
     @Scheduled(cron = "0 30 0 * * *", zone = "Asia/Seoul")
     public void runCmsBillingAutoGenerate() {
-        // 오늘이 말일인지 체크
         LocalDate today = LocalDate.now();
         if (!today.equals(today.with(TemporalAdjusters.lastDayOfMonth()))) return;
 
@@ -50,7 +55,7 @@ public class ScheduledTaskRunner {
     }
 
     /** D 11:00 — PENDING 당일청구 EC21 생성 + SFTP 전송 (마감 D 12:00) */
-    @Scheduled(cron = "0 0 11 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 0 14 * * *", zone = "Asia/Seoul")
     public void runCmsEc21FileGenerate() {
         schedulerExecutor.execute(() -> safeRun(cmsEc21SendService::run, "CMS EC21 생성+전송"));
     }
@@ -62,17 +67,22 @@ public class ScheduledTaskRunner {
     }
 
     /** EC21 재시도 1차 — D 11:10 */
-    @Scheduled(cron = "0 10 11 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 10 14 * * *", zone = "Asia/Seoul")
     public void runCmsEc21Retry1() {
         String targetDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         schedulerExecutor.execute(() -> safeRun(() -> cmsEc21SendService.retry(targetDate), "CMS EC21 재시도1"));
     }
 
     /** EC21 재시도 2차 — D 11:20 */
-    @Scheduled(cron = "0 20 11 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 20 14 * * *", zone = "Asia/Seoul")
     public void runCmsEc21Retry2() {
         String targetDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        schedulerExecutor.execute(() -> safeRun(() -> cmsEc21SendService.retry(targetDate), "CMS EC21 재시도2"));
+        schedulerExecutor.execute(() -> safeRun(() -> {
+            List<String> failed = cmsEc21SendService.retry(targetDate);
+            for (String spjangcd : failed) {
+                notifyRetryFail("cms_billing_same_day", spjangcd, targetDate, "EC21");
+            }
+        }, "CMS EC21 재시도2"));
     }
 
     /** EB21 재시도 1차 — D-1 15:10 */
@@ -86,7 +96,12 @@ public class ScheduledTaskRunner {
     @Scheduled(cron = "0 20 15 * * *", zone = "Asia/Seoul")
     public void runCmsEb21Retry2() {
         String targetDate = LocalDate.now().plusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        schedulerExecutor.execute(() -> safeRun(() -> cmsEb21SendService.retry(targetDate), "CMS EB21 재시도2"));
+        schedulerExecutor.execute(() -> safeRun(() -> {
+            List<String> failed = cmsEb21SendService.retry(targetDate);
+            for (String spjangcd : failed) {
+                notifyRetryFail("cms_billing", spjangcd, targetDate, "EB21");
+            }
+        }, "CMS EB21 재시도2"));
     }
 
     /** 매일 새벽 3시 — nginx 트래픽 집계 */
@@ -100,6 +115,30 @@ public class ScheduledTaskRunner {
             task.run();
         } catch (Exception e) {
             log.error("스케줄러 작업 실패: {} - {}", taskName, e.getMessage(), e);
+        }
+    }
+
+    /** 재시도 2회 실패 시 해당 메뉴에 A 권한 있는 사용자에게 알림 전송 */
+    private void notifyRetryFail(String domain, String spjangcd, String targetDate, String fileType) {
+        try {
+            List<String> receivers = notificationTargetService.findReceivers(domain, spjangcd);
+            if (receivers.isEmpty()) return;
+
+            Notification base = new Notification();
+            base.setDomain(domain);
+            base.setAction("RETRY_FAIL");
+            base.setTargetId(targetDate);
+            base.setTitle("CMS " + fileType + " 재시도 2회 실패");
+            base.setMessage("사업장: " + spjangcd + "\n날짜: " + targetDate);
+            base.setSenderUserId("SYSTEM");
+            base.setSpjangcd(spjangcd);
+            base.setReadYn("N");
+
+            for (String receiverUserId : receivers) {
+                notificationService.save(base, receiverUserId);
+            }
+        } catch (Exception e) {
+            log.error("[{}] 재시도 실패 알림 전송 오류 spjangcd={}: {}", fileType, spjangcd, e.getMessage());
         }
     }
 }

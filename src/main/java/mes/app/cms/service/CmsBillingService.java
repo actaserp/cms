@@ -23,7 +23,7 @@ public class CmsBillingService {
     SqlRunner sqlRunner;
 
     /** 청구 목록 조회 */
-    public List<Map<String, Object>> getBillingList(String billingYm, String deductDate, String memberName, String status, String deductType) {
+    public List<Map<String, Object>> getBillingList(String billingYm, String sendDate, String memberName, String status, String deductType) {
         String spjangcd = TenantContext.get();
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
@@ -43,7 +43,11 @@ public class CmsBillingService {
                  , b.billing_amount
                  , b.deduct_day
                  , b.deduct_date
-                 , TO_CHAR(TO_DATE(b.deduct_date, 'YYYYMMDD') - INTERVAL '1 day', 'YYYYMMDD') AS send_date
+                 , CASE
+                         WHEN b.deduct_type = 'EC'
+                         THEN b.deduct_date
+                         ELSE TO_CHAR(TO_DATE(b.deduct_date, 'YYYYMMDD') - INTERVAL '1 day', 'YYYYMMDD')
+                     END AS send_date
                  , b.status
                  , b.result_code
                  , b.result_msg
@@ -58,9 +62,14 @@ public class CmsBillingService {
               AND b.deduct_type = :deductType
             """;
 
-        if (StringUtils.hasText(deductDate)) {
-            sql += " AND b.deduct_date = :deductDate";
-            param.addValue("deductDate", deductDate);
+        if (StringUtils.hasText(sendDate)) {
+            sql += """
+                 AND CASE WHEN b.deduct_type = 'EC'
+                          THEN b.deduct_date
+                          ELSE TO_CHAR(TO_DATE(b.deduct_date, 'YYYYMMDD') - INTERVAL '1 day', 'YYYYMMDD')
+                     END = :sendDate
+                """;
+            param.addValue("sendDate", sendDate);
         }
         if (StringUtils.hasText(memberName)) {
             sql += " AND b.member_name LIKE '%' || :memberName || '%'";

@@ -59,10 +59,10 @@
                             </dd>
                         </dl>
                         <dl>
-                            <dt><label>출금일자<span style="font-size:11px; color:#aaa;"> (삭제시 전체 검색)</span></label></dt>
+                            <dt><label>출금신청일<span style="font-size:11px; color:#aaa;"> (삭제시 전체 검색)</span></label></dt>
                             <dd>
                                 <div class="srch-box">
-                                    <input type="date" class="form-control2" id="srchDeductDate" style="width:130px;">
+                                    <input type="date" class="form-control2" id="srchSendDate" style="width:130px;">
                                 </div>
                             </dd>
                         </dl>
@@ -324,7 +324,7 @@
             var ym  = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
             var isAfterNoon = now.getHours() >= 11;
 
-            // min date: 12시 이전→오늘, 12시 이후→내일
+            // min date: 11시 이전→오늘, 11시 이후→내일
             var minDate = new Date(now);
             if (isAfterNoon) minDate.setDate(minDate.getDate() + 1);
             var minDateStr = minDate.getFullYear() + '-'
@@ -338,14 +338,12 @@
             }
 
             // 내일 날짜 계산 (srchDeductDate 디폴트)
-            var tomorrow = new Date(now);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            var tomorrowStr = tomorrow.getFullYear() + '-'
-                + String(tomorrow.getMonth() + 1).padStart(2, '0') + '-'
-                + String(tomorrow.getDate()).padStart(2, '0');
+            var todayStr = now.getFullYear() + '-'
+                + String(now.getMonth() + 1).padStart(2, '0') + '-'
+                + String(now.getDate()).padStart(2, '0');
 
             $('#srchBillingYm').val(ym);
-            $('#srchDeductDate').val(tomorrowStr);  // 디폴트: 내일
+            $('#srchSendDate').val(todayStr);
             $('#billing_ym_input').val(ym);
 
             searchList();
@@ -422,11 +420,11 @@
                 url: withCtx('/api/cms/billing/list'),
                 type: 'GET',
                 data: {
-                    billing_ym:   ymVal.replace('-', ''),
-                    deduct_date:  ($('#srchDeductDate').val() || '').replace(/-/g, ''),
-                    member_name:  $('#srchMemberName').val(),
-                    status:       $('#srchStatus').val(),
-                    deduct_type:  'EC'
+                    billing_ym:  ymVal.replace('-', ''),
+                    send_date:   ($('#srchSendDate').val() || '').replace(/-/g, ''),
+                    member_name: $('#srchMemberName').val(),
+                    status:      $('#srchStatus').val(),
+                    deduct_type: 'EC'
                 },
                 success: function(result) {
                     if (result.success) {

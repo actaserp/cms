@@ -29,7 +29,7 @@ public class SseController {
         User user = (User) authentication.getPrincipal();
         String userId = user.getUsername();
 
-        SseEmitter emitter = new SseEmitter(60 * 60 * 1000L);
+        SseEmitter emitter = new SseEmitter(30 * 60 * 1000L);
         SseClient client = new SseClient(userId, emitter);
 
         subject.addObserver(spjangcd, client);

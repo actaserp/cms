@@ -31,14 +31,14 @@ public class CmsBillingController {
     /** 목록 조회 */
     @GetMapping("/list")
     public AjaxResult getList(
-            @RequestParam(value = "billing_ym"                   ) String billingYm,
-            @RequestParam(value = "deduct_date", required = false) String deductDate,
+            @RequestParam(value = "billing_ym"                  ) String billingYm,
+            @RequestParam(value = "send_date",  required = false) String sendDate,
             @RequestParam(value = "member_name", required = false) String memberName,
             @RequestParam(value = "status",      required = false) String status,
             @RequestParam(value = "deduct_type", required = false) String deductType,
             HttpServletRequest request) {
 
-        List<Map<String, Object>> items = cmsBillingService.getBillingList(billingYm, deductDate, memberName, status, deductType);
+        List<Map<String, Object>> items = cmsBillingService.getBillingList(billingYm, sendDate, memberName, status, deductType);
         AjaxResult result = new AjaxResult();
         result.data = items;
         return result;
@@ -210,8 +210,15 @@ public class CmsBillingController {
                 ? cmsEc21SendService.resendBilling(ids)
                 : cmsEb21SendService.resendBilling(ids);
 
+        int sentCnt  = res.get("sent")   != null ? ((Number) res.get("sent")).intValue()   : 0;
+        int failedCnt = res.get("failed") != null ? ((Number) res.get("failed")).intValue() : 0;
+
         AjaxResult result = new AjaxResult();
         result.data = res;
+        if (sentCnt == 0 && failedCnt > 0) {
+            result.success = false;
+            result.message = "전송 실패: " + failedCnt + "건";
+        }
         return result;
     }
 
@@ -230,4 +237,34 @@ public class CmsBillingController {
         result.data = items;
         return result;
     }
+
+    /** 즉시전송 — 체크된 PENDING 건 선택 후 SFTP 즉시 전송 (테스트/수동용) */
+    @PostMapping("/send-now")
+    public AjaxResult sendNow(
+            @RequestParam("ids")         String idsStr,
+            @RequestParam("deduct_type") String deductType) {
+
+        List<Long> ids = Arrays.stream(idsStr.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::parseLong)
+                .collect(Collectors.toList());
+
+        if (ids.isEmpty()) {
+            AjaxResult result = new AjaxResult();
+            result.success = false;
+            result.message = "전송할 항목을 선택하세요.";
+            return result;
+        }
+
+        Map<String, Object> res = "EC".equals(deductType)
+                ? cmsEc21SendService.resendBilling(ids)
+                : cmsEb21SendService.resendBilling(ids);
+
+        AjaxResult result = new AjaxResult();
+        result.data = res;
+        return result;
+    }
+
+
 }
