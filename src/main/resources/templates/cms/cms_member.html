@@ -128,7 +128,9 @@
                                 </td>
                                 <th style="padding:5px; border:1px solid #ddd; text-align:center;">납부자번호</th>
                                 <td style="padding:5px; border:1px solid #ddd;">
-                                    <input type="text" id="member_no" name="member_no">
+                                    <input type="text" id="member_no" name="member_no"
+                                           readonly
+                                           style="background:#f5f6fa; color:#888;">
                                 </td>
                             </tr>
                             <tr>
@@ -271,34 +273,32 @@
                             <tr>
                                 <th style="padding:5px; border:1px solid #ddd; text-align:center;">동의여부</th>
                                 <td style="padding:5px; border:1px solid #ddd;">
-                                    <select id="agree_yn" name="agree_yn">
-                                        <option value="N">미동의</option>
-                                        <option value="Y" selected>동의</option>
-                                    </select>
+                                    <input type="hidden" id="agree_yn" name="agree_yn" value="N">
+                                    <span id="agreeYnDisplay" class="status-badge" style="padding:3px 10px;">미동의</span>
                                 </td>
                             </tr>
                             <tr>
-                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">동의방식</th>
-                                <td style="padding:5px; border:1px solid #ddd;">
-                                    <div style="display:flex; flex-direction:column; gap:6px;">
-                                        <div style="display:flex; gap:12px;">
-                                            <label style="color:#aaa; cursor:not-allowed;" title="준비 중">
-                                                <input type="radio" name="agree_method" value="SIMPLE" disabled> 간편서명동의
-                                                <span style="font-size:11px;">(준비 중)</span>
-                                            </label>
-                                            <label>
-                                                <input type="radio" name="agree_method" value="FILE"> 파일업로드
-                                            </label>
-                                            <label>
-                                                <input type="radio" name="agree_method" value="LATER" checked> 나중에 등록
-                                            </label>
-                                        </div>
-                                        <!-- 파일업로드 선택 시 표시 -->
-                                        <div id="agreeUploaderWrap" style="display:none; border:1px solid #e0e4ef; border-radius:4px; padding:6px;">
-                                            <div id="agreeUploaderDiv"></div>
-                                        </div>
-                                    </div>
-                                </td>
+<!--                                <th style="padding:5px; border:1px solid #ddd; text-align:center;">동의방식</th>-->
+<!--                                <td style="padding:5px; border:1px solid #ddd;">-->
+<!--                                    <div style="display:flex; flex-direction:column; gap:6px;">-->
+<!--                                        <div style="display:flex; gap:12px;">-->
+<!--                                            <label style="color:#aaa; cursor:not-allowed;" title="준비 중">-->
+<!--                                                <input type="radio" name="agree_method" value="SIMPLE" disabled> 간편서명동의-->
+<!--                                                <span style="font-size:11px;">(준비 중)</span>-->
+<!--                                            </label>-->
+<!--                                            <label>-->
+<!--                                                <input type="radio" name="agree_method" value="FILE"> 파일업로드-->
+<!--                                            </label>-->
+<!--                                            <label>-->
+<!--                                                <input type="radio" name="agree_method" value="LATER" checked> 나중에 등록-->
+<!--                                            </label>-->
+<!--                                        </div>-->
+<!--                                        &lt;!&ndash; 파일업로드 선택 시 표시 &ndash;&gt;-->
+<!--                                        <div id="agreeUploaderWrap" style="display:none; border:1px solid #e0e4ef; border-radius:4px; padding:6px;">-->
+<!--                                            <div id="agreeUploaderDiv"></div>-->
+<!--                                        </div>-->
+<!--                                    </div>-->
+<!--                                </td>-->
                             </tr>
                             </tbody>
                         </table>
@@ -360,7 +360,18 @@
                 var v = ctx.value;
                 return v != null ? Number(v).toLocaleString() : '';
             }},
-        {binding: 'agree_yn',         header: '동의',      width: 50,  align: 'center'},
+        { binding: 'agree_status', header: '동의', width: 70, align: 'center',
+            cellTemplate: function(ctx) {
+                var map = {
+                    '인증완료': '#d4edda|#155724',
+                    '인증대기': '#cce5ff|#004085',
+                    '인증거절': '#f0d0ff|#6a0dad',
+                    '미신청':   '#f5f6fa|#888'
+                };
+                var style = (map[ctx.value] || '#f5f6fa|#888').split('|');
+                return '<span class="status-badge" style="background:' + style[0]
+                    + '; color:' + style[1] + ';">' + (ctx.value || '미신청') + '</span>';
+            }},
         {binding: 'status',           header: '상태',      width: 65,  align: 'center',
             cellTemplate: function(ctx) {
                 var map = { ACTIVE: '활성', INACTIVE: '비활성', STOP: '중지' };
@@ -452,7 +463,7 @@
         agreeUploader = new ax5FileUploadClass('agreeUploaderDiv', memberId, {
             table_name:  'cms_member',
             attach_name: 'AGREE',
-            accept_files: 'pdf,jpg,jpeg,png,hwp,doc,docx',
+            accept_files: 'pdf',
             multiple:    false,
             max_count:   1,
             file_size:   10,
@@ -592,7 +603,17 @@
                 $('.chk-month[value="' + m.trim() + '"]').prop('checked', true);
             });
         }
-        $('#agree_yn').val(item.agree_yn || 'Y');
+        $('#agree_yn').val(item.agree_yn || 'N');
+        var styles = {
+            '인증완료': { bg: '#d4edda', color: '#155724' },
+            '인증대기': { bg: '#cce5ff', color: '#004085' },
+            '인증거절': { bg: '#f0d0ff', color: '#6a0dad' },
+            '미신청':   { bg: '#f5f6fa', color: '#888'    }
+        };
+        var s = styles[item.agree_status] || styles['미신청'];
+        $('#agreeYnDisplay')
+            .text(item.agree_status || '미신청')
+            .css({ background: s.bg, color: s.color });
 
         // 동의방식 라디오 복원
         var method = item.agree_method || 'LATER';
@@ -623,7 +644,8 @@
         $('.chk-month').prop('checked', false);
         $('#cycle_months').val('');
 
-        $('#agree_yn').val('Y');
+        $('#agree_yn').val('N');
+        $('#agreeYnDisplay').text('미신청').css({ background: '#f5f6fa', color: '#888' });
         $('input[name="agree_method"][value="LATER"]').prop('checked', true);
         agreeUploader = null;
         $('#agreeUploaderWrap').hide();

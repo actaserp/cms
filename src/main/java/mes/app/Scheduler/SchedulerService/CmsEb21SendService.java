@@ -318,8 +318,10 @@ public class CmsEb21SendService {
     private synchronized String getToken() throws Exception {
         // 만료 10분 전에 재발급
         if (cachedToken.get() != null && Instant.now().isBefore(tokenExpireAt.get().minusSeconds(600))) {
+            log.info("[CmsEbFile] 캐시 토큰 사용: {}", cachedToken.get());
             return cachedToken.get();
         }
+
         String body = "grant_type=client_credentials"
                 + "&client_id=" + clientId
                 + "&client_secret=" + clientSecret
@@ -345,7 +347,7 @@ public class CmsEb21SendService {
         long expiresIn = node.path("expires_in").asLong(86037); // 23h57m 기본
         cachedToken.set(token);
         tokenExpireAt.set(Instant.now().plusSeconds(expiresIn));
-        log.info("[CmsEbFile] 토큰 발급 완료, 유효시간={}s", expiresIn);
+        log.info("[CmsEbFile] 토큰 발급 완료, 유효시간={}s, 토큰: {}", expiresIn, token);
         return token;
     }
 
@@ -399,6 +401,30 @@ public class CmsEb21SendService {
         String respCode = node.path("response_code").asText("");
         if (!"B0000".equals(respCode)) {
             throw new IllegalStateException("SFTP 수신 권한 오류: " + respCode + " " + node.path("response_message").asText());
+        }
+
+        JsonNode data = node.path("data");
+        return new String[]{ data.path("sftp_user_name").asText(), data.path("sftp_password").asText() };
+    }
+
+    public String[] getSftpSendCredential(String fileType, String transactionDate) throws Exception {
+        String token = getToken();
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(apiBaseUrl + "/biz/batch?file_type=" + fileType + "&transaction_date=" + transactionDate))
+                .header("Authorization", "Bearer " + token)
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build();
+
+        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200) {
+            throw new IllegalStateException("SFTP 송신 권한 요청 실패: HTTP " + resp.statusCode() + " " + resp.body());
+        }
+
+        JsonNode node = objectMapper.readTree(resp.body());
+        String respCode = node.path("response_code").asText("");
+        if (!"B0000".equals(respCode)) {
+            throw new IllegalStateException("SFTP 송신 권한 오류: " + respCode + " " + node.path("response_message").asText());
         }
 
         JsonNode data = node.path("data");

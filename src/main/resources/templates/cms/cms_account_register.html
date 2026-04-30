@@ -1,0 +1,543 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-PENDING {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-SENT {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .status-FAILED {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-APPROVED {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-REJECTED {
+            background: #f0d0ff;
+            color: #6a0dad;
+        }
+
+        .flow-step {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .flow-pending {
+            background: #f5f6fa;
+            color: #aaa;
+            border: 1px solid #dde0ea;
+        }
+
+        .flow-sent {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .flow-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .flow-approved {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .flow-rejected {
+            background: #f0d0ff;
+            color: #6a0dad;
+        }
+
+        .grid-summary {
+            display: flex;
+            gap: 16px;
+            padding: 6px 10px;
+            background: #f5f6fa;
+            border: 1px solid #dde0ea;
+            border-top: none;
+            font-size: 12px;
+            color: #444;
+        }
+
+        .grid-summary span {
+            font-weight: 700;
+            color: #4a6cf7;
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>납부자 동의서 관리</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>수납 관리</li>
+                <li>납부자 동의서 관리</li>
+            </ul>
+        </div>
+
+        <!-- 흐름 안내 -->
+        <div style="display:flex; align-items:center; gap:8px; padding:10px 14px;
+                    background:#f0f2ff; border:1px solid #d0d6ff; border-radius:6px;
+                    margin-bottom:12px; font-size:12px; color:#333;">
+            <span style="font-weight:700; color:#4a6cf7;">처리 흐름</span>
+            <span class="flow-step flow-pending">① 등록대기</span>
+            <span style="color:#aaa;">→</span>
+            <span class="flow-step flow-sent">② EI13 송신</span>
+            <span style="color:#aaa;">→ 24시간 이내 →</span>
+            <span class="flow-step flow-sent">③ EB13 송신</span>
+            <span style="color:#aaa;">→ D+2 →</span>
+            <span class="flow-step flow-approved">④ EB14 수신</span>
+            <span style="color:#aaa;">→</span>
+            <span class="flow-step flow-approved">⑤ 동의완료</span>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt><label>납부자명</label></dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" class="form-control2" id="srchMemberName">
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt><label>상태</label></dt>
+                        <dd>
+                            <select id="srchStatus" class="form-control2" style="min-width:90px;">
+                                <option value="">전체</option>
+                                <option value="PENDING">대기</option>
+                                <option value="APPROVED">승인</option>
+                                <option value="REJECTED">거절</option>
+                            </select>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt><span class="eq"></span></dt>
+                        <dd>
+                            <li><a class="btn btn-delete" id="btnSearch">
+                                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색">검색</a></li>
+                        </dd>
+                    </dl>
+                </div>
+                <div style="display:flex; gap:4px; padding: 6px 0;">
+                    <button type="button" class="btn-default" id="btnRegister"
+                            style="background:#4a6cf7; color:#fff; width: 120px;" disabled>계좌등록 신청
+                    </button>
+                    <button type="button" class="btn-default" id="btnReRegister"
+                            style="background:#6c757d; color:#fff;" disabled>재신청
+                    </button>
+                </div>
+            </div>
+
+            <div class="container-fluid">
+                <div id="theGrid"></div>
+                <div class="grid-summary">
+                    <div>전체: <span id="summaryTotal">0</span>건</div>
+                    <div>승인: <span id="summaryApproved">0</span>건</div>
+                    <div>대기: <span id="summaryPending">0</span>건</div>
+                    <div>거절: <span id="summaryRejected">0</span>건</div>
+                </div>
+            </div>
+        </section>
+    </div>
+    <!-- 동의서 파일 모달 템플릿 -->
+    <script type="text/x-tmpl" id="agreeFileTmpl">
+        <div style="padding: 10px;">
+            <table class="write-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+                <colgroup><col style="width:30%"><col style="width:70%"></colgroup>
+                <tbody>
+                <tr>
+                    <th style="padding:5px; border:1px solid #ddd; text-align:center;">납부자명</th>
+                    <td style="padding:5px; border:1px solid #ddd;">{%=o.member_name%}</td>
+                </tr>
+                <tr>
+                    <th style="padding:5px; border:1px solid #ddd; text-align:center;">계좌번호</th>
+                    <td style="padding:5px; border:1px solid #ddd;">{%=o.bank_account%}</td>
+                </tr>
+                <tr>
+                    <th style="padding:5px; border:1px solid #ddd; text-align:center;">상태</th>
+                    <td style="padding:5px; border:1px solid #ddd;">{%=o.status_label%}</td>
+                </tr>
+                </tbody>
+            </table>
+            <div style="font-size:13px; font-weight:700; color:#4a6cf7;
+                 padding:6px 0 4px; border-bottom:1px solid #e0e4ef; margin-bottom:6px;">동의서 파일</div>
+            <div id="modalAgreeUploaderDiv"></div>
+        </div>
+    </script>
+
+</th:block>
+<th:block layout:fragment="scripts">
+    <th:block th:replace="common/ax5_uploader :: ax5_uploader"></th:block>
+    <script type="text/javascript">
+        var theGrid, viewdata;
+        var agreeUploader = null;
+        var currentItem = null;
+
+        var columns = [
+            {binding: 'id', header: 'ID', width: 60, align: 'center', visible: false},
+            {
+                binding: 'selected', header: '', width: 40, align: 'center',
+                isReadOnly: false, dataType: 'Boolean'
+            },
+            {binding: 'member_name', header: '납부자명', width: 110, align: 'left'},
+            {binding: 'member_no', header: '납부자번호', width: 120, align: 'center'},
+            {binding: 'bank_name', header: '은행', width: 80, align: 'center'},
+            {binding: 'bank_account', header: '계좌번호', width: 150, align: 'center'},
+            {
+                binding: 'apply_date', header: '신청일', width: 100, align: 'center',
+                cellTemplate: function (ctx) {
+                    var v = String(ctx.value || '');
+                    return v.length === 8
+                        ? v.substring(0, 4) + '-' + v.substring(4, 6) + '-' + v.substring(6, 8) : v || '-';
+                }
+            },
+            {
+                binding: 'ei13_status', header: 'EI13', width: 90, align: 'center',
+                cellTemplate: function (ctx) {
+                    return flowBadge(ctx.value);
+                }
+            },
+            {binding: 'ei13_sent_at', header: 'EI13 송신일시', width: 130, align: 'center'},
+            {
+                binding: 'eb13_status', header: 'EB13', width: 90, align: 'center',
+                cellTemplate: function (ctx) {
+                    return flowBadge(ctx.value);
+                }
+            },
+            {binding: 'eb13_sent_at', header: 'EB13 송신일시', width: 130, align: 'center'},
+            {
+                binding: 'eb14_result', header: 'EB14', width: 80, align: 'center',
+                cellTemplate: function (ctx) {
+                    if (!ctx.value) return '<span class="flow-step flow-pending">대기</span>';
+                    return ctx.value === 'N'
+                        ? '<span class="flow-step flow-rejected">불능</span>'
+                        : '<span class="flow-step flow-approved">정상</span>';
+                }
+            },
+            {binding: 'eb14_fail_code', header: '불능코드', width: 80, align: 'center'},
+            {
+                binding: 'status', header: '최종상태', width: 90, align: 'center',
+                cellTemplate: function (ctx) {
+                    var map = {PENDING: '대기', APPROVED: '승인완료', REJECTED: '거절'};
+                    var cls = {PENDING: 'status-PENDING', APPROVED: 'status-APPROVED', REJECTED: 'status-REJECTED'};
+                    return '<span class="status-badge ' + (cls[ctx.value] || '') + '">'
+                        + (map[ctx.value] || ctx.value || '') + '</span>';
+                }
+            },
+            {binding: 'agree_file_path', header: '동의서', width: 70, align: 'center',
+                cellTemplate: function(ctx) {
+                    return ctx.value
+                        ? '<span class="flow-step flow-approved">첨부됨</span>'
+                        : '<span class="flow-step flow-pending">미첨부</span>';
+                }},
+            {binding: 'memo', header: '메모', width: 150, align: 'left'},
+        ];
+
+        function flowBadge(status) {
+            var map = {PENDING: '대기', SENT: '송신완료', FAILED: '실패'};
+            var cls = {PENDING: 'flow-pending', SENT: 'flow-sent', FAILED: 'flow-failed'};
+            return '<span class="flow-step ' + (cls[status] || 'flow-pending') + '">'
+                + (map[status] || status || '-') + '</span>';
+        }
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            searchList();
+        }
+
+        function searchList() {
+            $.ajax({
+                url: withCtx('/api/cms/account-register/list'),
+                type: 'GET',
+                data: {
+                    memberName: $('#srchMemberName').val(),
+                    status: $('#srchStatus').val()
+                },
+                success: function (result) {
+                    if (result.success) {
+                        if (theGrid) theGrid.dispose();
+                        bindGrid(result.data || []);
+                        updateSummary(result.data || []);
+                        $('#detailPanel').hide();
+                    }
+                }
+            });
+        }
+
+        function bindGrid(data) {
+            data.forEach(function (item) {
+                item.selected = false;
+            });
+            viewdata = new wijmo.collections.CollectionView(data);
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+            theGrid.rowHeaders.columns.splice(0, 1);
+
+            // 헤더 체크박스
+            theGrid.formatItem.addHandler(function (s, e) {
+                var col = s.columns[e.col];
+                if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
+                    && col.binding === 'selected') {
+                    e.cell.innerHTML = '<input type="checkbox" id="chkAll">';
+                    var chk = e.cell.querySelector('#chkAll');
+                    if (chk) {
+                        chk.onclick = function (ev) {
+                            viewdata.items.forEach(function (r) {
+                                r.selected = ev.target.checked;
+                            });
+                            theGrid.refresh();
+                            updateButtons();
+                        };
+                    }
+                }
+                if (e.panel.cellType === wijmo.grid.CellType.Cell
+                    && col.binding === 'selected') {
+                    var item = s.rows[e.row].dataItem;
+                    e.cell.innerHTML = '<input type="checkbox" class="row-check"'
+                        + (item && item.selected ? ' checked' : '') + '>';
+                }
+            });
+
+            theGrid.hostElement.addEventListener('dblclick', function () {
+                var item = theGrid.selectedItems[0];
+                if (!item) return;
+                showFilePanel(item);
+            });
+
+            $('#theGrid').on('change', '.row-check', function () {
+                var row = theGrid.hitTest(this).row;
+                if (row >= 0 && viewdata.items[row]) {
+                    viewdata.items[row].selected = $(this).is(':checked');
+                }
+                updateButtons();
+            });
+        }
+
+        function updateSummary(data) {
+            $('#summaryTotal').text(data.length.toLocaleString());
+            $('#summaryApproved').text(data.filter(function (i) {
+                return i.status === 'APPROVED';
+            }).length.toLocaleString());
+            $('#summaryPending').text(data.filter(function (i) {
+                return i.status === 'PENDING';
+            }).length.toLocaleString());
+            $('#summaryRejected').text(data.filter(function (i) {
+                return i.status === 'REJECTED';
+            }).length.toLocaleString());
+        }
+
+        function updateButtons() {
+            var selected = (viewdata ? viewdata.items : []).filter(function(i) { return i.selected; });
+
+            var canRegister = selected.some(function(i) {
+                return i.status === 'PENDING'
+                    && i.ei13_status === 'PENDING'
+                    && i.eb13_status === 'PENDING';
+            });
+
+            var canReRegister = selected.some(function(i) {
+                return i.status === 'REJECTED'
+                    || i.ei13_status === 'FAILED'
+                    || i.eb13_status === 'FAILED';
+            });
+
+            $('#btnRegister')
+                .prop('disabled', !canRegister)
+                .css({
+                    'background': canRegister ? '#4a6cf7' : '#c0c8f0',
+                    'color': '#fff',
+                    'cursor': canRegister ? 'pointer' : 'not-allowed'
+                });
+
+            $('#btnReRegister')
+                .prop('disabled', !canReRegister)
+                .css({
+                    'background': canReRegister ? '#6c757d' : '#c8cacc',
+                    'color': '#fff',
+                    'cursor': canReRegister ? 'pointer' : 'not-allowed'
+                });
+        }
+
+        // 계좌등록 신청 — EI13 → EB13 자동 순서 처리
+        function register() {
+            var ids = getSelectedIds();
+            if (!ids.length) {
+                Alert.alert('', '신청할 항목을 선택하세요.');
+                return;
+            }
+
+            // 파일 없는 건 체크
+            var noFileItems = (viewdata ? viewdata.items : [])
+                .filter(function(i) { return i.selected && i.status === 'PENDING'; })
+                .filter(function(i) {
+                    return !i.agree_file_path && i.ei13_status === 'PENDING'; // EI13 미시도 건만 체크
+                });
+
+            if (noFileItems.length > 0) {
+                Alert.alert('', '동의서 파일을 먼저 첨부해주세요.\n(더블클릭하여 파일을 등록할 수 있습니다.)');
+                return;
+            }
+            Alert.confirm('', ids.length + '건 계좌등록을 신청하시겠습니까?', function () {
+                AjaxUtil.postAsyncData('/api/cms/account-register/register',
+                    {ids: ids.join(',')}, function (result) {
+                        if (result.success) {
+                            var d = result.data || {};
+                            Alert.alert('', '신청 완료: 성공 ' + (d.sent || 0) + '건, 실패 ' + (d.failed || 0) + '건');
+                        } else {
+                            Alert.alert('신청 실패', result.message);
+                        }
+                        searchList();
+                    });
+            });
+        }
+
+        // 재신청 — REJECTED 건 새 PENDING 생성
+        function reRegister() {
+            var ids = getSelectedIds().filter(function(id) {
+                var item = viewdata.items.find(function(i) { return i.id === id; });
+                return item && (
+                    item.status === 'REJECTED' ||
+                    item.ei13_status === 'FAILED' ||
+                    item.eb13_status === 'FAILED'
+                );
+            });
+            if (!ids.length) {
+                Alert.alert('', '재신청할 항목을 선택하세요.');
+                return;
+            }
+            Alert.confirm('', ids.length + '건을 재신청하시겠습니까?', function () {
+                AjaxUtil.postAsyncData('/api/cms/account-register/re-register',
+                    {ids: ids.join(',')}, function (result) {
+                        if (result.success) {
+                            var d = result.data || {};
+                            Alert.alert('', '재신청 완료: 성공 ' + (d.sent||0) + '건, 실패 ' + (d.failed||0) + '건');
+                        } else {
+                            Alert.alert('재신청 실패', result.message);
+                        }
+                        searchList();
+                    });
+            });
+        }
+
+        function getSelectedIds() {
+            return (viewdata ? viewdata.items : [])
+                .filter(function (i) {
+                    return i.selected;
+                })
+                .map(function (i) {
+                    return i.id;
+                });
+        }
+
+        // 파일 모달
+        function showFilePanel(item) {
+            currentItem = item;
+
+            var statusLabel = { PENDING:'대기', APPROVED:'승인완료', REJECTED:'거절' }[item.status] || item.status;
+            var data = {
+                member_name:  item.member_name  || '',
+                bank_account: item.bank_account || '',
+                status_label: statusLabel
+            };
+
+            var content = tmpl('agreeFileTmpl', data);
+            var $content = $(content);
+
+            var modal = new PopupDraggable('동의서 파일 관리');
+            modal.open({ width: 500, height: 420, $content });
+
+            // 모달 열린 후 업로더 초기화
+            setTimeout(function() {
+                agreeUploader = null;
+                $('#modalAgreeUploaderDiv').empty();
+                agreeUploader = new ax5FileUploadClass('modalAgreeUploaderDiv', item.id, {
+                    table_name:   'cms_account_register',
+                    attach_name:  'AGREE',
+                    accept_files: 'pdf',
+                    multiple:     false,
+                    max_count:    1,
+                    file_size:    10,
+                    manual_upload: false,
+                    upload_callback: function() {
+                        $.ajax({
+                            url: withCtx('/api/cms/account-register/update-file'),
+                            type: 'POST',
+                            headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
+                            data: { id: item.id, member_id: item.member_id },
+                            success: function() { modal.close(); searchList(); }
+                        });
+                    },
+                    can_write: item.status === 'PENDING'
+                });
+
+                // deleteFile 오버라이드 — 파일 삭제 시 agree_file_path 초기화
+                var originalDeleteFile = agreeUploader.deleteFile.bind(agreeUploader);
+                agreeUploader.deleteFile = function(fileIndex) {
+                    var result = originalDeleteFile(fileIndex);
+                    if (result) {
+                        $.ajax({
+                            url: withCtx('/api/cms/account-register/clear-file'),
+                            type: 'POST',
+                            headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
+                            data: { id: item.id },
+                            success: function() { searchList(); }
+                        });
+                    }
+                    return result;
+                };
+            }, 100);
+        }
+
+        $(document).ready(function () {
+            $('#btnSearch').click(searchList);
+            $('#srchMemberName').keypress(function (e) {
+                if (e.which === 13) searchList();
+            });
+            $('#btnRegister').click(register);
+            $('#btnReRegister').click(reRegister);
+        });
+    </script>
+
+</th:block>
+
+</html>

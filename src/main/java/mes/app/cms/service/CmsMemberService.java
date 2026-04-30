@@ -2,6 +2,7 @@ package mes.app.cms.service;
 
 import lombok.extern.slf4j.Slf4j;
 import mes.app.common.TenantContext;
+import mes.app.files.NcpObjectStorageService;
 import mes.domain.services.SqlRunner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -18,6 +19,14 @@ public class CmsMemberService {
     @Autowired
     SqlRunner sqlRunner;
 
+    @Autowired
+    private CmsAccountRegisterService cmsAccountRegisterService;
+
+    @Autowired
+    private NcpObjectStorageService storageService;
+
+    private String str(Object v) { return v != null ? v.toString() : ""; }
+
     /** 납부자 목록 조회 */
     public List<Map<String, Object>> getMemberList(String memberName, String memberNo, String status) {
         String spjangcd = TenantContext.get();
@@ -25,38 +34,49 @@ public class CmsMemberService {
         param.addValue("spjangcd", spjangcd);
 
         String sql = """
-                SELECT m.id
-                     , m.member_type
-                     , CASE m.member_type WHEN 'C' THEN '법인' WHEN 'S' THEN '개인사업자' ELSE '개인' END AS member_type_name
-                     , m.member_name
-                     , m.member_no
-                     , m.id_number
-                     , m.phone
-                     , m.email
-                     , m.zipcd
-                     , m.adresa
-                     , m.adresb
-                     , m.bank_code
-                     , b.bank_name
-                     , m.bank_account
-                     , m.account_holder
-                     , m.deduct_day
-                     , m.deduct_amount
-                     , m.cycle_type
-                     , m.cycle_months
-                     , m.start_date
-                     , m.end_date
-                     , m.agree_yn
-                     , m.agree_date
-                     , m.agree_method
-                     , m.status
-                     , m.memo
-                     , m._created
-                     , m._modified
-                FROM cms_member m
-                LEFT JOIN cms_bank_code b ON b.bank_code = m.bank_code
-                WHERE m.spjangcd = :spjangcd
-                """;
+            SELECT m.id
+                 , m.member_type
+                 , CASE m.member_type WHEN 'C' THEN '법인' WHEN 'S' THEN '개인사업자' ELSE '개인' END AS member_type_name
+                 , m.member_name
+                 , m.member_no
+                 , m.id_number
+                 , m.phone
+                 , m.email
+                 , m.zipcd
+                 , m.adresa
+                 , m.adresb
+                 , m.bank_code
+                 , b.bank_name
+                 , m.bank_account
+                 , m.account_holder
+                 , m.deduct_day
+                 , m.deduct_amount
+                 , m.cycle_type
+                 , m.cycle_months
+                 , m.start_date
+                 , m.end_date
+                 , m.agree_yn
+                 , m.agree_date
+                 , m.agree_method
+                 , m.status
+                 , m.memo
+                 , m._created
+                 , m._modified
+                 , CASE
+                       WHEN m.agree_yn = 'Y'        THEN '인증완료'
+                       WHEN r.status = 'REJECTED'   THEN '인증거절'
+                       WHEN r.status IN ('PENDING')  THEN '인증대기'
+                       ELSE '미신청'
+                   END AS agree_status
+            FROM cms_member m
+            LEFT JOIN cms_bank_code b ON b.bank_code = m.bank_code
+            LEFT JOIN LATERAL (
+                SELECT status FROM cms_account_register
+                WHERE member_id = m.id AND spjangcd = m.spjangcd
+                ORDER BY _created DESC LIMIT 1
+            ) r ON true
+            WHERE m.spjangcd = :spjangcd
+            """;
 
         if (StringUtils.hasText(memberName)) {
             sql += " AND m.member_name LIKE '%' || :memberName || '%'";
@@ -156,6 +176,19 @@ public class CmsMemberService {
         param.addValue("userId", userId);
 
         if (id == null) {
+            // 납부자번호 자동 채번
+            Map<String, Object> seqRow = sqlRunner.getRow(
+                    """
+                    SELECT COALESCE(MAX(CAST(SUBSTRING(member_no, LENGTH(:spjangcd) + 1) AS INTEGER)), 0) + 1 AS next_seq
+                    FROM cms_member
+                    WHERE spjangcd = :spjangcd
+                      AND member_no ~ ('^' || :spjangcd || '[0-9]+$')
+                    """,
+                    new MapSqlParameterSource("spjangcd", spjangcd));
+            int nextSeq = seqRow != null ? ((Number) seqRow.get("next_seq")).intValue() : 1;
+            String autoMemberNo = spjangcd + String.format("%06d", nextSeq);
+            param.addValue("memberNo", autoMemberNo);
+
             String sql = """
                     INSERT INTO cms_member (
                         spjangcd, member_type, member_name, member_no, id_number,
@@ -177,7 +210,34 @@ public class CmsMemberService {
                     """;
             Map<String, Object> row = sqlRunner.getRow(sql, param);
             if (row == null) return null;
-            return ((Number) row.get("id")).longValue();
+            Long savedId = ((Number) row.get("id")).longValue();
+
+            String checkseq = NcpObjectStorageService.toCheckseq("cms_member");
+            Map<String, Object> fileInfo = sqlRunner.getRow(
+                    """
+                    SELECT filepath, filesvnm, fileextns
+                    FROM TB_FILEINFO
+                    WHERE checkseq = :checkseq
+                      AND bbsseq   = :bbsseq
+                      AND spjangcd = :spjangcd
+                    ORDER BY fileseq DESC
+                    LIMIT 1
+                    """,
+                    new MapSqlParameterSource("checkseq", checkseq)
+                            .addValue("bbsseq", savedId.intValue())
+                            .addValue("spjangcd", spjangcd));
+
+            String agreeFilePath = null;
+            String agreeExt      = null;
+            if (fileInfo != null) {
+                agreeFilePath = fileInfo.get("filepath") + "/" + fileInfo.get("filesvnm");
+                agreeExt      = str(fileInfo.get("fileextns")).toLowerCase();
+            }
+
+            // cms_account_register 자동 생성
+            cmsAccountRegisterService.save(savedId, "1", agreeExt, agreeFilePath, userId);
+            return  savedId;
+
         } else {
             param.addValue("id", id);
             String sql = """
@@ -210,6 +270,33 @@ public class CmsMemberService {
                     WHERE id = :id AND spjangcd = :spjangcd
                     """;
             int affected = sqlRunner.execute(sql, param);
+
+            // cms_account_register 동기화 (PENDING 건만 — 이미 SENT/APPROVED는 건드리지 않음)
+            if (affected > 0) {
+                sqlRunner.execute(
+                        """
+                        UPDATE cms_account_register
+                        SET member_name    = (SELECT member_name FROM cms_member WHERE id = :memberId),
+                            bank_code      = :bankCode,
+                            bank_account   = :bankAccount,
+                            account_holder = :accountHolder,
+                            id_number      = :idNumber,
+                            member_type    = :memberType,
+                            _modified      = NOW()
+                        WHERE member_id = :memberId
+                          AND spjangcd  = :spjangcd
+                          AND status    = 'PENDING'
+                          AND ei13_status IN ('PENDING', 'FAILED')
+                        """,
+                        new MapSqlParameterSource("memberId", id)
+                                .addValue("spjangcd", spjangcd)
+                                .addValue("bankCode", bankCode)
+                                .addValue("bankAccount", bankAccount)
+                                .addValue("accountHolder", accountHolder)
+                                .addValue("idNumber", idNumber)
+                                .addValue("memberType", memberType));
+            }
+
             return affected > 0 ? id : null;
         }
     }

@@ -19,20 +19,21 @@ public class CmsDashboardService {
         String spjangcd = TenantContext.get();
         var param = new MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
-        param.addValue("ym", ym);
+        param.addValue("ymStart", ym + "01");
+        param.addValue("ymEnd",   ym + "31");
 
         String sql = """
-            SELECT COUNT(*)                                                          AS total_count,
-                   COALESCE(SUM(billing_amount), 0)                                 AS total_amount,
-                   COUNT(*) FILTER (WHERE status IN ('FAIL', 'ERROR'))               AS fail_count,
-                   ROUND(
-                       COUNT(*) FILTER (WHERE status = 'SUCCESS') * 100.0
-                       / NULLIF(COUNT(*) FILTER (WHERE status IN ('SUCCESS', 'FAIL')), 0),
-                   1)                                                                AS success_rate
-            FROM cms_billing
-            WHERE spjangcd  = :spjangcd
-              AND billing_ym = :ym
-            """;
+        SELECT COUNT(*)                                                          AS total_count,
+               COALESCE(SUM(billing_amount), 0)                                 AS total_amount,
+               COUNT(*) FILTER (WHERE status IN ('FAIL', 'ERROR'))               AS fail_count,
+               ROUND(
+                   COUNT(*) FILTER (WHERE status = 'SUCCESS') * 100.0
+                   / NULLIF(COUNT(*) FILTER (WHERE status IN ('SUCCESS', 'FAIL')), 0),
+               1)                                                                AS success_rate
+        FROM cms_billing
+        WHERE spjangcd   = :spjangcd
+          AND deduct_date BETWEEN :ymStart AND :ymEnd
+        """;
         return sqlRunner.getRow(sql, param);
     }
 
@@ -40,20 +41,21 @@ public class CmsDashboardService {
         String spjangcd = TenantContext.get();
         var param = new MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
-        param.addValue("ym", ym);
+        param.addValue("ymStart", ym + "01");
+        param.addValue("ymEnd",   ym + "31");
 
         String sql = """
-            SELECT deduct_date,
-                   COUNT(*)                                              AS total_count,
-                   COALESCE(SUM(billing_amount), 0)                     AS total_amount,
-                   COUNT(*) FILTER (WHERE status IN ('FAIL', 'ERROR'))   AS fail_count,
-                   COUNT(*) FILTER (WHERE status = 'PENDING')            AS pending_count
-            FROM cms_billing
-            WHERE spjangcd  = :spjangcd
-              AND billing_ym = :ym
-            GROUP BY deduct_date
-            ORDER BY deduct_date
-            """;
+        SELECT deduct_date,
+               COUNT(*)                                              AS total_count,
+               COALESCE(SUM(billing_amount), 0)                     AS total_amount,
+               COUNT(*) FILTER (WHERE status IN ('FAIL', 'ERROR'))   AS fail_count,
+               COUNT(*) FILTER (WHERE status = 'PENDING')            AS pending_count
+        FROM cms_billing
+        WHERE spjangcd   = :spjangcd
+          AND deduct_date BETWEEN :ymStart AND :ymEnd
+        GROUP BY deduct_date
+        ORDER BY deduct_date
+        """;
         return sqlRunner.getRows(sql, param);
     }
 
