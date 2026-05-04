@@ -8,8 +8,10 @@ import mes.domain.model.AjaxResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
 
@@ -91,15 +93,15 @@ public class CmsMemberController {
         } else {
             result.data = savedId;
             // 신규 등록(id == null)이고 ACTIVE 상태면 이번달 청구 즉시 생성
-            if (id == null && "ACTIVE".equals(status)) {
-                try {
-                    cmsBillingAutoGenerateService.generateForNewMember(
-                            TenantContext.get(), savedId, user.getUsername());
-                } catch (Exception e) {
-                    // 청구 생성 실패는 납부자 저장 자체를 롤백하지 않음 — 로그만
-                    result.message = "납부자 등록 완료. 이번달 청구 자동생성 중 오류가 발생했습니다.";
-                }
-            }
+//            if (id == null && "ACTIVE".equals(status)) {
+//                try {
+//                    cmsBillingAutoGenerateService.generateForNewMember(
+//                            TenantContext.get(), savedId, user.getUsername());
+//                } catch (Exception e) {
+//                    // 청구 생성 실패는 납부자 저장 자체를 롤백하지 않음 — 로그만
+//                    result.message = "납부자 등록 완료. 이번달 청구 자동생성 중 오류가 발생했습니다.";
+//                }
+//            }
         }
         return result;
     }
@@ -114,5 +116,18 @@ public class CmsMemberController {
             result.message = "삭제에 실패했습니다.";
         }
         return result;
+    }
+
+    @PostMapping("/excel-upload")
+    public AjaxResult excelUpload(@RequestParam("file") MultipartFile file, Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        AjaxResult result = new AjaxResult();
+        result.data = cmsMemberService.excelUpload(file, user.getUsername());
+        return result;
+    }
+
+    @GetMapping("/excel-template")
+    public void excelTemplate(HttpServletResponse response) throws Exception {
+        cmsMemberService.downloadTemplate(response);
     }
 }

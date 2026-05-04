@@ -85,6 +85,13 @@
                         <li><button type="button" class="btn-default" id="btnNew">신규등록</button></li>
                         <li><button type="button" class="btn-default" id="btnSave" style="background:#4a6cf7; color:#fff;">저장</button></li>
                         <li><button type="button" class="btn-danger" id="btnDel">삭제</button></li>
+                        <li>
+                            <button type="button" class="btn-default" id="btnExcelUpload">엑셀 업로드</button>
+                            <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none;">
+                        </li>
+                        <li>
+                            <button type="button" class="btn-default" id="btnExcelDownload" style="width: 110px;" onclick="downloadTemplate()">양식 다운로드</button>
+                        </li>
                     </ul>
                 </div>
 
@@ -366,6 +373,7 @@
                     '인증완료': '#d4edda|#155724',
                     '인증대기': '#cce5ff|#004085',
                     '인증거절': '#f0d0ff|#6a0dad',
+                    '인증실패': '#f8d7da|#721c24',
                     '미신청':   '#f5f6fa|#888'
                 };
                 var style = (map[ctx.value] || '#f5f6fa|#888').split('|');
@@ -390,6 +398,7 @@
         bindAgreeMethodChange();
         bindAmountFormat();
         applyMemberTypeLabel('C');  // 초기 구분: 법인
+        applyCycleType('REGULAR');
     }
 
     // 약정일 드롭다운 생성 (01~31일 + 말일)
@@ -437,10 +446,10 @@
     }
 
     function applyCycleType(type) {
-        var isRegular = (type === 'REGULAR');
-        $('.chk-month').prop('disabled', !isRegular);
-        $('#cycleMonthsWrap').css('opacity', isRegular ? '1' : '0.4');
-        if (!isRegular) $('.chk-month').prop('checked', false);
+        var isIrregular = (type === 'IRREGULAR');
+        $('.chk-month').prop('disabled', !isIrregular);
+        $('#cycleMonthsWrap').css('opacity', isIrregular ? '1' : '0.4');
+        if (!isIrregular) $('.chk-month').prop('checked', false);
     }
 
     // 동의방식 라디오 변경 이벤트
@@ -724,14 +733,14 @@
         }
         var id = item.id;
 
-        Alert.confirm('', '삭제(비활성화)하시겠습니까?', function() {
+        Alert.confirm('', '납부자와 관련된 청구/인증 이력이 함께 삭제됩니다.\n정말 삭제하시겠습니까?', function() {
             $.ajax({
                 url: withCtx('/api/cms/member/' + id),
                 type: 'DELETE',
                 headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
                 success: function(result) {
                     if (result.success) {
-                        Alert.alert('', '삭제(비활성화)되었습니다.');
+                        Alert.alert('', '삭제되었습니다.');
                         clearForm();
                         searchList();
                     } else {
@@ -752,6 +761,10 @@
         }).open();
     }
 
+    function downloadTemplate() {
+        window.location.href = withCtx('/api/cms/member/excel-template');
+    }
+
     $(document).ready(function() {
         $('#btnSearch').click(searchList);
         $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
@@ -759,6 +772,37 @@
         $('#btnNew').click(clearForm);
         $('#btnSave').click(saveMember);
         $('#btnDel').click(deleteMember);
+        $('#btnExcelUpload').click(function() {
+            $('#excelFileInput').val('').click();
+        });
+
+        $('#excelFileInput').on('change', function() {
+            var file = this.files[0];
+            if (!file) return;
+
+            var formData = new FormData();
+            formData.append('file', file);
+
+            Alert.confirm('', '엑셀 파일을 업로드하시겠습니까?', function() {
+                $.ajax({
+                    url: withCtx('/api/cms/member/excel-upload'),
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
+                    success: function(result) {
+                        if (result.success) {
+                            var d = result.data || {};
+                            Alert.alert('', '업로드 완료: 신규 ' + (d.inserted || 0) + '건, 수정 ' + (d.updated || 0) + '건, 실패 ' + (d.failed || 0) + '건');
+                            searchList();
+                        } else {
+                            Alert.alert('업로드 실패', result.message);
+                        }
+                    }
+                });
+            });
+        });
 
     });
 </script>

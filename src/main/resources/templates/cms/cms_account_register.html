@@ -38,6 +38,11 @@
             color: #6a0dad;
         }
 
+        .status-FAILED {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
         .flow-step {
             display: inline-flex;
             align-items: center;
@@ -96,13 +101,13 @@
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>납부자 동의서 관리</h2>
+                <h2>출금이제 인증 관리</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>수납 관리</li>
-                <li>납부자 동의서 관리</li>
+                <li>출금이제 인증 관리</li>
             </ul>
         </div>
 
@@ -113,11 +118,11 @@
             <span style="font-weight:700; color:#4a6cf7;">처리 흐름</span>
             <span class="flow-step flow-pending">① 등록대기</span>
             <span style="color:#aaa;">→</span>
-            <span class="flow-step flow-sent">② EI13 송신</span>
+            <span class="flow-step flow-sent">② 출금동의증빙자료(EI13) 송신</span>
             <span style="color:#aaa;">→ 24시간 이내 →</span>
-            <span class="flow-step flow-sent">③ EB13 송신</span>
+            <span class="flow-step flow-sent">③ 출금이체신청(EB13) 송신</span>
             <span style="color:#aaa;">→ D+2 →</span>
-            <span class="flow-step flow-approved">④ EB14 수신</span>
+            <span class="flow-step flow-approved">④ 출금이체신청결과(EB14) 수신</span>
             <span style="color:#aaa;">→</span>
             <span class="flow-step flow-approved">⑤ 동의완료</span>
         </div>
@@ -141,6 +146,7 @@
                                 <option value="PENDING">대기</option>
                                 <option value="APPROVED">승인</option>
                                 <option value="REJECTED">거절</option>
+                                <option value="FAILED">실패</option>
                             </select>
                         </dd>
                     </dl>
@@ -154,7 +160,7 @@
                 </div>
                 <div style="display:flex; gap:4px; padding: 6px 0;">
                     <button type="button" class="btn-default" id="btnRegister"
-                            style="background:#4a6cf7; color:#fff; width: 120px;" disabled>계좌등록 신청
+                            style="background:#4a6cf7; color:#fff; width: 120px;" disabled>인증 등록 신청
                     </button>
                     <button type="button" class="btn-default" id="btnReRegister"
                             style="background:#6c757d; color:#fff;" disabled>재신청
@@ -169,6 +175,7 @@
                     <div>승인: <span id="summaryApproved">0</span>건</div>
                     <div>대기: <span id="summaryPending">0</span>건</div>
                     <div>거절: <span id="summaryRejected">0</span>건</div>
+                    <div>실패: <span id="summaryFailed">0</span>건</div>
                 </div>
             </div>
         </section>
@@ -231,14 +238,16 @@
                     return flowBadge(ctx.value);
                 }
             },
-            {binding: 'ei13_sent_at', header: 'EI13 송신일시', width: 130, align: 'center'},
+            {binding: 'ei13_sent_at', header: 'EI13 송신일시', width: 130, align: 'center',
+                cellTemplate: function(ctx) { return formatDatetime(ctx.value); }},
             {
                 binding: 'eb13_status', header: 'EB13', width: 90, align: 'center',
                 cellTemplate: function (ctx) {
                     return flowBadge(ctx.value);
                 }
             },
-            {binding: 'eb13_sent_at', header: 'EB13 송신일시', width: 130, align: 'center'},
+            {binding: 'eb13_sent_at', header: 'EB13 송신일시', width: 130, align: 'center',
+                cellTemplate: function(ctx) { return formatDatetime(ctx.value); }},
             {
                 binding: 'eb14_result', header: 'EB14', width: 80, align: 'center',
                 cellTemplate: function (ctx) {
@@ -252,8 +261,13 @@
             {
                 binding: 'status', header: '최종상태', width: 90, align: 'center',
                 cellTemplate: function (ctx) {
-                    var map = {PENDING: '대기', APPROVED: '승인완료', REJECTED: '거절'};
-                    var cls = {PENDING: 'status-PENDING', APPROVED: 'status-APPROVED', REJECTED: 'status-REJECTED'};
+                    var item = ctx.row.dataItem;
+                    // EB13 송신완료면 승인대기로 표시
+                    if (ctx.value === 'PENDING' && item.eb13_status === 'SENT') {
+                        return '<span class="status-badge status-SENT">승인대기</span>';
+                    }
+                    var map = {PENDING: '대기', APPROVED: '승인완료', REJECTED: '거절', FAILED: '실패'};
+                    var cls = {PENDING: 'status-PENDING', APPROVED: 'status-APPROVED', REJECTED: 'status-REJECTED', FAILED: 'status-FAILED'};
                     return '<span class="status-badge ' + (cls[ctx.value] || '') + '">'
                         + (map[ctx.value] || ctx.value || '') + '</span>';
                 }
@@ -363,6 +377,9 @@
             }).length.toLocaleString());
             $('#summaryRejected').text(data.filter(function (i) {
                 return i.status === 'REJECTED';
+            }).length.toLocaleString());
+            $('#summaryFailed').text(data.filter(function (i) {
+                return i.status === 'FAILED';
             }).length.toLocaleString());
         }
 
@@ -526,6 +543,13 @@
                     return result;
                 };
             }, 100);
+        }
+
+        // 공통 함수 추가
+        function formatDatetime(val) {
+            if (!val) return '-';
+            var s = String(val).replace('T', ' ');
+            return s.length >= 19 ? s.substring(0, 19) : s;
         }
 
         $(document).ready(function () {

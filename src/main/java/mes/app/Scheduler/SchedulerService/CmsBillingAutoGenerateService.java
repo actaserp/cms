@@ -25,7 +25,7 @@ public class CmsBillingAutoGenerateService {
 
     /** 스케줄러 진입점 — 이번달 전체 */
     public void run() {
-        String billingYm = YearMonth.now().format(DateTimeFormatter.ofPattern("yyyyMM"));
+        String billingYm = YearMonth.now().plusMonths(1).format(DateTimeFormatter.ofPattern("yyyyMM"));
         log.info("[CmsBillingAutoGenerate] 시작 - 청구년월: {}", billingYm);
 
         List<Map<String, Object>> spjangs = sqlRunner.getRows(/* skip_tenant_check */
@@ -78,8 +78,13 @@ public class CmsBillingAutoGenerateService {
                   AND m.agree_yn    = 'Y'
                   AND m.start_date <= :lastDay
                   AND m.end_date   >= :firstDay
-                  AND m.cycle_type  = 'REGULAR'
-                  AND :monthStr = ANY(STRING_TO_ARRAY(m.cycle_months, ','))
+                  AND (
+                      m.cycle_type = 'REGULAR'   -- 정기: 매월 무조건 생성
+                      OR (
+                          m.cycle_type = 'IRREGULAR'  -- 비정기: 선택한 월만 생성
+                          AND :monthStr = ANY(STRING_TO_ARRAY(m.cycle_months, ','))
+                      )
+                  )
                   AND NOT EXISTS (
                       SELECT 1 FROM cms_billing b
                       WHERE b.member_id  = m.id
@@ -126,8 +131,13 @@ public class CmsBillingAutoGenerateService {
                   AND agree_yn = 'Y'
                   AND start_date <= :lastDay
                   AND end_date   >= :firstDay
-                  AND cycle_type  = 'REGULAR'
-                  AND :monthStr = ANY(STRING_TO_ARRAY(cycle_months, ','))
+                  AND (
+                      cycle_type = 'REGULAR'   -- 정기: 매월 무조건 생성
+                      OR (
+                          cycle_type = 'IRREGULAR'  -- 비정기: 선택한 월만 생성
+                          AND :monthStr = ANY(STRING_TO_ARRAY(cycle_months, ','))
+                      )
+                  )
                   AND NOT EXISTS (
                       SELECT 1 FROM cms_billing b
                       WHERE b.member_id = :memberId AND b.billing_ym = :billingYm AND b.spjangcd = :spjangcd

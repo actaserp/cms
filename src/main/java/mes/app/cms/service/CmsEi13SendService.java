@@ -118,6 +118,7 @@ public class CmsEi13SendService {
                     SET ei13_status='FAILED', memo=:errMsg,
                         ei13_sent_at=NOW(),
                         apply_date=:applyDate,
+                        status='FAILED',
                         _modified=NOW()
                     WHERE id IN (:ids)
                     """, param);

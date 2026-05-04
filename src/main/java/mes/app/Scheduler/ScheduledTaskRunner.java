@@ -3,6 +3,7 @@ package mes.app.Scheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mes.app.Scheduler.SchedulerService.*;
+import mes.app.cms.service.CmsEb14ReceiveService;
 import mes.app.notification.NotificationService;
 import mes.app.notification.NotificationTargetService;
 import mes.domain.entity.Notification;
@@ -32,6 +33,7 @@ public class ScheduledTaskRunner {
     private final CmsEc22ReceiveService         cmsEc22ReceiveService;
     private final NotificationService           notificationService;
     private final NotificationTargetService     notificationTargetService;
+    private final CmsEb14ReceiveService cmsEb14ReceiveService;
 
     /** 매일 00:30 실행, 말일에만 다음달 청구 생성 */
     @Scheduled(cron = "0 30 0 * * *", zone = "Asia/Seoul")
@@ -102,6 +104,12 @@ public class ScheduledTaskRunner {
                 notifyRetryFail("cms_billing", spjangcd, targetDate, "EB21");
             }
         }, "CMS EB21 재시도2"));
+    }
+
+    /** 매일 15:00 — EB14 결과파일 수신 (D+2 14:00부터 수신 가능) */
+    @Scheduled(cron = "0 0 15 * * *", zone = "Asia/Seoul")
+    public void runCmsEb14Receive() {
+        schedulerExecutor.execute(() -> safeRun(cmsEb14ReceiveService::run, "CMS EB14 결과수신"));
     }
 
     /** 매일 새벽 3시 — nginx 트래픽 집계 */

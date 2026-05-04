@@ -114,8 +114,8 @@ public class CmsEb13SendService {
             sqlRunner.execute(/* skip_tenant_check */
                     """
                     UPDATE cms_account_register
-                    SET ei13_status='FAILED', memo=:errMsg,
-                        apply_date=:applyDate,
+                    SET eb13_status='FAILED', memo=:errMsg,
+                        status='FAILED',
                         _modified=NOW()
                     WHERE id IN (:ids)
                     """, param);
