@@ -130,7 +130,7 @@ public class CmsAccountRegisterService {
         String spjangcd = TenantContext.get();
 
         List<Long> ei13Needed = sqlRunner.getRows(/* skip_tenant_check */
-                        "SELECT id FROM cms_account_register WHERE id IN (:ids) AND ei13_status IN ('PENDING','FAILED')",
+                        "SELECT id FROM cms_account_register WHERE id IN (:ids) AND ei13_status IN ('PENDING','FAILED') and spjangcd = :spjangcd",
                         new MapSqlParameterSource("ids", ids))
                 .stream().map(r -> ((Number)r.get("id")).longValue()).collect(Collectors.toList());
 
@@ -149,7 +149,7 @@ public class CmsAccountRegisterService {
         }
 
         List<Long> eb13Needed = sqlRunner.getRows(/* skip_tenant_check */
-                        "SELECT id FROM cms_account_register WHERE id IN (:ids) AND ei13_status = 'SENT' AND eb13_status IN ('PENDING','FAILED')",
+                        "SELECT id FROM cms_account_register WHERE id IN (:ids) AND ei13_status = 'SENT' AND eb13_status IN ('PENDING','FAILED') and spjangcd = :spjangcd",
                         new MapSqlParameterSource("ids", ids))
                 .stream().map(r -> ((Number)r.get("id")).longValue()).collect(Collectors.toList());
 

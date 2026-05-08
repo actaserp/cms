@@ -3,11 +3,13 @@ package mes.app.Scheduler.SchedulerService;
 import com.jcraft.jsch.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mes.app.cms.service.CmsTokenService;
 import mes.app.files.NcpObjectStorageService;
 import mes.domain.services.SqlRunner;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -35,7 +37,7 @@ public class CmsEc22ReceiveService {
 
     private final SqlRunner sqlRunner;
     private final NcpObjectStorageService storageService;
-    private final CmsEb21SendService cmsEb21SendService;
+    private final CmsTokenService cmsTokenService;
 
     @Value("${cms.sftp-host:tsftp.cmsedi.or.kr}")
     private String sftpHost;
@@ -44,31 +46,46 @@ public class CmsEc22ReceiveService {
     private int sftpPort;
 
     public void run() {
-        // D-1 출금일 = 어제 (오늘 새벽에 어제 출금 결과 수신)
         LocalDate yesterday = LocalDate.now().minusDays(1);
         String targetDate = yesterday.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String mmdd = targetDate.substring(4, 8);
         String yyyy = targetDate.substring(0, 4);
-        // 파일명: EC22{MMDD}_{YYYY} (금결원 규격)
         String ec22FileName = "EC22" + mmdd + "_" + yyyy;
 
         log.info("[CmsEc22Receive] 시작 - 출금대상일: {}, 파일: {}", targetDate, ec22FileName);
 
-        // 1. SFTP에서 EC22 파일 수신 (1회용 계정 획득 후)
-        byte[] fileBytes;
-        try {
-            fileBytes = sftpDownloadWithApiCredential(ec22FileName, targetDate);
-        } catch (Exception e) {
-            log.warn("[CmsEc22Receive] EC22 파일 없음 또는 수신 실패 (불능 0건일 수 있음): {}", e.getMessage());
-            markAllSuccess(targetDate);
+        List<Map<String, Object>> spjangs = sqlRunner.getRows(/* skip_tenant_check */
+                "SELECT DISTINCT spjangcd FROM cms_billing WHERE deduct_date=:td AND status='REQUESTED' AND deduct_type='EC'",
+                new MapSqlParameterSource("td", targetDate));
+
+        if (spjangs.isEmpty()) {
+            log.info("[CmsEc22Receive] REQUESTED 청구 없음 - 종료");
             return;
         }
 
-        // 2. NCP 백업 업로드
-        try (ByteArrayInputStream bis = new ByteArrayInputStream(fileBytes)) {
-            String objectKey = "cms/result/" + ec22FileName;
-            storageService.upload(objectKey, bis, fileBytes.length, "text/plain");
+        for (Map<String, Object> row : spjangs) {
+            String spjangcd = str(row.get("spjangcd"));
+            try {
+                processSpjang(spjangcd, targetDate, ec22FileName);
+            } catch (Exception e) {
+                log.error("[CmsEc22Receive] 실패 spjangcd={}: {}", spjangcd, e.getMessage(), e);
+            }
+        }
+    }
 
+    private void processSpjang(String spjangcd, String targetDate, String ec22FileName) throws Exception {
+        byte[] fileBytes;
+        try {
+            fileBytes = sftpDownloadWithApiCredential(ec22FileName, targetDate, spjangcd);
+        } catch (Exception e) {
+            log.warn("[CmsEc22Receive] EC22 파일 없음 또는 수신 실패 spjangcd={}: {}", spjangcd, e.getMessage());
+            markAllSuccess(targetDate, spjangcd);
+            return;
+        }
+
+        try (ByteArrayInputStream bis = new ByteArrayInputStream(fileBytes)) {
+            String objectKey = "cms/result/" + spjangcd + "/" + ec22FileName;
+            storageService.upload(objectKey, bis, fileBytes.length, "text/plain");
             sqlRunner.execute(/* skip_tenant_check */
                     """
                     INSERT INTO cms_file (
@@ -76,12 +93,13 @@ public class CmsEc22ReceiveService {
                         target_date, billing_count, billing_amount,
                         send_status, _creater_id, _created, _modifier_id, _modified
                     ) VALUES (
-                        'SYSTEM', :fileName, 'EC_RESULT', :filePath,
+                        :spjangcd, :fileName, 'EC_RESULT', :filePath,
                         CAST(:targetDate AS DATE), 0, 0,
                         'RECEIVED', 'SYSTEM', NOW(), 'SYSTEM', NOW()
                     )
                     """,
                     new MapSqlParameterSource()
+                            .addValue("spjangcd",   spjangcd)
                             .addValue("fileName",   ec22FileName)
                             .addValue("filePath",   objectKey)
                             .addValue("targetDate", targetDate));
@@ -89,11 +107,9 @@ public class CmsEc22ReceiveService {
             log.warn("[CmsEc22Receive] NCP 업로드 실패 (처리는 계속): {}", e.getMessage());
         }
 
-        // 3. EC22 파싱 — 불능 납부자번호(member_no) + 불능코드 추출
-        Map<String, String> failMap = parseEc22(fileBytes); // key=member_no, value=result_code
-        log.info("[CmsEc22Receive] 불능 건수: {}", failMap.size());
+        Map<String, String> failMap = parseEc22(fileBytes);
+        log.info("[CmsEc22Receive] 불능 건수 spjangcd={}: {}", spjangcd, failMap.size());
 
-        // 4. 어제 출금일 REQUESTED 상태 billing 전체 조회
         List<Map<String, Object>> requestedBillings = sqlRunner.getRows(/* skip_tenant_check */
                 """
                 SELECT b.id, m.member_no
@@ -101,70 +117,55 @@ public class CmsEc22ReceiveService {
                 LEFT JOIN cms_member m ON m.id = b.member_id
                 WHERE b.deduct_date = :targetDate
                   AND b.status      = 'REQUESTED'
+                  AND b.spjangcd    = :spjangcd
                 """,
-                new MapSqlParameterSource("targetDate", targetDate));
+                new MapSqlParameterSource("targetDate", targetDate).addValue("spjangcd", spjangcd));
 
         int successCount = 0, failCount = 0;
-
         for (Map<String, Object> b : requestedBillings) {
             long   billingId = ((Number) b.get("id")).longValue();
             String memberNo  = str(b.get("member_no"));
             var    p         = new MapSqlParameterSource("billingId", billingId);
-            p.addValue("resultDate", targetDate );
+            p.addValue("resultDate", targetDate);
 
-            // FAIL → result_date null
             if (failMap.containsKey(memberNo)) {
                 String resultCode = failMap.get(memberNo);
                 p.addValue("resultCode", resultCode);
                 p.addValue("resultMsg",  resolveFailMsg(resultCode));
                 sqlRunner.execute(/* skip_tenant_check */
                         """
-                        UPDATE cms_billing SET
-                            status      = 'FAIL',
-                            result_code = :resultCode,
-                            result_msg  = :resultMsg,
-                            result_date = NULL,
-                            _modified   = NOW()
-                        WHERE id = :billingId AND status = 'REQUESTED'
+                        UPDATE cms_billing SET status='FAIL', result_code=:resultCode,
+                            result_msg=:resultMsg, result_date=NULL, _modified=NOW()
+                        WHERE id=:billingId AND status='REQUESTED'
                         """, p);
                 failCount++;
             } else {
                 sqlRunner.execute(/* skip_tenant_check */
                         """
-                        UPDATE cms_billing SET
-                            status      = 'SUCCESS',
-                            result_code = '0000',
-                            result_msg  = '출금성공',
-                            result_date = :resultDate,
-                            _modified   = NOW()
-                        WHERE id = :billingId AND status = 'REQUESTED'
+                        UPDATE cms_billing SET status='SUCCESS', result_code='0000',
+                            result_msg='출금성공', result_date=:resultDate, _modified=NOW()
+                        WHERE id=:billingId AND status='REQUESTED'
                         """, p);
                 successCount++;
             }
         }
-
-        log.info("[CmsEc22Receive] 완료 - 성공: {}건, 실패: {}건", successCount, failCount);
+        log.info("[CmsEc22Receive] 완료 spjangcd={} 성공={}건 실패={}건", spjangcd, successCount, failCount);
     }
 
     /** EC22 파일이 없을 때 — 전체 REQUESTED → SUCCESS */
-    private void markAllSuccess(String targetDate) {
+    private void markAllSuccess(String targetDate, String spjangcd) {
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         var p = new MapSqlParameterSource();
         p.addValue("targetDate", targetDate);
         p.addValue("resultDate", today);
-        int cnt = sqlRunner.execute(/* skip_tenant_check */
+        p.addValue("spjangcd", spjangcd);
+        sqlRunner.execute(/* skip_tenant_check */
                 """
-                UPDATE cms_billing SET
-                    status      = 'SUCCESS',
-                    result_code = '0000',
-                    result_msg  = '출금성공',
-                    result_date = :resultDate,
-                    _modified   = NOW()
-                WHERE deduct_date = :targetDate AND status = 'REQUESTED'
+                UPDATE cms_billing SET status='SUCCESS', result_code='0000',
+                    result_msg='출금성공', result_date=:resultDate, _modified=NOW()
+                WHERE deduct_date=:targetDate AND status='REQUESTED' AND spjangcd=:spjangcd
                 """, p);
-        log.info("[CmsEc22Receive] EC22 없음 → 전체 SUCCESS 처리 {}건", cnt);
     }
-
     /**
      * EC22 파싱: R레코드에서 납부자번호(20자) + 불능코드(4자) 추출
      * EC22 Data Record (150B):
@@ -203,8 +204,8 @@ public class CmsEc22ReceiveService {
         return failMap;
     }
 
-    private byte[] sftpDownloadWithApiCredential(String fileName, String targetDate) throws Exception {
-        String[] cred = cmsEb21SendService.getSftpReceiveCredential("EC22", targetDate);
+    private byte[] sftpDownloadWithApiCredential(String fileName, String targetDate, String spjangcd) throws Exception {
+        String[] cred = cmsTokenService.getSftpReceiveCredential(spjangcd, "EC22", targetDate);
         String sftpUser = cred[0];
         String sftpPass = cred[1];
 

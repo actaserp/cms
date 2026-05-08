@@ -37,10 +37,7 @@ public class CmsEi13SendService {
 
     private final SqlRunner sqlRunner;
     private final NcpObjectStorageService storageService;
-    private final CmsEb21SendService cmsEb21SendService; // 토큰/SFTP 재사용
-
-    @Value("${cms.institution-code}")
-    private String institutionCode;
+    private final CmsTokenService cmsTokenService;
 
     @Value("${cms.sftp-host}")
     private String sftpHost;
@@ -53,6 +50,15 @@ public class CmsEi13SendService {
      */
     public Map<String, Object> send(List<Long> registerIds) {
         String spjangcd = TenantContext.get();
+
+        Map<String, Object> xa012 = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT cms_org_code FROM tb_xa012 WHERE spjangcd=:s",
+                new MapSqlParameterSource("s", spjangcd));
+        String institutionCode = xa012 != null ? str(xa012.get("cms_org_code")) : "";
+        if (!StringUtils.hasText(institutionCode)) {
+            log.error("[CmsEi13] cms_org_code 없음 spjangcd={}", spjangcd);
+            return Map.of("sent", 0, "failed", registerIds.size(), "message", "cms_org_code 미설정");
+        }
 
         List<Map<String, Object>> targets = sqlRunner.getRows(/* skip_tenant_check */
                 """
@@ -76,7 +82,7 @@ public class CmsEi13SendService {
 
         int sent = 0, failed = 0;
         try {
-            byte[] fileBytes = buildEi13File(spjangcd, targets, applyDate);
+            byte[] fileBytes = buildEi13File(spjangcd, targets, applyDate, institutionCode);
 
             // NCP 업로드
             String objectKey = storageService.buildObjectKey(spjangcd, FEATURE_CODE, fileName);
@@ -85,7 +91,7 @@ public class CmsEi13SendService {
             }
 
             // SFTP 송신
-            String[] cred = cmsEb21SendService.getSftpSendCredential("EI13", applyDate);
+            String[] cred = cmsTokenService.getSftpSendCredential(spjangcd, "EI13", applyDate);
             sftpUpload(fileBytes, fileName, cred[0], cred[1]);
 
             // 상태 업데이트
@@ -127,7 +133,7 @@ public class CmsEi13SendService {
         return Map.of("sent", sent, "failed", failed);
     }
 
-    private byte[] buildEi13File(String spjangcd, List<Map<String, Object>> targets, String applyDate) throws Exception {
+    private byte[] buildEi13File(String spjangcd, List<Map<String, Object>> targets, String applyDate, String institutionCode) throws Exception {
         String orgCode = padRight(institutionCode, 10);
         String orgCode20 = padRight(institutionCode, 20);
         int totalCount = targets.size();

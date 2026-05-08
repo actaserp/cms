@@ -35,10 +35,7 @@ public class CmsEb14ReceiveService {
     private static final Charset EUC_KR = Charset.forName("EUC-KR");
 
     private final SqlRunner sqlRunner;
-    private final CmsEb21SendService cmsEb21SendService;
-
-    @Value("${cms.institution-code}")
-    private String institutionCode;
+    private final CmsTokenService cmsTokenService;
 
     @Value("${cms.sftp-host}")
     private String sftpHost;
@@ -73,7 +70,7 @@ public class CmsEb14ReceiveService {
         String fileName = "EB14" + mmdd;
 
         // SFTP 수신 계정 획득
-        String[] cred = cmsEb21SendService.getSftpReceiveCredential("EB14", targetDate);
+        String[] cred = cmsTokenService.getSftpReceiveCredential(spjangcd, "EB14", targetDate);
         byte[] fileBytes = sftpDownload(fileName, cred[0], cred[1]);
 
         if (fileBytes == null) {

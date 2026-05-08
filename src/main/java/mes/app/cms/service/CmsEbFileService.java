@@ -113,7 +113,7 @@ public class CmsEbFileService {
             // NCP에서 파일 읽어 SFTP 전송
             try (ResponseInputStream<GetObjectResponse> s3Stream = storageService.download(objectKey)) {
                 byte[] fileBytes = s3Stream.readAllBytes();
-                cmsEb21SendService.sftpSendBytes(fileBytes, fileName, targetDate);
+                cmsEb21SendService.sftpSendBytes(fileBytes, fileName, targetDate, spjangcd);
             }
 
             var up = new MapSqlParameterSource("id", id).addValue("userId", userId);
@@ -210,7 +210,7 @@ public class CmsEbFileService {
 
             try (ResponseInputStream<GetObjectResponse> s3Stream = storageService.download(objectKey)) {
                 byte[] fileBytes = s3Stream.readAllBytes();
-                cmsEc21SendService.sftpSendBytes(fileBytes, fileName, targetDate);
+                cmsEc21SendService.sftpSendBytes(fileBytes, fileName, targetDate, spjangcd);
             }
 
             var up = new MapSqlParameterSource("id", id).addValue("userId", userId);

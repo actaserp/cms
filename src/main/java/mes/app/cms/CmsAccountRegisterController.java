@@ -108,8 +108,19 @@ public class CmsAccountRegisterController {
             AjaxResult r = new AjaxResult(); r.success = false;
             r.message = "신청할 항목을 선택하세요."; return r;
         }
+        Map<String, Object> res = cmsAccountRegisterService.register(ids);
+
+        int sentCnt  = res.get("sent")   != null ? ((Number)res.get("sent")).intValue()   : 0;
+        int failedCnt = res.get("failed") != null ? ((Number)res.get("failed")).intValue() : 0;
+        String message = res.get("message") != null ? (String)res.get("message") : null;
+
         AjaxResult result = new AjaxResult();
-        result.data = cmsAccountRegisterService.register(ids);
+        result.data = res;
+
+        if (sentCnt == 0 && failedCnt > 0) {
+            result.success = false;
+            result.message = message != null ? message : "신청 실패: " + failedCnt + "건";
+        }
         return result;
     }
 

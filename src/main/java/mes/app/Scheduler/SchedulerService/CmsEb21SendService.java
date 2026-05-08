@@ -1,11 +1,10 @@
 package mes.app.Scheduler.SchedulerService;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jcraft.jsch.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mes.app.cms.service.CmsBillingService;
+import mes.app.cms.service.CmsTokenService;
 import mes.app.files.NcpObjectStorageService;
 import mes.domain.services.SqlRunner;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,19 +15,13 @@ import org.springframework.util.StringUtils;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * D-1 15:00 실행 — 익일 출금 PENDING 청구 → EB21 생성 + NCP 업로드 + SFTP 전송
@@ -50,30 +43,14 @@ public class CmsEb21SendService {
     private final SqlRunner sqlRunner;
     private final NcpObjectStorageService storageService;
     private final CmsBillingService cmsBillingService;
-    private final HttpClient httpClient = HttpClient.newHttpClient();
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // 토큰 캐시 (23시간57분 유효 — 만료 10분 전 재발급)
-    private final AtomicReference<String>  cachedToken     = new AtomicReference<>();
-    private final AtomicReference<Instant> tokenExpireAt   = new AtomicReference<>(Instant.EPOCH);
-
-    @Value("${cms.institution-code}")
-    private String institutionCode;
-
-    @Value("${cms.api-base-url}")
-    private String apiBaseUrl;
-
-    @Value("${cms.client-id}")
-    private String clientId;
-
-    @Value("${cms.client-secret}")
-    private String clientSecret;
 
     @Value("${cms.sftp-host}")
     private String sftpHost;
 
     @Value("${cms.sftp-port}")
     private int sftpPort;
+
+    private final CmsTokenService cmsTokenService;
 
     public void run() {
         String targetDate = LocalDate.now().plusDays(1)
@@ -110,6 +87,16 @@ public class CmsEb21SendService {
     }
 
     private long generateAndSend(String spjangcd, String targetDate) throws Exception {
+        // institutionCode 조회
+        Map<String, Object> xa012Row = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT cms_org_code FROM tb_xa012 WHERE spjangcd=:s",
+                new MapSqlParameterSource("s", spjangcd));
+        String institutionCode = xa012Row != null ? str(xa012Row.get("cms_org_code")) : "";
+        if (!StringUtils.hasText(institutionCode)) {
+            log.error("[CmsEb21] cms_org_code 없음 spjangcd={}", spjangcd);
+            throw new IllegalStateException("cms_org_code 미설정 spjangcd=" + spjangcd);
+        }
+
         // 1. PENDING 청구 조회
         var param = new MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
@@ -152,7 +139,7 @@ public class CmsEb21SendService {
         billings = validBillings;
 
         // 2. EB21 생성
-        byte[] fileBytes = buildEb21File(spjangcd, billings);
+        byte[] fileBytes = buildEb21File(spjangcd, billings, institutionCode);
         // 파일명: EB21{MMDD}_{YYYY} (금결원 규격)
         String mmdd     = targetDate.substring(4, 8);
         String yyyy     = targetDate.substring(0, 4);
@@ -197,7 +184,7 @@ public class CmsEb21SendService {
         boolean sent = false;
         String errMsg = null;
         try {
-            sftpSendWithApiCredential(fileBytes, fileName, targetDate);
+            sftpSendWithApiCredential(fileBytes, fileName, targetDate, spjangcd);
             sent = true;
         } catch (Exception e) {
             errMsg = e.getMessage();
@@ -245,9 +232,9 @@ public class CmsEb21SendService {
         return fileId;
     }
 
-    /** 수동 SFTP 재전송 (CmsEbFileService에서 호출) */
-    public void sftpSendBytes(byte[] fileBytes, String fileName, String targetDate) throws Exception {
-        sftpSendWithApiCredential(fileBytes, fileName, targetDate);
+    // sftpSendBytes에 spjangcd 추가
+    public void sftpSendBytes(byte[] fileBytes, String fileName, String targetDate, String spjangcd) throws Exception {
+        sftpSendWithApiCredential(fileBytes, fileName, targetDate, spjangcd);
     }
 
     /** EB21 재시도 — ERROR 건을 PENDING으로 리셋 후 재전송 (스케줄러 호출). 실패한 spjangcd 목록 반환 */
@@ -313,123 +300,13 @@ public class CmsEb21SendService {
         return result;
     }
 
-    // ── OAuth2 토큰 관리 ───────────────────────────────────────────────────────
-
-    private synchronized String getToken() throws Exception {
-        // 만료 10분 전에 재발급
-        if (cachedToken.get() != null && Instant.now().isBefore(tokenExpireAt.get().minusSeconds(600))) {
-            log.info("[CmsEbFile] 캐시 토큰 사용: {}", cachedToken.get());
-            return cachedToken.get();
-        }
-
-        String body = "grant_type=client_credentials"
-                + "&client_id=" + clientId
-                + "&client_secret=" + clientSecret
-                + "&inst_code=" + institutionCode
-                + "&scope=CMS_INSTITUTE";
-
-        HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(apiBaseUrl + "/auth/token"))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-
-        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() != 200) {
-            throw new IllegalStateException("토큰 발급 실패: HTTP " + resp.statusCode() + " " + resp.body());
-        }
-
-        JsonNode node = objectMapper.readTree(resp.body());
-        String token = node.path("access_token").asText(null);
-        if (!StringUtils.hasText(token)) {
-            throw new IllegalStateException("토큰 발급 응답에 access_token 없음: " + resp.body());
-        }
-        long expiresIn = node.path("expires_in").asLong(86037); // 23h57m 기본
-        cachedToken.set(token);
-        tokenExpireAt.set(Instant.now().plusSeconds(expiresIn));
-        log.info("[CmsEbFile] 토큰 발급 완료, 유효시간={}s, 토큰: {}", expiresIn, token);
-        return token;
-    }
-
     // ── SFTP 1회용 계정 획득 + 전송 ───────────────────────────────────────────
 
-    private void sftpSendWithApiCredential(byte[] fileBytes, String fileName, String targetDate) throws Exception {
-        String token = getToken();
-
-        // 파일 송신 권한 요청 → 1회용 SFTP 계정
-        HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(apiBaseUrl + "/biz/batch?file_type=EB21&transaction_date=" + targetDate))
-                .header("Authorization", "Bearer " + token)
-                .POST(HttpRequest.BodyPublishers.noBody())
-                .build();
-
-        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() != 200) {
-            throw new IllegalStateException("SFTP 송신 권한 요청 실패: HTTP " + resp.statusCode() + " " + resp.body());
-        }
-
-        JsonNode node = objectMapper.readTree(resp.body());
-        String respCode = node.path("response_code").asText("");
-        if (!"B0000".equals(respCode)) {
-            throw new IllegalStateException("SFTP 송신 권한 오류: " + respCode + " " + node.path("response_message").asText());
-        }
-
-        JsonNode data = node.path("data");
-        String sftpUser = data.path("sftp_user_name").asText();
-        String sftpPass = data.path("sftp_password").asText();
-
-        log.info("[CmsEbFile] SFTP 1회용 계정 획득: user={}", sftpUser);
-        sftpUpload(fileBytes, fileName, sftpUser, sftpPass);
+    private void sftpSendWithApiCredential(byte[] fileBytes, String fileName, String targetDate, String spjangcd) throws Exception {
+        String[] cred = cmsTokenService.getSftpSendCredential(spjangcd, "EB21", targetDate);
+        sftpUpload(fileBytes, fileName, cred[0], cred[1]);
     }
 
-    /** SFTP 파일 수신용 1회용 계정 획득 (CmsEb22ReceiveService에서 호출) */
-    public String[] getSftpReceiveCredential(String fileType, String transactionDate) throws Exception {
-        String token = getToken();
-
-        HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(apiBaseUrl + "/biz/batch?file_type=" + fileType + "&transaction_date=" + transactionDate))
-                .header("Authorization", "Bearer " + token)
-                .GET()
-                .build();
-
-        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() != 200) {
-            throw new IllegalStateException("SFTP 수신 권한 요청 실패: HTTP " + resp.statusCode() + " " + resp.body());
-        }
-
-        JsonNode node = objectMapper.readTree(resp.body());
-        String respCode = node.path("response_code").asText("");
-        if (!"B0000".equals(respCode)) {
-            throw new IllegalStateException("SFTP 수신 권한 오류: " + respCode + " " + node.path("response_message").asText());
-        }
-
-        JsonNode data = node.path("data");
-        return new String[]{ data.path("sftp_user_name").asText(), data.path("sftp_password").asText() };
-    }
-
-    public String[] getSftpSendCredential(String fileType, String transactionDate) throws Exception {
-        String token = getToken();
-
-        HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(apiBaseUrl + "/biz/batch?file_type=" + fileType + "&transaction_date=" + transactionDate))
-                .header("Authorization", "Bearer " + token)
-                .POST(HttpRequest.BodyPublishers.noBody())
-                .build();
-
-        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() != 200) {
-            throw new IllegalStateException("SFTP 송신 권한 요청 실패: HTTP " + resp.statusCode() + " " + resp.body());
-        }
-
-        JsonNode node = objectMapper.readTree(resp.body());
-        String respCode = node.path("response_code").asText("");
-        if (!"B0000".equals(respCode)) {
-            throw new IllegalStateException("SFTP 송신 권한 오류: " + respCode + " " + node.path("response_message").asText());
-        }
-
-        JsonNode data = node.path("data");
-        return new String[]{ data.path("sftp_user_name").asText(), data.path("sftp_password").asText() };
-    }
 
     private void sftpUpload(byte[] fileBytes, String fileName, String user, String password)
             throws JSchException, SftpException {
@@ -461,7 +338,7 @@ public class CmsEb21SendService {
 
     // ── EB21 파일 포맷 ─────────────────────────────────────────────────────────
 
-    private byte[] buildEb21File(String spjangcd, List<Map<String, Object>> billings) throws IOException {
+    private byte[] buildEb21File(String spjangcd, List<Map<String, Object>> billings, String institutionCode) throws IOException {
         String orgCode = padRight(institutionCode, 10);
 
         Map<String, Object> spjang = sqlRunner.getRow(/* skip_tenant_check */

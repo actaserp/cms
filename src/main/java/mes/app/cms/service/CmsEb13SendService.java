@@ -39,10 +39,7 @@ public class CmsEb13SendService {
 
     private final SqlRunner sqlRunner;
     private final NcpObjectStorageService storageService;
-    private final CmsEb21SendService cmsEb21SendService;
-
-    @Value("${cms.institution-code}")
-    private String institutionCode;
+    private final CmsTokenService cmsTokenService;
 
     @Value("${cms.sftp-host}")
     private String sftpHost;
@@ -52,6 +49,15 @@ public class CmsEb13SendService {
 
     public Map<String, Object> send(List<Long> registerIds) {
         String spjangcd = TenantContext.get();
+
+        Map<String, Object> xa012 = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT cms_org_code FROM tb_xa012 WHERE spjangcd=:s",
+                new MapSqlParameterSource("s", spjangcd));
+        String institutionCode = xa012 != null ? str(xa012.get("cms_org_code")) : "";
+        if (!StringUtils.hasText(institutionCode)) {
+            log.error("[CmsEb13] cms_org_code 없음 spjangcd={}", spjangcd);
+            return Map.of("sent", 0, "failed", 0, "message", "cms_org_code 미설정");
+        }
 
         List<Map<String, Object>> targets = sqlRunner.getRows(/* skip_tenant_check */
                 """
@@ -76,7 +82,7 @@ public class CmsEb13SendService {
 
         int sent = 0, failed = 0;
         try {
-            byte[] fileBytes = buildEb13File(targets, applyDate);
+            byte[] fileBytes = buildEb13File(targets, applyDate, institutionCode);
 
             // NCP 업로드
             String objectKey = storageService.buildObjectKey(spjangcd, FEATURE_CODE, fileName);
@@ -85,7 +91,7 @@ public class CmsEb13SendService {
             }
 
             // SFTP 송신
-            String[] cred = cmsEb21SendService.getSftpSendCredential("EB13", applyDate);
+            String[] cred = cmsTokenService.getSftpSendCredential(spjangcd, "EB13", applyDate);
             sftpUpload(fileBytes, fileName, cred[0], cred[1]);
 
             // 상태 업데이트
@@ -124,7 +130,7 @@ public class CmsEb13SendService {
         return Map.of("sent", sent, "failed", failed);
     }
 
-    private byte[] buildEb13File(List<Map<String, Object>> targets, String applyDate) throws IOException {
+    private byte[] buildEb13File(List<Map<String, Object>> targets, String applyDate, String institutionCode) throws IOException {
         String orgCode = padRight(institutionCode, 10);
         String mmdd = applyDate.substring(4, 8);
         String yymmdd = applyDate.substring(2, 8);

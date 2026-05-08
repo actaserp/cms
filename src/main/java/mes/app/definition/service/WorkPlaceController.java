@@ -72,6 +72,10 @@ public class WorkPlaceController {
         }
 
         try {
+            if (tbXa012.getBill_plans_id() == null) {
+                tbXa012.setBill_plans_id(1);
+            }
+
             tbXa012Repository.save(tbXa012);
             result.success = true;
             result.message = "저장되었습니다.";

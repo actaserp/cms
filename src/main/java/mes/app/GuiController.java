@@ -43,6 +43,7 @@ public class GuiController {
 	MenuItemRepository menuItemRepository;
 
 	private ModelAndView getView(String gui, String templateName, User user, MultiValueMap<String, String> allRequestParams) {
+		String spjangcd = TenantContext.get();
 		ModelAndView mv = new ModelAndView();
 
 		// menuItemRepository → JPA → mainDataSource (항상 메인 DB)
@@ -84,10 +85,11 @@ public class GuiController {
 				MapSqlParameterSource dicParam = new MapSqlParameterSource();
 				dicParam.addValue("MenuCode", gui);
 				dicParam.addValue("UserGroupId", user.getUserProfile().getUserGroup().getId());
+				dicParam.addValue("spjangcd", spjangcd);
 
 				String sql = """
                         select "AuthCode" from user_group_menu ugm
-                        where ugm."MenuCode" = :MenuCode and "UserGroup_id" = :UserGroupId
+                        where ugm."MenuCode" = :MenuCode and "UserGroup_id" = :UserGroupId and spjangcd = :spjangcd
                         """;
 
 				Map<String, Object> map = this.sqlRunner.getRow(sql, dicParam);
