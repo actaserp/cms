@@ -51,12 +51,12 @@ public class CmsEb13SendService {
         String spjangcd = TenantContext.get();
 
         Map<String, Object> xa012 = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT cms_org_code FROM tb_xa012 WHERE spjangcd=:s",
+                "SELECT cms_code FROM tb_xa012_cms WHERE spjangcd=:s",
                 new MapSqlParameterSource("s", spjangcd));
-        String institutionCode = xa012 != null ? str(xa012.get("cms_org_code")) : "";
+        String institutionCode = xa012 != null ? str(xa012.get("cms_code")) : "";
         if (!StringUtils.hasText(institutionCode)) {
-            log.error("[CmsEb13] cms_org_code 없음 spjangcd={}", spjangcd);
-            return Map.of("sent", 0, "failed", 0, "message", "cms_org_code 미설정");
+            log.error("[CmsEb13] cms_code 없음 spjangcd={}", spjangcd);
+            return Map.of("sent", 0, "failed", 0, "message", "cms_code 미설정");
         }
 
         List<Map<String, Object>> targets = sqlRunner.getRows(/* skip_tenant_check */

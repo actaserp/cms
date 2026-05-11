@@ -130,4 +130,19 @@ public class CmsMemberController {
     public void excelTemplate(HttpServletResponse response) throws Exception {
         cmsMemberService.downloadTemplate(response);
     }
+
+    /** ERP 동기화 */
+    @PostMapping("/erp-sync")
+    public AjaxResult erpSync(Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        try {
+            result.data = cmsMemberService.syncFromErp(user.getSpjangcd(), user.getUsername());
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
 }

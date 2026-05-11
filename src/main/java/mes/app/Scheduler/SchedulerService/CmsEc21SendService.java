@@ -96,12 +96,12 @@ public class CmsEc21SendService {
     private long generateAndSend(String spjangcd, String targetDate) throws Exception {
         // institutionCode 조회
         Map<String, Object> xa012Row = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT cms_org_code FROM tb_xa012 WHERE spjangcd=:s",
+                "SELECT cms_code FROM tb_xa012_cms WHERE spjangcd=:s",
                 new MapSqlParameterSource("s", spjangcd));
-        String institutionCode = xa012Row != null ? str(xa012Row.get("cms_org_code")) : "";
+        String institutionCode = xa012Row != null ? str(xa012Row.get("cms_code")) : "";
         if (!StringUtils.hasText(institutionCode)) {
-            log.error("[CmsEc21] cms_org_code 없음 spjangcd={}", spjangcd);
-            throw new IllegalStateException("cms_org_code 미설정 spjangcd=" + spjangcd);
+            log.error("[CmsEc21] cms_code 없음 spjangcd={}", spjangcd);
+            throw new IllegalStateException("cms_code 미설정 spjangcd=" + spjangcd);
         }
 
         // 1. PENDING 청구 조회
@@ -130,7 +130,6 @@ public class CmsEc21SendService {
         for (Map<String, Object> b : billings) {
             if (StringUtils.hasText(str(b.get("bank_code")))
                     && StringUtils.hasText(str(b.get("bank_account")))
-                    && StringUtils.hasText(str(b.get("account_holder")))
                     && b.get("billing_amount") != null) {
                 validBillings.add(b);
             } else {
@@ -350,7 +349,7 @@ public class CmsEc21SendService {
         String orgCode = padRight(institutionCode, 10);
 
         Map<String, Object> spjang = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT cms_bank_branch, cms_recv_account, cms_description FROM tb_xa012 WHERE spjangcd=:s",
+                "SELECT cms_bank_branch, cms_recv_account, cms_description FROM tb_xa012_cms WHERE spjangcd=:s",
                 new MapSqlParameterSource("s", spjangcd));
 
         String bankBranch = padRight(spjang != null ? str(spjang.get("cms_bank_branch"))  : "", 7);

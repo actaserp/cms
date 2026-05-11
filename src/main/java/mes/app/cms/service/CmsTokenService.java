@@ -51,11 +51,11 @@ public class CmsTokenService {
         }
 
         Map<String, Object> xa012 = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT cms_org_code FROM tb_xa012 WHERE spjangcd = :spjangcd",
+                "SELECT cms_code FROM tb_xa012_cms WHERE spjangcd = :spjangcd",
                 new MapSqlParameterSource("spjangcd", spjangcd));
-        String institutionCode = xa012 != null ? str(xa012.get("cms_org_code")) : "";
+        String institutionCode = xa012 != null ? str(xa012.get("cms_code")) : "";
         if (!StringUtils.hasText(institutionCode)) {
-            throw new IllegalStateException("cms_org_code 미설정 spjangcd=" + spjangcd);
+            throw new IllegalStateException("cms_code 미설정 spjangcd=" + spjangcd);
         }
 
         String body = "grant_type=client_credentials"

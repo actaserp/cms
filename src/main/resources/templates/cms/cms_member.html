@@ -92,6 +92,11 @@
                         <li>
                             <button type="button" class="btn-default" id="btnExcelDownload" style="width: 110px;" onclick="downloadTemplate()">양식 다운로드</button>
                         </li>
+                        <li>
+                            <button type="button" class="btn-default" id="btnErpSync" style="background:#ff7f00; color:#fff;">
+                                ERP 동기화
+                            </button>
+                        </li>
                     </ul>
                 </div>
 
@@ -399,6 +404,17 @@
         bindAmountFormat();
         applyMemberTypeLabel('C');  // 초기 구분: 법인
         applyCycleType('REGULAR');
+        // ERP 연동 여부 확인
+        $.ajax({
+            url: withCtx('/api/workplace/detail/' + spjangcd),
+            success: function(res) {
+                if (res.data && res.data.erp) {
+                    $('#btnErpSync').show();
+                } else {
+                    $('#btnErpSync').hide();
+                }
+            }
+        });
     }
 
     // 약정일 드롭다운 생성 (01~31일 + 말일)
@@ -803,7 +819,24 @@
                 });
             });
         });
-
+        $('#btnErpSync').click(function() {
+            Alert.confirm('', 'ERP(MS SQL)에서 납부자 정보를 동기화하시겠습니까?', function() {
+                $.ajax({
+                    url: withCtx('/api/cms/member/erp-sync'),
+                    type: 'POST',
+                    headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
+                    success: function(result) {
+                        if (result.success) {
+                            var d = result.data || {};
+                            Alert.alert('', '동기화 완료: 신규 ' + (d.inserted || 0) + '건, 수정 ' + (d.updated || 0) + '건');
+                            searchList();
+                        } else {
+                            Alert.alert('', result.message || '동기화 실패');
+                        }
+                    }
+                });
+            });
+        });
     });
 </script>
 </th:block>

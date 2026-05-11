@@ -233,8 +233,10 @@ public class CmsBillingService {
                   AND m.agree_date IS NOT NULL
                   AND m.start_date  <= :lastDay
                   AND m.end_date    >= :firstDay
-                  AND m.cycle_type   = 'REGULAR'
-                  AND :monthStr      = ANY(STRING_TO_ARRAY(m.cycle_months, ','))
+                  AND (
+                      m.cycle_type = 'REGULAR'
+                      OR (m.cycle_type = 'IRREGULAR' AND :monthStr = ANY(STRING_TO_ARRAY(m.cycle_months, ',')))
+                  )
                   AND NOT EXISTS (
                       SELECT 1 FROM cms_billing b
                       WHERE b.member_id   = m.id

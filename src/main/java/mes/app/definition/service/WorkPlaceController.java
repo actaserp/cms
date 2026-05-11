@@ -1,39 +1,31 @@
 package mes.app.definition.service;
 
-import mes.app.mobile.Service.AttendanceCurrentService;
-import mes.domain.entity.Tb_xa012;
 import mes.domain.entity.User;
 import mes.domain.model.AjaxResult;
 import mes.domain.repository.Tb_xa012Repository;
-import mes.domain.repository.mobile.TB_PB204Repository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletRequest;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/workplace")
 public class WorkPlaceController {
-    @Autowired
-    WorkPlaceService workPlaceService;
-    @Autowired
-    Tb_xa012Repository tbXa012Repository;
-    
+
+    @Autowired WorkPlaceService workPlaceService;
+    @Autowired Tb_xa012Repository tbXa012Repository;
+
     private boolean isAdmin(Authentication auth) {
         User user = (User) auth.getPrincipal();
         return "admin".equals(user.getUsername()) || Boolean.TRUE.equals(user.getSuperUser());
     }
 
-    // 사업장정보 리스트 조회 (어드민 전용)
+    // ── 사업장 기본 CRUD ──────────────────────────────────
+
     @GetMapping("/read")
-    public AjaxResult getSpjangInfo(
-            HttpServletRequest request,
-            Authentication auth) {
+    public AjaxResult getSpjangInfo(Authentication auth) {
         AjaxResult result = new AjaxResult();
         if (!isAdmin(auth)) {
             result.success = false;
@@ -44,54 +36,42 @@ public class WorkPlaceController {
         return result;
     }
 
-    // 현재 사용자의 사업장 조회
     @GetMapping("/my")
-    public AjaxResult getMySpjangInfo(
-            HttpServletRequest request,
-            Authentication auth) {
+    public AjaxResult getMySpjangInfo(Authentication auth) {
         AjaxResult result = new AjaxResult();
         User user = (User) auth.getPrincipal();
-        tbXa012Repository.findById(user.getSpjangcd()).ifPresent(item -> result.data = item);
+        result.data = workPlaceService.getSpjangWithCmsErp(user.getSpjangcd());
         return result;
     }
 
-    // 사업장 저장 (어드민: 모든 사업장, 일반: 자기 사업장만)
     @PostMapping("/save")
     public AjaxResult saveSpjangInfo(
-            @ModelAttribute Tb_xa012 tbXa012,
-            HttpServletRequest request,
+            @RequestBody Map<String, Object> req,
             Authentication auth) {
         AjaxResult result = new AjaxResult();
         User user = (User) auth.getPrincipal();
+        String spjangcd = (String) req.get("spjangcd");
 
-        // 어드민이 아니면 자기 spjangcd 외 저장 불가
-        if (!isAdmin(auth) && !user.getSpjangcd().equals(tbXa012.getSpjangcd())) {
+        if (!isAdmin(auth) && !user.getSpjangcd().equals(spjangcd)) {
             result.success = false;
             result.message = "권한이 없습니다.";
             return result;
         }
-
         try {
-            if (tbXa012.getBill_plans_id() == null) {
-                tbXa012.setBill_plans_id(1);
-            }
-
-            tbXa012Repository.save(tbXa012);
+            workPlaceService.saveSpjangWithCmsErp(req);
             result.success = true;
             result.message = "저장되었습니다.";
         } catch (Exception e) {
             e.printStackTrace();
             result.success = false;
-            result.message = "저장 중 오류 발생";
+            result.message = "저장 중 오류 발생: " + e.getMessage();
         }
         return result;
     }
 
-    // 사업장 삭제 (어드민 전용)
     @PostMapping("/delete")
     public AjaxResult deleteSpjangInfo(
             @RequestBody Map<String, Object> param,
-            HttpServletRequest request,
             Authentication auth) {
         AjaxResult result = new AjaxResult();
         if (!isAdmin(auth)) {
@@ -99,9 +79,8 @@ public class WorkPlaceController {
             result.message = "권한이 없습니다.";
             return result;
         }
-        String spjangcd = (String) param.get("spjangcd");
         try {
-            tbXa012Repository.deleteById(spjangcd);
+            tbXa012Repository.deleteById((String) param.get("spjangcd"));
             result.success = true;
             result.message = "삭제되었습니다.";
         } catch (Exception e) {
@@ -111,25 +90,140 @@ public class WorkPlaceController {
         }
         return result;
     }
-    // 세무서 팝업 리스트 조회
+
+    // ── CMS ───────────────────────────────────────────────
+
+    @GetMapping("/cms/{spjangcd}")
+    public AjaxResult getCms(
+            @PathVariable String spjangcd,
+            Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        if (!isAdmin(auth) && !user.getSpjangcd().equals(spjangcd)) {
+            result.success = false;
+            result.message = "권한이 없습니다.";
+            return result;
+        }
+        result.data = workPlaceService.getCms(spjangcd);
+        return result;
+    }
+
+    // ── ERP 연결 테스트 ───────────────────────────────────
+
+    @PostMapping("/erp-test")
+    public AjaxResult erpTest(
+            @RequestBody Map<String, Object> req,
+            Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        try {
+            workPlaceService.testErpConnection(req, user.getSpjangcd());
+            result.success = true;
+            result.message = "연결 성공";
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    // ── 분점 ──────────────────────────────────────────────
+
+    @GetMapping("/branches/{spjangcd}")
+    public AjaxResult getBranches(
+            @PathVariable String spjangcd,
+            Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        if (!isAdmin(auth) && !user.getSpjangcd().equals(spjangcd)) {
+            result.success = false;
+            result.message = "권한이 없습니다.";
+            return result;
+        }
+        result.data = workPlaceService.getBranches(spjangcd);
+        return result;
+    }
+
+    @PostMapping("/branch/save")
+    public AjaxResult saveBranch(
+            @RequestBody Map<String, Object> req,
+            Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        if (!isAdmin(auth) && !user.getSpjangcd().equals(req.get("parentSpjangcd"))) {
+            result.success = false;
+            result.message = "권한이 없습니다.";
+            return result;
+        }
+        try {
+            workPlaceService.saveBranch(req);
+            result.success = true;
+            result.message = "저장되었습니다.";
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.success = false;
+            result.message = "저장 중 오류 발생: " + e.getMessage();
+        }
+        return result;
+    }
+
+    @DeleteMapping("/branch/{spjangcd}")
+    public AjaxResult deleteBranch(
+            @PathVariable String spjangcd,
+            Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        try {
+            workPlaceService.deleteBranch(spjangcd);
+            result.success = true;
+            result.message = "삭제되었습니다.";
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.success = false;
+            result.message = "삭제 중 오류 발생: " + e.getMessage();
+        }
+        return result;
+    }
+
+    // ── 세무서 팝업 ───────────────────────────────────────
+
     @GetMapping("/readPopup")
     public AjaxResult readPopup(
             @RequestParam String spjangcd,
             @RequestParam String taxcd,
             @RequestParam String taxnm2,
             @RequestParam String taxjiyuk,
-            HttpServletRequest request,
             Authentication auth) {
         AjaxResult result = new AjaxResult();
         try {
             result.data = workPlaceService.getPopupList(taxcd, taxnm2, taxjiyuk);
             result.success = true;
-            result.message = "팝업데이터 조회 성공";
         } catch (Exception e) {
             e.printStackTrace();
             result.success = false;
             result.message = "팝업조회 중 오류 발생";
         }
+        return result;
+    }
+
+    @GetMapping("/banks")
+    public AjaxResult getBanks() {
+        AjaxResult result = new AjaxResult();
+        result.data = workPlaceService.getBankList();
+        return result;
+    }
+
+    @GetMapping("/detail/{spjangcd}")
+    public AjaxResult getSpjangDetail(
+            @PathVariable String spjangcd,
+            Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        if (!isAdmin(auth) && !user.getSpjangcd().equals(spjangcd)) {
+            result.success = false;
+            result.message = "권한이 없습니다.";
+            return result;
+        }
+        result.data = workPlaceService.getSpjangWithCmsErp(spjangcd);
         return result;
     }
 }
