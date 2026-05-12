@@ -1,5 +1,6 @@
 package mes.app.Scheduler.SchedulerService;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.jcraft.jsch.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,7 +59,15 @@ public class CmsEb21SendService {
         log.info("[CmsEbFileGenerate] 시작 - 출금대상일: {}", targetDate);
 
         List<Map<String, Object>> spjangs = sqlRunner.getRows(/* skip_tenant_check */
-                "SELECT DISTINCT spjangcd FROM cms_billing WHERE deduct_date = :td AND status = 'PENDING' AND deduct_type = 'EB'",
+                """
+                SELECT DISTINCT b.spjangcd 
+                FROM cms_billing b
+                JOIN tb_xa012_cms c ON c.spjangcd = b.spjangcd
+                WHERE b.deduct_date = :td 
+                  AND b.status = 'PENDING' 
+                  AND b.deduct_type = 'EB'
+                  AND c.auto_send_yn = 'Y'
+                """,
                 new MapSqlParameterSource("td", targetDate));
 
         log.info("[CmsEbFileGenerate] 대상 사업장 수: {}", spjangs.size());
@@ -138,7 +147,7 @@ public class CmsEb21SendService {
         billings = validBillings;
 
         // 2. EB21 생성
-        byte[] fileBytes = buildEb21File(spjangcd, billings, institutionCode);
+        byte[] fileBytes = buildEb21File(spjangcd, billings, institutionCode, targetDate);
         // 파일명: EB21{MMDD}_{YYYY} (금결원 규격)
         String mmdd     = targetDate.substring(4, 8);
         String yyyy     = targetDate.substring(0, 4);
@@ -228,6 +237,31 @@ public class CmsEb21SendService {
 
         log.info("[CmsEbFileGenerate] spjangcd={} 파일={} {}건 {}원 SFTP={}",
                 spjangcd, fileName, billings.size(), totalAmount, sent ? "OK" : "FAILED");
+
+        // 수정 - 전송 후 상태 확인 → 오류 시 FAILED 처리
+        try {
+            JsonNode statusNode = cmsTokenService.getFileStatus(spjangcd, "EB21", targetDate, true);
+            int fileStatus = statusNode.path("data").path("file_status").asInt(-1);
+            log.info("[CmsEb21] 파일상태확인 spjangcd={} file_status={}", spjangcd, fileStatus);
+
+            if (fileStatus >= 2 && fileStatus <= 4) {
+                // 센터 오류 - 상세 조회
+                String errDetail = "";
+                try {
+                    JsonNode errNode = cmsTokenService.getCenterError(spjangcd, "EB21", targetDate);
+                    errDetail = errNode.path("data").path("validation_message").asText("");
+                } catch (Exception ignored) {}
+
+                String errMsg2 = "금결원 센터오류 (status=" + fileStatus + ")" + (errDetail.isEmpty() ? "" : ": " + errDetail);
+                sqlRunner.execute(/* skip_tenant_check */
+                        "UPDATE cms_file SET send_status='FAILED', error_message=:msg, _modified=NOW() WHERE id=:id",
+                        new MapSqlParameterSource("id", fileId).addValue("msg", errMsg2));
+                cmsBillingService.updateStatusToError(billingIds, errMsg2);
+                log.warn("[CmsEb21] 센터오류 FAILED 처리 spjangcd={} fileStatus={}", spjangcd, fileStatus);
+            }
+        } catch (Exception e) {
+            log.warn("[CmsEb21] 파일상태 확인 실패 (무시) spjangcd={}: {}", spjangcd, e.getMessage());
+        }
         return fileId;
     }
 
@@ -316,18 +350,21 @@ public class CmsEb21SendService {
         config.put("StrictHostKeyChecking", "no");
         session.setConfig(config);
         session.connect(15000);
+        log.info("[CmsEbFile] SFTP 세션 연결 완료 host={} user={}", sftpHost, user);
 
         ChannelSftp channel = (ChannelSftp) session.openChannel("sftp");
         channel.connect(10000);
+        log.info("[CmsEbFile] SFTP 채널 연결 완료");
         try {
-            channel.put(new ByteArrayInputStream(fileBytes), fileName);
-            log.info("[CmsEbFile] SFTP 업로드 완료: {}", fileName);
-        } catch (SftpException e) {
-            // 금결원 서버가 파일 수신 직후 강제 접속 종료 → EOF 에러는 정상으로 처리
-            if (e.getMessage() != null && e.getMessage().contains("End of IO")) {
-                log.warn("[CmsEbFile] SFTP 서버 강제종료(정상): {}", e.getMessage());
+            log.info("[CmsEb21File] SFTP 전송 시작 파일={} 크기={}bytes", fileName, fileBytes.length);
+            channel.put(new java.io.ByteArrayInputStream(fileBytes), fileName, ChannelSftp.OVERWRITE);
+            log.info("[CmsEb21File] SFTP 업로드 완료: {}", fileName);
+        } catch (Exception e) {
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            if (msg.contains("End of IO") || msg.contains("inputstream is closed")) {
+                log.warn("[CmsEb21File] SFTP 서버 강제종료(정상): {}", msg);
             } else {
-                throw e;
+                throw new JSchException("SFTP 전송 실패: " + msg, e);
             }
         } finally {
             try { channel.disconnect(); } catch (Exception ignored) {}
@@ -337,74 +374,126 @@ public class CmsEb21SendService {
 
     // ── EB21 파일 포맷 ─────────────────────────────────────────────────────────
 
-    private byte[] buildEb21File(String spjangcd, List<Map<String, Object>> billings, String institutionCode) throws IOException {
-        String orgCode = padRight(institutionCode, 10);
-
+    private byte[] buildEb21File(String spjangcd, List<Map<String, Object>> billings, String institutionCode, String targetDate) throws IOException {
         Map<String, Object> spjang = sqlRunner.getRow(/* skip_tenant_check */
                 "SELECT cms_bank_branch, cms_recv_account, cms_description FROM tb_xa012_cms WHERE spjangcd=:s",
                 new MapSqlParameterSource("s", spjangcd));
 
-        String bankBranch = padRight(spjang != null ? str(spjang.get("cms_bank_branch"))  : "", 7);
-        String recvAcct   = padRight(spjang != null ? str(spjang.get("cms_recv_account")) : "", 16);
-        String desc       = toEb21Desc(spjang != null ? str(spjang.get("cms_description")) : "");
+        String fileNameInRecord = "EB21" + targetDate.substring(4, 8); // EB21MMDD
+        String deductDateYY     = targetDate.substring(2, 8);           // YYMMDD
 
         long totalAmount = 0;
         var baos = new ByteArrayOutputStream();
 
-        // Header
-        StringBuilder h = new StringBuilder();
-        h.append("H").append("00000000").append(orgCode)
-         .append(bankBranch).append(recvAcct).append(spaces(108));
-        baos.write(toEucKr150(h.toString())); baos.write('\n');
+        // Header (150 bytes)
+        var h = new ByteArrayOutputStream();
+        h.write(anBytes("H",           1));   // Record구분
+        h.write(anBytes("00000000",    8));   // 일련번호
+        h.write(anBytes(institutionCode, 10)); // 기관코드
+        h.write(anBytes(fileNameInRecord, 8)); // 파일명
+        h.write(anBytes(deductDateYY,  6));   // 출금일자
+        h.write(anBytes(spjang != null ? str(spjang.get("cms_bank_branch"))  : "", 7));  // 주거래은행점코드
+        h.write(anBytes(spjang != null ? str(spjang.get("cms_recv_account")).replaceAll("-","") : "", 16)); // 입금계좌번호
+        h.write(spaces(94));                  // FILLER
+        baos.write(ensure150(h.toByteArray()));
 
-        // Data Records
+        // Data Records (150 bytes each)
         int seq = 1;
         for (Map<String, Object> b : billings) {
             long amount = b.get("billing_amount") != null ? ((Number) b.get("billing_amount")).longValue() : 0L;
             totalAmount += amount;
 
-            StringBuilder r = new StringBuilder();
-            r.append("R")
-             .append(padLeft(String.valueOf(seq++), 8, '0'))
-             .append(orgCode)
-             .append(padRight(str(b.get("bank_code")), 3)).append("0000")
-             .append(padLeft(str(b.get("bank_account")).replaceAll("-", ""), 16))
-             .append(padLeft(String.valueOf(amount), 13, '0'))
-             .append(padRight(str(b.get("id_number")), 13))
-             .append(spaces(5))
-             .append(desc)
-             .append("  ")
-             .append(padRight(str(b.get("member_no")), 20))
-             .append(spaces(5))
-             .append("1")
-             .append(padRight(str(b.get("phone")).replaceAll("[^0-9]", ""), 12))
-             .append(spaces(21));
-            baos.write(toEucKr150(r.toString())); baos.write('\n');
+            var r = new ByteArrayOutputStream();
+            r.write(anBytes("R",                                          1));  // Record구분
+            r.write(nBytes(String.valueOf(seq++),                         8));  // Data일련번호
+            r.write(anBytes(institutionCode,                             10));  // 기관코드
+            r.write(anBytes(str(b.get("bank_code")) + "0000",            7));  // 출금은행점코드 (은행코드3+0000)
+            r.write(anBytes(str(b.get("bank_account")).replaceAll("-",""), 16)); // 출금계좌번호
+            r.write(nBytes(String.valueOf(amount),                       13));  // 출금의뢰금액
+            r.write(anBytes(str(b.get("id_number")),                     13));  // 생년월일/사업자번호
+            r.write(anBytes(" ",                                          1));  // 출금여부 (Space)
+            r.write(anBytes("    ",                                       4));  // 불능코드 (Space)
+            r.write(descBytes(spjang != null ? str(spjang.get("cms_description")) : "")); // 통장기재내용 (16bytes)
+            r.write(anBytes("  ",                                         2));  // 자금종류
+            r.write(anBytes(str(b.get("member_no")),                     20));  // 납부자번호
+            r.write(anBytes("     ",                                      5));  // 기관사용영역
+            r.write(anBytes("1",                                          1));  // 출금형태 (ONLY전액출금)
+            r.write(anBytes(str(b.get("phone")).replaceAll("[^0-9]",""), 12));  // 현금영수증신분확인
+            r.write(spaces(21));                                                 // FILLER
+            baos.write(ensure150(r.toByteArray()));
         }
 
-        // Trailer
-        StringBuilder t = new StringBuilder();
-        t.append("T").append("99999999").append(orgCode)
-         .append(padLeft(String.valueOf(seq - 1), 6, '0'))
-         .append(padLeft(String.valueOf(totalAmount), 15, '0'))
-         .append(spaces(110));
-        baos.write(toEucKr150(t.toString()));
+        // Trailer (150 bytes)
+        var t = new ByteArrayOutputStream();
+        t.write(anBytes("T",              1));  // Record구분
+        t.write(anBytes("99999999",       8));  // 일련번호
+        t.write(anBytes(institutionCode, 10));  // 기관코드
+        t.write(anBytes(fileNameInRecord, 8));  // 파일명
+        t.write(nBytes(String.valueOf(seq - 1), 8));  // 총 Data Record 건수
+        t.write(nBytes(String.valueOf(seq - 1), 8));  // 전액출금건수
+        t.write(nBytes(String.valueOf(totalAmount), 13)); // 금액
+        t.write(nBytes("0",               8));  // 부분출금건수
+        t.write(nBytes("0",              13));  // 부분출금금액
+        t.write(spaces(63));                    // FILLER
+        t.write(spaces(10));                    // MAC
+        baos.write(ensure150(t.toByteArray()));
 
         return baos.toByteArray();
     }
 
-    private String toEb21Desc(String desc) {
-        if (!StringUtils.hasText(desc)) return spaces(16);
-        byte[] b = desc.getBytes(EUC_KR);
-        if (b.length >= 16) return new String(Arrays.copyOf(b, 16), EUC_KR);
-        byte[] padded = new byte[16];
-        Arrays.fill(padded, (byte) ' ');
-        System.arraycopy(b, 0, padded, 0, b.length);
-        return new String(padded, EUC_KR);
+    /** AN 타입: 우측 공백 패딩, 지정 바이트 수로 자름 */
+    private byte[] anBytes(String s, int len) {
+        byte[] src = (s != null ? s : "").getBytes(EUC_KR);
+        byte[] result = new byte[len];
+        Arrays.fill(result, (byte) ' ');
+        System.arraycopy(src, 0, result, 0, Math.min(src.length, len));
+        return result;
     }
 
-    private byte[] toEucKr150(String s) {
-        byte[] b = s.getBytes(EUC_KR);
+    /** AN 타입 좌측 공백 패딩 (계좌번호 등) */
+    private byte[] anBytesLeft(String s, int len) {
+        byte[] src = (s != null ? s : "").getBytes(EUC_KR);
+        byte[] result = new byte[len];
+        Arrays.fill(result, (byte) ' ');
+        int offset = len - Math.min(src.length, len);
+        System.arraycopy(src, 0, result, offset, Math.min(src.length, len));
+        return result;
+    }
+
+    /** N 타입: 좌측 0 패딩 */
+    private byte[] nBytes(String s, int len) {
+        byte[] src = (s != null ? s : "0").getBytes(EUC_KR);
+        byte[] result = new byte[len];
+        Arrays.fill(result, (byte) '0');
+        int offset = len - Math.min(src.length, len);
+        System.arraycopy(src, 0, result, offset, Math.min(src.length, len));
+        return result;
+    }
+
+    /** 통장기재내용: EUC-KR 바이트 기준 16바이트, 우측 공백 패딩 */
+    private byte[] descBytes(String desc) {
+        byte[] result = new byte[16];
+        // 전각 공백(EUC-KR 0xA1A1)으로 초기화
+        for (int i = 0; i < 8; i++) {
+            result[i * 2]     = (byte) 0xA1;
+            result[i * 2 + 1] = (byte) 0xA1;
+        }
+        if (StringUtils.hasText(desc)) {
+            byte[] src = desc.getBytes(EUC_KR);
+            System.arraycopy(src, 0, result, 0, Math.min(src.length, 16));
+        }
+        return result;
+    }
+
+    /** 공백 바이트 배열 */
+    private byte[] spaces(int len) {
+        byte[] b = new byte[len];
+        Arrays.fill(b, (byte) ' ');
+        return b;
+    }
+
+    /** 150바이트 보장 */
+    private byte[] ensure150(byte[] b) {
         if (b.length == 150) return b;
         byte[] result = new byte[150];
         Arrays.fill(result, (byte) ' ');
@@ -412,13 +501,7 @@ public class CmsEb21SendService {
         return result;
     }
 
-    private String str(Object v)             { return v != null ? v.toString() : ""; }
-    private String spaces(int n)             { return " ".repeat(n); }
-    private String padRight(String s, int n) { return String.format("%-" + n + "s", s != null ? s : "").substring(0, n); }
-    private String padLeft(String s, int n, char c) {
-        String v = s != null ? s : "";
-        if (v.length() >= n) return v.substring(v.length() - n);
-        return String.valueOf(c).repeat(n - v.length()) + v;
-    }
-    private String padLeft(String s, int n) { return padLeft(s, n, ' '); }
+    private String str(Object v) { return v != null ? v.toString() : ""; }
+
+
 }

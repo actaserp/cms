@@ -49,13 +49,11 @@ public class WorkPlaceService {
     // ── 사업장 조회 (CMS + ERP 포함) ──────────────────────
 
     public Map<String, Object> getSpjangWithCmsErp(String spjangcd) {
-        // 사업장 기본정보
         Map<String, Object> xa012 = sqlRunner.getRow(/* skip_tenant_check */
                 "SELECT * FROM tb_xa012 WHERE spjangcd = :spjangcd",
                 new MapSqlParameterSource("spjangcd", spjangcd));
         if (xa012 == null) return null;
 
-        // ERP 먼저 조회 (ms_spjangcd 참조 필요)
         Map<String, Object> erpRow = sqlRunner.getRow(/* skip_tenant_check */
                 "SELECT * FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
                 new MapSqlParameterSource("spjangcd", spjangcd));
@@ -63,7 +61,6 @@ public class WorkPlaceService {
             xa012.put("erp", erpRow);
         }
 
-        // CMS - ERP 연동이면 ms_spjangcd 일치하는 것, 아니면 NULL인 것
         String msSpjangcd = erpRow != null ? str(erpRow.get("ms_spjangcd")) : null;
         Map<String, Object> cms = sqlRunner.getRow(/* skip_tenant_check */
                 "SELECT * FROM tb_xa012_cms WHERE spjangcd = :spjangcd AND ms_spjangcd IS NOT DISTINCT FROM :msSpjangcd",
@@ -79,7 +76,6 @@ public class WorkPlaceService {
     public void saveSpjangWithCmsErp(Map<String, Object> req) {
         String spjangcd = str(req.get("spjangcd"));
 
-        // 1. tb_xa012 upsert
         MapSqlParameterSource p = new MapSqlParameterSource();
         p.addValue("spjangcd",    spjangcd);
         p.addValue("spjangnm",    req.get("spjangnm"));
@@ -120,7 +116,6 @@ public class WorkPlaceService {
                     adresb      = EXCLUDED.adresb
                 """, p);
 
-        // 2. CMS upsert (ms_spjangcd IS NULL 본점 행)
         @SuppressWarnings("unchecked")
         Map<String, Object> cms = (Map<String, Object>) req.get("cms");
         if (cms != null && !str(cms.get("cmsCode")).isEmpty()) {
@@ -128,7 +123,6 @@ public class WorkPlaceService {
             saveCms(spjangcd, msSpjangcd.isEmpty() ? null : msSpjangcd, cms);
         }
 
-        // 3. ERP upsert or delete
         @SuppressWarnings("unchecked")
         Map<String, Object> erp = (Map<String, Object>) req.get("erp");
         if (erp != null) {
@@ -152,30 +146,63 @@ public class WorkPlaceService {
 
     private void saveCms(String spjangcd, String msSpjangcd, Map<String, Object> cms) {
         MapSqlParameterSource p = new MapSqlParameterSource();
-        p.addValue("spjangcd",       spjangcd);
-        p.addValue("msSpjangcd",     msSpjangcd);
-        p.addValue("cmsCode",        cms.get("cmsCode"));
-        p.addValue("cmsPassword",    cms.get("cmsPassword"));
-        p.addValue("cmsDescription", cms.get("cmsDescription"));
-        p.addValue("cmsState",       cms.get("cmsState"));
-        p.addValue("cmsBankCode",    cms.get("cmsBankCode"));
-        p.addValue("cmsRecvAccount", cms.get("cmsRecvAccount"));
-        p.addValue("cmsBankBranch",  cms.get("cmsBankBranch"));
+        p.addValue("spjangcd",          spjangcd);
+        p.addValue("msSpjangcd",        msSpjangcd);
+        p.addValue("cmsCode",           cms.get("cmsCode"));
+        p.addValue("cmsDescription",    cms.get("cmsDescription"));
+        p.addValue("cmsState",          cms.get("cmsState"));
+        p.addValue("cmsBankCode",       cms.get("cmsBankCode"));
+        p.addValue("cmsRecvAccount",    cms.get("cmsRecvAccount"));
+        p.addValue("cmsBankBranch",     cms.get("cmsBankBranch"));
+        p.addValue("autoSendYn",        cms.getOrDefault("autoSendYn", "N"));
+        p.addValue("transferDelayDays", cms.get("transferDelayDays"));
+        p.addValue("isNormalStatus",    cms.get("isNormalStatus"));
+        p.addValue("limitAmountEach",   cms.get("limitAmountEach"));
+        p.addValue("limitAmountMonthly",cms.get("limitAmountMonthly"));
+        p.addValue("eb21FeeRequest",    cms.get("eb21FeeRequest"));
+        p.addValue("eb21FeeSuccess",    cms.get("eb21FeeSuccess"));
+        p.addValue("ec21FeeRequest",    cms.get("ec21FeeRequest"));
+        p.addValue("ec21FeeSuccess",    cms.get("ec21FeeSuccess"));
+        p.addValue("eb31FeeRequest",    cms.get("eb31FeeRequest"));
+        p.addValue("eb31FeeSuccess",    cms.get("eb31FeeSuccess"));
 
         sqlRunner.execute(/* skip_tenant_check */
                 """
-                INSERT INTO tb_xa012_cms (spjangcd, ms_spjangcd, cms_code, cms_password,
-                    cms_description, cms_state, cms_bank_code, cms_recv_account, cms_bank_branch)
-                VALUES (:spjangcd, :msSpjangcd, :cmsCode, :cmsPassword,
-                    :cmsDescription, :cmsState, :cmsBankCode, :cmsRecvAccount, :cmsBankBranch)
+                INSERT INTO tb_xa012_cms (
+                    spjangcd, ms_spjangcd, cms_code,
+                    cms_description, cms_state, cms_bank_code, cms_recv_account, cms_bank_branch,
+                    auto_send_yn, transfer_delay_days, is_normal_status,
+                    limit_amount_each, limit_amount_monthly,
+                    eb21_fee_request, eb21_fee_success,
+                    ec21_fee_request, ec21_fee_success,
+                    eb31_fee_request, eb31_fee_success
+                ) VALUES (
+                    :spjangcd, :msSpjangcd, :cmsCode,
+                    :cmsDescription, :cmsState, :cmsBankCode, :cmsRecvAccount, :cmsBankBranch,
+                    :autoSendYn, :transferDelayDays, :isNormalStatus,
+                    :limitAmountEach, :limitAmountMonthly,
+                    :eb21FeeRequest, :eb21FeeSuccess,
+                    :ec21FeeRequest, :ec21FeeSuccess,
+                    :eb31FeeRequest, :eb31FeeSuccess
+                )
                 ON CONFLICT (spjangcd, ms_spjangcd) DO UPDATE SET
-                    cms_code        = EXCLUDED.cms_code,
-                    cms_password    = EXCLUDED.cms_password,
-                    cms_description = EXCLUDED.cms_description,
-                    cms_state       = EXCLUDED.cms_state,
-                    cms_bank_code   = EXCLUDED.cms_bank_code,
-                    cms_recv_account = EXCLUDED.cms_recv_account,
-                    cms_bank_branch = EXCLUDED.cms_bank_branch
+                    cms_code             = EXCLUDED.cms_code,
+                    cms_description      = EXCLUDED.cms_description,
+                    cms_state            = EXCLUDED.cms_state,
+                    cms_bank_code        = EXCLUDED.cms_bank_code,
+                    cms_recv_account     = EXCLUDED.cms_recv_account,
+                    cms_bank_branch      = EXCLUDED.cms_bank_branch,
+                    auto_send_yn         = EXCLUDED.auto_send_yn,
+                    transfer_delay_days  = EXCLUDED.transfer_delay_days,
+                    is_normal_status     = EXCLUDED.is_normal_status,
+                    limit_amount_each    = EXCLUDED.limit_amount_each,
+                    limit_amount_monthly = EXCLUDED.limit_amount_monthly,
+                    eb21_fee_request     = EXCLUDED.eb21_fee_request,
+                    eb21_fee_success     = EXCLUDED.eb21_fee_success,
+                    ec21_fee_request     = EXCLUDED.ec21_fee_request,
+                    ec21_fee_success     = EXCLUDED.ec21_fee_success,
+                    eb31_fee_request     = EXCLUDED.eb31_fee_request,
+                    eb31_fee_success     = EXCLUDED.eb31_fee_success
                 """, p);
     }
 
@@ -199,7 +226,6 @@ public class WorkPlaceService {
     }
 
     private void saveErp(String spjangcd, Map<String, Object> erp) {
-        // custcd 자동 조회 (MS DB에서 직접 가져옴)
         String custcd = str(erp.get("custcd"));
         if (custcd.isEmpty()) {
             try {
@@ -253,12 +279,10 @@ public class WorkPlaceService {
         return sqlRunner.getRows(/* skip_tenant_check */
                 """
                 SELECT a.spjangcd, a.spjangnm, a.saupnum, a.prenm,
-                       a.biztype, a.item, a.openymd, a.eddate,
-                       a.tel1, a.fax, a.zipcd, a.adresa, a.adresb, a.custperclsf,
-                       c.ms_spjangcd
+                       a.tel1, a.custperclsf,
+                       c.ms_spjangcd, c.cms_code, c.cms_state, c.is_normal_status, c.auto_send_yn
                 FROM tb_xa012 a
-                LEFT JOIN tb_xa012_cms c
-                       ON c.spjangcd = a.spjangcd AND c.ms_spjangcd IS NOT NULL
+                LEFT JOIN tb_xa012_cms c ON c.spjangcd = a.spjangcd
                 WHERE a.parent_spjangcd = :parentSpjangcd
                 ORDER BY a.spjangcd
                 """, param);
@@ -278,42 +302,28 @@ public class WorkPlaceService {
         p.addValue("custperclsf",    req.get("custperclsf"));
         p.addValue("saupnum",        req.get("saupnum"));
         p.addValue("prenm",          req.get("prenm"));
-        p.addValue("biztype",        req.get("biztype"));
-        p.addValue("item",           req.get("item"));
-        p.addValue("openymd",        req.get("openymd"));
-        p.addValue("eddate",         req.get("eddate"));
         p.addValue("tel1",           req.get("tel1"));
-        p.addValue("fax",            req.get("fax"));
-        p.addValue("zipcd",          req.get("zipcd"));
-        p.addValue("adresa",         req.get("adresa"));
-        p.addValue("adresb",         req.get("adresb"));
 
         sqlRunner.execute(/* skip_tenant_check */
                 """
-                INSERT INTO tb_xa012 (spjangcd, parent_spjangcd, spjangnm, custperclsf, saupnum,
-                    prenm, biztype, item, openymd, eddate, tel1, fax, zipcd, adresa, adresb, bill_plans_id)
-                VALUES (:spjangcd, :parentSpjangcd, :spjangnm, :custperclsf, :saupnum,
-                    :prenm, :biztype, :item, :openymd, :eddate, :tel1, :fax, :zipcd, :adresa, :adresb, 1)
+                INSERT INTO tb_xa012 (spjangcd, parent_spjangcd, spjangnm, custperclsf,
+                    saupnum, prenm, tel1, bill_plans_id)
+                VALUES (:spjangcd, :parentSpjangcd, :spjangnm, :custperclsf,
+                    :saupnum, :prenm, :tel1, 1)
                 ON CONFLICT (spjangcd) DO UPDATE SET
-                    spjangnm       = EXCLUDED.spjangnm,
-                    custperclsf    = EXCLUDED.custperclsf,
-                    saupnum        = EXCLUDED.saupnum,
-                    prenm          = EXCLUDED.prenm,
-                    biztype        = EXCLUDED.biztype,
-                    item           = EXCLUDED.item,
-                    openymd        = EXCLUDED.openymd,
-                    eddate         = EXCLUDED.eddate,
-                    tel1           = EXCLUDED.tel1,
-                    fax            = EXCLUDED.fax,
-                    zipcd          = EXCLUDED.zipcd,
-                    adresa         = EXCLUDED.adresa,
-                    adresb         = EXCLUDED.adresb
+                    spjangnm    = EXCLUDED.spjangnm,
+                    custperclsf = EXCLUDED.custperclsf,
+                    saupnum     = EXCLUDED.saupnum,
+                    prenm       = EXCLUDED.prenm,
+                    tel1        = EXCLUDED.tel1
                 """, p);
 
-        // ERP 연동 분점인 경우 tb_xa012_cms에 ms_spjangcd 연결
-        String msSpjangcd = str(req.get("msSpjangcd"));
-        if (!msSpjangcd.isEmpty()) {
-            saveCms(spjangcd, msSpjangcd, new java.util.HashMap<>());
+        // CMS 정보 저장 (기관코드가 있는 경우)
+        @SuppressWarnings("unchecked")
+        Map<String, Object> cms = (Map<String, Object>) req.get("cms");
+        if (cms != null && !str(cms.get("cmsCode")).isEmpty()) {
+            String msSpjangcd = str(cms.get("msSpjangcd"));
+            saveCms(spjangcd, msSpjangcd.isEmpty() ? null : msSpjangcd, cms);
         }
     }
 
@@ -341,7 +351,6 @@ public class WorkPlaceService {
         throw new IllegalStateException("사업장코드 채번 범위 초과");
     }
 
-    // WorkPlaceService
     public List<Map<String, Object>> getBankList() {
         return sqlRunner.getRows(/* skip_tenant_check */
                 "SELECT bank_code, bank_name FROM cms_bank_code WHERE use_yn = 'Y' ORDER BY bank_code",

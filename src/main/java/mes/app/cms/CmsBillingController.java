@@ -3,6 +3,8 @@ package mes.app.cms;
 import mes.app.Scheduler.SchedulerService.CmsEb21SendService;
 import mes.app.Scheduler.SchedulerService.CmsEc21SendService;
 import mes.app.cms.service.CmsBillingService;
+import mes.app.cms.service.CmsHolidayService;
+import mes.app.common.TenantContext;
 import mes.domain.entity.User;
 import mes.domain.model.AjaxResult;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,9 @@ public class CmsBillingController {
     @Autowired
     private CmsEc21SendService cmsEc21SendService;
 
+    @Autowired
+    private CmsHolidayService cmsHolidayService;
+
     /** 목록 조회 */
     @GetMapping("/list")
     public AjaxResult getList(
@@ -41,6 +46,26 @@ public class CmsBillingController {
         List<Map<String, Object>> items = cmsBillingService.getBillingList(billingYm, sendDate, memberName, status, deductType);
         AjaxResult result = new AjaxResult();
         result.data = items;
+        return result;
+    }
+
+    /**
+     * 출금일 기준 신청 마감일(D-1 영업일) 계산
+     * GET /api/cms/billing/send-date?deduct_date=20260525
+     */
+    @GetMapping("/send-date")
+    public AjaxResult getSendDate(@RequestParam("deduct_date") String deductDate) {
+        AjaxResult result = new AjaxResult();
+        try {
+            java.time.LocalDate d = java.time.LocalDate.parse(deductDate,
+                    java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd")).minusDays(1);
+            String sendDate = cmsHolidayService.getPrevBusinessDay(
+                    d.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd")));
+            result.data = java.util.Map.of("send_date", sendDate);
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
         return result;
     }
 
@@ -241,30 +266,34 @@ public class CmsBillingController {
     /** 즉시전송 — 체크된 PENDING 건 선택 후 SFTP 즉시 전송 (테스트/수동용) */
     @PostMapping("/send-now")
     public AjaxResult sendNow(
-            @RequestParam("ids")         String idsStr,
+            @RequestParam("deduct_date") String deductDate,
             @RequestParam("deduct_type") String deductType) {
 
-        List<Long> ids = Arrays.stream(idsStr.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .map(Long::parseLong)
-                .collect(Collectors.toList());
-
-        if (ids.isEmpty()) {
-            AjaxResult result = new AjaxResult();
-            result.success = false;
-            result.message = "전송할 항목을 선택하세요.";
-            return result;
-        }
-
+        String spjangcd = TenantContext.get();
         Map<String, Object> res = "EC".equals(deductType)
-                ? cmsEc21SendService.resendBilling(ids)
-                : cmsEb21SendService.resendBilling(ids);
+                ? cmsEc21SendService.runForSpjang(spjangcd, deductDate, "MANUAL")
+                : cmsEb21SendService.runForSpjang(spjangcd, deductDate, "MANUAL");
 
         AjaxResult result = new AjaxResult();
-        result.data = res;
+        Map<String, Object> data = new java.util.HashMap<>();
+        if (res.containsKey("error")) {
+            data.put("sent", 0);
+            data.put("failed", 1);
+        } else {
+            data.put("sent", 1);
+            data.put("failed", 0);
+        }
+        result.data = data;
         return result;
     }
 
+    @GetMapping("/sendable-dates")
+    public AjaxResult getSendableDates(
+            @RequestParam("billing_ym") String billingYm,
+            @RequestParam(value = "deduct_type", required = false) String deductType) {
+        AjaxResult result = new AjaxResult();
+        result.data = cmsBillingService.getSendableDates(billingYm, deductType);
+        return result;
+    }
 
 }

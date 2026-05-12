@@ -137,8 +137,8 @@ public class SqlRunQueryImpl implements SqlRunner {
 			String[] whiteList =
 					{"menu_folder", "label_code_lang"
 							, "bookmark", "menu_item"
-							, "sys_option", "sys_code"
-							, "bill_plans", "mat_comp_uprice"
+							, "sys_option", "sys_code", "cms_file_billing"
+							, "bill_plans", "mat_comp_uprice", "user_group_menu"
 							, "seq_maker", "menu_front_folder", "cms_bank_code"};
 
 			for (String table : whiteList) {

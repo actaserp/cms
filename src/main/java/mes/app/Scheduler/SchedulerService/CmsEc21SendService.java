@@ -1,7 +1,6 @@
 package mes.app.Scheduler.SchedulerService;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jcraft.jsch.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,22 +16,16 @@ import org.springframework.util.StringUtils;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * D 11:00 실행 — 당일 출금 PENDING 청구 → EC21 생성 + NCP 업로드 + SFTP 전송
+ * 자동시 D 11:00 실행 — 당일 출금 PENDING 청구 → EC21 생성 + NCP 업로드 + SFTP 전송
  * billing.status: PENDING → REQUESTED
  *
  * SFTP 연동 방식: 금결원 오픈API로 1회용 SFTP 계정 획득 후 접속
@@ -65,7 +58,15 @@ public class CmsEc21SendService {
         log.info("[CmsEc21FileGenerate] 시작 - 출금대상일: {}", targetDate);
 
         List<Map<String, Object>> spjangs = sqlRunner.getRows(/* skip_tenant_check */
-                "SELECT DISTINCT spjangcd FROM cms_billing WHERE deduct_date = :td AND status = 'PENDING' AND deduct_type = 'EC'",
+                """
+                SELECT DISTINCT b.spjangcd 
+                FROM cms_billing b
+                JOIN tb_xa012_cms c ON c.spjangcd = b.spjangcd
+                WHERE b.deduct_date = :td 
+                  AND b.status = 'PENDING' 
+                  AND b.deduct_type = 'EC'
+                  AND c.auto_send_yn = 'Y'
+                """,
                 new MapSqlParameterSource("td", targetDate));
 
         log.info("[CmsEc21FileGenerate] 대상 사업장 수: {}", spjangs.size());
@@ -145,7 +146,7 @@ public class CmsEc21SendService {
         billings = validBillings;
 
         // 2. EC21 생성
-        byte[] fileBytes = buildEc21File(spjangcd, billings, institutionCode);
+        byte[] fileBytes = buildEc21File(spjangcd, billings, institutionCode, targetDate);
         // 파일명: EC21{MMDD}_{YYYY} (금결원 규격)
         String mmdd     = targetDate.substring(4, 8);
         String yyyy     = targetDate.substring(0, 4);
@@ -235,10 +236,35 @@ public class CmsEc21SendService {
 
         log.info("[CmsEc21FileGenerate] spjangcd={} 파일={} {}건 {}원 SFTP={}",
                 spjangcd, fileName, billings.size(), totalAmount, sent ? "OK" : "FAILED");
+
+        // 수정 - 전송 후 상태 확인 → 오류 시 FAILED 처리
+        try {
+            JsonNode statusNode = cmsTokenService.getFileStatus(spjangcd, "EC21", targetDate, true);
+            int fileStatus = statusNode.path("data").path("file_status").asInt(-1);
+            log.info("[CmsEc21] 파일상태확인 spjangcd={} file_status={}", spjangcd, fileStatus);
+
+            if (fileStatus >= 2 && fileStatus <= 4) {
+                // 센터 오류 - 상세 조회
+                String errDetail = "";
+                try {
+                    JsonNode errNode = cmsTokenService.getCenterError(spjangcd, "EC21", targetDate);
+                    errDetail = errNode.path("data").path("validation_message").asText("");
+                } catch (Exception ignored) {}
+
+                String errMsg2 = "금결원 센터오류 (status=" + fileStatus + ")" + (errDetail.isEmpty() ? "" : ": " + errDetail);
+                sqlRunner.execute(/* skip_tenant_check */
+                        "UPDATE cms_file SET send_status='FAILED', error_message=:msg, _modified=NOW() WHERE id=:id",
+                        new MapSqlParameterSource("id", fileId).addValue("msg", errMsg2));
+                cmsBillingService.updateStatusToError(billingIds, errMsg2);
+                log.warn("[CmsEc21] 센터오류 FAILED 처리 spjangcd={} fileStatus={}", spjangcd, fileStatus);
+            }
+        } catch (Exception e) {
+            log.warn("[CmsEc21] 파일상태 확인 실패 (무시) spjangcd={}: {}", spjangcd, e.getMessage());
+        }
         return fileId;
     }
 
-    /** 수동 SFTP 재전송 (CmsEbFileService에서 호출) */
+    /** 수동 SFTP 재전송 (CmsFileService에서 호출) */
     public void sftpSendBytes(byte[] fileBytes, String fileName, String targetDate, String spjangcd) throws Exception {
         sftpSendWithApiCredential(fileBytes, fileName, targetDate, spjangcd);
     }
@@ -328,12 +354,14 @@ public class CmsEc21SendService {
         ChannelSftp channel = (ChannelSftp) session.openChannel("sftp");
         channel.connect(10000);
         try {
-            channel.put(new ByteArrayInputStream(fileBytes), fileName);
-            log.info("[CmsEbFile] SFTP 업로드 완료: {}", fileName);
+            ByteArrayInputStream bis = new ByteArrayInputStream(fileBytes);
+            log.info("[CmsEc21File] SFTP 전송 시작 파일={} 크기={}bytes", fileName, fileBytes.length);
+            channel.put(bis, fileName);
+            log.info("[CmsEc21File] SFTP 업로드 완료: {}", fileName);
         } catch (SftpException e) {
             // 금결원 서버가 파일 수신 직후 강제 접속 종료 → EOF 에러는 정상으로 처리
             if (e.getMessage() != null && e.getMessage().contains("End of IO")) {
-                log.warn("[CmsEbFile] SFTP 서버 강제종료(정상): {}", e.getMessage());
+                log.warn("[CmsEc21File] SFTP 서버 강제종료(정상): {}", e.getMessage());
             } else {
                 throw e;
             }
@@ -345,74 +373,111 @@ public class CmsEc21SendService {
 
     // ── EC21 파일 포맷 ─────────────────────────────────────────────────────────
 
-    private byte[] buildEc21File(String spjangcd, List<Map<String, Object>> billings, String institutionCode) throws IOException {
-        String orgCode = padRight(institutionCode, 10);
-
+    private byte[] buildEc21File(String spjangcd, List<Map<String, Object>> billings,
+                                 String institutionCode, String targetDate) throws IOException {
         Map<String, Object> spjang = sqlRunner.getRow(/* skip_tenant_check */
                 "SELECT cms_bank_branch, cms_recv_account, cms_description FROM tb_xa012_cms WHERE spjangcd=:s",
                 new MapSqlParameterSource("s", spjangcd));
 
-        String bankBranch = padRight(spjang != null ? str(spjang.get("cms_bank_branch"))  : "", 7);
-        String recvAcct   = padRight(spjang != null ? str(spjang.get("cms_recv_account")) : "", 16);
-        String desc       = toEb21Desc(spjang != null ? str(spjang.get("cms_description")) : "");
+        String fileNameInRecord = "EC21" + targetDate.substring(4, 8);
+        String deductDateYY     = targetDate.substring(2, 8);
 
         long totalAmount = 0;
         var baos = new ByteArrayOutputStream();
 
-        // Header
-        StringBuilder h = new StringBuilder();
-        h.append("H").append("00000000").append(orgCode)
-         .append(bankBranch).append(recvAcct).append(spaces(108));
-        baos.write(toEucKr150(h.toString())); baos.write('\n');
+        // Header (150 bytes)
+        var h = new ByteArrayOutputStream();
+        h.write(anBytes("H",            1));
+        h.write(anBytes("00000000",     8));
+        h.write(anBytes(institutionCode, 10));
+        h.write(anBytes(fileNameInRecord, 8));
+        h.write(anBytes(deductDateYY,   6));
+        h.write(anBytes(spjang != null ? str(spjang.get("cms_bank_branch")) : "", 7));
+        h.write(anBytes(spjang != null ? str(spjang.get("cms_recv_account")).replaceAll("-","") : "", 16));
+        h.write(spaces(94));
+        baos.write(ensure150(h.toByteArray()));
 
-        // Data Records
+        // Data Records (150 bytes each)
         int seq = 1;
         for (Map<String, Object> b : billings) {
             long amount = b.get("billing_amount") != null ? ((Number) b.get("billing_amount")).longValue() : 0L;
             totalAmount += amount;
 
-            StringBuilder r = new StringBuilder();
-            r.append("R")
-             .append(padLeft(String.valueOf(seq++), 8, '0'))
-             .append(orgCode)
-             .append(padRight(str(b.get("bank_code")), 3)).append("0000")
-             .append(padLeft(str(b.get("bank_account")).replaceAll("-", ""), 16))
-             .append(padLeft(String.valueOf(amount), 13, '0'))
-             .append(padRight(str(b.get("id_number")), 13))
-             .append(spaces(5))
-             .append(desc)
-             .append("  ")
-             .append(padRight(str(b.get("member_no")), 20))
-             .append(spaces(5))
-             .append("1")
-             .append(padRight(str(b.get("phone")).replaceAll("[^0-9]", ""), 12))
-             .append(spaces(21));
-            baos.write(toEucKr150(r.toString())); baos.write('\n');
+            var r = new ByteArrayOutputStream();
+            r.write(anBytes("R",                                         1));
+            r.write(nBytes(String.valueOf(seq++),                        8));
+            r.write(anBytes(institutionCode,                            10));
+            r.write(anBytes(str(b.get("bank_code")) + "0000",           7));
+            r.write(anBytes(str(b.get("bank_account")).replaceAll("-",""), 16));
+            r.write(nBytes(String.valueOf(amount),                      13));
+            r.write(anBytes(str(b.get("id_number")),                    13));
+            r.write(anBytes(" ",                                         1));
+            r.write(anBytes("    ",                                      4));
+            r.write(descBytes(spjang != null ? str(spjang.get("cms_description")) : ""));
+            r.write(anBytes("  ",                                        2));
+            r.write(anBytes(str(b.get("member_no")),                    20));
+            r.write(anBytes("     ",                                     5));
+            r.write(anBytes("1",                                         1));
+            r.write(anBytes(str(b.get("phone")).replaceAll("[^0-9]",""), 12));
+            r.write(spaces(21));
+            baos.write(ensure150(r.toByteArray()));
         }
 
-        // Trailer
-        StringBuilder t = new StringBuilder();
-        t.append("T").append("99999999").append(orgCode)
-         .append(padLeft(String.valueOf(seq - 1), 6, '0'))
-         .append(padLeft(String.valueOf(totalAmount), 15, '0'))
-         .append(spaces(110));
-        baos.write(toEucKr150(t.toString()));
+        // Trailer (150 bytes)
+        var t = new ByteArrayOutputStream();
+        t.write(anBytes("T",             1));
+        t.write(anBytes("99999999",      8));
+        t.write(anBytes(institutionCode, 10));
+        t.write(anBytes(fileNameInRecord, 8));
+        t.write(nBytes(String.valueOf(seq - 1), 8));
+        t.write(nBytes(String.valueOf(seq - 1), 8));
+        t.write(nBytes(String.valueOf(totalAmount), 13));
+        t.write(nBytes("0",              8));
+        t.write(nBytes("0",             13));
+        t.write(spaces(63));
+        t.write(spaces(10));
+        baos.write(ensure150(t.toByteArray()));
 
         return baos.toByteArray();
     }
 
-    private String toEb21Desc(String desc) {
-        if (!StringUtils.hasText(desc)) return spaces(16);
-        byte[] b = desc.getBytes(EUC_KR);
-        if (b.length >= 16) return new String(Arrays.copyOf(b, 16), EUC_KR);
-        byte[] padded = new byte[16];
-        Arrays.fill(padded, (byte) ' ');
-        System.arraycopy(b, 0, padded, 0, b.length);
-        return new String(padded, EUC_KR);
+    private byte[] anBytes(String s, int len) {
+        byte[] src = (s != null ? s : "").getBytes(EUC_KR);
+        byte[] result = new byte[len];
+        Arrays.fill(result, (byte) ' ');
+        System.arraycopy(src, 0, result, 0, Math.min(src.length, len));
+        return result;
     }
 
-    private byte[] toEucKr150(String s) {
-        byte[] b = s.getBytes(EUC_KR);
+    private byte[] nBytes(String s, int len) {
+        byte[] src = (s != null ? s : "0").getBytes(EUC_KR);
+        byte[] result = new byte[len];
+        Arrays.fill(result, (byte) '0');
+        int offset = len - Math.min(src.length, len);
+        System.arraycopy(src, 0, result, offset, Math.min(src.length, len));
+        return result;
+    }
+
+    private byte[] descBytes(String desc) {
+        byte[] result = new byte[16];
+        for (int i = 0; i < 8; i++) {
+            result[i * 2]     = (byte) 0xA1;
+            result[i * 2 + 1] = (byte) 0xA1;
+        }
+        if (StringUtils.hasText(desc)) {
+            byte[] src = desc.getBytes(EUC_KR);
+            System.arraycopy(src, 0, result, 0, Math.min(src.length, 16));
+        }
+        return result;
+    }
+
+    private byte[] spaces(int len) {
+        byte[] b = new byte[len];
+        Arrays.fill(b, (byte) ' ');
+        return b;
+    }
+
+    private byte[] ensure150(byte[] b) {
         if (b.length == 150) return b;
         byte[] result = new byte[150];
         Arrays.fill(result, (byte) ' ');
@@ -420,13 +485,5 @@ public class CmsEc21SendService {
         return result;
     }
 
-    private String str(Object v)             { return v != null ? v.toString() : ""; }
-    private String spaces(int n)             { return " ".repeat(n); }
-    private String padRight(String s, int n) { return String.format("%-" + n + "s", s != null ? s : "").substring(0, n); }
-    private String padLeft(String s, int n, char c) {
-        String v = s != null ? s : "";
-        if (v.length() >= n) return v.substring(v.length() - n);
-        return String.valueOf(c).repeat(n - v.length()) + v;
-    }
-    private String padLeft(String s, int n) { return padLeft(s, n, ' '); }
+    private String str(Object v) { return v != null ? v.toString() : ""; }
 }

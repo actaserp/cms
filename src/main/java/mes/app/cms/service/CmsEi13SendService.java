@@ -236,7 +236,9 @@ public class CmsEi13SendService {
         ChannelSftp channel = (ChannelSftp) session.openChannel("sftp");
         channel.connect(10000);
         try {
-            channel.put(new ByteArrayInputStream(fileBytes), fileName);
+            ByteArrayInputStream bis = new ByteArrayInputStream(fileBytes);
+            log.info("[CmsEi13] SFTP 전송 시작 파일={} 크기={}bytes", fileName, fileBytes.length);
+            channel.put(bis, fileName);
             log.info("[CmsEi13] SFTP 업로드 완료: {}", fileName);
         } catch (SftpException e) {
             if (e.getMessage() != null && e.getMessage().contains("End of IO")) {

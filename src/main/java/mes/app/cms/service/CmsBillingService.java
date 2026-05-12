@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -21,6 +22,9 @@ public class CmsBillingService {
 
     @Autowired
     SqlRunner sqlRunner;
+
+    @Autowired
+    CmsHolidayService cmsHolidayService;
 
     /** 청구 목록 조회 */
     public List<Map<String, Object>> getBillingList(String billingYm, String sendDate, String memberName, String status, String deductType) {
@@ -43,11 +47,7 @@ public class CmsBillingService {
                  , b.billing_amount
                  , b.deduct_day
                  , b.deduct_date
-                 , CASE
-                         WHEN b.deduct_type = 'EC'
-                         THEN b.deduct_date
-                         ELSE TO_CHAR(TO_DATE(b.deduct_date, 'YYYYMMDD') - INTERVAL '1 day', 'YYYYMMDD')
-                     END AS send_date
+                 , b.send_date
                  , b.status
                  , b.result_code
                  , b.result_msg
@@ -64,10 +64,7 @@ public class CmsBillingService {
 
         if (StringUtils.hasText(sendDate)) {
             sql += """
-                 AND CASE WHEN b.deduct_type = 'EC'
-                          THEN b.deduct_date
-                          ELSE TO_CHAR(TO_DATE(b.deduct_date, 'YYYYMMDD') - INTERVAL '1 day', 'YYYYMMDD')
-                     END = :sendDate
+                 AND b.send_date = :sendDate
                 """;
             param.addValue("sendDate", sendDate);
         }
@@ -138,6 +135,12 @@ public class CmsBillingService {
         param.addValue("memo", memo);
         param.addValue("deductType", deductType != null ? deductType : "EB");
         param.addValue("userId", userId);
+        String effectiveDeductType = deductType != null ? deductType : "EB";
+        if (StringUtils.hasText(deductDate)) {
+            param.addValue("sendDate", calcSendDate(deductDate, effectiveDeductType));
+        } else {
+            param.addValue("sendDate", null);
+        }
 
         if (id == null) {
             // 청구번호 채번
@@ -148,13 +151,13 @@ public class CmsBillingService {
                     INSERT INTO cms_billing (
                         spjangcd, billing_ym, billing_seq,
                         member_id, member_name, bank_code, bank_account, account_holder,
-                        billing_amount, deduct_day, deduct_date,
+                        billing_amount, deduct_day, deduct_date, send_date,
                         deduct_type, status, memo,
                         _creater_id, _created, _modifier_id, _modified
                     ) VALUES (
                         :spjangcd, :billingYm, :billingSeq,
                         :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
-                        :billingAmount, :deductDay, :deductDate,
+                        :billingAmount, :deductDay, :deductDate, :sendDate,
                         :deductType, :status, :memo,
                         :userId, NOW(), :userId, NOW()
                     ) RETURNING id
@@ -173,6 +176,7 @@ public class CmsBillingService {
                         billing_amount = :billingAmount,
                         deduct_day     = :deductDay,
                         deduct_date    = :deductDate,
+                        send_date      = :sendDate,
                         status         = :status,
                         memo           = :memo,
                         _modifier_id   = :userId,
@@ -270,12 +274,16 @@ public class CmsBillingService {
         for (Map<String, Object> m : members) {
             String deductDay = (String) m.get("deduct_day");
             String deductDate = "99".equals(deductDay) ? lastDay : billingYm + deductDay;
+            deductDate = cmsHolidayService.getNextBusinessDay(deductDate);
 
             // 오늘 이전 날짜 스킵
             if (deductDate.compareTo(todayStr) < 0) { skippedCount++; continue; }
-            // EB: 내일 날짜인데 15시 이후 스킵
-            if ("EB".equals(effectiveDeductType) && deductDate.equals(tomorrowStr) && nowHour >= 15) { skippedCount++; continue; }
-            // EC: 오늘 날짜인데 11시 이후 스킵
+            if ("EB".equals(effectiveDeductType)) {
+                String deadlineDay = cmsHolidayService.getPrevBusinessDay(
+                        LocalDate.parse(deductDate, DateTimeFormatter.ofPattern("yyyyMMdd"))
+                                .minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+                if (deadlineDay.equals(todayStr) && nowHour >= 15) { skippedCount++; continue; }
+            }
             if ("EC".equals(effectiveDeductType) && deductDate.equals(todayStr) && nowHour >= 11) { skippedCount++; continue; }
 
             String billingSeq = billingYm + "-" + String.format("%04d", nextSeq++);
@@ -294,17 +302,18 @@ public class CmsBillingService {
             ip.addValue("deductDate",    deductDate);
             ip.addValue("deductType",    deductType != null ? deductType : "EB");
             ip.addValue("userId",        userId);
+            ip.addValue("sendDate",      calcSendDate(deductDate, deductType != null ? deductType : "EB"));
 
             String insertSql = """
                     INSERT INTO cms_billing (
                         spjangcd, billing_ym, billing_seq,
                         member_id, member_name, bank_code, bank_account, account_holder,
-                        billing_amount, deduct_day, deduct_date,
+                        billing_amount, deduct_day, deduct_date, send_date,
                         deduct_type, status, _creater_id, _created, _modifier_id, _modified
                     ) VALUES (
                         :spjangcd, :billingYm, :billingSeq,
                         :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
-                        :billingAmount, :deductDay, :deductDate,
+                        :billingAmount, :deductDay, :deductDate, :sendDate,
                         :deductType, 'PENDING', :userId, NOW(), :userId, NOW()
                     )
                     """;
@@ -439,7 +448,8 @@ public class CmsBillingService {
             String todayStr    = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
             String tomorrowStr = java.time.LocalDate.now().plusDays(1).format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
             if (deductDate != null && deductDate.compareTo(todayStr) < 0) {
-                deductDate = "EB".equals(deductType) ? tomorrowStr : todayStr;
+                String rawDate = "EB".equals(deductType) ? tomorrowStr : todayStr;
+                deductDate = cmsHolidayService.getNextBusinessDay(rawDate);
                 log.info("[rechargeBilling] id={} deduct_date 과거 → {} 변경", id, deductDate);
             }
 
@@ -461,18 +471,19 @@ public class CmsBillingService {
             pIns.addValue("deductType",    deductType != null ? deductType : "EB");
             pIns.addValue("memo",          memo);
             pIns.addValue("userId",        userId);
+            pIns.addValue("sendDate", calcSendDate(deductDate, deductType != null ? deductType : "EB"));
 
             sqlRunner.execute("""
                 INSERT INTO cms_billing (
                     spjangcd, billing_ym, billing_seq,
                     member_id, member_name, bank_code, bank_account, account_holder,
-                    billing_amount, deduct_day, deduct_date,
+                    billing_amount, deduct_day, deduct_date, send_date,
                     deduct_type, status, memo,
                     _creater_id, _created, _modifier_id, _modified
                 ) VALUES (
                     :spjangcd, :billingYm, :billingSeq,
                     :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
-                    :billingAmount, :deductDay, :deductDate,
+                    :billingAmount, :deductDay, :deductDate, :sendDate,
                     :deductType, 'PENDING', :memo,
                     :userId, NOW(), :userId, NOW()
                 )
@@ -585,15 +596,40 @@ public class CmsBillingService {
         return sqlRunner.execute(/* skip_tenant_check */
                 """
                 UPDATE cms_billing
-                SET    status     = 'ERROR',
-                       result_msg = :errorMsg,
-                       _modified  = NOW()
-                WHERE  id IN (:ids)
-                  AND  status = 'PENDING'
+                    SET status = 'ERROR', result_msg = :errorMsg, _modified = NOW()
+                    WHERE id IN (:ids)
+                      AND status IN ('PENDING', 'REQUESTED')
                 """, param);
     }
 
+    private String calcSendDate(String deductDate, String deductType) {
+        if ("EC".equals(deductType)) return deductDate;
+        return cmsHolidayService.getPrevBusinessDay(
+                LocalDate.parse(deductDate, DateTimeFormatter.ofPattern("yyyyMMdd"))
+                        .minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+    }
 
+    public List<Map<String, Object>> getSendableDates(String billingYm, String deductType) {
+        String spjangcd = TenantContext.get();
+        String todayStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        var param = new MapSqlParameterSource();
+        param.addValue("spjangcd",   spjangcd);
+        param.addValue("billingYm",  billingYm);
+        param.addValue("deductType", deductType != null ? deductType : "EB");
 
-
+        return sqlRunner.getRows("""
+        SELECT b.deduct_date,
+               b.send_date,
+               COUNT(*)                    AS count,
+               COALESCE(SUM(b.billing_amount), 0) AS total_amount
+        FROM cms_billing b
+        WHERE b.spjangcd    = :spjangcd
+          AND b.billing_ym  = :billingYm
+          AND b.deduct_type = :deductType
+          AND b.status      = 'PENDING'
+          AND b.send_date  IS NOT NULL
+        GROUP BY b.deduct_date, b.send_date
+        ORDER BY b.deduct_date
+        """, param);
+    }
 }

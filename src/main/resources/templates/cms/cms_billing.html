@@ -15,7 +15,6 @@
         .status-FAIL      { background: #f8d7da; color: #721c24; }
         .status-CANCEL    { background: #e2e3e5; color: #383d41; }
         .status-ERROR     { background: #f0d0ff; color: #6a0dad; }
-        #btnResend:disabled { opacity: 0.4; cursor: not-allowed; }
         .grid-summary {
             display: flex;
             gap: 16px;
@@ -99,9 +98,9 @@
                         <div style="display:flex; gap:4px;">
                             <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>
                             <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>
-                            <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;" disabled>재전송</button>
+                            <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;" >재청구</button>
                             <button type="button" class="btn-default" id="btnSendNow"
-                                    style="background:#27ae60; color:#fff;" disabled>즉시전송</button>
+                                    style="background:#27ae60; color:#fff;">즉시전송</button>
                         </div>
 
                     </div>
@@ -174,6 +173,7 @@
                             <input type="hidden" id="bank_account"   name="bank_account">
                             <input type="hidden" id="account_holder" name="account_holder">
                             <input type="hidden" id="member_name"    name="member_name">
+                            <input type="hidden" id="deduct_day"     name="deduct_day">
                             </tbody>
                         </table>
 
@@ -252,6 +252,69 @@
                 </div>
             </section>
 
+        </div>
+    </div>
+
+    <!-- 즉시전송 모달 -->
+    <div id="modalSendNow" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+         background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:24px 28px; min-width:500px; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 16px; font-size:15px;">즉시전송</h3>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:16px; font-size:13px;">
+                <thead>
+                <tr style="background:#f5f6fa; color:#555;">
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center; width:36px;"></th>
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">출금일</th>
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">건수</th>
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">금액</th>
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">신청일</th>
+                </tr>
+                </thead>
+                <tbody id="sendNowRows"></tbody>
+            </table>
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" id="btnSendNowConfirm"
+                        style="background:#27ae60; color:#fff; padding:6px 18px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">전송</button>
+                <button type="button" id="btnSendNowCancel"
+                        style="background:#f5f6fa; color:#333; padding:6px 18px; border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 재청구 모달 -->
+    <div id="modalRecharge" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+     background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:24px 28px; min-width:720px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 8px; font-size:15px;">재청구</h3>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; padding:8px 10px; background:#f5f6fa; border-radius:4px; font-size:13px;">
+                <label style="white-space:nowrap; color:#555;">전체 출금일 일괄적용</label>
+                <input type="date" id="rechargeAllDate" style="border:1px solid #dde0ea; border-radius:4px; padding:3px 7px; font-size:13px;">
+                <button type="button" id="btnRechargeApplyAll"
+                        style="background:#4a6cf7; color:#fff; border:none; border-radius:4px; padding:4px 12px; font-size:12px; cursor:pointer;">일괄적용</button>
+            </div>
+            <div style="overflow-y:auto; flex:1;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                    <tr style="background:#f5f6fa; color:#555;">
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center; width:36px;">
+                            <input type="checkbox" id="rechargeChkAll">
+                        </th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:left;">납부자명</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">금액</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">실패사유</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">원출금일</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">재청구 출금일</th>
+                    </tr>
+                    </thead>
+                    <tbody id="rechargeRows"></tbody>
+                </table>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+                <button type="button" id="btnRechargeConfirm"
+                        style="background:#8e44ad; color:#fff; padding:6px 18px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">재청구</button>
+                <button type="button" id="btnRechargeCancel"
+                        style="background:#f5f6fa; color:#333; padding:6px 18px; border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">취소</button>
+            </div>
         </div>
     </div>
 
@@ -521,7 +584,7 @@
                 // PENDING/ERROR 외 행은 체크박스 비활성
                 if (e.panel.cellType === wijmo.grid.CellType.Cell && col.binding === 'selected') {
                     var item = s.rows[e.row].dataItem;
-                    if (item && item.status !== 'PENDING' && item.status !== 'ERROR') {
+                    if (item && item.status !== 'PENDING') {
                         e.cell.innerHTML = '<span style="color:#ccc;">-</span>';
                     } else {
                         e.cell.innerHTML = '<input type="checkbox" class="row-check"'
@@ -573,6 +636,7 @@
             var sd = item.send_date || item.deduct_date || '';
             if (sd.length === 8) sd = sd.substring(0,4) + '-' + sd.substring(4,6) + '-' + sd.substring(6,8);
             $('#send_date').val(sd);
+            $('#deduct_day').val(item.deduct_day || '');
             applyStatusField(item.status || 'PENDING');
             $('#result_code').val(item.result_code || '');
             $('#result_msg').val(item.result_msg || '');
@@ -635,23 +699,30 @@
         }
 
         function deleteBilling() {
-            var item = theGrid && theGrid.selectedItems[0];
-            if (!item || !item.id) { Alert.alert('', '삭제할 항목을 그리드에서 선택하세요.'); return; }
-            if (item.status !== 'PENDING') { Alert.alert('', '대기(PENDING) 상태인 건만 삭제할 수 있습니다.'); return; }
-            Alert.confirm('', '삭제하시겠습니까?', function() {
-                $.ajax({
-                    url: withCtx('/api/cms/billing/' + item.id),
-                    type: 'DELETE',
-                    headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
-                    success: function(result) {
-                        if (result.success) {
-                            Alert.alert('', '삭제되었습니다.');
-                            clearForm();
-                            searchList();
-                        } else {
-                            Alert.alert('삭제 실패', result.message);
-                        }
-                    }
+            var pendingIds = (viewdata ? viewdata.items : [])
+                .filter(function(i) { return i.selected && i.status === 'PENDING'; })
+                .map(function(i) { return i.id; });
+
+            if (pendingIds.length === 0) {
+                Alert.alert('', '삭제할 대기(PENDING) 건을 체크하세요.');
+                return;
+            }
+
+            Alert.confirm('', pendingIds.length + '건을 삭제하시겠습니까?', function() {
+                var promises = pendingIds.map(function(id) {
+                    return $.ajax({
+                        url: withCtx('/api/cms/billing/' + id),
+                        type: 'DELETE',
+                        headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() }
+                    });
+                });
+                $.when.apply($, promises).then(function() {
+                    Alert.alert('', pendingIds.length + '건이 삭제되었습니다.');
+                    clearForm();
+                    searchList();
+                }).fail(function() {
+                    Alert.alert('삭제 실패', '일부 항목 삭제 중 오류가 발생했습니다.');
+                    searchList();
                 });
             });
         }
@@ -679,58 +750,193 @@
         }
 
         function updateResendBtn() {
-            var hasError = (viewdata ? viewdata.items : [])
-                .some(function(i) { return i.selected && i.status === 'ERROR'; });
-            var hasPending = (viewdata ? viewdata.items : [])
-                .some(function(i) { return i.selected && i.status === 'PENDING'; });
-            $('#btnResend').prop('disabled', !hasError);
-            $('#btnSendNow').prop('disabled', !hasPending);
+
         }
 
+        var todayCompact = (function() {
+            var n = new Date();
+            return n.getFullYear()
+                + String(n.getMonth() + 1).padStart(2, '0')
+                + String(n.getDate()).padStart(2, '0');
+        })();
+
         function sendNow() {
-            var pendingItems = (viewdata ? viewdata.items : [])
-                .filter(function(i) { return i.selected && i.status === 'PENDING'; });
+            var ymVal = $('#srchBillingYm').val();
+            if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
 
-            if (pendingItems.length === 0) {
-                Alert.alert('', '즉시전송할 대기(PENDING) 건을 체크하세요.');
-                return;
-            }
-
-            // deduct_date 여러 개일 수 있으므로 그룹별로 묶어서 전송
-            var ids = pendingItems.map(function(i) { return i.id; });
-
-            Alert.confirm('', pendingItems.length + '건을 즉시 전송하시겠습니까?', function() {
-                AjaxUtil.postAsyncData('/api/cms/billing/send-now',
-                    { ids: ids.join(','), deduct_type: 'EB' },
-                    function(result) {
-                        if (result.success) {
-                            var d = result.data || {};
-                            Alert.alert('', '전송 완료: 성공 ' + (d.sent || 0) + '건, 실패 ' + (d.failed || 0) + '건');
-                            searchList();
-                        } else {
-                            Alert.alert('전송 실패', result.message);
-                        }
-                    });
+            $.ajax({
+                url: withCtx('/api/cms/billing/sendable-dates'),
+                type: 'GET',
+                data: { billing_ym: ymVal.replace('-', ''), deduct_type: 'EB' },
+                success: function(result) {
+                    if (!result.success || !result.data || result.data.length === 0) {
+                        Alert.alert('', '전송 가능한 PENDING 건이 없습니다.');
+                        return;
+                    }
+                    renderSendNowModal(result.data);
+                    $('#modalSendNow').css('display', 'flex');
+                }
             });
         }
 
-        function resendBilling() {
-            var errorIds = (viewdata ? viewdata.items : [])
-                .filter(function(i) { return i.selected && i.status === 'ERROR'; })
-                .map(function(i) { return i.id; });
+        function renderSendNowModal(rows) {
+            var html = '';
+            rows.forEach(function(row) {
+                var deductDate = String(row.deduct_date);
+                var sendDate   = String(row.send_date || '');
+                var isToday    = sendDate === todayCompact;
+                var checked    = isToday ? ' checked' : '';
+                var highlight  = isToday ? 'background:#f0f7ff;' : '';
+                var deductFmt  = deductDate.length === 8
+                    ? deductDate.substring(0,4) + '-' + deductDate.substring(4,6) + '-' + deductDate.substring(6,8)
+                    : deductDate;
+                var sendFmt    = sendDate.length === 8
+                    ? sendDate.substring(0,4) + '-' + sendDate.substring(4,6) + '-' + sendDate.substring(6,8)
+                    : sendDate;
+                var todayBadge = isToday
+                    ? '<span style="margin-left:4px; font-size:10px; background:#4a6cf7; color:#fff; padding:1px 5px; border-radius:8px;">오늘</span>'
+                    : '';
+                html += '<tr style="' + highlight + '">'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
+                    +   '<input type="checkbox" class="sendnow-check"' + checked + ' data-deduct-date="' + deductDate + '">'
+                    + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + deductFmt + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + Number(row.count).toLocaleString() + '건</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">' + Number(row.total_amount).toLocaleString() + '원</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + sendFmt + todayBadge + '</td>'
+                    + '</tr>';
+            });
+            $('#sendNowRows').html(html);
+        }
 
-            if (errorIds.length === 0) { Alert.alert('', '재전송할 오류 건을 체크하세요.'); return; }
+        function doSendNow() {
+            var deductDates = [];
+            $('.sendnow-check:checked').each(function() {
+                deductDates.push($(this).data('deduct-date'));
+            });
+            if (deductDates.length === 0) { Alert.alert('', '전송할 출금일을 선택하세요.'); return; }
 
-            Alert.confirm('', errorIds.length + '건을 재전송하시겠습니까?', function() {
-                AjaxUtil.postAsyncData('/api/cms/billing/resend',
-                    { ids: errorIds.join(','), deduct_type: 'EB' },
+            $('#modalSendNow').hide();
+
+            var promises = deductDates.map(function(deductDate) {
+                return $.ajax({
+                    url: withCtx('/api/cms/billing/send-now'),
+                    type: 'POST',
+                    data: {
+                        deduct_date: deductDate,
+                        deduct_type: 'EB',
+                        _csrf: $('[name=_csrf]').val(),
+                        spjangcd: sessionStorage.getItem('spjangcd')
+                    }
+                });
+            });
+
+            AjaxUtil.showLoading();
+            $.when.apply($, promises).then(function() {
+                var results = promises.length === 1 ? [arguments] : Array.from(arguments);
+                var totalSent = 0, totalFailed = 0;
+                results.forEach(function(r) {
+                    var d = (r[0] || {}).data || {};
+                    totalSent   += (d.sent   || 0);
+                    totalFailed += (d.failed || 0);
+                });
+                AjaxUtil.hideLoading();
+                Alert.alert('', '전송 완료: 성공 ' + totalSent + '건, 실패 ' + totalFailed + '건');
+                searchList();
+            }).fail(function() {
+                AjaxUtil.hideLoading();
+                Alert.alert('전송 실패', '전송 중 오류가 발생했습니다.');
+                searchList();
+            });
+        }
+
+        function openRechargeModal() {
+            var ymVal = $('#srchBillingYm').val();
+            if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
+
+            var today = new Date();
+            var startDate = new Date(today);
+            startDate.setMonth(startDate.getMonth() - 1);
+            var startStr = startDate.getFullYear()
+                + String(startDate.getMonth() + 1).padStart(2, '0')
+                + String(startDate.getDate()).padStart(2, '0');
+            var endStr = today.getFullYear()
+                + String(today.getMonth() + 1).padStart(2, '0')
+                + String(today.getDate()).padStart(2, '0');
+
+            $.ajax({
+                url: withCtx('/api/cms/billing/history/list'),
+                type: 'GET',
+                data: { start_date: startStr, end_date: endStr, status: 'FAIL', billing_type: 'EB' },
+                success: function(result) {
+                    if (!result.success || !result.data || result.data.length === 0) {
+                        Alert.alert('', '재청구할 실패 건이 없습니다.');
+                        return;
+                    }
+                    renderRechargeModal(result.data);
+                    $('#modalRecharge').css('display', 'flex');
+                }
+            });
+        }
+
+        function renderRechargeModal(rows) {
+            // 다음 영업일 계산 후 디폴트 출금일 세팅
+            var tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            var tomorrowStr = tomorrow.getFullYear() + '-'
+                + String(tomorrow.getMonth() + 1).padStart(2, '0') + '-'
+                + String(tomorrow.getDate()).padStart(2, '0');
+            $('#rechargeAllDate').val(tomorrowStr);
+
+            var html = '';
+            rows.forEach(function(row) {
+                var deductFmt = '';
+                var v = String(row.deduct_date || '');
+                if (v.length === 8) deductFmt = v.substring(0,4) + '-' + v.substring(4,6) + '-' + v.substring(6,8);
+                html += '<tr>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
+                    +   '<input type="checkbox" class="recharge-check" checked data-id="' + row.id + '">'
+                    + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea;">' + (row.member_name || '') + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">' + Number(row.billing_amount || 0).toLocaleString() + '원</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + (row.result_msg || '-') + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + deductFmt + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
+                    +   '<input type="date" class="recharge-date" style="border:1px solid #dde0ea; border-radius:3px; padding:2px 5px; font-size:12px;" value="' + tomorrowStr + '">'
+                    + '</td>'
+                    + '</tr>';
+            });
+            $('#rechargeRows').html(html);
+
+            // 전체선택 체크박스
+            $('#rechargeChkAll').off('change').on('change', function() {
+                $('.recharge-check').prop('checked', $(this).is(':checked'));
+            });
+        }
+
+        function doRecharge() {
+            var items = [];
+            $('#rechargeRows tr').each(function() {
+                var chk  = $(this).find('.recharge-check');
+                var date = $(this).find('.recharge-date').val();
+                if (chk.is(':checked') && date) {
+                    items.push({ id: chk.data('id'), deduct_date: date.replace(/-/g, '') });
+                }
+            });
+            if (items.length === 0) { Alert.alert('', '재청구할 건을 선택하세요.'); return; }
+
+            Alert.confirm('', items.length + '건을 재청구하시겠습니까?', function() {
+                $('#modalRecharge').hide();
+                // 건별로 순차 처리
+                var ids = items.map(function(i) { return i.id; }).join(',');
+                AjaxUtil.postAsyncData('/api/cms/billing/recharge',
+                    { ids: ids },
                     function(result) {
                         if (result.success) {
-                            var d = result.data || {};
-                            Alert.alert('', '재전송 완료: 성공 ' + (d.sent || 0) + '건, 실패 ' + (d.failed || 0) + '건');
+                            Alert.alert('', (result.data ? result.data.count : 0) + '건 재청구 생성되었습니다.');
                             searchList();
                         } else {
-                            Alert.alert('재전송 실패', result.message);
+                            Alert.alert('재청구 실패', result.message);
                         }
                     });
             });
@@ -762,11 +968,19 @@
             $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
             $('#btnGenerate').click(generateBilling);
             $('#btnCancel').click(cancelBilling);
-            $('#btnResend').click(resendBilling);
+            $('#btnResend').click(openRechargeModal);
             $('#btnNew').click(clearForm);
             $('#btnSave').click(saveBilling);
             $('#btnDel').click(deleteBilling);
             $('#btnSendNow').click(sendNow);
+            $('#btnSendNowConfirm').click(doSendNow);
+            $('#btnSendNowCancel').click(function() { $('#modalSendNow').hide(); });
+            $('#btnRechargeConfirm').click(doRecharge);
+            $('#btnRechargeCancel').click(function() { $('#modalRecharge').hide(); });
+            $('#btnRechargeApplyAll').click(function() {
+                var date = $('#rechargeAllDate').val();
+                if (date) $('.recharge-date').val(date);
+            });
         });
     </script>
 </th:block>

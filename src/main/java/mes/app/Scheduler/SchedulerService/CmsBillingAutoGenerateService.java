@@ -2,6 +2,7 @@ package mes.app.Scheduler.SchedulerService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mes.app.cms.service.CmsHolidayService;
 import mes.domain.services.SqlRunner;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class CmsBillingAutoGenerateService {
 
-    private final SqlRunner sqlRunner;
+    private final SqlRunner          sqlRunner;
+    private final CmsHolidayService  cmsHolidayService;
 
     /** 스케줄러 진입점 — 이번달 전체 */
     public void run() {
@@ -29,7 +31,12 @@ public class CmsBillingAutoGenerateService {
         log.info("[CmsBillingAutoGenerate] 시작 - 청구년월: {}", billingYm);
 
         List<Map<String, Object>> spjangs = sqlRunner.getRows(/* skip_tenant_check */
-                "SELECT DISTINCT spjangcd FROM cms_member WHERE status = 'ACTIVE'",
+                """
+                SELECT DISTINCT m.spjangcd FROM cms_member m
+                JOIN tb_xa012_cms c ON c.spjangcd = m.spjangcd
+                WHERE m.status = 'ACTIVE'
+                  AND c.auto_send_yn = 'Y'
+                """,
                 new MapSqlParameterSource());
 
         int total = 0;
@@ -156,7 +163,12 @@ public class CmsBillingAutoGenerateService {
         String deductDay = str(m.get("deduct_day"));
         String deductDate = "99".equals(deductDay) ? lastDay : billingYm + deductDay;
 
-        // EB 고정 — 오늘 이전 또는 내일인데 15시 이후 스킵
+        // 휴일이면 다음 영업일로 보정
+        deductDate = cmsHolidayService.getNextBusinessDay(deductDate);
+
+        // 보정된 출금일 기준으로 마감 체크
+        // - 오늘 이전 출금일 → 스킵
+        // - 보정된 출금일의 D-1(신청 마감일)이 오늘 15시 이후 → 스킵
         String todayStr    = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String tomorrowStr = LocalDate.now().plusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         int nowHour = java.time.LocalTime.now().getHour();
@@ -164,8 +176,13 @@ public class CmsBillingAutoGenerateService {
             log.info("[BillingAutoGenerate] 스킵 - 오늘 이전 출금일: {} member={}", deductDate, m.get("member_name"));
             return;
         }
-        if (deductDate.equals(tomorrowStr) && nowHour >= 15) {
-            log.info("[BillingAutoGenerate] 스킵 - 내일 출금일이나 15시 이후: {} member={}", deductDate, m.get("member_name"));
+        // 출금일의 전 영업일(신청 마감일)이 오늘인데 15시 이후면 스킵
+        String deadlineDay = cmsHolidayService.getPrevBusinessDay(
+                LocalDate.parse(deductDate, DateTimeFormatter.ofPattern("yyyyMMdd"))
+                        .minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+        );
+        if (deadlineDay.equals(todayStr) && nowHour >= 15) {
+            log.info("[BillingAutoGenerate] 스킵 - 신청마감(15시) 초과: deductDate={} member={}", deductDate, m.get("member_name"));
             return;
         }
 
@@ -184,18 +201,24 @@ public class CmsBillingAutoGenerateService {
         p.addValue("deductDay",     deductDay);
         p.addValue("deductDate",    deductDate);
         p.addValue("userId",        userId);
+        String sendDate = "EB".equals(/* deductType 없으므로 EB 고정 */ "EB")
+                ? cmsHolidayService.getPrevBusinessDay(
+                LocalDate.parse(deductDate, DateTimeFormatter.ofPattern("yyyyMMdd"))
+                        .minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")))
+                : deductDate;
+        p.addValue("sendDate", sendDate);
 
         sqlRunner.execute(/* skip_tenant_check */
                 """
                 INSERT INTO cms_billing (
                     spjangcd, billing_ym, billing_seq,
                     member_id, member_name, bank_code, bank_account, account_holder,
-                    billing_amount, deduct_day, deduct_date,
+                    billing_amount, deduct_day, deduct_date, send_date,
                     status, _creater_id, _created, _modifier_id, _modified
                 ) VALUES (
                     :spjangcd, :billingYm, :billingSeq,
                     :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
-                    :billingAmount, :deductDay, :deductDate,
+                    :billingAmount, :deductDay, :deductDate, :sendDate,
                     'PENDING', :userId, NOW(), :userId, NOW()
                 )
                 """, p);

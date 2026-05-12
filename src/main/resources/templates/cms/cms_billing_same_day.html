@@ -92,20 +92,20 @@
                             </dd>
                         </dl>
                     </div>
-<!--                    <div style="padding: 6px 0; display:flex; gap:4px; width:100%; justify-content: space-between;">-->
-<!--                        <div style="display:flex; gap:4px;">-->
-<!--                            <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>-->
-<!--                            <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>-->
-<!--                        </div>-->
+                    <!--                    <div style="padding: 6px 0; display:flex; gap:4px; width:100%; justify-content: space-between;">-->
+                    <!--                        <div style="display:flex; gap:4px;">-->
+                    <!--                            <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>-->
+                    <!--                            <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>-->
+                    <!--                        </div>-->
 
-<!--                    </div>-->
+                    <!--                    </div>-->
                     <div style="padding: 6px 0; display:flex; gap:4px; width:100%; justify-content: space-between; align-items: center;">
                         <div style="padding:6px 10px; background:#e8f4fd; border-left:3px solid #4a90d9; font-size:12px; color:#2c5f8a;">
-                            당일 출금은 오전 11시까지 입력하셔야 당일 출금 신청됩니다. (출금신청일 당일 대기 건은 오후 11시에 일괄 신청됩니다.)
+                            당일 출금은 오전 11시까지 입력하셔야 당일 출금 신청됩니다. (출금신청일 당일 대기 건은 오전 11시에 일괄 신청됩니다.)
                         </div>
-                        <div style="display:flex; gap:4px;">
-                            <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;" disabled>재전송</button>
-                        </div>
+<!--                        <div style="display:flex; gap:4px;">-->
+<!--                            <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;" disabled>재전송</button>-->
+<!--                        </div>-->
                     </div>
                 </div>
                 <div class="container-fluid">
@@ -389,7 +389,28 @@
         $('#deduct_date').on('change', function() {
             var val = $(this).val(); // yyyy-MM-dd
             var compact = val ? val.replace(/-/g, '') : '';
-            $('#send_date').val(compact);
+            if (!compact) { $('#send_date').val(''); return; }
+
+            // 휴일 여부 확인 후 다음 영업일로 보정
+            $.ajax({
+                url: withCtx('/api/cms/holiday/next-business-day'),
+                type: 'GET',
+                data: { date: compact },
+                success: function(result) {
+                    if (result.success && result.data && result.data !== compact) {
+                        var next = result.data;
+                        var nextFmt = next.substring(0,4) + '-' + next.substring(4,6) + '-' + next.substring(6,8);
+                        Alert.alert('', '선택하신 날짜(' + val + ')는 휴일입니다.\n출금일이 ' + nextFmt + '(으)로 자동 변경됩니다.');
+                        $('#deduct_date').val(nextFmt);
+                        compact = next;
+                    }
+                    $('#send_date').val(compact);
+                },
+                error: function() {
+                    // 휴일 API 실패 시 그냥 진행
+                    $('#send_date').val(compact);
+                }
+            });
         });
 
         // 당일출금: 신청일 = 출금일 당일
@@ -475,7 +496,7 @@
                 // PENDING/ERROR 외 행은 체크박스 비활성
                 if (e.panel.cellType === wijmo.grid.CellType.Cell && col.binding === 'selected') {
                     var item = s.rows[e.row].dataItem;
-                    if (item && item.status !== 'PENDING' && item.status !== 'ERROR') {
+                    if (item && item.status !== 'PENDING') {
                         e.cell.innerHTML = '<span style="color:#ccc;">-</span>';
                     } else {
                         e.cell.innerHTML = '<input type="checkbox" class="row-check"'
@@ -590,23 +611,29 @@
         }
 
         function deleteBilling() {
-            var item = theGrid && theGrid.selectedItems[0];
-            if (!item || !item.id) { Alert.alert('', '삭제할 항목을 그리드에서 선택하세요.'); return; }
-            if (item.status !== 'PENDING') { Alert.alert('', '대기(PENDING) 상태인 건만 삭제할 수 있습니다.'); return; }
-            Alert.confirm('', '삭제하시겠습니까?', function() {
-                $.ajax({
-                    url: withCtx('/api/cms/billing/' + item.id),
-                    type: 'DELETE',
-                    headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
-                    success: function(result) {
-                        if (result.success) {
-                            Alert.alert('', '삭제되었습니다.');
-                            clearForm();
-                            searchList();
-                        } else {
-                            Alert.alert('삭제 실패', result.message);
-                        }
-                    }
+            var pendingIds = (viewdata ? viewdata.items : [])
+                .filter(function(i) { return i.selected && i.status === 'PENDING'; })
+                .map(function(i) { return i.id; });
+
+            if (pendingIds.length === 0) {
+                Alert.alert('', '삭제할 대기(PENDING) 건을 체크하세요.');
+                return;
+            }
+            Alert.confirm('', pendingIds.length + '건을 삭제하시겠습니까?', function() {
+                var promises = pendingIds.map(function(id) {
+                    return $.ajax({
+                        url: withCtx('/api/cms/billing/' + id),
+                        type: 'DELETE',
+                        headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() }
+                    });
+                });
+                $.when.apply($, promises).then(function() {
+                    Alert.alert('', pendingIds.length + '건이 삭제되었습니다.');
+                    clearForm();
+                    searchList();
+                }).fail(function() {
+                    Alert.alert('삭제 실패', '일부 항목 삭제 중 오류가 발생했습니다.');
+                    searchList();
                 });
             });
         }
@@ -682,7 +709,7 @@
             $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
             $('#btnGenerate').click(generateBilling);
             $('#btnCancel').click(cancelBilling);
-            $('#btnResend').click(resendBilling);
+            // $('#btnResend').click(resendBilling);
             $('#btnNew').click(clearForm);
             $('#btnSave').click(saveBilling);
             $('#btnDel').click(deleteBilling);

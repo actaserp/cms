@@ -22,7 +22,7 @@ import java.util.Map;
 
 @Slf4j
 @Service
-public class CmsEbFileService {
+public class CmsFileService {
 
     @Autowired SqlRunner sqlRunner;
     @Autowired NcpObjectStorageService storageService;
@@ -39,12 +39,12 @@ public class CmsEbFileService {
         var param = new MapSqlParameterSource("spjangcd", spjangcd);
 
         String sql = """
-                SELECT f.id, f.file_name, f.file_type, f.target_date,
+                SELECT f.id, f.spjangcd, f.file_name, f.file_type, f.target_date,
                        f.billing_count, f.billing_amount, f.send_type,
                        f.send_status, f.sent_at, f.error_message,
                        f._creater_id, f._created
                 FROM cms_file f
-                WHERE f.spjangcd = :spjangcd
+                where spjangcd = :spjangcd
                 """;
 
         if (StringUtils.hasText(dateFrom)) { sql += " AND f.target_date >= CAST(:dateFrom AS DATE)"; param.addValue("dateFrom", dateFrom); }
@@ -279,5 +279,20 @@ public class CmsEbFileService {
         }
 
         return sqlRunner.execute("DELETE FROM cms_file WHERE id=:id AND spjangcd=:spjangcd", param) > 0;
+    }
+
+    public Map<String, Object> getFile(Long id) {
+        var param = new MapSqlParameterSource("id", id);
+        return sqlRunner.getRow(
+                "SELECT id, spjangcd, file_name, file_type, send_status, TO_CHAR(target_date,'YYYYMMDD') AS target_date FROM cms_file WHERE id=:id",
+                param);
+    }
+
+    public void updateSendStatus(Long id, String sendStatus) {
+        var param = new MapSqlParameterSource("id", id)
+                .addValue("sendStatus", sendStatus);
+        sqlRunner.execute(
+                "UPDATE cms_file SET send_status=:sendStatus, _modified=NOW() WHERE id=:id",
+                param);
     }
 }

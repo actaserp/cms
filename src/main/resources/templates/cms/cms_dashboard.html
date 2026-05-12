@@ -42,6 +42,9 @@
         /* FullCalendar 이벤트 텍스트 줄 바꿈 */
         .fc-event-title { white-space: normal !important; }
         .fc-daygrid-event { font-size: 11px !important; }
+        /* 휴일 셀 배경 */
+        .fc-day-holiday { background-color: #fff5f5 !important; }
+        .fc-day-holiday .fc-daygrid-day-number { color: #dc3545 !important; font-weight: 600; }
     </style>
 </head>
 
@@ -168,6 +171,7 @@
                     currentYm = ym;
                     loadSummary(ym);
                     loadCalendarEvents(ym);
+                    loadHolidays(ym);
                 },
                 dateClick: function(info) {
                     var date = info.dateStr.replace(/-/g, '');
@@ -223,6 +227,28 @@
                                 allDay: true
                             });
                         }
+                    });
+                }
+            });
+        }
+
+        // ── 휴일 표시 ────────────────────────────────────────────────────────────
+        function loadHolidays(ym) {
+            // 이전 휴일 클래스 제거
+            document.querySelectorAll('.fc-day-holiday').forEach(function(el) {
+                el.classList.remove('fc-day-holiday');
+            });
+            $.ajax({
+                url: withCtx('/api/cms/holiday/list'),
+                type: 'GET',
+                data: { ym: ym },
+                success: function(result) {
+                    if (!result.success) return;
+                    (result.data || []).forEach(function(date) {
+                        // yyyyMMdd → yyyy-MM-dd (FullCalendar data-date 속성 형식)
+                        var iso = date.substring(0,4) + '-' + date.substring(4,6) + '-' + date.substring(6,8);
+                        var cell = document.querySelector('.fc-day[data-date="' + iso + '"]');
+                        if (cell) cell.classList.add('fc-day-holiday');
                     });
                 }
             });

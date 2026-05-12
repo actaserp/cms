@@ -3,6 +3,7 @@ package mes.app.Scheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mes.app.Scheduler.SchedulerService.*;
+import mes.app.cms.service.CmsHolidayService;
 import mes.app.cms.service.CmsEb14ReceiveService;
 import mes.app.notification.NotificationService;
 import mes.app.notification.NotificationTargetService;
@@ -33,13 +34,21 @@ public class ScheduledTaskRunner {
     private final CmsEc22ReceiveService         cmsEc22ReceiveService;
     private final NotificationService           notificationService;
     private final NotificationTargetService     notificationTargetService;
-    private final CmsEb14ReceiveService cmsEb14ReceiveService;
+    private final CmsEb14ReceiveService         cmsEb14ReceiveService;
+    private final CmsHolidayService             cmsHolidayService;
 
-    /** 매일 00:30 실행, 말일에만 다음달 청구 생성 */
+    /** 매일 00:30 실행 — 말일(또는 말일이 휴일이면 직전 영업일)에 다음달 청구 생성 */
     @Scheduled(cron = "0 30 0 * * *", zone = "Asia/Seoul")
     public void runCmsBillingAutoGenerate() {
-        LocalDate today = LocalDate.now();
-        if (!today.equals(today.with(TemporalAdjusters.lastDayOfMonth()))) return;
+        LocalDate today   = LocalDate.now();
+        LocalDate lastDay = today.with(TemporalAdjusters.lastDayOfMonth());
+
+        // 말일이 휴일이면 직전 영업일을 트리거 날짜로 사용
+        String lastDayStr  = lastDay.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String triggerStr  = cmsHolidayService.getPrevBusinessDay(lastDayStr);
+        LocalDate triggerDate = LocalDate.parse(triggerStr, DateTimeFormatter.ofPattern("yyyyMMdd"));
+
+        if (!today.equals(triggerDate)) return;
 
         schedulerExecutor.execute(() -> safeRun(cmsBillingAutoGenerateService::run, "CMS 청구 자동생성"));
     }
@@ -57,53 +66,15 @@ public class ScheduledTaskRunner {
     }
 
     /** D 11:00 — PENDING 당일청구 EC21 생성 + SFTP 전송 (마감 D 12:00) */
-    @Scheduled(cron = "0 0 14 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 0 11 * * *", zone = "Asia/Seoul")
     public void runCmsEc21FileGenerate() {
         schedulerExecutor.execute(() -> safeRun(cmsEc21SendService::run, "CMS EC21 생성+전송"));
     }
 
-    /** D 22:00 — EC22 결과파일 수신 → billing SUCCESS/FAIL 처리 (수신 가능 D 23:00) */
-    @Scheduled(cron = "0 0 22 * * *", zone = "Asia/Seoul")
+    /** D 23:00 — EC22 결과파일 수신 → billing SUCCESS/FAIL 처리 (수신 가능 D 23:00) */
+    @Scheduled(cron = "0 0 23 * * *", zone = "Asia/Seoul")
     public void runCmsEc22Receive() {
         schedulerExecutor.execute(() -> safeRun(cmsEc22ReceiveService::run, "CMS EC22 결과수신"));
-    }
-
-    /** EC21 재시도 1차 — D 11:10 */
-    @Scheduled(cron = "0 10 14 * * *", zone = "Asia/Seoul")
-    public void runCmsEc21Retry1() {
-        String targetDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        schedulerExecutor.execute(() -> safeRun(() -> cmsEc21SendService.retry(targetDate), "CMS EC21 재시도1"));
-    }
-
-    /** EC21 재시도 2차 — D 11:20 */
-    @Scheduled(cron = "0 20 14 * * *", zone = "Asia/Seoul")
-    public void runCmsEc21Retry2() {
-        String targetDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        schedulerExecutor.execute(() -> safeRun(() -> {
-            List<String> failed = cmsEc21SendService.retry(targetDate);
-            for (String spjangcd : failed) {
-                notifyRetryFail("cms_billing_same_day", spjangcd, targetDate, "EC21");
-            }
-        }, "CMS EC21 재시도2"));
-    }
-
-    /** EB21 재시도 1차 — D-1 15:10 */
-    @Scheduled(cron = "0 10 15 * * *", zone = "Asia/Seoul")
-    public void runCmsEb21Retry1() {
-        String targetDate = LocalDate.now().plusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        schedulerExecutor.execute(() -> safeRun(() -> cmsEb21SendService.retry(targetDate), "CMS EB21 재시도1"));
-    }
-
-    /** EB21 재시도 2차 — D-1 15:20 */
-    @Scheduled(cron = "0 20 15 * * *", zone = "Asia/Seoul")
-    public void runCmsEb21Retry2() {
-        String targetDate = LocalDate.now().plusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        schedulerExecutor.execute(() -> safeRun(() -> {
-            List<String> failed = cmsEb21SendService.retry(targetDate);
-            for (String spjangcd : failed) {
-                notifyRetryFail("cms_billing", spjangcd, targetDate, "EB21");
-            }
-        }, "CMS EB21 재시도2"));
     }
 
     /** 매일 15:00 — EB14 결과파일 수신 (D+2 14:00부터 수신 가능) */

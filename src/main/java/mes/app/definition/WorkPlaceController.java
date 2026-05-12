@@ -1,5 +1,8 @@
-package mes.app.definition.service;
+package mes.app.definition;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import mes.app.cms.service.CmsTokenService;
+import mes.app.definition.service.WorkPlaceService;
 import mes.domain.entity.User;
 import mes.domain.model.AjaxResult;
 import mes.domain.repository.Tb_xa012Repository;
@@ -16,6 +19,7 @@ public class WorkPlaceController {
 
     @Autowired WorkPlaceService workPlaceService;
     @Autowired Tb_xa012Repository tbXa012Repository;
+    @Autowired CmsTokenService cmsTokenService;
 
     private boolean isAdmin(Authentication auth) {
         User user = (User) auth.getPrincipal();
@@ -105,6 +109,30 @@ public class WorkPlaceController {
             return result;
         }
         result.data = workPlaceService.getCms(spjangcd);
+        return result;
+    }
+
+    // ── 금결원 이용기관 상세 조회 ─────────────────────────
+
+    @GetMapping("/cms/institute-detail/{spjangcd}")
+    public AjaxResult getInstituteDetail(
+            @PathVariable String spjangcd,
+            Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        if (!isAdmin(auth) && !user.getSpjangcd().equals(spjangcd)) {
+            result.success = false;
+            result.message = "권한이 없습니다.";
+            return result;
+        }
+        try {
+            JsonNode data = cmsTokenService.getInstituteDetail(spjangcd);
+            result.data = data;
+            result.success = true;
+        } catch (Exception e) {
+            result.success = false;
+            result.message = "금결원 조회 실패: " + e.getMessage();
+        }
         return result;
     }
 
@@ -224,6 +252,21 @@ public class WorkPlaceController {
             return result;
         }
         result.data = workPlaceService.getSpjangWithCmsErp(spjangcd);
+        return result;
+    }
+
+    @GetMapping("/cms/institute-detail")
+    public AjaxResult getInstituteDetailByCode(
+            @RequestParam String cmsCode,
+            Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        try {
+            result.data = cmsTokenService.getInstituteDetailByCode(cmsCode);
+            result.success = true;
+        } catch (Exception e) {
+            result.success = false;
+            result.message = "금결원 조회 실패: " + e.getMessage();
+        }
         return result;
     }
 }

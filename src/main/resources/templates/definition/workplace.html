@@ -66,6 +66,57 @@
         }
         .btn-branch-manage:hover { background: #531dab; }
 
+        /* 금결원 조회 버튼 */
+        .btn-cms-fetch {
+            background: #13c2c2; color: #fff;
+            border: none; border-radius: 4px;
+            padding: 4px 14px; cursor: pointer;
+            font-size: 12px; margin-left: 8px;
+            vertical-align: middle;
+        }
+        .btn-cms-fetch:hover { background: #08979c; }
+        .cms-status {
+            display: inline-block;
+            font-size: 12px; margin-left: 8px;
+            vertical-align: middle;
+        }
+        .cms-status.ok   { color: #52c41a; }
+        .cms-status.fail { color: #ff4d4f; }
+
+        /* CMS 정보 서브섹션 */
+        .cms-info-section {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-top: 6px;
+        }
+        .cms-info-section table { width: 100%; border-collapse: collapse; }
+        .cms-info-section th {
+            text-align: left; padding: 5px 8px;
+            font-size: 12px; font-weight: 600;
+            color: #555; width: 130px; white-space: nowrap;
+        }
+        .cms-info-section td { padding: 4px 6px; font-size: 13px; }
+        .cms-info-section input[type="text"] {
+            width: 180px; padding: 3px 6px;
+            border: 1px solid #d9d9d9; border-radius: 3px;
+            font-size: 12px; background: #fafafa;
+        }
+        .cms-badge-ok   { color: #52c41a; font-weight: 600; }
+        .cms-badge-fail { color: #ff4d4f; font-weight: 600; }
+        .cms-fee-grid {
+            display: grid; grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px; margin-top: 4px;
+        }
+        .cms-fee-item {
+            background: #fff; border: 1px solid #e8e8e8;
+            border-radius: 4px; padding: 6px 10px;
+            font-size: 12px;
+        }
+        .cms-fee-item .fee-title { font-weight: 600; color: #333; margin-bottom: 3px; }
+        .cms-fee-item .fee-val   { color: #555; }
+
         /* 모달 공통 */
         .modal-overlay {
             display: none; position: fixed;
@@ -76,7 +127,7 @@
         .modal-overlay.open { display: flex; }
         .modal-box {
             background: #fff; border-radius: 8px;
-            width: 700px; max-height: 85vh; overflow-y: auto;
+            width: 620px; max-height: 85vh; overflow-y: auto;
             box-shadow: 0 8px 32px rgba(0,0,0,0.18);
         }
         .modal-header {
@@ -117,6 +168,9 @@
             border-radius: 3px; min-width: 36px; text-align: center;
         }
         .branch-nm { flex: 1; font-size: 13px; font-weight: 500; }
+        .branch-cms-code { font-size: 11px; color: #1890ff; background: #e6f7ff; padding: 2px 6px; border-radius: 3px; }
+        .branch-status-ok   { font-size: 11px; color: #52c41a; }
+        .branch-status-fail { font-size: 11px; color: #ff4d4f; }
         .btn-branch-edit {
             background: #1890ff; color: #fff;
             border: none; border-radius: 3px;
@@ -157,11 +211,61 @@
         }
         .branch-write-table input[type="text"],
         .branch-write-table input[type="tel"],
-        .branch-write-table input[type="date"],
         .branch-write-table select {
             width: 200px; padding: 4px 6px;
             border: 1px solid #ccc; border-radius: 3px;
             font-size: 13px; box-sizing: border-box;
+        }
+
+        /* 분점 CMS 서브섹션 */
+        .branch-cms-section {
+            background: #f6ffed; border: 1px solid #b7eb8f;
+            border-radius: 6px; padding: 10px 14px; margin-top: 10px;
+        }
+        .branch-cms-section .section-title {
+            font-size: 12px; font-weight: 600; color: #389e0d; margin-bottom: 8px;
+        }
+        .branch-cms-section input[type="text"] {
+            width: 160px; padding: 3px 6px;
+            border: 1px solid #d9d9d9; border-radius: 3px;
+            font-size: 12px; background: #fafafa;
+        }
+        .modal-box table tr,
+        .modal-box table td,
+        .modal-box table td a,
+        .branch-write-table tr,
+        .branch-write-table td,
+        .branch-write-table th {
+            text-align: left !important;
+        }
+        .modal-box input[type="text"],
+        .modal-box input[type="tel"],
+        .modal-box input[type="password"],
+        .modal-box select {
+            width: 180px;
+        }
+        .branch-write-table input[type="text"],
+        .branch-write-table input[type="tel"],
+        .branch-write-table select {
+            width: 180px;
+        }
+        .modal-box input[type="checkbox"],
+        .write-table input[type="checkbox"] {
+            display: inline-block !important;
+            width: auto !important;
+            padding: 0 !important;
+            border: none !important;
+            background-color: inherit !important;
+            vertical-align: middle !important;
+        }
+        .modal-box input[type="checkbox"],
+        .write-table input[type="checkbox"] {
+            display: inline-block !important;
+            width: auto !important;
+            padding: 0 !important;
+            border: none !important;
+            background-color: inherit !important;
+            vertical-align: middle !important;
         }
     </style>
 
@@ -222,6 +326,59 @@
                             <th>사업장명</th>
                             <td colspan="9"><input type="text" id="spjangnm" name="spjangnm"></td>
                         </tr>
+
+
+                        <tr>
+                            <th>CMS 기관코드</th>
+                            <td colspan="9">
+                                <input type="text" id="cmsCode" maxlength="10" placeholder="10자리" style="width:160px;">
+                                <button type="button" class="btn-cms-fetch" onclick="fetchInstituteDetail()">금결원 조회</button>
+                                <span class="cms-status" id="cmsStatus"></span>
+                                <span id="cmsNormalStatus" style="font-size:12px; margin-left:12px;">-</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>ERP 연동</th>
+                            <td colspan="4"><label style="cursor:pointer; font-size:13px;"><input type="checkbox" id="erpYn" onchange="onErpToggle(this)"> ERP(MS SQL) 연동 사용</label></td>
+                            <th>자동 출금신청</th>
+                            <td colspan="4"><label style="cursor:pointer; font-size:13px;"><input type="checkbox" id="autoSendYn"> 스케줄러 자동 전송 사용</label></td>
+                        </tr>
+                        <tr id="erpSectionRow" style="display:none;">
+                            <td colspan="10" style="padding:0;">
+                                <div class="erp-section visible" id="erpSection" style="margin:0; border-radius:0;">
+                                    <table>
+                                        <tr>
+                                            <th>DB 호스트</th>
+                                            <td><input type="text" id="erpHost" placeholder="192.168.0.1"></td>
+                                            <th>포트</th>
+                                            <td><input type="text" id="erpPort" placeholder="1433" style="width:80px;"></td>
+                                        </tr>
+                                        <tr>
+                                            <th>DB명</th>
+                                            <td><input type="text" id="erpDbName" placeholder="데이터베이스명"></td>
+                                            <th>업체코드</th>
+                                            <td><input type="text" id="erpCustcd" placeholder="ACTAS" style="width:100px;"></td>
+                                        </tr>
+                                        <tr>
+                                            <th>계정</th>
+                                            <td><input type="text" id="erpUsername" placeholder="접속 계정"></td>
+                                            <th>비밀번호</th>
+                                            <td><input type="password" id="erpPassword" placeholder="접속 비밀번호"></td>
+                                        </tr>
+                                        <tr>
+                                            <th>MS 사업장코드</th>
+                                            <td colspan="3">
+                                                <input type="text" id="erpMsSpjangcd" placeholder="ZZ" style="width:80px;">
+                                                <button type="button" class="btn-erp-test" onclick="testErpConnection()">연결 테스트</button>
+                                                <span class="erp-status" id="erpStatus"></span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- 기본정보 (금결원 조회로 자동채워짐) -->
                         <tr>
                             <th colspan="10" style="text-align: center; height: 30px; padding: 5px 10px;">기본정보</th>
                         </tr>
@@ -267,86 +424,52 @@
                             </td>
                         </tr>
 
-                        <!-- CMS 서비스 정보 -->
+                        <!-- CMS 계좌/수수료 정보 -->
+                        <tr>
+                            <th colspan="10" style="text-align: center; height: 30px; padding: 5px 10px;">CMS 계좌 정보</th>
+                        </tr>
+                        <tr>
+                            <th>지점코드</th>
+                            <td colspan="4"><input type="text" id="cmsBankBranch" maxlength="7" placeholder="7자리" style="width:140px;"></td>
+                            <th>입금계좌번호</th>
+                            <td colspan="4"><input type="text" id="cmsRecvAccount" maxlength="16" placeholder="하이픈(-) 제외"></td>
+                        </tr>
+                        <tr>
+                            <th>통장기재내용</th>
+                            <td colspan="4"><input type="text" id="cmsDescription" maxlength="30" placeholder="출금 시 납부자 통장 표시 문구"></td>
+                            <th>입금 소요일</th>
+                            <td colspan="4"><span id="cmsTransferDelay" style="font-size:13px;">-</span></td>
+                        </tr>
+                        <tr>
+                            <th>출금 한도</th>
+                            <td colspan="4"><span id="cmsLimitInfo" style="font-size:13px;">-</span></td>
+                            <th>금융기관 수수료</th>
+                            <td colspan="4">
+                                <div class="cms-fee-grid" id="cmsFeeGrid">
+                                    <div class="cms-fee-item">
+                                        <div class="fee-title">익일출금 (EB21)</div>
+                                        <div class="fee-val">의뢰: <span id="eb21FeeReq">-</span></div>
+                                        <div class="fee-val">성공: <span id="eb21FeeSuc">-</span></div>
+                                    </div>
+                                    <div class="cms-fee-item">
+                                        <div class="fee-title">당일출금 (EC21)</div>
+                                        <div class="fee-val">의뢰: <span id="ec21FeeReq">-</span></div>
+                                        <div class="fee-val">성공: <span id="ec21FeeSuc">-</span></div>
+                                    </div>
+                                    <div class="cms-fee-item">
+                                        <div class="fee-title">입금이체 (EB31)</div>
+                                        <div class="fee-val">의뢰: <span id="eb31FeeReq">-</span></div>
+                                        <div class="fee-val">성공: <span id="eb31FeeSuc">-</span></div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <!-- CMS 연동 (상단) -->
                         <tr>
                             <th colspan="10" style="text-align: center; height: 30px; padding: 5px 10px;">
                                 CMS 서비스 정보
                                 <button type="button" class="btn-branch-manage" onclick="openBranchModal()">분점 관리</button>
                             </th>
-                        </tr>
-                        <tr>
-                            <th>ERP 연동</th>
-                            <td colspan="9">
-                                <label style="cursor:pointer; font-size:13px;">
-                                    <input type="checkbox" id="erpYn" onchange="onErpToggle(this)">
-                                    ERP(MS SQL) 연동 사용
-                                </label>
-                                <div class="erp-section" id="erpSection">
-                                    <table>
-                                        <tr>
-                                            <th>DB 호스트</th>
-                                            <td><input type="text" id="erpHost" placeholder="192.168.0.1"></td>
-                                            <th>포트</th>
-                                            <td><input type="text" id="erpPort" placeholder="1433" style="width:80px;"></td>
-                                        </tr>
-                                        <tr>
-                                            <th>DB명</th>
-                                            <td><input type="text" id="erpDbName" placeholder="데이터베이스명"></td>
-                                            <th>업체코드</th>
-                                            <td><input type="text" id="erpCustcd" placeholder="ACTAS" style="width:100px;"></td>
-                                        </tr>
-                                        <tr>
-                                            <th>계정</th>
-                                            <td><input type="text" id="erpUsername" placeholder="접속 계정"></td>
-                                            <th>비밀번호</th>
-                                            <td><input type="password" id="erpPassword" placeholder="접속 비밀번호"></td>
-                                        </tr>
-                                        <tr>
-                                            <th>MS 사업장코드</th>
-                                            <td colspan="3">
-                                                <input type="text" id="erpMsSpjangcd" placeholder="ZZ" style="width:80px;">
-                                                <button type="button" class="btn-erp-test" onclick="testErpConnection()">연결 테스트</button>
-                                                <span class="erp-status" id="erpStatus"></span>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>CMS이용기관코드</th>
-                            <td colspan="4"><input type="text" id="cmsCode" maxlength="10" placeholder="10자리"></td>
-                            <th>CMS비밀번호</th>
-                            <td colspan="4"><input type="password" id="cmsPw" maxlength="100"></td>
-                        </tr>
-                        <tr>
-                            <th>통장기재내용</th>
-                            <td colspan="4"><input type="text" id="cmsDescription" maxlength="30" placeholder="출금 시 납부자 통장 표시 문구"></td>
-                            <th>CMS서비스상태</th>
-                            <td colspan="4">
-                                <select id="cmsState">
-                                    <option value="">선택</option>
-                                    <option value="apply">신청</option>
-                                    <option value="approve">승인</option>
-                                    <option value="stop">해지</option>
-                                </select>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>입금은행</th>
-                            <td colspan="4">
-                                <select id="cmsBankCode">
-                                    <option value="">선택</option>
-                                    <!-- JS로 동적 로드 -->
-                                </select>
-                            </td>
-                            <th>입금계좌번호</th>
-                            <td colspan="4"><input type="text" id="cmsRecvAccount" maxlength="16" placeholder="하이픈(-) 제외"></td>
-                        </tr>
-                        <tr>
-                            <th>지점코드</th>
-                            <td colspan="4"><input type="text" id="cmsBankBranch" maxlength="7" placeholder="7자리" style="width:140px;"></td>
-                            <th></th><td colspan="4"></td>
                         </tr>
                         </tbody>
                     </table>
@@ -377,7 +500,15 @@
                     <table class="branch-write-table">
                         <tbody>
                         <tr>
-                            <th>사업장명</th>
+                            <th style="background:transparent; border-color:#d9f7be;">CMS 기관코드</th>
+                            <td style="border-color:#d9f7be;" colspan="3">
+                                <input type="text" id="branchCmsCode" maxlength="10" placeholder="10자리" style="width:140px;">
+                                <button type="button" class="btn-cms-fetch" onclick="fetchBranchInstituteDetail()">금결원 조회</button>
+                                <span class="cms-status" id="branchCmsStatus"></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>사업장명 <span style="color:#ff4d4f;">*</span></th>
                             <td colspan="3"><input type="text" id="branchSpjangnm" style="width:100%;"></td>
                         </tr>
                         <tr>
@@ -394,40 +525,53 @@
                             <td><input type="text" id="branchPrenm"></td>
                         </tr>
                         <tr>
-                            <th>업태</th>
-                            <td><input type="text" id="branchBiztype"></td>
-                            <th>업종</th>
-                            <td><input type="text" id="branchItem"></td>
-                        </tr>
-                        <tr>
-                            <th>개업일자</th>
-                            <td><input type="date" id="branchOpenymd"></td>
-                            <th>폐업일자</th>
-                            <td><input type="date" id="branchEddate"></td>
-                        </tr>
-                        <tr>
                             <th>전화번호</th>
-                            <td><input type="tel" id="branchTel1"></td>
-                            <th>팩스번호</th>
-                            <td><input type="tel" id="branchFax"></td>
-                        </tr>
-                        <tr>
-                            <th>사업장소재지</th>
-                            <td colspan="3">
-                                <input type="text" id="branchZipcd" placeholder="우편번호" style="width:90px;">
-                                <input type="text" id="branchAdresa" style="width:170px;">
-                                <input type="text" id="branchAdresb" placeholder="상세주소" style="width:170px;">
-                            </td>
+                            <td colspan="3"><input type="tel" id="branchTel1" class="phone-format"></td>
                         </tr>
                         <tr>
                             <th>MS 사업장코드</th>
                             <td colspan="3">
                                 <input type="text" id="branchMsSpjangcd" placeholder="ZZ" style="width:80px;">
-                                <span style="font-size:12px; color:#888; margin-left:8px;">ERP 연동 시 해당 사업장코드 입력</span>
+                                <span style="font-size:12px; color:#888; margin-left:8px;">ERP 연동 시 입력</span>
                             </td>
                         </tr>
                         </tbody>
                     </table>
+
+                    <!-- 분점 CMS 정보 -->
+                    <div class="branch-cms-section">
+                        <div class="section-title">CMS 정보</div>
+                        <table class="branch-write-table" style="background:transparent; border:none;">
+                            <tbody>
+                            <tr>
+                                <th style="background:transparent; border-color:#d9f7be;">자동 출금신청</th>
+                                <td style="border-color:#d9f7be;" colspan="3">
+                                    <label style="cursor:pointer; font-size:13px;">
+                                        <input type="checkbox" id="branchAutoSendYn">
+                                        스케줄러 자동 전송 사용
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="background:transparent; border-color:#d9f7be;">입금계좌</th>
+                                <td style="border-color:#d9f7be;" colspan="3">
+                                    <input type="text" id="branchCmsRecvAccount" maxlength="16" placeholder="하이픈 제외" style="width:200px;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="background:transparent; border-color:#d9f7be;">지점코드</th>
+                                <td style="border-color:#d9f7be;">
+                                    <input type="text" id="branchCmsBankBranch" maxlength="7" placeholder="7자리" style="width:100px;">
+                                </td>
+                                <th style="background:transparent; border-color:#d9f7be;">통장기재내용</th>
+                                <td style="border-color:#d9f7be;">
+                                    <input type="text" id="branchCmsDescription" maxlength="30">
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
                     <div style="margin-top:12px; text-align:right;">
                         <button type="button" class="btn-modal-cancel" onclick="hideBranchForm()">목록으로</button>
                         <button type="button" class="btn-modal-save" onclick="saveBranchForm()">저장</button>
@@ -458,16 +602,19 @@
         var allSpjangData = [];
         var branchList = [];
 
+        // 금결원 조회 결과 임시 저장 (저장 시 payload에 포함)
+        var cmsInstituteData = null;
+        var branchCmsInstituteData = null;
+
         document.readyState === 'complete' ? init() : window.onload = init;
 
         function init() {
             if (isAdmin) {
                 loadAdminData();
-                loadBankList();
             } else {
                 loadMyData();
-                loadBankList();
             }
+            loadBankList();
         }
 
         // ── 어드민 ────────────────────────────────────────────
@@ -488,20 +635,14 @@
 
         function loadBankList() {
             $.ajax({
-                url: withCtx('/api/workplace/banks'),
-                type: 'GET',
+                url: withCtx('/api/workplace/banks'), type: 'GET',
                 success: function(res) {
-                    var sel = document.getElementById('cmsBankCode');
-                    (res.data || []).forEach(function(b) {
-                        var opt = document.createElement('option');
-                        opt.value = b.bank_code;
-                        opt.text  = b.bank_name;
-                        sel.appendChild(opt);
-                    });
-                    // bindForm 이후에 로드되면 선택값 못잡으니까
-                    // 로드 완료 후 현재 값 세팅
+                    var opts = (res.data || []).map(function(b) {
+                        return '<option value="' + b.bank_code + '">' + b.bank_name + '</option>';
+                    }).join('');
+                    document.getElementById('cmsBankCode').innerHTML += opts;
                     if (window._pendingBankCode) {
-                        sel.value = window._pendingBankCode;
+                        document.getElementById('cmsBankCode').value = window._pendingBankCode;
                         window._pendingBankCode = null;
                     }
                 }
@@ -512,18 +653,12 @@
             var keyword = document.getElementById('adminSearchInput').value.trim().toLowerCase();
             var ul = document.getElementById('adminDropdown');
             ul.innerHTML = '';
-            if (!keyword) {
-                ul.style.display = 'none';
-                return;
-            }
+            if (!keyword) { ul.style.display = 'none'; return; }
             var filtered = allSpjangData.filter(function (d) {
                 return (d.spjangcd || '').toLowerCase().includes(keyword)
                     || (d.spjangnm || '').toLowerCase().includes(keyword);
             });
-            if (filtered.length === 0) {
-                ul.style.display = 'none';
-                return;
-            }
+            if (filtered.length === 0) { ul.style.display = 'none'; return; }
             filtered.forEach(function (item) {
                 var li = document.createElement('li');
                 li.style.cssText = 'padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0;';
@@ -535,12 +670,8 @@
                     ul.style.display = 'none';
                     bindForm(item);
                 });
-                li.addEventListener('mouseover', function () {
-                    this.style.background = '#f5f7ff';
-                });
-                li.addEventListener('mouseout', function () {
-                    this.style.background = '';
-                });
+                li.addEventListener('mouseover', function () { this.style.background = '#f5f7ff'; });
+                li.addEventListener('mouseout',  function () { this.style.background = ''; });
                 ul.appendChild(li);
             });
             ul.style.display = 'block';
@@ -564,50 +695,196 @@
 
         // ── 폼 바인딩 ─────────────────────────────────────────
         function bindForm(item) {
-            document.getElementById('spjangcd2').value = item.spjangcd || '';
-            document.getElementById('spjangnm').value = item.spjangnm || '';
+            document.getElementById('spjangcd2').value  = item.spjangcd || '';
+            document.getElementById('spjangnm').value   = item.spjangnm || '';
             var radio = document.querySelector('input[name="custperclsf"][value="' + item.custperclsf + '"]');
             if (radio) radio.checked = true;
-            document.getElementById('saupnum').value = item.saupnum || '';
-            document.getElementById('prenm').value = item.prenm || '';
-            document.getElementById('compnum').value = item.compnum || '';
-            document.getElementById('biztype').value = item.biztype || '';
-            document.getElementById('item').value = item.item || '';
-            document.getElementById('openymd').value = formatDateToInput(item.openymd);
-            document.getElementById('eddate').value = formatDateToInput(item.eddate);
-            document.getElementById('tel1').value = item.tel1 || '';
-            document.getElementById('fax').value = item.fax || '';
-            document.getElementById('zipcd').value = item.zipcd || '';
-            document.getElementById('adresa').value = item.adresa || '';
-            document.getElementById('adresb').value = item.adresb || '';
+            document.getElementById('saupnum').value    = item.saupnum || '';
+            document.getElementById('prenm').value      = item.prenm || '';
+            document.getElementById('compnum').value    = item.compnum || '';
+            document.getElementById('biztype').value    = item.biztype || '';
+            document.getElementById('item').value       = item.item || '';
+            document.getElementById('openymd').value    = formatDateToInput(item.openymd);
+            document.getElementById('eddate').value     = formatDateToInput(item.eddate);
+            document.getElementById('tel1').value       = item.tel1 || '';
+            document.getElementById('fax').value        = item.fax || '';
+            document.getElementById('zipcd').value      = item.zipcd || '';
+            document.getElementById('adresa').value     = item.adresa || '';
+            document.getElementById('adresb').value     = item.adresb || '';
 
             // CMS
             var cms = item.cms || {};
             document.getElementById('cmsCode').value        = cms.cms_code || '';
-            document.getElementById('cmsPw').value          = cms.cms_password || '';
             document.getElementById('cmsDescription').value = cms.cms_description || '';
-            document.getElementById('cmsState').value       = cms.cms_state || '';
-            document.getElementById('cmsBankCode').value    = cms.cms_bank_code || '';
+            document.getElementById('cmsBankBranch').value  = cms.cms_bank_branch || '';
             document.getElementById('cmsRecvAccount').value = cms.cms_recv_account || '';
+            document.getElementById('autoSendYn').checked   = (cms.auto_send_yn === 'Y');
+
+            // CMS 조회 정보 표시
+            bindCmsInfo(cms);
 
             // ERP
             var erp = item.erp || {};
             var erpYn = !!erp.host;
             document.getElementById('erpYn').checked = erpYn;
-            document.getElementById('erpSection').classList.toggle('visible', erpYn);
-            document.getElementById('erpHost').value = erp.host || '';
-            document.getElementById('erpPort').value = erp.port || '1433';
-            document.getElementById('erpDbName').value = erp.db_name || '';
-            document.getElementById('erpCustcd').value = erp.custcd || '';
-            document.getElementById('erpUsername').value = erp.username || '';
-            document.getElementById('erpPassword').value = erp.password || '';
+            document.getElementById('erpSectionRow').style.display = erpYn ? '' : 'none';
+            document.getElementById('erpHost').value       = erp.host || '';
+            document.getElementById('erpPort').value       = erp.port || '1433';
+            document.getElementById('erpDbName').value     = erp.db_name || '';
+            document.getElementById('erpCustcd').value     = erp.custcd || '';
+            document.getElementById('erpUsername').value   = erp.username || '';
+            document.getElementById('erpPassword').value   = erp.password || '';
             document.getElementById('erpMsSpjangcd').value = erp.ms_spjangcd || '';
             document.getElementById('erpStatus').textContent = '';
+
+            cmsInstituteData = null;
+        }
+
+        function bindCmsInfo(cms) {
+            // 서비스 정상여부
+            var normalEl = document.getElementById('cmsNormalStatus');
+            if (cms.is_normal_status === true || cms.is_normal_status === 't') {
+                normalEl.innerHTML = '<span class="cms-badge-ok">✓ 정상</span>';
+            } else if (cms.is_normal_status !== null && cms.is_normal_status !== undefined) {
+                normalEl.innerHTML = '<span class="cms-badge-fail">✗ 비정상</span>';
+            } else {
+                normalEl.textContent = '-';
+            }
+
+            // 입금 소요일
+            var delay = cms.transfer_delay_days;
+            var delayEl = document.getElementById('cmsTransferDelay');
+            delayEl.textContent = delay ? 'D+' + delay : '-';
+
+            // 출금 한도
+            var limitEl = document.getElementById('cmsLimitInfo');
+            if (cms.limit_amount_each || cms.limit_amount_monthly) {
+                limitEl.textContent = '건당 ' + fmtAmt(cms.limit_amount_each) + ' / 월 ' + fmtAmt(cms.limit_amount_monthly);
+            } else {
+                limitEl.textContent = '-';
+            }
+
+            // 수수료
+            document.getElementById('eb21FeeReq').textContent = cms.eb21_fee_request != null ? cms.eb21_fee_request + '원' : '-';
+            document.getElementById('eb21FeeSuc').textContent = cms.eb21_fee_success != null ? cms.eb21_fee_success + '원' : '-';
+            document.getElementById('ec21FeeReq').textContent = cms.ec21_fee_request != null ? cms.ec21_fee_request + '원' : '-';
+            document.getElementById('ec21FeeSuc').textContent = cms.ec21_fee_success != null ? cms.ec21_fee_success + '원' : '-';
+            document.getElementById('eb31FeeReq').textContent = cms.eb31_fee_request != null ? cms.eb31_fee_request + '원' : '-';
+            document.getElementById('eb31FeeSuc').textContent = cms.eb31_fee_success != null ? cms.eb31_fee_success + '원' : '-';
+        }
+
+        // ── 금결원 이용기관 조회 (본점) ───────────────────────
+        function fetchInstituteDetail() {
+            var spjangcd = document.getElementById('spjangcd2').value;
+            var cmsCode  = document.getElementById('cmsCode').value.trim();
+            if (!spjangcd) { Alert.alert('', '사업장을 먼저 선택하세요.'); return; }
+            if (!cmsCode)  { Alert.alert('', 'CMS 기관코드를 입력하세요.'); return; }
+
+            var statusEl = document.getElementById('cmsStatus');
+            statusEl.textContent = '조회 중...';
+            statusEl.className = 'cms-status';
+
+            $.ajax({
+                url: withCtx('/api/workplace/cms/institute-detail/' + spjangcd), type: 'GET',
+                success: function(res) {
+                    if (!res.success) {
+                        statusEl.textContent = '✗ ' + (res.message || '조회 실패');
+                        statusEl.className = 'cms-status fail';
+                        return;
+                    }
+                    var d = res.data;
+                    cmsInstituteData = d;
+
+                    // 기관 기본정보 자동채우기
+                    if (d.inst_name)  document.getElementById('spjangnm').value = d.inst_name;
+                    if (d.ins_corp_ssn_reg_num_encrypted) document.getElementById('compnum').value = d.ins_corp_ssn_reg_num_encrypted;
+                    if (d.biz_no)     document.getElementById('saupnum').value   = d.biz_no;
+                    if (d.ceo_name)   document.getElementById('prenm').value     = d.ceo_name;
+                    if (d.biz_type)   document.getElementById('biztype').value   = d.biz_type;
+                    if (d.biz_item)   document.getElementById('item').value      = d.biz_item;
+                    if (d.office_zip_code)  document.getElementById('zipcd').value  = d.office_zip_code.trim();
+                    if (d.office_address)   document.getElementById('adresa').value = d.office_address;
+
+                    // CMS 계좌정보 자동채우기
+                    var eb21 = d.eb21_service_settings || {};
+                    var ec21 = d.ec21_service_settings || {};
+                    var eb31 = d.eb31_service_settings || {};
+
+                    document.getElementById('cmsBankBranch').value  = eb21.master_account_bank_code || '';
+                    if (eb21.master_account_no) document.getElementById('cmsRecvAccount').value = eb21.master_account_no;
+                    if (d.bankbook_contents && d.bankbook_contents.length > 0) {
+                        document.getElementById('cmsDescription').value = d.bankbook_contents[0];
+                    }
+
+                    // 조회 정보 표시
+                    bindCmsInfo({
+                        is_normal_status:    d.is_normal_status,
+                        transfer_delay_days: d.transfer_delay_days,
+                        limit_amount_each:   d.limit_amount_for_each_withdrawal,
+                        limit_amount_monthly:d.limit_amount_for_monthly_withdrawal,
+                        eb21_fee_request:    eb21.bank_fee_for_each_request,
+                        eb21_fee_success:    eb21.bank_fee_for_each_successful_request,
+                        ec21_fee_request:    ec21.bank_fee_for_each_request,
+                        ec21_fee_success:    ec21.bank_fee_for_each_successful_request,
+                        eb31_fee_request:    eb31.bank_fee_for_each_request,
+                        eb31_fee_success:    eb31.bank_fee_for_each_successful_request
+                    });
+
+                    statusEl.textContent = '✓ 조회 완료';
+                    statusEl.className = 'cms-status ok';
+                },
+                error: function() {
+                    statusEl.textContent = '✗ 조회 실패';
+                    statusEl.className = 'cms-status fail';
+                }
+            });
+        }
+
+        // ── 금결원 이용기관 조회 (분점) ───────────────────────
+        function fetchBranchInstituteDetail() {
+            var cmsCode = document.getElementById('branchCmsCode').value.trim();
+            if (!cmsCode) { Alert.alert('', 'CMS 기관코드를 입력하세요.'); return; }
+
+            var statusEl = document.getElementById('branchCmsStatus');
+            statusEl.textContent = '조회 중...';
+            statusEl.className = 'cms-status';
+
+            $.ajax({
+                url: withCtx('/api/workplace/cms/institute-detail?cmsCode=' + cmsCode),
+                type: 'GET',
+                success: function(res) {
+                    if (!res.success) {
+                        statusEl.textContent = '✗ ' + (res.message || '조회 실패');
+                        statusEl.className = 'cms-status fail';
+                        return;
+                    }
+                    var d = res.data;
+                    branchCmsInstituteData = d;
+
+                    if (d.inst_name) document.getElementById('branchSpjangnm').value = d.inst_name;
+                    if (d.biz_no)    document.getElementById('branchSaupnum').value   = d.biz_no;
+                    if (d.ceo_name)  document.getElementById('branchPrenm').value     = d.ceo_name;
+
+                    var eb21 = d.eb21_service_settings || {};
+                    document.getElementById('branchCmsBankBranch').value = eb21.master_account_bank_code || '';
+                    if (eb21.master_account_no) document.getElementById('branchCmsRecvAccount').value = eb21.master_account_no;
+                    if (d.bankbook_contents && d.bankbook_contents.length > 0) {
+                        document.getElementById('branchCmsDescription').value = d.bankbook_contents[0];
+                    }
+
+                    statusEl.textContent = '✓ 조회 완료';
+                    statusEl.className = 'cms-status ok';
+                },
+                error: function() {
+                    statusEl.textContent = '✗ 조회 실패';
+                    statusEl.className = 'cms-status fail';
+                }
+            });
         }
 
         // ── ERP 연동 ──────────────────────────────────────────
         function onErpToggle(chk) {
-            document.getElementById('erpSection').classList.toggle('visible', chk.checked);
+            document.getElementById('erpSectionRow').style.display = chk.checked ? '' : 'none';
             document.getElementById('erpStatus').textContent = '';
         }
 
@@ -619,12 +896,9 @@
                 url: withCtx('/api/workplace/erp-test'), type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({
-                    host: $('#erpHost').val(),
-                    port: $('#erpPort').val(),
-                    dbName: $('#erpDbName').val(),
-                    custcd: $('#erpCustcd').val(),
-                    username: $('#erpUsername').val(),
-                    password: $('#erpPassword').val(),
+                    host: $('#erpHost').val(), port: $('#erpPort').val(),
+                    dbName: $('#erpDbName').val(), custcd: $('#erpCustcd').val(),
+                    username: $('#erpUsername').val(), password: $('#erpPassword').val(),
                     msSpjangcd: $('#erpMsSpjangcd').val()
                 }),
                 headers: {'X-CSRF-Token': $('[name=_csrf]').val()},
@@ -642,10 +916,7 @@
         // ── 분점 모달 ─────────────────────────────────────────
         function openBranchModal() {
             var spjangcd = document.getElementById('spjangcd2').value;
-            if (!spjangcd) {
-                Alert.alert('', '사업장을 먼저 선택하세요.');
-                return;
-            }
+            if (!spjangcd) { Alert.alert('', '사업장을 먼저 선택하세요.'); return; }
             hideBranchForm();
             loadBranches(spjangcd);
             document.getElementById('branchModal').classList.add('open');
@@ -672,10 +943,20 @@
                 return;
             }
             el.innerHTML = branchList.map(function (b, idx) {
+                var statusHtml = '';
+                if (b.cms_code) {
+                    statusHtml += '<span class="branch-cms-code">' + b.cms_code + '</span>';
+                    if (b.is_normal_status === true || b.is_normal_status === 't') {
+                        statusHtml += '<span class="branch-status-ok" style="margin-left:4px;">✓</span>';
+                    } else {
+                        statusHtml += '<span class="branch-status-fail" style="margin-left:4px;">✗</span>';
+                    }
+                }
                 return '<div class="branch-item">'
                     + '<span class="branch-cd">' + (b.spjangcd || '신규') + '</span>'
                     + '<span class="branch-nm">' + (b.spjangnm || '(이름 없음)') + '</span>'
-                    + (b.msSpjangcd ? '<span style="font-size:12px;color:#888;">ERP: ' + b.msSpjangcd + '</span>' : '')
+                    + statusHtml
+                    + (b.ms_spjangcd ? '<span style="font-size:12px;color:#888;">ERP: ' + b.ms_spjangcd + '</span>' : '')
                     + '<button class="btn-branch-edit" onclick="showBranchForm(' + idx + ')">수정</button>'
                     + '<button class="btn-branch-del" onclick="deleteBranch(' + idx + ')">삭제</button>'
                     + '</div>';
@@ -689,22 +970,23 @@
 
             var b = (idx !== null) ? branchList[idx] : {};
             document.getElementById('branchFormTitle').textContent = idx === null ? '분점 추가' : ('분점 수정 - ' + (b.spjangnm || ''));
-            document.getElementById('branchSpjangcd').value = b.spjangcd || '';
-            document.getElementById('branchSpjangnm').value = b.spjangnm || '';
-            document.getElementById('branchSaupnum').value = b.saupnum || '';
-            document.getElementById('branchPrenm').value = b.prenm || '';
-            document.getElementById('branchBiztype').value = b.biztype || '';
-            document.getElementById('branchItem').value = b.item || '';
-            document.getElementById('branchOpenymd').value = formatDateToInput(b.openymd);
-            document.getElementById('branchEddate').value = formatDateToInput(b.eddate);
-            document.getElementById('branchTel1').value = b.tel1 || '';
-            document.getElementById('branchFax').value = b.fax || '';
-            document.getElementById('branchZipcd').value = b.zipcd || '';
-            document.getElementById('branchAdresa').value = b.adresa || '';
-            document.getElementById('branchAdresb').value = b.adresb || '';
-            document.getElementById('branchMsSpjangcd').value = b.msSpjangcd || '';
+            document.getElementById('branchSpjangcd').value        = b.spjangcd || '';
+            document.getElementById('branchSpjangnm').value        = b.spjangnm || '';
+            document.getElementById('branchSaupnum').value         = b.saupnum || '';
+            document.getElementById('branchPrenm').value           = b.prenm || '';
+            document.getElementById('branchTel1').value            = b.tel1 || '';
+            document.getElementById('branchMsSpjangcd').value      = b.ms_spjangcd || '';
             var custRad = document.querySelector('input[name="branchCustperclsf"][value="' + (b.custperclsf || '8') + '"]');
             if (custRad) custRad.checked = true;
+
+            // CMS
+            document.getElementById('branchCmsCode').value         = b.cms_code || '';
+            document.getElementById('branchAutoSendYn').checked     = (b.auto_send_yn === 'Y');
+            document.getElementById('branchCmsRecvAccount').value   = b.cms_recv_account || '';
+            document.getElementById('branchCmsBankBranch').value    = b.cms_bank_branch || '';
+            document.getElementById('branchCmsDescription').value   = b.cms_description || '';
+            document.getElementById('branchCmsStatus').textContent  = '';
+            branchCmsInstituteData = null;
         }
 
         function hideBranchForm() {
@@ -713,24 +995,44 @@
         }
 
         function saveBranchForm() {
+            if (!document.getElementById('branchSpjangnm').value.trim()) {
+                Alert.alert('', '사업장명을 입력하세요.');
+                return;
+            }
+            var d = branchCmsInstituteData || {};
+            var eb21 = d.eb21_service_settings || {};
+            var ec21 = d.ec21_service_settings || {};
+            var eb31 = d.eb31_service_settings || {};
+
             var data = {
-                spjangcd: document.getElementById('branchSpjangcd').value || null,
+                spjangcd:       document.getElementById('branchSpjangcd').value || null,
                 parentSpjangcd: document.getElementById('spjangcd2').value,
-                spjangnm: document.getElementById('branchSpjangnm').value,
-                custperclsf: document.querySelector('input[name="branchCustperclsf"]:checked').value,
-                saupnum: document.getElementById('branchSaupnum').value,
-                prenm: document.getElementById('branchPrenm').value,
-                biztype: document.getElementById('branchBiztype').value,
-                item: document.getElementById('branchItem').value,
-                openymd: formatDateToYYYYMMDD(document.getElementById('branchOpenymd').value),
-                eddate: formatDateToYYYYMMDD(document.getElementById('branchEddate').value),
-                tel1: document.getElementById('branchTel1').value,
-                fax: document.getElementById('branchFax').value,
-                zipcd: document.getElementById('branchZipcd').value,
-                adresa: document.getElementById('branchAdresa').value,
-                adresb: document.getElementById('branchAdresb').value,
-                msSpjangcd: document.getElementById('branchMsSpjangcd').value || null
+                spjangnm:       document.getElementById('branchSpjangnm').value,
+                custperclsf:    document.querySelector('input[name="branchCustperclsf"]:checked').value,
+                saupnum:        document.getElementById('branchSaupnum').value,
+                prenm:          document.getElementById('branchPrenm').value,
+                tel1:           document.getElementById('branchTel1').value,
+                msSpjangcd:     document.getElementById('branchMsSpjangcd').value || null,
+                cms: {
+                    cmsCode:          document.getElementById('branchCmsCode').value,
+                    autoSendYn:       document.getElementById('branchAutoSendYn').checked ? 'Y' : 'N',
+                    cmsRecvAccount:   document.getElementById('branchCmsRecvAccount').value,
+                    cmsBankBranch:    document.getElementById('branchCmsBankBranch').value,
+                    cmsDescription:   document.getElementById('branchCmsDescription').value,
+                    msSpjangcd:       document.getElementById('branchMsSpjangcd').value || null,
+                    transferDelayDays: d.transfer_delay_days || null,
+                    isNormalStatus:   d.is_normal_status != null ? d.is_normal_status : null,
+                    limitAmountEach:  d.limit_amount_for_each_withdrawal || null,
+                    limitAmountMonthly: d.limit_amount_for_monthly_withdrawal || null,
+                    eb21FeeRequest:   eb21.bank_fee_for_each_request || null,
+                    eb21FeeSuccess:   eb21.bank_fee_for_each_successful_request || null,
+                    ec21FeeRequest:   ec21.bank_fee_for_each_request || null,
+                    ec21FeeSuccess:   ec21.bank_fee_for_each_successful_request || null,
+                    eb31FeeRequest:   eb31.bank_fee_for_each_request || null,
+                    eb31FeeSuccess:   eb31.bank_fee_for_each_successful_request || null
+                }
             };
+
             $.ajax({
                 url: withCtx('/api/workplace/branch/save'), type: 'POST',
                 contentType: 'application/json',
@@ -745,9 +1047,7 @@
                         Alert.alert('', res.message || '저장에 실패했습니다.');
                     }
                 },
-                error: function () {
-                    Alert.alert('', '에러가 발생하였습니다.');
-                }
+                error: function () { Alert.alert('', '에러가 발생하였습니다.'); }
             });
         }
 
@@ -772,39 +1072,52 @@
         function save() {
             Alert.confirm('', '저장하시겠습니까?', function () {
                 var erpYn = document.getElementById('erpYn').checked;
+                var d = cmsInstituteData || {};
+                var eb21 = d.eb21_service_settings || {};
+                var ec21 = d.ec21_service_settings || {};
+                var eb31 = d.eb31_service_settings || {};
+
                 var payload = {
-                    spjangcd: $('#spjangcd2').val(),
-                    spjangnm: $('#spjangnm').val(),
+                    spjangcd:    $('#spjangcd2').val(),
+                    spjangnm:    $('#spjangnm').val(),
                     custperclsf: $('.custperclsf:checked').val(),
-                    saupnum: $('#saupnum').val(),
-                    prenm: $('#prenm').val(),
-                    compnum: $('#compnum').val(),
-                    biztype: $('#biztype').val(),
-                    item: $('#item').val(),
-                    openymd: formatDateToYYYYMMDD($('#openymd').val()),
-                    eddate: formatDateToYYYYMMDD($('#eddate').val()),
-                    tel1: $('#tel1').val(),
-                    fax: $('#fax').val(),
-                    zipcd: $('#zipcd').val(),
-                    adresa: $('#adresa').val(),
-                    adresb: $('#adresb').val(),
+                    saupnum:     $('#saupnum').val(),
+                    prenm:       $('#prenm').val(),
+                    compnum:     $('#compnum').val(),
+                    biztype:     $('#biztype').val(),
+                    item:        $('#item').val(),
+                    openymd:     formatDateToYYYYMMDD($('#openymd').val()),
+                    eddate:      formatDateToYYYYMMDD($('#eddate').val()),
+                    tel1:        $('#tel1').val(),
+                    fax:         $('#fax').val(),
+                    zipcd:       $('#zipcd').val(),
+                    adresa:      $('#adresa').val(),
+                    adresb:      $('#adresb').val(),
                     cms: {
-                        cmsCode: $('#cmsCode').val(),
-                        cmsPassword: $('#cmsPw').val(),
-                        cmsDescription: $('#cmsDescription').val(),
-                        cmsState: $('#cmsState').val(),
-                        cmsBankCode: $('#cmsBankCode').val(),
-                        cmsRecvAccount: $('#cmsRecvAccount').val(),
-                        cmsBankBranch: $('#cmsBankBranch').val(),
-                        msSpjangcd:     erpYn ? ($('#erpMsSpjangcd').val() || null) : null
+                        cmsCode:          $('#cmsCode').val(),
+                        cmsDescription:   $('#cmsDescription').val(),
+                        cmsRecvAccount:   $('#cmsRecvAccount').val(),
+                        cmsBankBranch:    $('#cmsBankBranch').val(),
+                        autoSendYn:       $('#autoSendYn').is(':checked') ? 'Y' : 'N',
+                        msSpjangcd:       erpYn ? ($('#erpMsSpjangcd').val() || null) : null,
+                        transferDelayDays: d.transfer_delay_days || null,
+                        isNormalStatus:   d.is_normal_status != null ? d.is_normal_status : null,
+                        limitAmountEach:  d.limit_amount_for_each_withdrawal || null,
+                        limitAmountMonthly: d.limit_amount_for_monthly_withdrawal || null,
+                        eb21FeeRequest:   eb21.bank_fee_for_each_request || null,
+                        eb21FeeSuccess:   eb21.bank_fee_for_each_successful_request || null,
+                        ec21FeeRequest:   ec21.bank_fee_for_each_request || null,
+                        ec21FeeSuccess:   ec21.bank_fee_for_each_successful_request || null,
+                        eb31FeeRequest:   eb31.bank_fee_for_each_request || null,
+                        eb31FeeSuccess:   eb31.bank_fee_for_each_successful_request || null
                     },
                     erp: erpYn ? {
-                        host: $('#erpHost').val(),
-                        port: $('#erpPort').val(),
-                        dbName: $('#erpDbName').val(),
-                        custcd: $('#erpCustcd').val(),
-                        username: $('#erpUsername').val(),
-                        password: $('#erpPassword').val(),
+                        host:       $('#erpHost').val(),
+                        port:       $('#erpPort').val(),
+                        dbName:     $('#erpDbName').val(),
+                        custcd:     $('#erpCustcd').val(),
+                        username:   $('#erpUsername').val(),
+                        password:   $('#erpPassword').val(),
                         msSpjangcd: $('#erpMsSpjangcd').val()
                     } : null
                 };
@@ -817,13 +1130,12 @@
                     success: function (res) {
                         if (res.success) {
                             Alert.alert('', res.message);
+                            document.getElementById('cmsStatus').textContent = '';
                         } else {
                             Alert.alert('', '저장에 실패했습니다.');
                         }
                     },
-                    error: function () {
-                        Alert.alert('', '에러가 발생하였습니다.');
-                    }
+                    error: function () { Alert.alert('', '에러가 발생하였습니다.'); }
                 });
             });
         }
@@ -838,13 +1150,14 @@
             }).open();
         }
 
-        function formatDateToYYYYMMDD(v) {
-            return v ? v.replace(/-/g, '') : '';
-        }
-
+        function formatDateToYYYYMMDD(v) { return v ? v.replace(/-/g, '') : ''; }
         function formatDateToInput(v) {
             if (!v || v.length !== 8) return '';
             return v.substring(0, 4) + '-' + v.substring(4, 6) + '-' + v.substring(6, 8);
+        }
+        function fmtAmt(v) {
+            if (v == null) return '-';
+            return Number(v).toLocaleString() + '원';
         }
     </script>
 </th:block>
