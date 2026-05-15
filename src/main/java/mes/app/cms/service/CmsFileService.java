@@ -62,7 +62,7 @@ public class CmsFileService {
         }
         if (StringUtils.hasText(sendStatus)){ sql += " AND f.send_status = :sendStatus";              param.addValue("sendStatus", sendStatus); }
 
-        return sqlRunner.getRows(sql + " ORDER BY f._created DESC", param);
+        return sqlRunner.getRows(sql + " ORDER BY COALESCE(f._modified, f._created) DESC", param);
     }
 
     // ── 수동 생성 (화면) — GenerateService 위임 ───────────────────────────────

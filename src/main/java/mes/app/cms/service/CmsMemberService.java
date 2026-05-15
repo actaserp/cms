@@ -668,9 +668,11 @@ public class CmsMemberService {
                     E.delmon5, E.delmon6, E.delmon7, E.delmon8,
                     E.delmon9, E.delmon10, E.delmon11, E.delmon12,
                     (SELECT TOP 1 SPDATE FROM TB_CMSEB13
-                     WHERE CLTCD = C.cltcd AND ACTCD IS
-                    NULL
-                    ORDER BY SPDATE DESC) AS agree_date
+                     WHERE CLTCD = C.cltcd AND ACTCD IS NULL
+                     ORDER BY SPDATE DESC) AS agree_date,
+                    (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13
+                     WHERE CLTCD = C.cltcd AND ACTCD IS NULL
+                     ORDER BY SPDATE DESC) AS bankcltcd
                 FROM TB_XCLIENT C WITH(NOLOCK)
                 INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd
                 INNER JOIN TB_E101 E WITH(NOLOCK)
@@ -691,7 +693,6 @@ public class CmsMemberService {
                 try (java.sql.ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         try {
-                            String memberNo      = rs.getString("member_no");
                             String memberName    = rs.getString("member_name");
                             String idNumber      = rs.getString("id_number");
                             String bnkCode       = rs.getString("bank_code"); // TB_XBANK.bnkcode
@@ -706,6 +707,20 @@ public class CmsMemberService {
                             String startDate     = cleanDate(rs.getString("start_date"));
                             String endDate       = cleanDate(rs.getString("end_date"));
                             String agreeDate = cleanDate(rs.getString("agree_date"));
+                            String cltcd     = rs.getString("member_no");  // TB_XCLIENT.cltcd
+                            String bankcltcd = rs.getString("bankcltcd");
+                            String agreeYn;
+                            String memberNo;
+
+                            if (StringUtils.hasText(bankcltcd)) {
+                                // TB_CMSEB13 인증 완료 → BANKCLTCD를 member_no로
+                                memberNo = bankcltcd;
+                                agreeYn  = "Y";
+                            } else {
+                                // 인증 안 됨 → SaaS 채번
+                                memberNo = generateMemberNo(spjangcd);
+                                agreeYn  = "N";
+                            }
 
                             if (endDate == null || endDate.isEmpty()) endDate = "99991231";
                             if (bankAccount != null) bankAccount = bankAccount.replaceAll("-", "").trim();
@@ -732,12 +747,14 @@ public class CmsMemberService {
 
                             // 기존 member 조회
                             Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
-                                    "SELECT id FROM cms_member WHERE spjangcd = :spjangcd AND member_no = :memberNo",
-                                    new MapSqlParameterSource("spjangcd", spjangcd).addValue("memberNo", memberNo));
+                                    "SELECT id FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :cltcd",
+                                    new MapSqlParameterSource("spjangcd", spjangcd).addValue("cltcd", cltcd));
 
                             MapSqlParameterSource p = new MapSqlParameterSource();
                             p.addValue("spjangcd",      spjangcd);
                             p.addValue("memberNo",      memberNo);
+                            p.addValue("cltcd",    cltcd);
+                            p.addValue("agreeYn",  agreeYn);
                             p.addValue("memberName",    memberName);
                             p.addValue("memberType",    "C");
                             p.addValue("idNumber",      idNumber);
@@ -753,7 +770,8 @@ public class CmsMemberService {
                             p.addValue("endDate",       endDate);
                             p.addValue("cycleType",     cycleType);
                             p.addValue("cycleMonths",   cycleMonths);
-                            p.addValue("agreeYn",       "Y");
+                            p.addValue("agreeYn",   agreeYn);
+                            p.addValue("bankcltcd", bankcltcd);
                             p.addValue("userId",        userId);
                             p.addValue("agreeDate", agreeDate);
 
@@ -768,7 +786,7 @@ public class CmsMemberService {
                                             deduct_amount, deduct_day,
                                             start_date, end_date,
                                             cycle_type, cycle_months,
-                                            agree_yn, agree_date, status,
+                                            agree_yn, agree_date, cltcd, status,
                                             _creater_id, _created, _modifier_id, _modified
                                         ) VALUES (
                                             :spjangcd, :memberNo, :memberType, :memberName,
@@ -777,7 +795,7 @@ public class CmsMemberService {
                                             :deductAmount, :deductDay,
                                             :startDate, :endDate,
                                             :cycleType, :cycleMonths,
-                                            :agreeYn, CAST(:agreeDate AS DATE), 'ACTIVE',
+                                            :agreeYn, CAST(:agreeDate AS DATE), :cltcd, 'ACTIVE',
                                             :userId, NOW(), :userId, NOW()
                                         )
                                         """, p);
@@ -788,6 +806,7 @@ public class CmsMemberService {
                                         """
                                         UPDATE cms_member SET
                                             member_name    = :memberName,
+                                            member_no      = :memberNo,
                                             id_number      = :idNumber,
                                             bank_code      = :bankCode,
                                             bank_account   = :bankAccount,
@@ -803,9 +822,12 @@ public class CmsMemberService {
                                             cycle_months   = :cycleMonths,
                                             agree_yn       = :agreeYn,
                                             agree_date     = COALESCE(agree_date, CAST(:agreeDate AS DATE)),
+                                            cltcd          = :cltcd,
                                             _modifier_id   = :userId,
-                                            _modified      = NOW()
-                                        WHERE spjangcd = :spjangcd AND member_no = :memberNo
+                                            _modified      = NOW(),
+                                            bankcltcd = COALESCE(:bankcltcd, bankcltcd),
+                                            agree_yn  = :agreeYn
+                                        WHERE spjangcd = :spjangcd AND cltcd = :cltcd
                                         """, p);
                                 updated++;
                             }

@@ -11,6 +11,7 @@ import mes.domain.services.SqlRunner;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.io.ByteArrayInputStream;
@@ -72,64 +73,78 @@ public class CmsEc22ReceiveService {
         }
 
         for (Map<String, Object> row : targets) {
-            String spjangcd = str(row.get("spjangcd"));
+            String spjangcd   = str(row.get("spjangcd"));
             String targetDate = str(row.get("target_date"));
-            long fileId = ((Number) row.get("file_id")).longValue();
-            String mmdd = targetDate.substring(4, 8);
-            String yyyy = targetDate.substring(0, 4);
+            long   fileId     = ((Number) row.get("file_id")).longValue();
+            String mmdd       = targetDate.substring(4, 8);
+            String yyyy       = targetDate.substring(0, 4);
             String ec22FileName = "EC22" + mmdd + "_" + yyyy;
             log.info("[CmsEc22Receive] 처리 시작 spjangcd={} targetDate={}", spjangcd, targetDate);
             try {
-                processSpjang(spjangcd, targetDate, ec22FileName, fileId);
+                byte[] fileBytes = sftpDownloadWithApiCredential(ec22FileName, targetDate, spjangcd);
+                processSpjangInternal(spjangcd, targetDate, ec22FileName, fileId, fileBytes);
             } catch (Exception e) {
                 log.error("[CmsEc22Receive] 실패 spjangcd={} targetDate={}: {}", spjangcd, targetDate, e.getMessage(), e);
             }
         }
     }
 
-    // 기존 메서드 유지 (스케줄러용)
-    private void processSpjang(String spjangcd, String targetDate, String ec22FileName, long fileId) throws Exception {
-        byte[] fileBytes = sftpDownloadWithApiCredential(ec22FileName, targetDate, spjangcd);
-        processSpjang(spjangcd, targetDate, ec22FileName, fileId, fileBytes);
-    }
+    /**
+     * 실제 처리 로직
+     *
+     * @Transactional로 PostgreSQL 처리 전체를 하나의 트랜잭션으로 묶음
+     * - cms_file INSERT, cms_billing UPDATE 모두 성공해야 커밋
+     * - 중간 실패 시 전체 롤백
+     *
+     * MSSQL INSERT는 PostgreSQL 커밋 이후에 호출 (syncResults)
+     * - PostgreSQL이 정상 커밋된 경우에만 MSSQL에 INSERT
+     * - MSSQL 실패는 로그만 남기고 PostgreSQL 롤백은 하지 않음 (이미 커밋됨)
+     *
+     * @Transactional이 동작하려면 Spring 프록시를 통해 호출되어야 하므로 public
+     */
+    @Transactional
+    public void processSpjangInternal(String spjangcd, String targetDate, String ec22FileName, long fileId, byte[] fileBytes) throws Exception {
 
-    // 새 오버로드 메서드 (수동 수신용 - 이미 다운받은 fileBytes 사용)
-    private void processSpjang(String spjangcd, String targetDate, String ec22FileName, long fileId, byte[] fileBytes) throws Exception {
-        long resultFileId = -1L;
+        // NCP 업로드 (실패해도 처리는 계속 - 파일은 SFTP에 있으므로 재업로드 가능)
+        String objectKey = storageService.buildObjectKey(spjangcd, FEATURE_CODE, ec22FileName);
         try (ByteArrayInputStream bis = new ByteArrayInputStream(fileBytes)) {
-            String objectKey = storageService.buildObjectKey(spjangcd, FEATURE_CODE, ec22FileName);
             storageService.upload(objectKey, bis, fileBytes.length, "text/plain");
-            Map<String, Object> resultFileRow = sqlRunner.getRow(/* skip_tenant_check */
-                    """
-                    INSERT INTO cms_file (
-                        spjangcd, file_name, file_type, file_path,
-                        target_date, billing_count, billing_amount,
-                        send_status, _creater_id, _created, _modifier_id, _modified
-                    ) VALUES (
-                        :spjangcd, :fileName, 'EC_RESULT', :filePath,
-                        CAST(:targetDate AS DATE), 0, 0,
-                        'RECEIVED', 'SYSTEM', NOW(), 'SYSTEM', NOW()
-                    ) RETURNING id
-                    """,
-                    new MapSqlParameterSource()
-                            .addValue("spjangcd",   spjangcd)
-                            .addValue("fileName",   ec22FileName)
-                            .addValue("filePath",   objectKey)
-                            .addValue("targetDate", targetDate));
-            if (resultFileRow != null) {
-                resultFileId = ((Number) resultFileRow.get("id")).longValue();
-            }
         } catch (Exception e) {
             log.warn("[CmsEc22Receive] NCP 업로드 실패 (처리는 계속): {}", e.getMessage());
         }
 
+        // cms_file(EC_RESULT) INSERT
+        long resultFileId = -1L;
+        Map<String, Object> resultFileRow = sqlRunner.getRow(/* skip_tenant_check */
+                """
+                INSERT INTO cms_file (
+                    spjangcd, file_name, file_type, file_path,
+                    target_date, billing_count, billing_amount,
+                    send_status, _creater_id, _created, _modifier_id, _modified, send_type
+                ) VALUES (
+                    :spjangcd, :fileName, 'EC_RESULT', :filePath,
+                    CAST(:targetDate AS DATE), 0, 0,
+                    'RECEIVED', 'SYSTEM', NOW(), 'SYSTEM', NOW(), 'SFTP'
+                ) RETURNING id
+                """,
+                new MapSqlParameterSource()
+                        .addValue("spjangcd",   spjangcd)
+                        .addValue("fileName",   ec22FileName)
+                        .addValue("filePath",   objectKey)
+                        .addValue("targetDate", targetDate));
+        if (resultFileRow != null) {
+            resultFileId = ((Number) resultFileRow.get("id")).longValue();
+        }
+
+        // EC22 파싱 (불능건만 추출)
         Map<String, String> failMap = parseEc22(fileBytes);
         log.info("[CmsEc22Receive] 불능 건수 spjangcd={}: {}", spjangcd, failMap.size());
 
+        // 청구 목록 조회
         List<Map<String, Object>> requestedBillings = sqlRunner.getRows(/* skip_tenant_check */
                 """
                 SELECT b.id, b.billing_amount, b.bank_account, b.fee_request,
-                  m.member_no, m.member_name, fb.line_seq
+                  m.member_no, m.member_name, fb.line_seq, m.cltcd
                 FROM cms_file_billing fb
                 JOIN cms_billing b ON b.id = fb.billing_id
                 LEFT JOIN cms_member m ON m.id = b.member_id
@@ -145,11 +160,23 @@ public class CmsEc22ReceiveService {
         int feeSuccess = cmsInfo != null && cmsInfo.get("ec21_fee_success") != null
                 ? ((Number) cmsInfo.get("ec21_fee_success")).intValue() : 0;
 
-        int successCount = 0, failCount = 0;
+        // MSSQL 동기화 항목 수집 (PostgreSQL 커밋 후 일괄 처리)
+        List<CmsErpResultSyncService.SyncItem> syncItems = new ArrayList<>();
+
+        int  successCount = 0, failCount = 0;
+        long totalAmount  = 0;
+
         for (Map<String, Object> b : requestedBillings) {
-            long   billingId = ((Number) b.get("id")).longValue();
-            String memberNo  = str(b.get("member_no"));
-            var    p         = new MapSqlParameterSource("billingId", billingId);
+            long   billingId     = ((Number) b.get("id")).longValue();
+            long   billingAmount = b.get("billing_amount") != null ? ((Number) b.get("billing_amount")).longValue() : 0;
+            int    feeRequest    = b.get("fee_request")    != null ? ((Number) b.get("fee_request")).intValue()    : 0;
+            String memberNo      = str(b.get("member_no"));
+            String memberName    = str(b.get("member_name"));
+            String bankAccount   = str(b.get("bank_account"));
+            int    lineSeq       = ((Number) b.get("line_seq")).intValue();
+            String cltcd = str(b.get("cltcd"));
+
+            var p = new MapSqlParameterSource("billingId", billingId);
             p.addValue("resultDate", LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")));
 
             if (failMap.containsKey(memberNo)) {
@@ -162,14 +189,11 @@ public class CmsEc22ReceiveService {
                             result_msg=:resultMsg, result_date=NULL, _modified=NOW()
                         WHERE id=:billingId AND status='REQUESTED'
                         """, p);
-                int feeRequest = b.get("fee_request") != null ? ((Number) b.get("fee_request")).intValue() : 0;
-                cmsErpResultSyncService.syncResult(spjangcd, targetDate, memberNo,
-                        str(b.get("member_name")), str(b.get("bank_account")),
-                        ((Number) b.get("line_seq")).intValue(),
-                        false, resultCode, (long) feeRequest);
+                syncItems.add(new CmsErpResultSyncService.SyncItem(
+                        memberNo, memberName, bankAccount, lineSeq,
+                        false, resultCode, 0L, (long) feeRequest, cltcd));
                 failCount++;
             } else {
-                int feeRequest = b.get("fee_request") != null ? ((Number) b.get("fee_request")).intValue() : 0;
                 p.addValue("feeSuccess", feeSuccess);
                 sqlRunner.execute(/* skip_tenant_check */
                         """
@@ -178,29 +202,37 @@ public class CmsEc22ReceiveService {
                             fee_success=:feeSuccess, _modified=NOW()
                         WHERE id=:billingId AND status='REQUESTED'
                         """, p);
-                cmsErpResultSyncService.syncResult(spjangcd, targetDate, memberNo,
-                        str(b.get("member_name")), str(b.get("bank_account")),
-                        ((Number) b.get("line_seq")).intValue(),
-                        true, null, (long)(feeRequest + feeSuccess));
+                syncItems.add(new CmsErpResultSyncService.SyncItem(
+                        memberNo, memberName, bankAccount, lineSeq,
+                        true, null, billingAmount, (long)(feeRequest + feeSuccess), cltcd));
+                totalAmount += billingAmount;
                 successCount++;
             }
         }
-        log.info("[CmsEc22Receive] 완료 spjangcd={} 성공={}건 실패={}건", spjangcd, successCount, failCount);
-    }
 
-    /** EC22 파일이 없을 때 (불능 0건) — 전체 REQUESTED → SUCCESS */
-    private void markAllSuccess(String targetDate, String spjangcd) {
-        // [FIX 2] result_date를 오늘(처리일)이 아닌 출금대상일(targetDate)로 통일
-        var p = new MapSqlParameterSource();
-        p.addValue("targetDate", targetDate);
-        p.addValue("resultDate", targetDate);
-        p.addValue("spjangcd", spjangcd);
-        sqlRunner.execute(/* skip_tenant_check */
-                """
-                UPDATE cms_billing SET status='SUCCESS', result_code='0000',
-                    result_msg='출금성공', result_date=:resultDate, _modified=NOW()
-                WHERE deduct_date=:targetDate AND status='REQUESTED' AND spjangcd=:spjangcd
-                """, p);
+        // billing_count, billing_amount 업데이트
+        if (resultFileId > 0) {
+            sqlRunner.execute(/* skip_tenant_check */
+                    """
+                    UPDATE cms_file SET
+                        billing_count  = :count,
+                        billing_amount = :amount,
+                        _modified      = NOW()
+                    WHERE id = :fileId
+                    """,
+                    new MapSqlParameterSource()
+                            .addValue("count",  successCount + failCount)
+                            .addValue("amount", totalAmount)
+                            .addValue("fileId", resultFileId));
+        }
+
+        log.info("[CmsEc22Receive] 완료 spjangcd={} 성공={}건 실패={}건", spjangcd, successCount, failCount);
+
+        // PostgreSQL 트랜잭션 커밋 후 MSSQL INSERT 실행
+        // - @Transactional 메서드가 정상 종료돼야 커밋되므로
+        //   여기서 예외 발생 시 PostgreSQL도 롤백되고 MSSQL도 실행 안 됨
+        // - MSSQL 실패는 로그만 남김 (PostgreSQL은 이미 커밋)
+        cmsErpResultSyncService.syncResults(spjangcd, targetDate, syncItems);
     }
 
     /**
@@ -253,11 +285,9 @@ public class CmsEc22ReceiveService {
         session.connect(15000);
 
         ChannelSftp channel = (ChannelSftp) session.openChannel("sftp");
+        channel.connect(10000);
 
         Vector<ChannelSftp.LsEntry> list = channel.ls(".");
-        for (ChannelSftp.LsEntry entry : list) {
-            log.info("[CmsEc22Receive] SFTP 파일 목록: {}", entry.getFilename());
-        }
 
         log.info("[CmsEc22Receive] SFTP pwd: {}", channel.pwd());
         log.info("[CmsEc22Receive] SFTP 다운로드 시도 파일명: {}", fileName);
@@ -270,6 +300,7 @@ public class CmsEc22ReceiveService {
                 if (msg.contains("inputstream is closed") || msg.contains("End of IO")) {
                     log.info("[CmsEc22Receive] SFTP 서버 강제종료(정상) - 수신 데이터 확인: {}bytes", baos.size());
                     if (baos.size() > 0) {
+                        log.info("[CmsEc22Receive] 파일 내용:\n{}", new String(baos.toByteArray(), EUC_KR));
                         return baos.toByteArray();
                     }
                 }
@@ -318,6 +349,9 @@ public class CmsEc22ReceiveService {
         };
     }
 
+    /**
+     * SFTP에서 사용 가능한 EC22 파일 목록 조회
+     */
     public List<Map<String, Object>> getAvailableEc22Files(String spjangcd) {
         log.info("[CmsEc22Receive] 파일 목록 조회 시작 spjangcd={}", spjangcd);
         List<Map<String, Object>> result = new ArrayList<>();
@@ -329,15 +363,15 @@ public class CmsEc22ReceiveService {
                 return result;
             }
 
-            JsonNode files = node.path("data").path("content"); // ← data.content 로 수정
+            JsonNode files = node.path("data").path("content");
             for (JsonNode file : files) {
                 String transactionDate = file.path("transaction_date").asText();
-                if (!StringUtils.hasText(transactionDate)) continue; // ← 방어 코드 추가
+                if (!StringUtils.hasText(transactionDate)) continue;
 
-                String yyyy    = transactionDate.substring(0, 4);
-                String mmdd    = transactionDate.substring(4, 8);
-                String apiFileName = file.path("file_name").asText(); // "EB220515"
-                String fileName    = apiFileName + "_" + yyyy;        // "EB220515_2026"
+                String yyyy        = transactionDate.substring(0, 4);
+                String mmdd        = transactionDate.substring(4, 8);
+                String apiFileName = file.path("file_name").asText();
+                String fileName    = apiFileName + "_" + yyyy;
 
                 Map<String, Object> fileInfo = new HashMap<>();
                 fileInfo.put("fileName",   fileName);
@@ -347,7 +381,6 @@ public class CmsEc22ReceiveService {
                 fileInfo.put("processed",  isEc22FileAlreadyProcessed(spjangcd, transactionDate, fileName));
 
                 result.add(fileInfo);
-                log.info("[CmsEc22Receive] 발견된 파일: {} (처리됨: {})", fileName, fileInfo.get("processed"));
             }
 
             result.sort((a, b) -> ((String)b.get("fileName")).compareTo((String)a.get("fileName")));
@@ -361,6 +394,9 @@ public class CmsEc22ReceiveService {
         return result;
     }
 
+    /**
+     * EC22 파일이 이미 처리됐는지 확인
+     */
     private boolean isEc22FileAlreadyProcessed(String spjangcd, String targetDate, String fileName) {
         try {
             Map<String, Object> row = sqlRunner.getRow(/* skip_tenant_check */
@@ -372,8 +408,8 @@ public class CmsEc22ReceiveService {
                       AND target_date = CAST(:targetDate AS DATE)
                     """,
                     new MapSqlParameterSource()
-                            .addValue("spjangcd", spjangcd)
-                            .addValue("fileName", fileName)
+                            .addValue("spjangcd",   spjangcd)
+                            .addValue("fileName",   fileName)
                             .addValue("targetDate", targetDate));
 
             long count = row != null ? ((Number) row.get("cnt")).longValue() : 0L;
@@ -384,6 +420,9 @@ public class CmsEc22ReceiveService {
         }
     }
 
+    /**
+     * 사용자가 선택한 EC22 파일 수동 처리
+     */
     public Map<String, Object> processSelectedEc22File(String spjangcd, String fileName) {
         log.info("[CmsEc22Receive] 파일 수동 처리 시작 spjangcd={}, fileName={}", spjangcd, fileName);
 
@@ -392,7 +431,6 @@ public class CmsEc22ReceiveService {
         result.put("message", "");
 
         try {
-            // 파일명 형식 검증
             if (!fileName.startsWith("EC22")) {
                 throw new IllegalArgumentException("유효하지 않은 파일명: " + fileName);
             }
@@ -402,11 +440,10 @@ public class CmsEc22ReceiveService {
                 throw new IllegalArgumentException("파일명 형식 오류: " + fileName);
             }
 
-            String mmdd = parts[0];
-            String yyyy = parts[1];
+            String mmdd       = parts[0];
+            String yyyy       = parts[1];
             String targetDate = yyyy + mmdd;
 
-            // 파일이 이미 처리됐는지 확인
             if (isEc22FileAlreadyProcessed(spjangcd, targetDate, fileName)) {
                 log.warn("[CmsEc22Receive] 이미 처리된 파일: {}", fileName);
                 result.put("success", true);
@@ -414,12 +451,26 @@ public class CmsEc22ReceiveService {
                 return result;
             }
 
-            // SFTP에서 파일 다운로드 후 처리 (기존 processSpjang 로직 사용)
-            long fileId = -1L;
-            byte[] fileBytes = sftpDownloadWithApiCredential(fileName, targetDate, spjangcd);
+            Map<String, Object> requestFileRow = sqlRunner.getRow(/* skip_tenant_check */
+                    """
+                    SELECT id FROM cms_file
+                    WHERE spjangcd = :spjangcd
+                      AND file_type = 'EC_REQUEST'
+                      AND target_date = CAST(:targetDate AS DATE)
+                      AND send_status = 'SENT'
+                    """,
+                    new MapSqlParameterSource()
+                            .addValue("spjangcd",   spjangcd)
+                            .addValue("targetDate", targetDate));
 
-            // processSpjang과 동일한 로직 수행
-            processSpjang(spjangcd, targetDate, fileName, fileId, fileBytes);
+            if (requestFileRow == null) {
+                result.put("message", "해당 날짜의 청구 파일을 찾을 수 없습니다.");
+                return result;
+            }
+
+            long   fileId    = ((Number) requestFileRow.get("id")).longValue();
+            byte[] fileBytes = sftpDownloadWithApiCredential(fileName, targetDate, spjangcd);
+            processSpjangInternal(spjangcd, targetDate, fileName, fileId, fileBytes);
 
             result.put("success", true);
             result.put("message", "파일 처리가 완료되었습니다.");
