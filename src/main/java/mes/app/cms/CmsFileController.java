@@ -24,19 +24,15 @@ public class CmsFileController {
     @Autowired
     private CmsTokenService cmsTokenService;
 
-
-    // ── EB 파일 (익일출금) ────────────────────────────────────────────────────
-
     /** 목록 조회 */
-    @GetMapping("/eb-files")
-    public AjaxResult getList(
+    @GetMapping("/cms-files")
+    public AjaxResult getCmsFileList(
             @RequestParam(value = "date_from",   required = false) String dateFrom,
             @RequestParam(value = "date_to",     required = false) String dateTo,
             @RequestParam(value = "file_type",   required = false) String fileType,
-            @RequestParam(value = "send_status", required = false) String sendStatus,
-            HttpServletRequest request) {
-        if (!org.springframework.util.StringUtils.hasText(fileType)) fileType = "EB_REQUEST";
-        List<Map<String, Object>> items = cmsFileService.getEbFileList(dateFrom, dateTo, fileType, sendStatus);
+            @RequestParam(value = "send_status", required = false) String sendStatus) {
+
+        List<Map<String, Object>> items = cmsFileService.getCmsFileList(dateFrom, dateTo, fileType, sendStatus);
         AjaxResult result = new AjaxResult();
         result.data = items;
         return result;
@@ -82,23 +78,6 @@ public class CmsFileController {
     }
 
     // ── EC 파일 (당일출금) ────────────────────────────────────────────────────
-
-    /** 목록 조회 */
-    @GetMapping("/ec-files")
-    public AjaxResult getEcList(
-            @RequestParam(value = "date_from",   required = false) String dateFrom,
-            @RequestParam(value = "date_to",     required = false) String dateTo,
-            @RequestParam(value = "file_type",   required = false) String fileType,
-            @RequestParam(value = "send_status", required = false) String sendStatus,
-            HttpServletRequest request) {
-
-        // EC 목록만 조회 — file_type 미지정 시 EC% 필터 적용
-        if (!org.springframework.util.StringUtils.hasText(fileType)) fileType = "EC_REQUEST";
-        List<Map<String, Object>> items = cmsFileService.getEcFileList(dateFrom, dateTo, fileType, sendStatus);
-        AjaxResult result = new AjaxResult();
-        result.data = items;
-        return result;
-    }
 
     /** 수동 생성 */
     @PostMapping("/ec-files/generate")
@@ -171,6 +150,10 @@ public class CmsFileController {
                 result.success = false; result.message = "전송완료 상태인 파일만 취소할 수 있습니다."; return result;
             }
 
+            if (cmsFileService.hasResultFile(id)) {
+                result.success = false; result.message = "결과파일이 이미 수신된 파일은 취소할 수 없습니다."; return result;
+            }
+
             String spjangcd   = String.valueOf(file.get("spjangcd"));
             String fileName   = String.valueOf(file.get("file_name"));
             String fileType   = fileName.substring(0, 4);
@@ -179,6 +162,8 @@ public class CmsFileController {
             boolean cancelled = cmsTokenService.cancelFile(spjangcd, fileType, targetDate);
             if (cancelled) {
                 cmsFileService.updateSendStatus(id, "CANCELLED");
+                cmsFileService.revertBillingsToPending(id);
+
             } else {
                 result.success = false; result.message = "금결원 취소 요청 실패";
             }

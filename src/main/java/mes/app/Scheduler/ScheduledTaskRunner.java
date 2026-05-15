@@ -77,8 +77,8 @@ public class ScheduledTaskRunner {
         schedulerExecutor.execute(() -> safeRun(cmsEc22ReceiveService::run, "CMS EC22 결과수신"));
     }
 
-    /** 매일 15:00 — EB14 결과파일 수신 (D+2 14:00부터 수신 가능) */
-    @Scheduled(cron = "0 0 15 * * *", zone = "Asia/Seoul")
+    /** 매일 16:00 — EB14 결과파일 수신 (D+2 14:00부터 수신 가능, EB21 전송(15:00)과 분리) */
+    @Scheduled(cron = "0 0 16 * * *", zone = "Asia/Seoul")
     public void runCmsEb14Receive() {
         schedulerExecutor.execute(() -> safeRun(cmsEb14ReceiveService::run, "CMS EB14 결과수신"));
     }

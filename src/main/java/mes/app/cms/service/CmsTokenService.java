@@ -15,6 +15,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -90,7 +92,7 @@ public class CmsTokenService {
 
     // ── 이용기관 상세 정보 조회 ───────────────────────────────
 
-    public JsonNode getInstituteDetail(String spjangcd) throws Exception {
+    public JsonNode getInstituteDetail(String spjangcd, String cmsCode) throws Exception {
         String token = getToken(spjangcd);
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(apiBaseUrl + "/biz/institute/detail"))
@@ -148,6 +150,11 @@ public class CmsTokenService {
                 .build();
 
         HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+
+        // 404 = 파일 없음 (불능 0건) — 호출부에서 구분할 수 있도록 별도 예외
+        if (resp.statusCode() == 404) {
+            throw new CmsFileNotFoundException("수신 파일 없음 fileType=" + fileType + " date=" + transactionDate);
+        }
         if (resp.statusCode() != 200) {
             throw new IllegalStateException("SFTP 수신 권한 요청 실패: HTTP " + resp.statusCode() + " " + resp.body());
         }
@@ -160,6 +167,10 @@ public class CmsTokenService {
 
         JsonNode data = node.path("data");
         return new String[]{ data.path("sftp_user_name").asText(), data.path("sftp_password").asText() };
+    }
+
+    public class CmsFileNotFoundException extends RuntimeException {
+        public CmsFileNotFoundException(String message) { super(message); }
     }
 
     // ── 파일 상태 확인 ────────────────────────────────────────
@@ -258,6 +269,31 @@ public class CmsTokenService {
         }
         log.info("[CmsToken] 기관코드 직접 토큰 발급 완료 cmsCode={}", cmsCode);
         return token;
+    }
+
+    // 파일 목록 조회 (최대 1개월)
+    public JsonNode getFileList(String spjangcd, String fileType) throws Exception {
+        String token     = getToken(spjangcd);
+        String startDate = LocalDate.now().minusMonths(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String endDate   = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String url = apiBaseUrl + "/biz/batch/states?search_start_date=" + startDate
+                + "&search_end_date=" + endDate
+                + "&file_type=" + fileType;
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + token)
+                .GET()
+                .build();
+
+        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        log.info("[CmsFileList] fileType={} startDate={} endDate={} 응답={}", fileType, startDate, endDate, resp.body());
+
+        if (resp.statusCode() == 404) return null;
+        if (resp.statusCode() != 200) {
+            throw new IllegalStateException("파일 목록 조회 실패: HTTP " + resp.statusCode() + " " + resp.body());
+        }
+        return objectMapper.readTree(resp.body());
     }
 
     private String str(Object v) { return v != null ? v.toString() : ""; }

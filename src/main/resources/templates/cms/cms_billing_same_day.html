@@ -92,20 +92,15 @@
                             </dd>
                         </dl>
                     </div>
-                    <!--                    <div style="padding: 6px 0; display:flex; gap:4px; width:100%; justify-content: space-between;">-->
-                    <!--                        <div style="display:flex; gap:4px;">-->
-                    <!--                            <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>-->
-                    <!--                            <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>-->
-                    <!--                        </div>-->
-
-                    <!--                    </div>-->
                     <div style="padding: 6px 0; display:flex; gap:4px; width:100%; justify-content: space-between; align-items: center;">
                         <div style="padding:6px 10px; background:#e8f4fd; border-left:3px solid #4a90d9; font-size:12px; color:#2c5f8a;">
-                            당일 출금은 오전 11시까지 입력하셔야 당일 출금 신청됩니다. (출금신청일 당일 대기 건은 오전 11시에 일괄 신청됩니다.)
+                            당일 출금은 오전 11시까지 전송하셔야 출금 신청됩니다. (자동 전송 사용시 당일 대기 건을 오전 11시에 일괄 전송합니다.)
                         </div>
-<!--                        <div style="display:flex; gap:4px;">-->
-<!--                            <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;" disabled>재전송</button>-->
-<!--                        </div>-->
+                        <div style="display:flex; gap:4px;">
+                            <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;" >재청구</button>
+                            <button type="button" class="btn-default" id="btnSendNow"
+                                    style="background:#27ae60; color:#fff;">즉시전송</button>
+                        </div>
                     </div>
                 </div>
                 <div class="container-fluid">
@@ -246,6 +241,69 @@
                 </div>
             </section>
 
+        </div>
+    </div>
+
+    <!-- 즉시전송 모달 -->
+    <div id="modalSendNow" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+         background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:24px 28px; min-width:500px; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 16px; font-size:15px;">즉시전송</h3>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:16px; font-size:13px;">
+                <thead>
+                <tr style="background:#f5f6fa; color:#555;">
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center; width:36px;"></th>
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">출금일</th>
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">건수</th>
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">금액</th>
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">신청일</th>
+                </tr>
+                </thead>
+                <tbody id="sendNowRows"></tbody>
+            </table>
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" id="btnSendNowConfirm"
+                        style="background:#27ae60; color:#fff; padding:6px 18px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">전송</button>
+                <button type="button" id="btnSendNowCancel"
+                        style="background:#f5f6fa; color:#333; padding:6px 18px; border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 재청구 모달 -->
+    <div id="modalRecharge" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+     background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:24px 28px; min-width:720px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 8px; font-size:15px;">재청구</h3>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; padding:8px 10px; background:#f5f6fa; border-radius:4px; font-size:13px;">
+                <label style="white-space:nowrap; color:#555;">전체 출금일 일괄적용</label>
+                <input type="date" id="rechargeAllDate" style="border:1px solid #dde0ea; border-radius:4px; padding:3px 7px; font-size:13px;">
+                <button type="button" id="btnRechargeApplyAll"
+                        style="background:#4a6cf7; color:#fff; border:none; border-radius:4px; padding:4px 12px; font-size:12px; cursor:pointer;">일괄적용</button>
+            </div>
+            <div style="overflow-y:auto; flex:1;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                    <tr style="background:#f5f6fa; color:#555;">
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center; width:36px;">
+                            <input type="checkbox" id="rechargeChkAll">
+                        </th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:left;">납부자명</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">금액</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">실패사유</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">원출금일</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">재청구 출금일</th>
+                    </tr>
+                    </thead>
+                    <tbody id="rechargeRows"></tbody>
+                </table>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+                <button type="button" id="btnRechargeConfirm"
+                        style="background:#8e44ad; color:#fff; padding:6px 18px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">재청구</button>
+                <button type="button" id="btnRechargeCancel"
+                        style="background:#f5f6fa; color:#333; padding:6px 18px; border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">취소</button>
+            </div>
         </div>
     </div>
 
@@ -661,44 +719,181 @@
             $('#btnResend').prop('disabled', !hasError);
         }
 
-        function resendBilling() {
-            var errorIds = (viewdata ? viewdata.items : [])
-                .filter(function(i) { return i.selected && i.status === 'ERROR'; })
-                .map(function(i) { return i.id; });
+        var todayCompact = (function() {
+            var n = new Date();
+            return n.getFullYear()
+                + String(n.getMonth() + 1).padStart(2, '0')
+                + String(n.getDate()).padStart(2, '0');
+        })();
 
-            if (errorIds.length === 0) { Alert.alert('', '재전송할 오류 건을 체크하세요.'); return; }
+        function sendNow() {
+            var ymVal = $('#srchBillingYm').val();
+            if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
 
-            Alert.confirm('', errorIds.length + '건을 재전송하시겠습니까?', function() {
-                AjaxUtil.postAsyncData('/api/cms/billing/resend',
-                    { ids: errorIds.join(','), deduct_type: 'EC' },
-                    function(result) {
-                        if (result.success) {
-                            var d = result.data || {};
-                            Alert.alert('', '재전송 완료: 성공 ' + (d.sent || 0) + '건, 실패 ' + (d.failed || 0) + '건');
-                            searchList();
-                        } else {
-                            Alert.alert('재전송 실패', result.message);
-                        }
-                    });
+            $.ajax({
+                url: withCtx('/api/cms/billing/sendable-dates'),
+                type: 'GET',
+                data: { billing_ym: ymVal.replace('-', ''), deduct_type: 'EC' },
+                success: function(result) {
+                    if (!result.success || !result.data || result.data.length === 0) {
+                        Alert.alert('', '전송 가능한 건이 없습니다.');
+                        return;
+                    }
+                    renderSendNowModal(result.data);
+                    $('#modalSendNow').css('display', 'flex');
+                }
             });
         }
 
-        function cancelBilling() {
-            var pendingIds = (viewdata ? viewdata.items : [])
-                .filter(function(i) { return i.selected && i.status === 'PENDING'; })
-                .map(function(i) { return i.id; });
+        function renderSendNowModal(rows) {
+            var html = '';
+            rows.forEach(function(row) {
+                var deductDate = String(row.deduct_date);
+                var sendDate   = String(row.send_date || '');
+                var isToday    = sendDate === todayCompact;
+                var checked    = isToday ? ' checked' : '';
+                var highlight  = isToday ? 'background:#f0f7ff;' : '';
+                var deductFmt  = deductDate.length === 8
+                    ? deductDate.substring(0,4) + '-' + deductDate.substring(4,6) + '-' + deductDate.substring(6,8)
+                    : deductDate;
+                var sendFmt    = sendDate.length === 8
+                    ? sendDate.substring(0,4) + '-' + sendDate.substring(4,6) + '-' + sendDate.substring(6,8)
+                    : sendDate;
+                var todayBadge = isToday
+                    ? '<span style="margin-left:4px; font-size:10px; background:#4a6cf7; color:#fff; padding:1px 5px; border-radius:8px;">오늘</span>'
+                    : '';
+                html += '<tr style="' + highlight + '">'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
+                    +   '<input type="checkbox" class="sendnow-check"' + checked + ' data-deduct-date="' + deductDate + '">'
+                    + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + deductFmt + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + Number(row.count).toLocaleString() + '건</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">' + Number(row.total_amount).toLocaleString() + '원</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + sendFmt + todayBadge + '</td>'
+                    + '</tr>';
+            });
+            $('#sendNowRows').html(html);
+        }
 
-            if (pendingIds.length === 0) { Alert.alert('', '취소할 대기 건을 체크하세요.'); return; }
+        function doSendNow() {
+            var deductDates = [];
+            $('.sendnow-check:checked').each(function() {
+                deductDates.push($(this).data('deduct-date'));
+            });
+            if (deductDates.length === 0) { Alert.alert('', '전송할 출금일을 선택하세요.'); return; }
 
-            Alert.confirm('', pendingIds.length + '건을 취소하시겠습니까?', function() {
-                AjaxUtil.postAsyncData('/api/cms/billing/cancel',
-                    { ids: pendingIds.join(',') },
+            $('#modalSendNow').hide();
+
+            var promises = deductDates.map(function(deductDate) {
+                return $.ajax({
+                    url: withCtx('/api/cms/billing/send-now'),
+                    type: 'POST',
+                    data: {
+                        deduct_date: deductDate,
+                        deduct_type: 'EC',
+                        _csrf: $('[name=_csrf]').val()
+                    }
+                });
+            });
+
+            AjaxUtil.showLoading();
+            $.when.apply($, promises).then(function() {
+                var results = promises.length === 1 ? [arguments] : Array.from(arguments);
+                var totalSent = 0, totalFailed = 0;
+                results.forEach(function(r) {
+                    var d = (r[0] || {}).data || {};
+                    totalSent   += (d.sent   || 0);
+                    totalFailed += (d.failed || 0);
+                });
+                AjaxUtil.hideLoading();
+                Alert.alert('', '전송 완료: 성공 ' + totalSent + '건, 실패 ' + totalFailed + '건');
+                searchList();
+            }).fail(function() {
+                AjaxUtil.hideLoading();
+                Alert.alert('전송 실패', '전송 중 오류가 발생했습니다.');
+                searchList();
+            });
+        }
+
+        function openRechargeModal() {
+            var ymVal = $('#srchBillingYm').val();
+            if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
+
+            var ym = ymVal.split('-');
+            var lastDay = new Date(ym[0], ym[1], 0).getDate();
+            var startStr = ymVal.replace('-', '') + '01';
+            var endStr   = ymVal.replace('-', '') + String(lastDay).padStart(2, '0');
+
+            $.ajax({
+                url: withCtx('/api/cms/billing/history/list'),
+                type: 'GET',
+                data: { start_date: startStr, end_date: endStr, status: 'FAIL,ERROR', billing_type: 'EC', recharge_filter: true },
+                success: function(result) {
+                    if (!result.success || !result.data || result.data.length === 0) {
+                        Alert.alert('', '재청구할 실패 건이 없습니다.');
+                        return;
+                    }
+                    renderRechargeModal(result.data);
+                    $('#modalRecharge').css('display', 'flex');
+                }
+            });
+        }
+
+        function renderRechargeModal(rows) {
+            var today = new Date();
+            var todayStr = today.getFullYear() + '-'
+                + String(today.getMonth() + 1).padStart(2, '0') + '-'
+                + String(today.getDate()).padStart(2, '0');
+            $('#rechargeAllDate').val(todayStr);
+
+            var html = '';
+            rows.forEach(function(row) {
+                var deductFmt = '';
+                var v = String(row.deduct_date || '');
+                if (v.length === 8) deductFmt = v.substring(0,4) + '-' + v.substring(4,6) + '-' + v.substring(6,8);
+                html += '<tr>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
+                    +   '<input type="checkbox" class="recharge-check" checked data-id="' + row.id + '">'
+                    + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea;">' + (row.member_name || '') + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">' + Number(row.billing_amount || 0).toLocaleString() + '원</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + (row.result_msg || '-') + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + deductFmt + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
+                    +   '<input type="date" class="recharge-date" style="border:1px solid #dde0ea; border-radius:3px; font-size:12px;" value="' + todayStr + '">'
+                    + '</td>'
+                    + '</tr>';
+            });
+            $('#rechargeRows').html(html);
+
+            $('#rechargeChkAll').off('change').on('change', function() {
+                $('.recharge-check').prop('checked', $(this).is(':checked'));
+            });
+        }
+
+        function doRecharge() {
+            var items = [];
+            $('#rechargeRows tr').each(function() {
+                var chk  = $(this).find('.recharge-check');
+                var date = $(this).find('.recharge-date').val();
+                if (chk.is(':checked') && date) {
+                    items.push({ id: chk.data('id'), deduct_date: date.replace(/-/g, '') });
+                }
+            });
+            if (items.length === 0) { Alert.alert('', '재청구할 건을 선택하세요.'); return; }
+
+            Alert.confirm('', items.length + '건을 재청구하시겠습니까?', function() {
+                $('#modalRecharge').hide();
+                var ids   = items.map(function(i) { return i.id; }).join(',');
+                var dates = items.map(function(i) { return i.deduct_date; }).join(',');
+                AjaxUtil.postAsyncData('/api/cms/billing/recharge',
+                    { ids: ids, deduct_dates: dates },
                     function(result) {
                         if (result.success) {
-                            Alert.alert('', result.data + '건이 취소되었습니다.');
+                            Alert.alert('', (result.data ? result.data.count : 0) + '건 재청구 생성되었습니다.');
                             searchList();
                         } else {
-                            Alert.alert('취소 실패', result.message);
+                            Alert.alert('재청구 실패', result.message);
                         }
                     });
             });
@@ -707,12 +902,23 @@
         $(document).ready(function() {
             $('#btnSearch').click(searchList);
             $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
-            $('#btnGenerate').click(generateBilling);
-            $('#btnCancel').click(cancelBilling);
-            // $('#btnResend').click(resendBilling);
+            $('#btnResend').click(openRechargeModal);
             $('#btnNew').click(clearForm);
             $('#btnSave').click(saveBilling);
             $('#btnDel').click(deleteBilling);
+            $('#btnSendNow').click(sendNow);
+            $('#btnSendNowConfirm').click(doSendNow);
+            $('#btnRechargeConfirm').click(doRecharge);
+            $('#btnRechargeCancel').click(function() { $('#modalRecharge').hide(); });
+            $('#btnRechargeApplyAll').click(function() {
+                var date = $('#rechargeAllDate').val();
+                if (date) $('.recharge-date').val(date);
+            });
+            $('#btnSendNowCancel').click(function() { $('#modalSendNow').hide(); });
+            $('#btnRechargeApplyAll').click(function() {
+                var date = $('#rechargeAllDate').val();
+                if (date) $('.recharge-date').val(date);
+            });
         });
     </script>
 </th:block>

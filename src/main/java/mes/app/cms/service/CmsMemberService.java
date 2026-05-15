@@ -603,11 +603,11 @@ public class CmsMemberService {
 
         // 2. CMS 승인 여부 확인 (ms_spjangcd 기준 매칭)
         Map<String, Object> cms = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT cms_state FROM tb_xa012_cms WHERE spjangcd = :spjangcd AND ms_spjangcd IS NOT DISTINCT FROM :msSpjangcd",
+                "SELECT is_normal_status FROM tb_xa012_cms WHERE spjangcd = :spjangcd AND ms_spjangcd IS NOT DISTINCT FROM :msSpjangcd",
                 new MapSqlParameterSource("spjangcd", spjangcd)
                         .addValue("msSpjangcd", msSpjangcd.isEmpty() ? null : msSpjangcd));
 
-        if (cms == null || !"approve".equals(cms.get("cms_state"))) {
+        if (cms == null || !Boolean.TRUE.equals(cms.get("is_normal_status"))) {
             throw new IllegalStateException("CMS 서비스 상태가 승인이 아닙니다.");
         }
 

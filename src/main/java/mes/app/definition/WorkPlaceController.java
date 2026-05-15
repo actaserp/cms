@@ -3,6 +3,7 @@ package mes.app.definition;
 import com.fasterxml.jackson.databind.JsonNode;
 import mes.app.cms.service.CmsTokenService;
 import mes.app.definition.service.WorkPlaceService;
+import mes.domain.entity.Tb_xa012;
 import mes.domain.entity.User;
 import mes.domain.model.AjaxResult;
 import mes.domain.repository.Tb_xa012Repository;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -36,7 +38,11 @@ public class WorkPlaceController {
             result.message = "권한이 없습니다.";
             return result;
         }
-        result.data = tbXa012Repository.findAll(Sort.by(Sort.Direction.DESC, "spjangcd"));
+        List<Tb_xa012> spjangs = tbXa012Repository.findAll(Sort.by(Sort.Direction.DESC, "spjangcd"));
+        List<Map<String, Object>> data = spjangs.stream()
+                .map(s -> workPlaceService.getSpjangWithCmsErp(s.getSpjangcd()))
+                .collect(java.util.stream.Collectors.toList());
+        result.data = data;
         return result;
     }
 
@@ -117,6 +123,7 @@ public class WorkPlaceController {
     @GetMapping("/cms/institute-detail/{spjangcd}")
     public AjaxResult getInstituteDetail(
             @PathVariable String spjangcd,
+            @RequestParam(required = false) String cmsCode,
             Authentication auth) {
         AjaxResult result = new AjaxResult();
         User user = (User) auth.getPrincipal();
@@ -126,7 +133,7 @@ public class WorkPlaceController {
             return result;
         }
         try {
-            JsonNode data = cmsTokenService.getInstituteDetail(spjangcd);
+            JsonNode data = cmsTokenService.getInstituteDetailByCode(cmsCode);
             result.data = data;
             result.success = true;
         } catch (Exception e) {

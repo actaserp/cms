@@ -12,6 +12,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,13 @@ public class CmsBillingService {
                  , b.memo
                  , b._created
                  , b._modified
+                 , CASE WHEN EXISTS (
+                    SELECT 1 FROM cms_billing rb
+                    WHERE rb.spjangcd = b.spjangcd
+                      AND rb.member_id = b.member_id
+                      AND rb.memo LIKE '%불능 / 재청구%'
+                      AND rb.status NOT IN ('CANCEL', 'FAIL', 'ERROR')
+                ) THEN 'Y' ELSE 'N' END AS recharged_yn
             FROM cms_billing b
             LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
             WHERE b.spjangcd    = :spjangcd
@@ -143,46 +151,66 @@ public class CmsBillingService {
         }
 
         if (id == null) {
+            // 중복 청구 체크
+            if (StringUtils.hasText(memberId) && StringUtils.hasText(deductDate)) {
+                List<Map<String, Object>> dup = sqlRunner.getRows(/* skip_tenant_check */
+                        """
+                        SELECT 1 FROM cms_billing
+                        WHERE spjangcd  = :spjangcd
+                          AND member_id = :memberId
+                          AND deduct_date = :deductDate
+                          AND status NOT IN ('CANCEL', 'FAIL', 'ERROR')
+                        """,
+                        new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                                .addValue("spjangcd",   spjangcd)
+                                .addValue("memberId",   Long.parseLong(memberId))
+                                .addValue("deductDate", deductDate));
+                if (!dup.isEmpty()) {
+                    log.warn("[saveBilling] 중복 청구 차단 memberId={} deductDate={}", memberId, deductDate);
+                    throw new IllegalStateException("동일한 출금일에 이미 청구가 존재합니다.");
+                }
+            }
+
             // 청구번호 채번
             String billingSeq = generateBillingSeq(spjangcd, billingYm);
             param.addValue("billingSeq", billingSeq);
 
             String sql = """
-                    INSERT INTO cms_billing (
-                        spjangcd, billing_ym, billing_seq,
-                        member_id, member_name, bank_code, bank_account, account_holder,
-                        billing_amount, deduct_day, deduct_date, send_date,
-                        deduct_type, status, memo,
-                        _creater_id, _created, _modifier_id, _modified
-                    ) VALUES (
-                        :spjangcd, :billingYm, :billingSeq,
-                        :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
-                        :billingAmount, :deductDay, :deductDate, :sendDate,
-                        :deductType, :status, :memo,
-                        :userId, NOW(), :userId, NOW()
-                    ) RETURNING id
-                    """;
+                INSERT INTO cms_billing (
+                    spjangcd, billing_ym, billing_seq,
+                    member_id, member_name, bank_code, bank_account, account_holder,
+                    billing_amount, deduct_day, deduct_date, send_date,
+                    deduct_type, status, memo,
+                    _creater_id, _created, _modifier_id, _modified
+                ) VALUES (
+                    :spjangcd, :billingYm, :billingSeq,
+                    :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
+                    :billingAmount, :deductDay, :deductDate, :sendDate,
+                    :deductType, :status, :memo,
+                    :userId, NOW(), :userId, NOW()
+                ) RETURNING id
+                """;
             Map<String, Object> row = sqlRunner.getRow(sql, param);
             if (row == null) return null;
             return ((Number) row.get("id")).longValue();
         } else {
             param.addValue("id", id);
             String sql = """
-                    UPDATE cms_billing SET
-                        member_name    = :memberName,
-                        bank_code      = :bankCode,
-                        bank_account   = :bankAccount,
-                        account_holder = :accountHolder,
-                        billing_amount = :billingAmount,
-                        deduct_day     = :deductDay,
-                        deduct_date    = :deductDate,
-                        send_date      = :sendDate,
-                        status         = :status,
-                        memo           = :memo,
-                        _modifier_id   = :userId,
-                        _modified      = NOW()
-                    WHERE id = :id AND spjangcd = :spjangcd
-                    """;
+                UPDATE cms_billing SET
+                    member_name    = :memberName,
+                    bank_code      = :bankCode,
+                    bank_account   = :bankAccount,
+                    account_holder = :accountHolder,
+                    billing_amount = :billingAmount,
+                    deduct_day     = :deductDay,
+                    deduct_date    = :deductDate,
+                    send_date      = :sendDate,
+                    status         = :status,
+                    memo           = :memo,
+                    _modifier_id   = :userId,
+                    _modified      = NOW()
+                WHERE id = :id AND spjangcd = :spjangcd
+                """;
             int affected = sqlRunner.execute(sql, param);
             return affected > 0 ? id : null;
         }
@@ -368,6 +396,20 @@ public class CmsBillingService {
                  , b.result_code
                  , b.result_msg
                  , b.result_date
+                 , b.fee_request
+                 , b.fee_success
+                 , CASE
+                     WHEN b.status = 'SUCCESS' THEN b.fee_request + b.fee_success
+                     WHEN b.status = 'FAIL'    THEN b.fee_request
+                     ELSE 0
+                   END AS fee_total
+                 , CASE WHEN EXISTS (
+                        SELECT 1 FROM cms_billing rb
+                        WHERE rb.spjangcd = b.spjangcd
+                          AND rb.member_id = b.member_id
+                          AND rb.memo LIKE '%불능 / 재청구%'
+                          AND rb.status NOT IN ('CANCEL', 'FAIL', 'ERROR')
+                    ) THEN 'Y' ELSE 'N' END AS recharged_yn
             FROM cms_billing b
             LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
             WHERE b.spjangcd    = :spjangcd
@@ -376,7 +418,7 @@ public class CmsBillingService {
             """;
 
         if (StringUtils.hasText(resultDate)) {
-            sql += " AND b.result_date = :resultDate";
+            sql += " AND (b.result_date = :resultDate OR (b.status = 'FAIL' AND b.deduct_date = :resultDate))";
             param.addValue("resultDate", resultDate);
         }
         if (StringUtils.hasText(status)) {
@@ -396,11 +438,13 @@ public class CmsBillingService {
 
     /** 불능 건 재청구 — FAIL 상태 건을 납부자 현재 정보 기준으로 새 PENDING 생성 */
     @Transactional
-    public Map<String, Object> rechargeBilling(List<Long> ids, String userId) {
+    public Map<String, Object> rechargeBilling(List<Long> ids, List<String> deductDates, String userId) {
         String spjangcd = TenantContext.get();
         int count = 0;
 
-        for (Long id : ids) {
+        for (int i = 0; i < ids.size(); i++) {
+            Long id = ids.get(i);
+            String newDeductDate = deductDates.size() > i ? deductDates.get(i) : null;
             var pOrig = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
             pOrig.addValue("id", id);
             pOrig.addValue("spjangcd", spjangcd);
@@ -410,7 +454,7 @@ public class CmsBillingService {
                        bank_code, bank_account, account_holder,
                        billing_amount, deduct_day, deduct_date, result_code, deduct_type
                 FROM cms_billing
-                WHERE id = :id AND spjangcd = :spjangcd AND status = 'FAIL'
+                WHERE id = :id AND spjangcd = :spjangcd AND status IN ('FAIL', 'ERROR')
                 """, pOrig);
             if (orig == null) continue;
 
@@ -423,6 +467,7 @@ public class CmsBillingService {
             Object billingAmount = orig.get("billing_amount");
             String deductDay     = (String) orig.get("deduct_day");
             String deductDate    = (String) orig.get("deduct_date");
+            String origDeductDate = deductDate;
             String resultCode    = (String) orig.get("result_code");
             String deductType    = (String) orig.get("deduct_type");
 
@@ -439,21 +484,22 @@ public class CmsBillingService {
                     bankCode      = (String) member.get("bank_code");
                     bankAccount   = (String) member.get("bank_account");
                     accountHolder = (String) member.get("account_holder");
-                    if (member.get("deduct_amount") != null) billingAmount = member.get("deduct_amount");
-                    if (member.get("deduct_day")    != null) deductDay     = (String) member.get("deduct_day");
+//                    if (member.get("deduct_amount") != null) billingAmount = member.get("deduct_amount");
+//                    if (member.get("deduct_day")    != null) deductDay     = (String) member.get("deduct_day");
                 }
             }
 
             // deduct_date가 오늘 이전이면 오늘(EC) 또는 내일(EB)로 변경
             String todayStr    = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
             String tomorrowStr = java.time.LocalDate.now().plusDays(1).format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
-            if (deductDate != null && deductDate.compareTo(todayStr) < 0) {
+            if (StringUtils.hasText(newDeductDate)) {
+                deductDate = newDeductDate;
+            } else if (deductDate != null && deductDate.compareTo(todayStr) < 0) {
                 String rawDate = "EB".equals(deductType) ? tomorrowStr : todayStr;
                 deductDate = cmsHolidayService.getNextBusinessDay(rawDate);
-                log.info("[rechargeBilling] id={} deduct_date 과거 → {} 변경", id, deductDate);
             }
 
-            String memo = (StringUtils.hasText(resultCode) ? resultCode + " 불능" : "불능") + " / 재청구";
+            String memo = origDeductDate + " 불능 / 재청구";
             String billingSeq = generateBillingSeq(spjangcd, billingYm);
 
             var pIns = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
@@ -501,18 +547,20 @@ public class CmsBillingService {
      * billingIds 전체를 단일 UPDATE로 처리
      */
     // REQUESTED 전환 시 (재시도 성공)
-    public int updateStatusToRequested(List<Long> billingIds, Long fileId) {
+    public int updateStatusToRequested(List<Long> billingIds, Long fileId, int feeRequest) {
         if (billingIds == null || billingIds.isEmpty()) return 0;
         var param = new MapSqlParameterSource();
         param.addValue("ids", billingIds);
         param.addValue("fileId", fileId);
+        param.addValue("feeRequest", feeRequest);
         return sqlRunner.execute(/* skip_tenant_check */
                 """
                 UPDATE cms_billing
                 SET    status     = 'REQUESTED',
                        file_id    = :fileId,
                        result_msg = NULL,
-                       _modified  = NOW()
+                       _modified  = NOW(),
+                       fee_request = fee_request + :feeRequest
                 WHERE  id IN (:ids)
                   AND  status IN ('PENDING', 'ERROR')
                 """, param);
@@ -542,7 +590,43 @@ public class CmsBillingService {
     }
 
     /** 수납내역 조회 (기간별, EB+EC 통합) */
-    public List<Map<String, Object>> getBillingHistoryList(String startDate, String endDate, String billingType, String status, String memberName) {
+    // 1️⃣ 일반 수납내역 조회 (SUCCESS, FAIL만)
+    public List<Map<String, Object>> getBillingHistoryList(
+            String startDate, String endDate, String billingType,
+            String status, String memberName) {
+
+        return getBillingHistoryListInternal(
+                startDate, endDate, billingType, status, memberName,
+                false, "SUCCESS,FAIL"  // ✅ 기본적으로 SUCCESS, FAIL만
+        );
+    }
+
+    // 2️⃣ 재청구용 조회 (FAIL, ERROR 포함)
+    public List<Map<String, Object>> getBillingHistoryForRecharge(
+            String startDate, String endDate, String billingType) {
+
+        return getBillingHistoryListInternal(
+                startDate, endDate, billingType, "FAIL,ERROR", null,
+                true, null  // ✅ rechargeFilter=true, 모든 상태 허용
+        );
+    }
+
+    // 3️⃣ 운영용 조회 (모든 상태 포함)
+    public List<Map<String, Object>> getBillingHistoryForAdmin(
+            String startDate, String endDate, String billingType,
+            String status, String memberName) {
+
+        return getBillingHistoryListInternal(
+                startDate, endDate, billingType, status, memberName,
+                false, null  // ✅ 필터링 안 함
+        );
+    }
+
+    // 4️⃣ 공통 로직
+    private List<Map<String, Object>> getBillingHistoryListInternal(
+            String startDate, String endDate, String billingType, String status,
+            String memberName, boolean rechargeFilter, String defaultStatus) {
+
         String spjangcd = TenantContext.get();
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
@@ -550,34 +634,60 @@ public class CmsBillingService {
         param.addValue("endDate", endDate);
 
         String sql = """
-        SELECT b.id
-             , b.billing_seq
-             , b.deduct_type  AS billing_type
-             , b.member_name
-             , b.bank_code
-             , bc.bank_name
-             , b.bank_account
-             , b.billing_amount
-             , b.deduct_date
-             , b.status
-             , b.result_code
-             , b.result_msg
-             , b.result_date
+        SELECT b.id, b.billing_seq, b.deduct_type AS billing_type,
+               b.member_name, b.bank_code, bc.bank_name,
+               b.bank_account, b.billing_amount, b.deduct_date,
+               b.status, b.result_code, b.result_msg, b.result_date,
+               CASE WHEN EXISTS (
+                  SELECT 1 FROM cms_billing rb
+                  WHERE rb.spjangcd = b.spjangcd
+                    AND rb.member_id = b.member_id
+                    AND rb.memo LIKE '%불능 / 재청구%'
+                    AND rb.status NOT IN ('CANCEL', 'FAIL', 'ERROR')
+              ) THEN 'Y' ELSE 'N' END AS recharged_yn,
+              CASE
+                 WHEN b.status = 'SUCCESS' THEN b.fee_request + b.fee_success
+                 WHEN b.status = 'FAIL'    THEN b.fee_request
+                 ELSE 0
+               END AS fee_total
         FROM cms_billing b
         LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
-        WHERE b.spjangcd  = :spjangcd
+        WHERE b.spjangcd = :spjangcd
           AND b.deduct_date BETWEEN :startDate AND :endDate
-          AND b.status IN ('SUCCESS', 'FAIL')
         """;
+
+        // ✅ 기본 상태값 적용
+        String effectiveStatus = StringUtils.hasText(status) ? status : defaultStatus;
+
+        if (StringUtils.hasText(effectiveStatus)) {
+            if (effectiveStatus.contains(",")) {
+                List<String> statusList = Arrays.asList(effectiveStatus.split(","));
+                sql += " AND b.status IN (:statusList)";
+                param.addValue("statusList", statusList);
+            } else {
+                sql += " AND b.status = :status";
+                param.addValue("status", effectiveStatus);
+            }
+        }
+
+        if (rechargeFilter) {
+            sql += """
+                  AND NOT EXISTS (
+                      SELECT 1 FROM cms_billing rb
+                      WHERE rb.spjangcd  = b.spjangcd
+                        AND rb.member_id = b.member_id
+                        AND rb.memo LIKE '%불능 / 재청구%'
+                        AND rb.status NOT IN ('CANCEL', 'FAIL', 'ERROR')
+                        AND rb.deduct_date > b.deduct_date
+                  )
+                """;
+        }
 
         if (StringUtils.hasText(billingType)) {
             sql += " AND b.deduct_type = :billingType";
             param.addValue("billingType", billingType);
         }
-        if (StringUtils.hasText(status)) {
-            sql += " AND b.status = :status";
-            param.addValue("status", status);
-        }
+
         if (StringUtils.hasText(memberName)) {
             sql += " AND b.member_name LIKE '%' || :memberName || '%'";
             param.addValue("memberName", memberName);

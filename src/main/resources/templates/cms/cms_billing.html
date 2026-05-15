@@ -93,7 +93,7 @@
                     </div>
                     <div style="padding: 6px 0; display:flex; gap:4px; width:100%; justify-content: space-between;">
                         <div style="padding:10px 10px; background:#e8f4fd; border-left:3px solid #4a90d9; font-size:12px; color:#2c5f8a;">
-                            익일 출금은 오후 3시까지 입력하셔야 출금 신청됩니다. (출금신청일 당일 대기 건은 오후 3시에 일괄 신청됩니다.)
+                            익일 출금은 오후 3시까지 전송하셔야 출금 신청됩니다. (자동 전송 사용시 당일 대기 건을 오후 3시에 일괄 전송합니다.)
                         </div>
                         <div style="display:flex; gap:4px;">
                             <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>
@@ -350,7 +350,7 @@
                 dataType: 'Boolean'
             },
             {binding: 'billing_seq',    header: '청구번호', width: 120, align: 'center'},
-            {binding: 'member_name',    header: '납부자명', width: 100, align: 'left'},
+            {binding: 'member_name',    header: '납부자명', width: 130, align: 'left'},
             {binding: 'bank_name',      header: '은행',    width: 80,  align: 'center'},
             {binding: 'bank_account',   header: '계좌번호', width: 150, align: 'center'},
             {binding: 'deduct_day',     header: '약정일',  width: 70,  align: 'center',
@@ -382,7 +382,22 @@
                     var label = STATUS_MAP[ctx.value] || ctx.value || '';
                     return '<span class="status-badge status-' + ctx.value + '">' + label + '</span>';
                 }},
-            {binding: 'result_date',    header: '처리일자', width: 90,  align: 'center'},
+            {binding: 'result_date',      header: '처리일자',  width: 100, align: 'center',
+                cellTemplate: function(ctx) {
+                    if (!ctx.value) return '-';
+                    var v = String(ctx.value);
+                    return v.length === 8
+                        ? v.substring(0,4) + '-' + v.substring(4,6) + '-' + v.substring(6,8)
+                        : v;
+                }},
+            {binding: 'recharged_yn', header: '재청구', width: 80, align: 'center',
+                cellTemplate: function(ctx) {
+                    var item = ctx.row.dataItem;
+                    if (ctx.value === 'Y' && item.status === 'FAIL') {
+                        return '<span style="background:#e8f4fd; color:#4a90d9; padding:2px 7px; border-radius:8px; font-size:11px; font-weight:600;">재청구</span>';
+                    }
+                    return '';
+                }},
             {binding: 'memo',    header: '메모', width: 90,  align: 'center'},
         ];
 
@@ -770,7 +785,7 @@
                 data: { billing_ym: ymVal.replace('-', ''), deduct_type: 'EB' },
                 success: function(result) {
                     if (!result.success || !result.data || result.data.length === 0) {
-                        Alert.alert('', '전송 가능한 PENDING 건이 없습니다.');
+                        Alert.alert('', '전송 가능한 건이 없습니다.');
                         return;
                     }
                     renderSendNowModal(result.data);
@@ -854,20 +869,15 @@
             var ymVal = $('#srchBillingYm').val();
             if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
 
-            var today = new Date();
-            var startDate = new Date(today);
-            startDate.setMonth(startDate.getMonth() - 1);
-            var startStr = startDate.getFullYear()
-                + String(startDate.getMonth() + 1).padStart(2, '0')
-                + String(startDate.getDate()).padStart(2, '0');
-            var endStr = today.getFullYear()
-                + String(today.getMonth() + 1).padStart(2, '0')
-                + String(today.getDate()).padStart(2, '0');
+            var ym = ymVal.split('-');
+            var lastDay = new Date(ym[0], ym[1], 0).getDate(); // 해당 월 말일
+            var startStr = ymVal.replace('-', '') + '01';
+            var endStr   = ymVal.replace('-', '') + String(lastDay).padStart(2, '0');
 
             $.ajax({
                 url: withCtx('/api/cms/billing/history/list'),
                 type: 'GET',
-                data: { start_date: startStr, end_date: endStr, status: 'FAIL', billing_type: 'EB' },
+                data: { start_date: startStr, end_date: endStr, status: 'FAIL,ERROR', billing_type: 'EB', recharge_filter: true },
                 success: function(result) {
                     if (!result.success || !result.data || result.data.length === 0) {
                         Alert.alert('', '재청구할 실패 건이 없습니다.');
@@ -902,7 +912,7 @@
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + (row.result_msg || '-') + '</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + deductFmt + '</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
-                    +   '<input type="date" class="recharge-date" style="border:1px solid #dde0ea; border-radius:3px; padding:2px 5px; font-size:12px;" value="' + tomorrowStr + '">'
+                    +   '<input type="date" class="recharge-date" style="border:1px solid #dde0ea; border-radius:3px; font-size:12px;" value="' + tomorrowStr + '">'
                     + '</td>'
                     + '</tr>';
             });
@@ -929,8 +939,9 @@
                 $('#modalRecharge').hide();
                 // 건별로 순차 처리
                 var ids = items.map(function(i) { return i.id; }).join(',');
+                var dates = items.map(function(i) { return i.deduct_date; }).join(',');
                 AjaxUtil.postAsyncData('/api/cms/billing/recharge',
-                    { ids: ids },
+                    { ids: ids, deduct_dates: dates },
                     function(result) {
                         if (result.success) {
                             Alert.alert('', (result.data ? result.data.count : 0) + '건 재청구 생성되었습니다.');

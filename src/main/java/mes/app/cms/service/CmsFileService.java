@@ -33,24 +33,34 @@ public class CmsFileService {
 
     // ── 목록 조회 ──────────────────────────────────────────────────────────────
 
-    public List<Map<String, Object>> getEbFileList(String dateFrom, String dateTo,
+    public List<Map<String, Object>> getCmsFileList(String dateFrom, String dateTo,
                                                     String fileType, String sendStatus) {
         String spjangcd = TenantContext.get();
         var param = new MapSqlParameterSource("spjangcd", spjangcd);
 
         String sql = """
-                SELECT f.id, f.spjangcd, f.file_name, f.file_type, f.target_date,
-                       f.billing_count, f.billing_amount, f.send_type,
-                       f.send_status, f.sent_at, f.error_message,
-                       f._creater_id, f._created
-                FROM cms_file f
-                where spjangcd = :spjangcd
-                """;
+            SELECT f.id, f.spjangcd, f.file_name, f.file_type, f.target_date,
+                   f.billing_count, f.billing_amount, f.send_type,
+                   f.send_status, f.sent_at, f.error_message,
+                   f._creater_id,
+                   TO_CHAR(f._created AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS _created,
+                   TO_CHAR(f.sent_at  AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS sent_at_kst
+            FROM cms_file f
+            WHERE f.spjangcd = :spjangcd
+            """;
 
-        if (StringUtils.hasText(dateFrom)) { sql += " AND f.target_date >= CAST(:dateFrom AS DATE)"; param.addValue("dateFrom", dateFrom); }
-        if (StringUtils.hasText(dateTo))   { sql += " AND f.target_date <= CAST(:dateTo AS DATE)";   param.addValue("dateTo", dateTo); }
-        if (StringUtils.hasText(fileType)) { sql += " AND f.file_type = :fileType";                  param.addValue("fileType", fileType); }
-        if (StringUtils.hasText(sendStatus)){ sql += " AND f.send_status = :sendStatus";             param.addValue("sendStatus", sendStatus); }
+        if (StringUtils.hasText(dateFrom))  { sql += " AND f.target_date >= CAST(:dateFrom AS DATE)"; param.addValue("dateFrom", dateFrom); }
+        if (StringUtils.hasText(dateTo))    { sql += " AND f.target_date <= CAST(:dateTo AS DATE)";   param.addValue("dateTo", dateTo); }
+        if (StringUtils.hasText(fileType)) {
+            if (fileType.equals("EB") || fileType.equals("EC")) {
+                sql += " AND f.file_type LIKE :fileType";
+                param.addValue("fileType", fileType + "%");
+            } else {
+                sql += " AND f.file_type = :fileType";
+                param.addValue("fileType", fileType);
+            }
+        }
+        if (StringUtils.hasText(sendStatus)){ sql += " AND f.send_status = :sendStatus";              param.addValue("sendStatus", sendStatus); }
 
         return sqlRunner.getRows(sql + " ORDER BY f._created DESC", param);
     }
@@ -135,29 +145,6 @@ public class CmsFileService {
         }
     }
 
-    // ── EC 파일 (당일출금) ─────────────────────────────────────────────────────
-
-    public List<Map<String, Object>> getEcFileList(String dateFrom, String dateTo,
-                                                    String fileType, String sendStatus) {
-        String spjangcd = TenantContext.get();
-        var param = new MapSqlParameterSource("spjangcd", spjangcd);
-
-        String sql = """
-                SELECT f.id, f.file_name, f.file_type, f.target_date,
-                       f.billing_count, f.billing_amount, f.send_type,
-                       f.send_status, f.sent_at, f.error_message,
-                       f._creater_id, f._created
-                FROM cms_file f
-                WHERE f.spjangcd = :spjangcd
-                """;
-
-        if (StringUtils.hasText(dateFrom))  { sql += " AND f.target_date >= CAST(:dateFrom AS DATE)"; param.addValue("dateFrom", dateFrom); }
-        if (StringUtils.hasText(dateTo))    { sql += " AND f.target_date <= CAST(:dateTo AS DATE)";   param.addValue("dateTo", dateTo); }
-        if (StringUtils.hasText(fileType))  { sql += " AND f.file_type = :fileType";                  param.addValue("fileType", fileType); }
-        if (StringUtils.hasText(sendStatus)){ sql += " AND f.send_status = :sendStatus";              param.addValue("sendStatus", sendStatus); }
-
-        return sqlRunner.getRows(sql + " ORDER BY f._created DESC", param);
-    }
 
     public Map<String, Object> generateEcFile(String targetDate, String userId) {
         return cmsEc21SendService.runForSpjang(TenantContext.get(), targetDate, userId);
@@ -294,5 +281,41 @@ public class CmsFileService {
         sqlRunner.execute(
                 "UPDATE cms_file SET send_status=:sendStatus, _modified=NOW() WHERE id=:id",
                 param);
+    }
+
+    public void revertBillingsToPending(Long fileId) {
+        var param = new MapSqlParameterSource("fileId", fileId);
+        sqlRunner.execute("""
+        UPDATE cms_billing SET status='PENDING', result_code=NULL,
+            result_msg=NULL, result_date=NULL, _modified=NOW(), memo = '파일 취소로 인한 재대기'
+        WHERE file_id = :fileId AND status = 'REQUESTED'
+        """, param);
+
+        sqlRunner.execute(/* skip_tenant_check */
+                "DELETE FROM cms_file_billing WHERE file_id = :fileId",
+                new MapSqlParameterSource("fileId", fileId));
+
+
+    }
+
+    public boolean hasResultFile(Long fileId) {
+        Map<String, Object> file = getFile(fileId);
+        if (file == null) return false;
+        String fileTypePrefix = String.valueOf(file.get("file_name")).substring(0, 2);
+        String targetDate = String.valueOf(file.get("target_date"));
+        String spjangcd = String.valueOf(file.get("spjangcd"));
+
+        List<Map<String, Object>> resultFiles = sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT 1 FROM cms_file
+                WHERE spjangcd = :spjangcd
+                  AND file_type = :resultType
+                  AND target_date = CAST(:targetDate AS DATE)
+                """,
+                new MapSqlParameterSource()
+                        .addValue("spjangcd",   spjangcd)
+                        .addValue("resultType", fileTypePrefix + "_RESULT")
+                        .addValue("targetDate", targetDate));
+        return !resultFiles.isEmpty();
     }
 }

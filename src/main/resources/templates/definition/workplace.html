@@ -341,7 +341,7 @@
                             <th>ERP 연동</th>
                             <td colspan="4"><label style="cursor:pointer; font-size:13px;"><input type="checkbox" id="erpYn" onchange="onErpToggle(this)"> ERP(MS SQL) 연동 사용</label></td>
                             <th>자동 출금신청</th>
-                            <td colspan="4"><label style="cursor:pointer; font-size:13px;"><input type="checkbox" id="autoSendYn"> 스케줄러 자동 전송 사용</label></td>
+                            <td colspan="4"><label style="cursor:pointer; font-size:13px;"><input type="checkbox" id="autoSendYn"> 자동 전송 사용</label></td>
                         </tr>
                         <tr id="erpSectionRow" style="display:none;">
                             <td colspan="10" style="padding:0;">
@@ -363,7 +363,7 @@
                                             <th>계정</th>
                                             <td><input type="text" id="erpUsername" placeholder="접속 계정"></td>
                                             <th>비밀번호</th>
-                                            <td><input type="password" id="erpPassword" placeholder="접속 비밀번호"></td>
+                                            <td><input type="text" id="erpPassword" placeholder="접속 비밀번호"></td>
                                         </tr>
                                         <tr>
                                             <th>MS 사업장코드</th>
@@ -465,12 +465,12 @@
                             </td>
                         </tr>
                         <!-- CMS 연동 (상단) -->
-                        <tr>
-                            <th colspan="10" style="text-align: center; height: 30px; padding: 5px 10px;">
-                                CMS 서비스 정보
-                                <button type="button" class="btn-branch-manage" onclick="openBranchModal()">분점 관리</button>
-                            </th>
-                        </tr>
+<!--                        <tr>-->
+<!--                            <th colspan="10" style="text-align: center; height: 30px; padding: 5px 10px;">-->
+<!--                                CMS 서비스 정보-->
+<!--                                <button type="button" class="btn-branch-manage" onclick="openBranchModal()">분점 관리</button>-->
+<!--                            </th>-->
+<!--                        </tr>-->
                         </tbody>
                     </table>
                 </div>
@@ -785,11 +785,12 @@
             statusEl.className = 'cms-status';
 
             $.ajax({
-                url: withCtx('/api/workplace/cms/institute-detail/' + spjangcd), type: 'GET',
+                url: withCtx('/api/workplace/cms/institute-detail/' + spjangcd+ '?cmsCode=' + cmsCode), type: 'GET',
                 success: function(res) {
                     if (!res.success) {
-                        statusEl.textContent = '✗ ' + (res.message || '조회 실패');
+                        statusEl.textContent = '✗ 조회 실패';
                         statusEl.className = 'cms-status fail';
+                        Alert.alert('금결원 조회 실패', res.message || '조회에 실패했습니다.');
                         return;
                     }
                     var d = res.data;
@@ -836,6 +837,7 @@
                 error: function() {
                     statusEl.textContent = '✗ 조회 실패';
                     statusEl.className = 'cms-status fail';
+                    Alert.alert('금결원 조회 실패', '서버 오류가 발생했습니다.');
                 }
             });
         }

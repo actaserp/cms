@@ -1,7 +1,9 @@
 package mes.app.cms;
 
 import mes.app.Scheduler.SchedulerService.CmsEb21SendService;
+import mes.app.Scheduler.SchedulerService.CmsEb22ReceiveService;
 import mes.app.Scheduler.SchedulerService.CmsEc21SendService;
+import mes.app.Scheduler.SchedulerService.CmsEc22ReceiveService;
 import mes.app.cms.service.CmsBillingService;
 import mes.app.cms.service.CmsHolidayService;
 import mes.app.common.TenantContext;
@@ -32,6 +34,12 @@ public class CmsBillingController {
 
     @Autowired
     private CmsHolidayService cmsHolidayService;
+
+    @Autowired
+    private CmsEb22ReceiveService cmsEb22ReceiveService;
+
+    @Autowired
+    private CmsEc22ReceiveService cmsEc22ReceiveService;
 
     /** 목록 조회 */
     @GetMapping("/list")
@@ -95,30 +103,23 @@ public class CmsBillingController {
             @RequestParam(value = "memo",            required = false) String memo,
             @RequestParam(value = "deduct_type",     required = false) String deductType,
             Authentication auth) {
-
+        AjaxResult result = new AjaxResult();
         User user = (User) auth.getPrincipal();
-        Long savedId = cmsBillingService.saveBilling(
-                id, billingYm, memberId, memberName, bankCode, bankAccount, accountHolder,
-                billingAmount, deductDay, deductDate, status, memo, deductType, user.getUsername());
+        try {
+            Long savedId = cmsBillingService.saveBilling(
+                    id, billingYm, memberId, memberName, bankCode, bankAccount, accountHolder,
+                    billingAmount, deductDay, deductDate, status, memo, deductType, user.getUsername());
 
-        AjaxResult result = new AjaxResult();
-        if (savedId == null) {
-            result.success = false;
-            result.message = "저장에 실패했습니다.";
-        } else {
-            result.data = savedId;
-        }
-        return result;
-    }
 
-    /** 삭제 (PENDING 건만 허용) */
-    @DeleteMapping("/{id}")
-    public AjaxResult delete(@PathVariable Long id) {
-        AjaxResult result = new AjaxResult();
-        boolean ok = cmsBillingService.deleteBilling(id);
-        if (!ok) {
+            if (savedId == null) {
+                result.success = false;
+                result.message = "저장에 실패했습니다.";
+            } else {
+                result.data = savedId;
+            }
+        } catch (IllegalStateException e) {
             result.success = false;
-            result.message = "삭제 실패 — PENDING 상태인 건만 삭제할 수 있습니다.";
+            result.message = e.getMessage();
         }
         return result;
     }
@@ -143,13 +144,15 @@ public class CmsBillingController {
     @PostMapping("/recharge")
     public AjaxResult recharge(
             @RequestParam("ids") String idsStr,
+            @RequestParam("deduct_dates") String datesStr,
             Authentication auth) {
 
         List<Long> ids = Arrays.stream(idsStr.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .map(Long::parseLong)
-                .collect(Collectors.toList());
+                .map(String::trim).filter(s -> !s.isEmpty())
+                .map(Long::parseLong).collect(Collectors.toList());
+
+        List<String> dates = Arrays.stream(datesStr.split(","))
+                .map(String::trim).collect(Collectors.toList());
 
         if (ids.isEmpty()) {
             AjaxResult result = new AjaxResult();
@@ -159,7 +162,7 @@ public class CmsBillingController {
         }
 
         User user = (User) auth.getPrincipal();
-        Map<String, Object> res = cmsBillingService.rechargeBilling(ids, user.getUsername());
+        Map<String, Object> res = cmsBillingService.rechargeBilling(ids, dates, user.getUsername());
 
         AjaxResult result = new AjaxResult();
         result.data = res;
@@ -255,9 +258,17 @@ public class CmsBillingController {
             @RequestParam(value = "billing_type", required = false) String billingType,
             @RequestParam(value = "status",       required = false) String status,
             @RequestParam(value = "member_name",  required = false) String memberName,
+            @RequestParam(value = "recharge_filter", required = false, defaultValue = "false") boolean rechargeFilter,
             HttpServletRequest request) {
 
-        List<Map<String, Object>> items = cmsBillingService.getBillingHistoryList(startDate, endDate, billingType, status, memberName);
+        List<Map<String, Object>> items;
+        if (rechargeFilter) {
+            items = cmsBillingService.getBillingHistoryForRecharge(
+                    startDate, endDate, billingType);
+        } else {
+            items = cmsBillingService.getBillingHistoryList(
+                    startDate, endDate, billingType, status, memberName);
+        }
         AjaxResult result = new AjaxResult();
         result.data = items;
         return result;
@@ -296,4 +307,58 @@ public class CmsBillingController {
         return result;
     }
 
+    @GetMapping("/available-files")
+    public AjaxResult getAvailableFiles(
+            @RequestParam(value = "deduct_type", required = false, defaultValue = "EB") String deductType) {
+        AjaxResult result = new AjaxResult();
+        try {
+            String spjangcd = TenantContext.get();
+            List<Map<String, Object>> files = "EC".equals(deductType)
+                    ? cmsEc22ReceiveService.getAvailableEc22Files(spjangcd)
+                    : cmsEb22ReceiveService.getAvailableEb22Files(spjangcd);
+            result.data = files;
+        } catch (Exception e) {
+            result.success = false;
+            result.message = "파일 목록 조회 실패: " + e.getMessage();
+        }
+        return result;
+    }
+
+    /** EB22 선택 파일 수동 수신 */
+    @PostMapping("/receive-file")
+    public AjaxResult receiveFile(
+            @RequestParam("fileName") String fileName,
+            @RequestParam(value = "deduct_type", required = false, defaultValue = "EB") String deductType) {
+        AjaxResult result = new AjaxResult();
+        try {
+            String spjangcd = TenantContext.get();
+
+            Map<String, Object> processResult = "EC".equals(deductType)
+                    ? cmsEc22ReceiveService.processSelectedEc22File(spjangcd, fileName)
+                    : cmsEb22ReceiveService.processSelectedEb22File(spjangcd, fileName);
+
+            if ((Boolean) processResult.get("success")) {
+                result.data = processResult;
+            } else {
+                result.success = false;
+                result.message = (String) processResult.get("message");
+            }
+        } catch (Exception e) {
+            result.success = false;
+            result.message = "파일 처리 실패: " + e.getMessage();
+        }
+        return result;
+    }
+
+    /** 삭제 (PENDING 건만 허용) */
+    @DeleteMapping("/{id}")
+    public AjaxResult delete(@PathVariable Long id) {
+        AjaxResult result = new AjaxResult();
+        boolean ok = cmsBillingService.deleteBilling(id);
+        if (!ok) {
+            result.success = false;
+            result.message = "삭제 실패 — PENDING 상태인 건만 삭제할 수 있습니다.";
+        }
+        return result;
+    }
 }

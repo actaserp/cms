@@ -38,7 +38,7 @@ import java.util.Properties;
 @RequiredArgsConstructor
 public class CmsEc21SendService {
 
-    private static final String FEATURE_CODE = "EB_FILE";
+    private static final String FEATURE_CODE = "EC21";
     private static final Charset EUC_KR = Charset.forName("EUC-KR");
 
     private final SqlRunner sqlRunner;
@@ -46,10 +46,10 @@ public class CmsEc21SendService {
     private final CmsBillingService cmsBillingService;
     private final CmsTokenService cmsTokenService;
 
-    @Value("${cms.sftp-host:tsftp.cmsedi.or.kr}")
+    @Value("${cms.sftp-host}")
     private String sftpHost;
 
-    @Value("${cms.sftp-port:11133}")
+    @Value("${cms.sftp-port}")
     private int sftpPort;
 
     public void run() {
@@ -97,9 +97,11 @@ public class CmsEc21SendService {
     private long generateAndSend(String spjangcd, String targetDate) throws Exception {
         // institutionCode 조회
         Map<String, Object> xa012Row = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT cms_code FROM tb_xa012_cms WHERE spjangcd=:s",
+                "SELECT cms_code, ec21_fee_request, ec21_fee_success FROM tb_xa012_cms WHERE spjangcd=:s",
                 new MapSqlParameterSource("s", spjangcd));
         String institutionCode = xa012Row != null ? str(xa012Row.get("cms_code")) : "";
+        int feeRequest = xa012Row != null && xa012Row.get("ec21_fee_request") != null
+                ? ((Number) xa012Row.get("ec21_fee_request")).intValue() : 0;
         if (!StringUtils.hasText(institutionCode)) {
             log.error("[CmsEc21] cms_code 없음 spjangcd={}", spjangcd);
             throw new IllegalStateException("cms_code 미설정 spjangcd=" + spjangcd);
@@ -226,7 +228,7 @@ public class CmsEc21SendService {
 
         // 8. billing 상태 업데이트
         if (sent) {
-            int updatedCount = cmsBillingService.updateStatusToRequested(billingIds, fileId);
+            int updatedCount = cmsBillingService.updateStatusToRequested(billingIds, fileId, feeRequest);
             log.info("[CmsEc21FileGenerate] billing REQUESTED 전환: {}건", updatedCount);
         } else {
             cmsBillingService.updateStatusToError(billingIds, errMsg);
@@ -354,16 +356,14 @@ public class CmsEc21SendService {
         ChannelSftp channel = (ChannelSftp) session.openChannel("sftp");
         channel.connect(10000);
         try {
-            ByteArrayInputStream bis = new ByteArrayInputStream(fileBytes);
             log.info("[CmsEc21File] SFTP 전송 시작 파일={} 크기={}bytes", fileName, fileBytes.length);
-            channel.put(bis, fileName);
-            log.info("[CmsEc21File] SFTP 업로드 완료: {}", fileName);
-        } catch (SftpException e) {
-            // 금결원 서버가 파일 수신 직후 강제 접속 종료 → EOF 에러는 정상으로 처리
-            if (e.getMessage() != null && e.getMessage().contains("End of IO")) {
-                log.warn("[CmsEc21File] SFTP 서버 강제종료(정상): {}", e.getMessage());
+            channel.put(new java.io.ByteArrayInputStream(fileBytes), fileName, ChannelSftp.OVERWRITE);
+        } catch (Exception e) {
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            if (msg.contains("End of IO") || msg.contains("inputstream is closed")) {
+                log.warn("[CmsEc21File] SFTP 서버 강제종료(정상): {}", msg);
             } else {
-                throw e;
+                throw new JSchException("SFTP 전송 실패: " + msg, e);
             }
         } finally {
             try { channel.disconnect(); } catch (Exception ignored) {}
@@ -441,6 +441,7 @@ public class CmsEc21SendService {
         return baos.toByteArray();
     }
 
+    /** AN 타입: 우측 공백 패딩, 지정 바이트 수로 자름 */
     private byte[] anBytes(String s, int len) {
         byte[] src = (s != null ? s : "").getBytes(EUC_KR);
         byte[] result = new byte[len];
@@ -449,6 +450,7 @@ public class CmsEc21SendService {
         return result;
     }
 
+    /** N 타입: 좌측 0 패딩 */
     private byte[] nBytes(String s, int len) {
         byte[] src = (s != null ? s : "0").getBytes(EUC_KR);
         byte[] result = new byte[len];
@@ -458,8 +460,10 @@ public class CmsEc21SendService {
         return result;
     }
 
+    /** 통장기재내용: EUC-KR 바이트 기준 16바이트, 우측 공백 패딩 */
     private byte[] descBytes(String desc) {
         byte[] result = new byte[16];
+        // 전각 공백(EUC-KR 0xA1A1)으로 초기화
         for (int i = 0; i < 8; i++) {
             result[i * 2]     = (byte) 0xA1;
             result[i * 2 + 1] = (byte) 0xA1;
@@ -471,12 +475,14 @@ public class CmsEc21SendService {
         return result;
     }
 
+    /** 공백 바이트 배열 */
     private byte[] spaces(int len) {
         byte[] b = new byte[len];
         Arrays.fill(b, (byte) ' ');
         return b;
     }
 
+    /** 150바이트 보장 */
     private byte[] ensure150(byte[] b) {
         if (b.length == 150) return b;
         byte[] result = new byte[150];

@@ -99,7 +99,6 @@
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>수납내역조회</li>
-                <li>수납내역조회</li>
             </ul>
         </div>
 
@@ -215,10 +214,14 @@
                     return '<span class="type-badge type-' + v + '">' + v + '</span>';
                 }},
             {binding: 'billing_seq',  header: '청구번호',  width: 130, align: 'center'},
-            {binding: 'member_name',  header: '납부자명',  width: 110, align: 'left'},
+            {binding: 'member_name',  header: '납부자명',  width: 150, align: 'left'},
             {binding: 'bank_name',    header: '은행',      width: 80,  align: 'center'},
             {binding: 'bank_account', header: '계좌번호',  width: 150, align: 'center'},
             {binding: 'billing_amount', header: '청구금액', width: 110, align: 'right',
+                cellTemplate: function(ctx) {
+                    return ctx.value != null ? Number(ctx.value).toLocaleString() : '';
+                }},
+            {binding: 'fee_total', header: '수수료', width: 90, align: 'right',
                 cellTemplate: function(ctx) {
                     return ctx.value != null ? Number(ctx.value).toLocaleString() : '';
                 }},
@@ -238,6 +241,14 @@
             {binding: 'result_code',  header: '결과코드',  width: 90,  align: 'center'},
             {binding: 'result_msg',   header: '결과메시지', width: 200, align: 'left'},
             {binding: 'result_date',  header: '처리일자',  width: 100, align: 'center'},
+            {binding: 'recharged_yn', header: '재청구', width: 80, align: 'center',
+                cellTemplate: function(ctx) {
+                    var item = ctx.row.dataItem;
+                    if (ctx.value === 'Y' && item.status === 'FAIL') {
+                        return '<span style="background:#e8f4fd; color:#4a90d9; padding:2px 7px; border-radius:8px; font-size:11px; font-weight:600;">재청구</span>';
+                    }
+                    return '';
+                }},
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -300,8 +311,9 @@
                     start_date:   startDate.replace(/-/g, ''),
                     end_date:     endDate.replace(/-/g, ''),
                     billing_type: $('#srchBillingType').val(),
-                    status:       $('#srchStatus').val(),
-                    member_name:  $('#srchMemberName').val()
+                    recharge_filter: false,
+                    status:       $('#srchStatus').val() || 'SUCCESS,FAIL',
+                    member_name:  $('#srchMemberName').val(),
                 },
                 success: function(result) {
                     if (result.success) {

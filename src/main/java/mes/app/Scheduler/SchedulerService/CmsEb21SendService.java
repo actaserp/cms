@@ -38,7 +38,7 @@ import java.util.Properties;
 @RequiredArgsConstructor
 public class CmsEb21SendService {
 
-    private static final String FEATURE_CODE = "EB_FILE";
+    private static final String FEATURE_CODE = "EB21";
     private static final Charset EUC_KR = Charset.forName("EUC-KR");
 
     private final SqlRunner sqlRunner;
@@ -98,9 +98,11 @@ public class CmsEb21SendService {
     private long generateAndSend(String spjangcd, String targetDate) throws Exception {
         // institutionCode 조회
         Map<String, Object> xa012Row = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT cms_code FROM tb_xa012_cms WHERE spjangcd=:s",
+                "SELECT cms_code, eb21_fee_request, ec21_fee_success FROM tb_xa012_cms WHERE spjangcd=:s",
                 new MapSqlParameterSource("s", spjangcd));
         String institutionCode = xa012Row != null ? str(xa012Row.get("cms_code")) : "";
+        int feeRequest = xa012Row != null && xa012Row.get("eb21_fee_request") != null
+                ? ((Number) xa012Row.get("eb21_fee_request")).intValue() : 0;
         if (!StringUtils.hasText(institutionCode)) {
             log.error("[CmsEb21] cms_code 없음 spjangcd={}", spjangcd);
             throw new IllegalStateException("cms_code 미설정 spjangcd=" + spjangcd);
@@ -221,13 +223,13 @@ public class CmsEb21SendService {
             mp.addValue("billingId", billingId);
             mp.addValue("lineSeq", seq++);
             sqlRunner.execute(/* skip_tenant_check */
-                    "INSERT INTO cms_file_billing(file_id,billing_id,line_seq,_created) VALUES(:fileId,:billingId,:lineSeq,NOW()) ON CONFLICT(billing_id) DO UPDATE SET file_id=EXCLUDED.file_id,line_seq=EXCLUDED.line_seq",
+                    "INSERT INTO cms_file_billing(file_id, billing_id, line_seq, _created) VALUES(:fileId, :billingId, :lineSeq, NOW())",
                     mp);
         }
 
         // 8. billing 상태 업데이트
         if (sent) {
-            int updatedCount = cmsBillingService.updateStatusToRequested(billingIds, fileId);
+            int updatedCount = cmsBillingService.updateStatusToRequested(billingIds, fileId, feeRequest);
             log.info("[CmsEb21FileGenerate] billing REQUESTED 전환: {}건", updatedCount);
         } else {
             cmsBillingService.updateStatusToError(billingIds, errMsg);
@@ -350,15 +352,12 @@ public class CmsEb21SendService {
         config.put("StrictHostKeyChecking", "no");
         session.setConfig(config);
         session.connect(15000);
-        log.info("[CmsEbFile] SFTP 세션 연결 완료 host={} user={}", sftpHost, user);
 
         ChannelSftp channel = (ChannelSftp) session.openChannel("sftp");
         channel.connect(10000);
-        log.info("[CmsEbFile] SFTP 채널 연결 완료");
         try {
             log.info("[CmsEb21File] SFTP 전송 시작 파일={} 크기={}bytes", fileName, fileBytes.length);
             channel.put(new java.io.ByteArrayInputStream(fileBytes), fileName, ChannelSftp.OVERWRITE);
-            log.info("[CmsEb21File] SFTP 업로드 완료: {}", fileName);
         } catch (Exception e) {
             String msg = e.getMessage() != null ? e.getMessage() : "";
             if (msg.contains("End of IO") || msg.contains("inputstream is closed")) {
@@ -447,16 +446,6 @@ public class CmsEb21SendService {
         byte[] result = new byte[len];
         Arrays.fill(result, (byte) ' ');
         System.arraycopy(src, 0, result, 0, Math.min(src.length, len));
-        return result;
-    }
-
-    /** AN 타입 좌측 공백 패딩 (계좌번호 등) */
-    private byte[] anBytesLeft(String s, int len) {
-        byte[] src = (s != null ? s : "").getBytes(EUC_KR);
-        byte[] result = new byte[len];
-        Arrays.fill(result, (byte) ' ');
-        int offset = len - Math.min(src.length, len);
-        System.arraycopy(src, 0, result, offset, Math.min(src.length, len));
         return result;
     }
 

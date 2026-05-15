@@ -8,6 +8,7 @@
         .status-SENT     { background: #d4edda; color: #155724; }
         .status-FAILED   { background: #f8d7da; color: #721c24; }
         .status-RECEIVED { background: #cce5ff; color: #004085; }
+        .status-CANCELLED { background: #e2e3e5; color: #383d41; }
         .type-REQUEST    { background: #e2e3e5; color: #383d41; }
         .type-RESULT     { background: #d1ecf1; color: #0c5460; }
     </style>
@@ -51,8 +52,8 @@
                         <dd>
                             <select id="srchFileType" class="form-control2" style="min-width:100px;">
                                 <option value="">전체</option>
-                                <option value="REQUEST">청구요청</option>
-                                <option value="RESULT">결과수신</option>
+                                <option value="EB_REQUEST">출금의뢰</option>
+                                <option value="EB_RESULT">출금결과</option>
                             </select>
                         </dd>
                     </dl>
@@ -64,6 +65,7 @@
                                 <option value="PENDING">대기</option>
                                 <option value="SENT">완료</option>
                                 <option value="FAILED">오류</option>
+                                <option value="CANCELLED">결과수신</option>
                                 <option value="RECEIVED">결과수신</option>
                             </select>
                         </dd>
@@ -85,7 +87,7 @@
                     <button type="button" class="btn-default" id="btnSendSftp"
                             style="background:#17a2b8; color:#fff;">SFTP전송</button>
                     <button type="button" class="btn-default" id="btnCheckStatus"
-                            style="background:#6f42c1; color:#fff;">금결원 상태확인</button>
+                            style="background:#6f42c1; color:#fff; width:120px;">금결원 상태확인</button>
                     <button type="button" class="btn-default" id="btnCancelFile"
                             style="background:#dc3545; color:#fff;">전송취소</button>
                     <button type="button" class="btn-danger"  id="btnDel">삭제</button>
@@ -129,13 +131,19 @@
         var theGrid;
         var viewdata;
 
-        var FILE_TYPE_MAP   = { REQUEST: '청구요청', RESULT: '결과수신' };
-        var SEND_STATUS_MAP = { PENDING: '대기', SENT: '완료', FAILED: '오류', RECEIVED: '결과수신' };
+        var FILE_TYPE_MAP   = {
+            REQUEST: '청구요청',
+            RESULT: '결과수신',
+            EB_REQUEST: '출금의뢰',
+            EB_RESULT:  '출금결과',
+            EC_REQUEST: '당일출금의뢰',
+            EC_RESULT:  '당일출금결과'
+        };
+        var SEND_STATUS_MAP = { PENDING: '대기', SENT: '완료', FAILED: '오류', RECEIVED: '결과수신', CANCELLED: '전송취소' };
         var SEND_TYPE_MAP   = { SFTP: 'SFTP', MANUAL: '수동' };
 
         var columns = [
             {binding: 'id',            header: 'ID',       width: 60,  align: 'center', visible: false},
-            {binding: 'spjangcd',     header: '업체구분',   width: 60, align: 'left'},
             {binding: 'file_name',     header: '파일명',   width: 180, align: 'left'},
             {binding: 'file_type',     header: '유형',     width: 80,  align: 'center',
                 cellTemplate: function(ctx) {
@@ -143,11 +151,6 @@
                     return '<span class="status-badge type-' + ctx.value + '">' + label + '</span>';
                 }},
             {binding: 'target_date',   header: '출금대상일', width: 110, align: 'center'},
-            {binding: 'billing_count', header: '청구건수', width: 80,  align: 'right'},
-            {binding: 'billing_amount',header: '청구금액', width: 120, align: 'right',
-                cellTemplate: function(ctx) {
-                    return ctx.value != null ? Number(ctx.value).toLocaleString() : '';
-                }},
             {binding: 'send_type',     header: '전송방식', width: 80,  align: 'center',
                 cellTemplate: function(ctx) { return SEND_TYPE_MAP[ctx.value] || (ctx.value || '-'); }},
             {binding: 'send_status',   header: '전송상태', width: 90,  align: 'center',
@@ -155,9 +158,9 @@
                     var label = SEND_STATUS_MAP[ctx.value] || ctx.value || '';
                     return '<span class="status-badge status-' + ctx.value + '">' + label + '</span>';
                 }},
-            {binding: '_created',      header: '생성일시', width: 150, align: 'center'},
-            {binding: 'sent_at',       header: '전송일시', width: 150, align: 'center'},
-            {binding: 'error_message',       header: '에러메시지', width: 200, align: 'center'},
+            {binding: '_created',      header: '생성일시', width: 170, align: 'center'},
+            {binding: 'sent_at_kst',       header: '전송일시', width: 170, align: 'center'},
+            {binding: 'error_message',       header: '에러메시지', width: 300, align: 'center'},
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -177,12 +180,12 @@
 
         function searchList() {
             $.ajax({
-                url: withCtx('/api/cms/eb-files'),
+                url: withCtx('/api/cms/cms-files'),
                 type: 'GET',
                 data: {
                     date_from:   $('#srchDateFrom').val(),
                     date_to:     $('#srchDateTo').val(),
-                    file_type:   $('#srchFileType').val(),
+                    file_type:   $('#srchFileType').val() || 'EB',
                     send_status: $('#srchSendStatus').val()
                 },
                 success: function(result) {
