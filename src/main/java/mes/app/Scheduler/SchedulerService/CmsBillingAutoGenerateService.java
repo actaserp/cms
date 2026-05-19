@@ -30,12 +30,13 @@ public class CmsBillingAutoGenerateService {
         String billingYm = YearMonth.now().plusMonths(1).format(DateTimeFormatter.ofPattern("yyyyMM"));
         log.info("[CmsBillingAutoGenerate] 시작 - 청구년월: {}", billingYm);
 
+        // ✨ auto_billing_yn = 'Y' 체크 추가!
         List<Map<String, Object>> spjangs = sqlRunner.getRows(/* skip_tenant_check */
                 """
                 SELECT DISTINCT m.spjangcd FROM cms_member m
                 JOIN tb_xa012_cms c ON c.spjangcd = m.spjangcd
                 WHERE m.status = 'ACTIVE'
-                  AND c.auto_send_yn = 'Y'
+                  AND c.auto_billing_yn = 'Y'
                 """,
                 new MapSqlParameterSource());
 

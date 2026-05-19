@@ -8,6 +8,8 @@ import mes.app.cms.service.CmsEb14ReceiveService;
 import mes.app.notification.NotificationService;
 import mes.app.notification.NotificationTargetService;
 import mes.domain.entity.Notification;
+import mes.domain.services.SqlRunner;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -36,6 +38,7 @@ public class ScheduledTaskRunner {
     private final NotificationTargetService     notificationTargetService;
     private final CmsEb14ReceiveService         cmsEb14ReceiveService;
     private final CmsHolidayService             cmsHolidayService;
+    private final SqlRunner sqlRunner;
 
     /** 매일 00:30 실행 — 말일(또는 말일이 휴일이면 직전 영업일)에 다음달 청구 생성 */
     @Scheduled(cron = "0 30 0 * * *", zone = "Asia/Seoul")
@@ -43,13 +46,13 @@ public class ScheduledTaskRunner {
         LocalDate today   = LocalDate.now();
         LocalDate lastDay = today.with(TemporalAdjusters.lastDayOfMonth());
 
-        // 말일이 휴일이면 직전 영업일을 트리거 날짜로 사용
         String lastDayStr  = lastDay.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String triggerStr  = cmsHolidayService.getPrevBusinessDay(lastDayStr);
         LocalDate triggerDate = LocalDate.parse(triggerStr, DateTimeFormatter.ofPattern("yyyyMMdd"));
 
         if (!today.equals(triggerDate)) return;
 
+        // ✨ run()이 auto_billing_yn = 'Y'인 사업장을 모두 처리함
         schedulerExecutor.execute(() -> safeRun(cmsBillingAutoGenerateService::run, "CMS 청구 자동생성"));
     }
 

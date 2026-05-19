@@ -237,7 +237,21 @@ public class CmsEb22ReceiveService {
         // - @Transactional 메서드가 정상 종료돼야 커밋되므로
         //   여기서 예외 발생 시 PostgreSQL도 롤백되고 MSSQL도 실행 안 됨
         // - MSSQL 실패는 로그만 남김 (PostgreSQL은 이미 커밋)
-        cmsErpResultSyncService.syncResults(spjangcd, targetDate, syncItems);
+        Map<String, Object> erpInfo = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT host FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd));
+
+        if (erpInfo != null && erpInfo.get("host") != null) {
+            // ERP 설정이 있으면 MSSQL에 INSERT
+            try {
+                cmsErpResultSyncService.syncResults(spjangcd, targetDate, syncItems);
+                log.info("[CmsEb22Receive] MSSQL 동기화 완료 spjangcd={} targetDate={}", spjangcd, targetDate);
+            } catch (Exception e) {
+                log.warn("[CmsEb22Receive] MSSQL 동기화 실패 (PostgreSQL은 정상 처리됨): {}", e.getMessage());
+            }
+        } else {
+            log.info("[CmsEb22Receive] ERP 미설정 - MSSQL 동기화 스킵 spjangcd={} targetDate={}", spjangcd, targetDate);
+        }
     }
 
     /**

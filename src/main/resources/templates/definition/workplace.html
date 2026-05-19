@@ -339,9 +339,28 @@
                         </tr>
                         <tr>
                             <th>ERP 연동</th>
-                            <td colspan="4"><label style="cursor:pointer; font-size:13px;"><input type="checkbox" id="erpYn" onchange="onErpToggle(this)"> ERP(MS SQL) 연동 사용</label></td>
+                            <td colspan="4">
+                                <label style="cursor:pointer; font-size:13px;">
+                                    <input type="checkbox" id="erpYn" onchange="onErpToggle(this)">
+                                    ERP(MS SQL) 연동 사용
+                                </label>
+                            </td>
+                            <th>자동 청구생성</th>
+                            <td colspan="4">
+                                <label style="cursor:pointer; font-size:13px;">
+                                    <input type="checkbox" id="autoBillingYn">
+                                    자동 청구 생성 사용
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
                             <th>자동 출금신청</th>
-                            <td colspan="4"><label style="cursor:pointer; font-size:13px;"><input type="checkbox" id="autoSendYn"> 자동 전송 사용</label></td>
+                            <td colspan="4">
+                                <label style="cursor:pointer; font-size:13px;">
+                                    <input type="checkbox" id="autoSendYn">
+                                    자동 전송 사용
+                                </label>
+                            </td>
                         </tr>
                         <tr id="erpSectionRow" style="display:none;">
                             <td colspan="10" style="padding:0;">
@@ -718,6 +737,7 @@
             document.getElementById('cmsDescription').value = cms.cms_description || '';
             document.getElementById('cmsBankBranch').value  = cms.cms_bank_branch || '';
             document.getElementById('cmsRecvAccount').value = cms.cms_recv_account || '';
+            document.getElementById('autoBillingYn').checked = (cms.auto_billing_yn === 'Y');
             document.getElementById('autoSendYn').checked   = (cms.auto_send_yn === 'Y');
 
             // CMS 조회 정보 표시
@@ -729,7 +749,7 @@
             document.getElementById('erpYn').checked = erpYn;
             document.getElementById('erpSectionRow').style.display = erpYn ? '' : 'none';
             document.getElementById('erpHost').value       = erp.host || '';
-            document.getElementById('erpPort').value       = erp.port || '1433';
+            document.getElementById('erpPort').value       = erp.port || '';
             document.getElementById('erpDbName').value     = erp.db_name || '';
             document.getElementById('erpCustcd').value     = erp.custcd || '';
             document.getElementById('erpUsername').value   = erp.username || '';
@@ -1079,6 +1099,28 @@
                 var ec21 = d.ec21_service_settings || {};
                 var eb31 = d.eb31_service_settings || {};
 
+                var erpHost = $('#erpHost').val().trim();
+                var erpPort = $('#erpPort').val().trim();
+                var erpDbName = $('#erpDbName').val().trim();
+                var erpCustcd = $('#erpCustcd').val().trim();
+                var erpUsername = $('#erpUsername').val().trim();
+                var erpPassword = $('#erpPassword').val().trim();
+                var erpMsSpjangcd = $('#erpMsSpjangcd').val().trim();
+
+                // ERP 체크박스 ON 또는 필드 입력 시
+                var hasErpInput = erpHost || erpPort || erpDbName || erpCustcd || erpUsername || erpPassword || erpMsSpjangcd;
+
+                if (erpYn || hasErpInput) {
+                    // 모든 필드 필수
+                    if (!erpHost) { Alert.alert('', 'ERP: DB 호스트를 입력하세요.'); return; }
+                    if (!erpPort) { Alert.alert('', 'ERP: 포트를 입력하세요.'); return; }
+                    if (!erpDbName) { Alert.alert('', 'ERP: DB명을 입력하세요.'); return; }
+                    if (!erpCustcd) { Alert.alert('', 'ERP: 업체코드를 입력하세요.'); return; }
+                    if (!erpUsername) { Alert.alert('', 'ERP: 계정을 입력하세요.'); return; }
+                    if (!erpPassword) { Alert.alert('', 'ERP: 비밀번호를 입력하세요.'); return; }
+                    if (!erpMsSpjangcd) { Alert.alert('', 'ERP: MS 사업장코드를 입력하세요.'); return; }
+                }
+
                 var payload = {
                     spjangcd:    $('#spjangcd2').val(),
                     spjangnm:    $('#spjangnm').val(),
@@ -1100,6 +1142,7 @@
                         cmsDescription:   $('#cmsDescription').val(),
                         cmsRecvAccount:   $('#cmsRecvAccount').val(),
                         cmsBankBranch:    $('#cmsBankBranch').val(),
+                        autoBillingYn:    $('#autoBillingYn').is(':checked') ? 'Y' : 'N',
                         autoSendYn:       $('#autoSendYn').is(':checked') ? 'Y' : 'N',
                         msSpjangcd:       erpYn ? ($('#erpMsSpjangcd').val() || null) : null,
                         transferDelayDays: d.transfer_delay_days || null,

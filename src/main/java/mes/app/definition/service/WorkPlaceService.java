@@ -150,10 +150,10 @@ public class WorkPlaceService {
         p.addValue("msSpjangcd",        msSpjangcd);
         p.addValue("cmsCode",           cms.get("cmsCode"));
         p.addValue("cmsDescription",    cms.get("cmsDescription"));
-        p.addValue("cmsState",          cms.get("cmsState"));
         p.addValue("cmsBankCode",       cms.get("cmsBankCode"));
         p.addValue("cmsRecvAccount",    cms.get("cmsRecvAccount"));
         p.addValue("cmsBankBranch",     cms.get("cmsBankBranch"));
+        p.addValue("autoBillingYn",     cms.getOrDefault("autoBillingYn", "N"));
         p.addValue("autoSendYn",        cms.getOrDefault("autoSendYn", "N"));
         p.addValue("transferDelayDays", cms.get("transferDelayDays"));
         p.addValue("isNormalStatus",    cms.get("isNormalStatus"));
@@ -168,30 +168,23 @@ public class WorkPlaceService {
 
         sqlRunner.execute(/* skip_tenant_check */
                 """
-                INSERT INTO tb_xa012_cms (
-                    spjangcd, ms_spjangcd, cms_code,
-                    cms_description, cms_state, cms_bank_code, cms_recv_account, cms_bank_branch,
-                    auto_send_yn, transfer_delay_days, is_normal_status,
-                    limit_amount_each, limit_amount_monthly,
-                    eb21_fee_request, eb21_fee_success,
-                    ec21_fee_request, ec21_fee_success,
-                    eb31_fee_request, eb31_fee_success
-                ) VALUES (
-                    :spjangcd, :msSpjangcd, :cmsCode,
-                    :cmsDescription, :cmsState, :cmsBankCode, :cmsRecvAccount, :cmsBankBranch,
-                    :autoSendYn, :transferDelayDays, :isNormalStatus,
-                    :limitAmountEach, :limitAmountMonthly,
-                    :eb21FeeRequest, :eb21FeeSuccess,
-                    :ec21FeeRequest, :ec21FeeSuccess,
-                    :eb31FeeRequest, :eb31FeeSuccess
-                )
+                INSERT INTO tb_xa012_cms (spjangcd, ms_spjangcd, cms_code, cms_description,
+                    cms_bank_code, cms_recv_account, cms_bank_branch, auto_billing_yn, auto_send_yn, transfer_delay_days,
+                    is_normal_status, limit_amount_each, limit_amount_monthly,
+                    eb21_fee_request, eb21_fee_success, ec21_fee_request, ec21_fee_success,
+                    eb31_fee_request, eb31_fee_success)
+                VALUES (:spjangcd, :msSpjangcd, :cmsCode, :cmsDescription,
+                    :cmsBankCode, :cmsRecvAccount, :cmsBankBranch, :autoBillingYn, :autoSendYn, :transferDelayDays,
+                    :isNormalStatus, :limitAmountEach, :limitAmountMonthly,
+                    :eb21FeeRequest, :eb21FeeSuccess, :ec21FeeRequest, :ec21FeeSuccess,
+                    :eb31FeeRequest, :eb31FeeSuccess)
                 ON CONFLICT (spjangcd, ms_spjangcd) DO UPDATE SET
                     cms_code             = EXCLUDED.cms_code,
                     cms_description      = EXCLUDED.cms_description,
-                    cms_state            = EXCLUDED.cms_state,
                     cms_bank_code        = EXCLUDED.cms_bank_code,
                     cms_recv_account     = EXCLUDED.cms_recv_account,
                     cms_bank_branch      = EXCLUDED.cms_bank_branch,
+                    auto_billing_yn      = EXCLUDED.auto_billing_yn,
                     auto_send_yn         = EXCLUDED.auto_send_yn,
                     transfer_delay_days  = EXCLUDED.transfer_delay_days,
                     is_normal_status     = EXCLUDED.is_normal_status,
@@ -280,7 +273,8 @@ public class WorkPlaceService {
                 """
                 SELECT a.spjangcd, a.spjangnm, a.saupnum, a.prenm,
                        a.tel1, a.custperclsf,
-                       c.ms_spjangcd, c.cms_code, c.cms_state, c.is_normal_status, c.auto_send_yn
+                       c.ms_spjangcd, c.cms_code, c.is_normal_status,
+                       c.auto_billing_yn, c.auto_send_yn
                 FROM tb_xa012 a
                 LEFT JOIN tb_xa012_cms c ON c.spjangcd = a.spjangcd
                 WHERE a.parent_spjangcd = :parentSpjangcd
