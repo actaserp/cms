@@ -290,7 +290,7 @@ public class CmsEc22ReceiveService {
         // - MSSQL 실패는 로그만 남김 (PostgreSQL은 이미 커밋)
         // ✨ ERP 체크: ERP 연동이 활성화된 경우에만 MSSQL에 INSERT
         Map<String, Object> erpInfo = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT host FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
+                "SELECT host FROM tb_xa012_erp WHERE spjangcd = :spjangcd AND use_yn = 'Y'",
                 new MapSqlParameterSource("spjangcd", spjangcd));
 
         if (erpInfo != null && erpInfo.get("host") != null) {

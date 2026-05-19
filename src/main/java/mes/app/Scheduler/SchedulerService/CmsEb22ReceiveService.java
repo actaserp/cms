@@ -298,7 +298,7 @@ public class CmsEb22ReceiveService {
         // - @Transactional 메서드가 정상 종료돼야 커밋되므로
         // - MSSQL 실패는 로그만 남김 (PostgreSQL은 이미 커밋)
         Map<String, Object> erpInfo = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT host FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
+                "SELECT host FROM tb_xa012_erp WHERE spjangcd = :spjangcd AND use_yn = 'Y'",
                 new MapSqlParameterSource("spjangcd", spjangcd));
 
         if (erpInfo != null && erpInfo.get("host") != null) {

@@ -125,12 +125,20 @@ public class WorkPlaceService {
 
         @SuppressWarnings("unchecked")
         Map<String, Object> erp = (Map<String, Object>) req.get("erp");
-        if (erp != null) {
+        if (erp != null && !str(erp.get("host")).isEmpty()) {
+            // ERP 데이터 있으면 저장
             saveErp(spjangcd, erp);
         } else {
+            // ERP 체크 해제 → DELETE 아닌 UPDATE to NULL
             sqlRunner.execute(/* skip_tenant_check */
-                    "DELETE FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
+                    """
+                    UPDATE tb_xa012_erp SET 
+                        use_yn = 'N'
+                    WHERE spjangcd = :spjangcd
+                    """,
                     new MapSqlParameterSource("spjangcd", spjangcd));
+
+            log.info("[Workplace] ERP 정보 삭제: spjangcd={}", spjangcd);
         }
     }
 
@@ -178,7 +186,8 @@ public class WorkPlaceService {
                     :isNormalStatus, :limitAmountEach, :limitAmountMonthly,
                     :eb21FeeRequest, :eb21FeeSuccess, :ec21FeeRequest, :ec21FeeSuccess,
                     :eb31FeeRequest, :eb31FeeSuccess)
-                ON CONFLICT (spjangcd, ms_spjangcd) DO UPDATE SET
+                ON CONFLICT (spjangcd) DO UPDATE SET
+                    ms_spjangcd          = EXCLUDED.ms_spjangcd,
                     cms_code             = EXCLUDED.cms_code,
                     cms_description      = EXCLUDED.cms_description,
                     cms_bank_code        = EXCLUDED.cms_bank_code,
@@ -247,13 +256,14 @@ public class WorkPlaceService {
         p.addValue("username",   erp.get("username"));
         p.addValue("password",   erp.get("password"));
         p.addValue("msSpjangcd", erp.get("msSpjangcd"));
+        p.addValue("useYn",      "Y");
 
         sqlRunner.execute(/* skip_tenant_check */
                 """
                 INSERT INTO tb_xa012_erp (spjangcd, host, port, db_name, custcd,
-                    username, password, ms_spjangcd)
+                    username, password, ms_spjangcd, use_yn)
                 VALUES (:spjangcd, :host, :port, :dbName, :custcd,
-                    :username, :password, :msSpjangcd)
+                    :username, :password, :msSpjangcd, :userYn)
                 ON CONFLICT (spjangcd) DO UPDATE SET
                     host        = EXCLUDED.host,
                     port        = EXCLUDED.port,
@@ -261,7 +271,8 @@ public class WorkPlaceService {
                     custcd      = EXCLUDED.custcd,
                     username    = EXCLUDED.username,
                     password    = EXCLUDED.password,
-                    ms_spjangcd = EXCLUDED.ms_spjangcd
+                    ms_spjangcd = EXCLUDED.ms_spjangcd,
+                    use_yn      = EXCLUDED.use_yn
                 """, p);
     }
 
