@@ -51,29 +51,32 @@ public class CmsMemberController {
     /** 등록/수정 */
     @PostMapping("/save")
     public AjaxResult save(
-            @RequestParam(value = "id",             required = false) Long    id,
-            @RequestParam(value = "member_type",    required = false) String  memberType,
-            @RequestParam(value = "member_name"                     ) String  memberName,
-            @RequestParam(value = "member_no",      required = false) String  memberNo,
-            @RequestParam(value = "id_number",      required = false) String  idNumber,
-            @RequestParam(value = "phone",          required = false) String  phone,
-            @RequestParam(value = "email",          required = false) String  email,
-            @RequestParam(value = "zipcd",          required = false) String  zipcd,
-            @RequestParam(value = "adresa",         required = false) String  adresa,
-            @RequestParam(value = "adresb",         required = false) String  adresb,
-            @RequestParam(value = "bank_code",      required = false) String  bankCode,
-            @RequestParam(value = "bank_account",   required = false) String  bankAccount,
-            @RequestParam(value = "account_holder", required = false) String  accountHolder,
-            @RequestParam(value = "deduct_day",     required = false) String  deductDay,
-            @RequestParam(value = "deduct_amount",  required = false) Long    deductAmount,
-            @RequestParam(value = "cycle_type",     required = false) String  cycleType,
-            @RequestParam(value = "cycle_months",   required = false) String  cycleMonths,
-            @RequestParam(value = "start_date",     required = false) String  startDate,
-            @RequestParam(value = "end_date",       required = false) String  endDate,
-            @RequestParam(value = "agree_yn",       required = false) String  agreeYn,
-            @RequestParam(value = "agree_method",   required = false) String  agreeMethod,
-            @RequestParam(value = "status",         required = false) String  status,
-            @RequestParam(value = "memo",           required = false) String  memo,
+            @RequestParam(value = "id",                required = false) Long    id,
+            @RequestParam(value = "member_type",       required = false) String  memberType,
+            @RequestParam(value = "member_name"                        ) String  memberName,
+            @RequestParam(value = "member_no",         required = false) String  memberNo,
+            @RequestParam(value = "id_number",         required = false) String  idNumber,
+            @RequestParam(value = "phone",             required = false) String  phone,
+            @RequestParam(value = "email",             required = false) String  email,
+            @RequestParam(value = "zipcd",             required = false) String  zipcd,
+            @RequestParam(value = "adresa",            required = false) String  adresa,
+            @RequestParam(value = "adresb",            required = false) String  adresb,
+            @RequestParam(value = "bank_code",         required = false) String  bankCode,
+            @RequestParam(value = "bank_account",      required = false) String  bankAccount,
+            @RequestParam(value = "account_holder",    required = false) String  accountHolder,
+            @RequestParam(value = "deduct_day",        required = false) String  deductDay,
+            @RequestParam(value = "deduct_amount",     required = false) Long    deductAmount,
+            @RequestParam(value = "cycle_type",        required = false) String  cycleType,
+            @RequestParam(value = "cycle_months",      required = false) String  cycleMonths,
+            @RequestParam(value = "start_date",        required = false) String  startDate,
+            @RequestParam(value = "end_date",          required = false) String  endDate,
+            @RequestParam(value = "pause_start_date",  required = false) String  pauseStartDate,  // 추가됨
+            @RequestParam(value = "pause_end_date",    required = false) String  pauseEndDate,    // 추가됨
+            @RequestParam(value = "pause_reason",      required = false) String  pauseReason,     // 추가됨
+            @RequestParam(value = "agree_yn",          required = false) String  agreeYn,
+            @RequestParam(value = "agree_method",      required = false) String  agreeMethod,
+            @RequestParam(value = "status",            required = false) String  status,
+            @RequestParam(value = "memo",              required = false) String  memo,
             Authentication auth) {
 
         User user = (User) auth.getPrincipal();
@@ -83,6 +86,7 @@ public class CmsMemberController {
                 phone, email, zipcd, adresa, adresb,
                 bankCode, bankAccount, accountHolder,
                 deductDay, deductAmount, cycleType, cycleMonths, startDate, endDate,
+                pauseStartDate, pauseEndDate, pauseReason,  // 추가됨
                 agreeYn, agreeMethod, status, memo,
                 user.getUsername());
 

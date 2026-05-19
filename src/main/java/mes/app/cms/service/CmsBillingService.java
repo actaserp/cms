@@ -27,6 +27,9 @@ public class CmsBillingService {
     @Autowired
     CmsHolidayService cmsHolidayService;
 
+    @Autowired
+    private CmsMemberService cmsMemberService;
+
     /** 청구 목록 조회 */
     public List<Map<String, Object>> getBillingList(String billingYm, String sendDate, String memberName, String status, String deductType) {
         String spjangcd = TenantContext.get();
@@ -109,6 +112,7 @@ public class CmsBillingService {
                      , b.billing_amount
                      , b.deduct_day
                      , b.deduct_date
+                     , b.send_date
                      , b.status
                      , b.result_code
                      , b.result_msg
@@ -121,13 +125,39 @@ public class CmsBillingService {
         return sqlRunner.getRow(sql, param);
     }
 
-    /** 청구 저장 (신규/수정) */
+    /**
+     * 청구 저장 (신규/수정) - 중지 기간 체크 추가됨
+     */
     public Long saveBilling(Long id, String billingYm, String memberId,
                             String memberName, String bankCode, String bankAccount,
                             String accountHolder, Long billingAmount,
                             String deductDay, String deductDate,
                             String status, String memo, String deductType, String userId) {
         String spjangcd = TenantContext.get();
+
+        log.info("[CmsBillingService] saveBilling - id:{} memberId:{} deductDate:{}", id, memberId, deductDate);
+        // ⭐ 수동 청구: memberId가 있고 신규 저장일 때 중지 기간 체크
+        if (id == null && StringUtils.hasText(memberId)) {
+            try {
+                Long memberIdLong = Long.parseLong(memberId);
+                Map<String, Object> member = cmsMemberService.getMember(memberIdLong);
+
+                if (member != null) {
+                    PauseCheckResult pauseResult = checkPausePeriod(member, deductDate);
+                    if (pauseResult.isPaused) {
+                        log.warn("[CmsBillingService] 중지 기간 경고 - memberId: {}, deductDate: {}, pausePeriod: {}",
+                                memberId, deductDate, pauseResult.displayText);
+                        throw new IllegalStateException(
+                                "이 납부자는 현재 중지 기간입니다. (" + pauseResult.displayText + ") " +
+                                        "계속 청구하시겠습니까?"
+                        );
+                    }
+                }
+            } catch (NumberFormatException e) {
+                log.error("[CmsBillingService] memberId 파싱 오류: {}", memberId);
+            }
+        }
+
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
         param.addValue("billingYm", billingYm);
@@ -216,6 +246,126 @@ public class CmsBillingService {
         }
     }
 
+    /**
+     * 청구 강제 저장 (중지 기간이어도 진행)
+     * - 사용자가 경고 후 "확인" 클릭했을 때 호출
+     * - 메모에 "[강제 청구]" 추가
+     */
+    public Long saveBillingForce(Long id, String billingYm, String memberId,
+                                 String memberName, String bankCode, String bankAccount,
+                                 String accountHolder, Long billingAmount,
+                                 String deductDay, String deductDate,
+                                 String status, String memo, String deductType, String userId) {
+        // 중지 기간 체크 스킵
+        // 메모에 "[강제 청구]" 추가
+        String forceMemo = "[강제 청구] " + (StringUtils.hasText(memo) ? memo : "");
+
+        log.warn("[CmsBillingService] 강제 청구 생성 - memberId: {}, deductDate: {}, memo: {}",
+                memberId, deductDate, forceMemo);
+
+        // 기존 saveBilling 로직 실행 (중지 기간 체크 없음)
+        return saveBillingWithoutPauseCheck(id, billingYm, memberId, memberName, bankCode,
+                bankAccount, accountHolder, billingAmount, deductDay, deductDate,
+                status, forceMemo, deductType, userId);
+    }
+
+    /**
+     * 청구 저장 (중지 기간 체크 제외 버전)
+     * - saveBillingForce()에서만 호출
+     */
+    private Long saveBillingWithoutPauseCheck(Long id, String billingYm, String memberId,
+                                              String memberName, String bankCode, String bankAccount,
+                                              String accountHolder, Long billingAmount,
+                                              String deductDay, String deductDate,
+                                              String status, String memo, String deductType, String userId) {
+        String spjangcd = TenantContext.get();
+        var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
+        param.addValue("spjangcd", spjangcd);
+        param.addValue("billingYm", billingYm);
+        param.addValue("memberId", memberId != null ? Long.parseLong(memberId) : null);
+        param.addValue("memberName", memberName);
+        param.addValue("bankCode", bankCode);
+        param.addValue("bankAccount", bankAccount);
+        param.addValue("accountHolder", accountHolder);
+        param.addValue("billingAmount", billingAmount);
+        param.addValue("deductDay", deductDay);
+        param.addValue("deductDate", deductDate);
+        param.addValue("status", status != null ? status : "PENDING");
+        param.addValue("memo", memo);
+        param.addValue("deductType", deductType != null ? deductType : "EB");
+        param.addValue("userId", userId);
+        String effectiveDeductType = deductType != null ? deductType : "EB";
+        if (StringUtils.hasText(deductDate)) {
+            param.addValue("sendDate", calcSendDate(deductDate, effectiveDeductType));
+        } else {
+            param.addValue("sendDate", null);
+        }
+
+        if (id == null) {
+            // 중복 청구 체크
+            if (StringUtils.hasText(memberId) && StringUtils.hasText(deductDate)) {
+                List<Map<String, Object>> dup = sqlRunner.getRows(/* skip_tenant_check */
+                        """
+                        SELECT 1 FROM cms_billing
+                        WHERE spjangcd  = :spjangcd
+                          AND member_id = :memberId
+                          AND deduct_date = :deductDate
+                          AND status NOT IN ('CANCEL', 'FAIL', 'ERROR')
+                        """,
+                        new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                                .addValue("spjangcd",   spjangcd)
+                                .addValue("memberId",   Long.parseLong(memberId))
+                                .addValue("deductDate", deductDate));
+                if (!dup.isEmpty()) {
+                    log.warn("[saveBillingWithoutPauseCheck] 중복 청구 차단 memberId={} deductDate={}", memberId, deductDate);
+                    throw new IllegalStateException("동일한 출금일에 이미 청구가 존재합니다.");
+                }
+            }
+
+            String billingSeq = generateBillingSeq(spjangcd, billingYm);
+            param.addValue("billingSeq", billingSeq);
+
+            String sql = """
+                INSERT INTO cms_billing (
+                    spjangcd, billing_ym, billing_seq,
+                    member_id, member_name, bank_code, bank_account, account_holder,
+                    billing_amount, deduct_day, deduct_date, send_date,
+                    deduct_type, status, memo,
+                    _creater_id, _created, _modifier_id, _modified
+                ) VALUES (
+                    :spjangcd, :billingYm, :billingSeq,
+                    :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
+                    :billingAmount, :deductDay, :deductDate, :sendDate,
+                    :deductType, :status, :memo,
+                    :userId, NOW(), :userId, NOW()
+                ) RETURNING id
+                """;
+            Map<String, Object> row = sqlRunner.getRow(sql, param);
+            if (row == null) return null;
+            return ((Number) row.get("id")).longValue();
+        } else {
+            param.addValue("id", id);
+            String sql = """
+                UPDATE cms_billing SET
+                    member_name    = :memberName,
+                    bank_code      = :bankCode,
+                    bank_account   = :bankAccount,
+                    account_holder = :accountHolder,
+                    billing_amount = :billingAmount,
+                    deduct_day     = :deductDay,
+                    deduct_date    = :deductDate,
+                    send_date      = :sendDate,
+                    status         = :status,
+                    memo           = :memo,
+                    _modifier_id   = :userId,
+                    _modified      = NOW()
+                WHERE id = :id AND spjangcd = :spjangcd
+                """;
+            int affected = sqlRunner.execute(sql, param);
+            return affected > 0 ? id : null;
+        }
+    }
+
     /** 청구 삭제 */
     public boolean deleteBilling(Long id) {
         String spjangcd = TenantContext.get();
@@ -227,6 +377,121 @@ public class CmsBillingService {
                 DELETE FROM cms_billing WHERE id = :id AND spjangcd = :spjangcd AND status = 'PENDING'
                 """;
         return sqlRunner.execute(sql, param) > 0;
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // ⭐ 중지 기간 체크 관련 메서드 (새로 추가됨)
+    // ──────────────────────────────────────────────────────────────────
+
+    /**
+     * 중지 기간 체크 결과 클래스
+     */
+    private static class PauseCheckResult {
+        boolean isPaused;
+        String displayText;  // UI에 표시할 메시지
+
+        PauseCheckResult(boolean isPaused, String displayText) {
+            this.isPaused = isPaused;
+            this.displayText = displayText;
+        }
+    }
+
+    /**
+     * 중지 기간 체크 (수동 청구용)
+     * - 출금일이 중지 기간 범위 내인지 확인
+     * - 중지 기간이면 PauseCheckResult(true, "중지기간: xxx ~ yyy") 반환
+     */
+    private PauseCheckResult checkPausePeriod(Map<String, Object> member, String deductDate) {
+        String pauseStartDate = objToStr(member.get("pause_start_date"));
+        String pauseEndDate   = objToStr(member.get("pause_end_date"));
+
+        if (!StringUtils.hasText(pauseStartDate) || !StringUtils.hasText(pauseEndDate)) {
+            return new PauseCheckResult(false, "");
+        }
+
+        try {
+            if (!StringUtils.hasText(deductDate)) return new PauseCheckResult(false, "");
+            LocalDate deductLocalDate = parseFlexDate(deductDate);
+            LocalDate start = parseFlexDate(pauseStartDate);
+            LocalDate end   = parseFlexDate(pauseEndDate);
+
+            boolean isPaused = !deductLocalDate.isBefore(start) && !deductLocalDate.isAfter(end);
+
+            if (isPaused) {
+                String displayText = String.format(
+                        "중지기간: %s ~ %s",
+                        start.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")),
+                        end.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"))
+                );
+                return new PauseCheckResult(true, displayText);
+            }
+
+            return new PauseCheckResult(false, "");
+        } catch (Exception e) {
+            log.error("[CmsBillingService] 중지 기간 파싱 오류 - pauseStartDate: {}, pauseEndDate: {}",
+                    pauseStartDate, pauseEndDate, e);
+            return new PauseCheckResult(false, "");
+        }
+    }
+
+    /**
+     * 해당 청구년월이 납부자의 중지 기간과 겹치는지 확인 (자동생성용)
+     * "오늘"이 아니라 "청구 대상 월" 기준으로 판단
+     */
+    private boolean isPausedInBillingMonth(Map<String, Object> member, YearMonth billingYm) {
+        String pauseStartStr = objToStr(member.get("pause_start_date"));
+        String pauseEndStr   = objToStr(member.get("pause_end_date"));
+
+        if (!StringUtils.hasText(pauseStartStr) || !StringUtils.hasText(pauseEndStr)) {
+            return false;
+        }
+
+        try {
+            LocalDate pauseStart  = parseFlexDate(pauseStartStr);
+            LocalDate pauseEnd    = parseFlexDate(pauseEndStr);
+            LocalDate billingFirst = billingYm.atDay(1);
+            LocalDate billingLast  = billingYm.atEndOfMonth();
+
+            return !pauseStart.isAfter(billingLast) && !pauseEnd.isBefore(billingFirst);
+        } catch (Exception e) {
+            log.error("[CmsBillingService] 중지 기간 파싱 오류 - member: {}, error: {}",
+                    member.get("member_name"), e.getMessage());
+            return false;
+        }
+    }
+
+    /** DB 반환값이 java.sql.Date, LocalDate, String 어느 타입이든 안전하게 "yyyyMMdd" String 변환 */
+    private String objToStr(Object val) {
+        if (val == null) return "";
+        if (val instanceof java.sql.Date) {
+            return ((java.sql.Date) val).toLocalDate().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        }
+        if (val instanceof LocalDate) {
+            return ((LocalDate) val).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        }
+        return val.toString().trim();
+    }
+
+    /** "yyyyMMdd" 또는 "yyyy-MM-dd" 두 형식 모두 파싱 */
+    private LocalDate parseFlexDate(String s) {
+        s = s.trim();
+        if (s.contains("-")) {
+            return LocalDate.parse(s, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        }
+        return LocalDate.parse(s, DateTimeFormatter.ofPattern("yyyyMMdd"));
+    }
+
+    /** 단건 수동등록용 billing_seq 생성 */
+    private String generateBillingSeq(String spjangcd, String billingYm) {
+        int seq = getNextBillingSeqNo(spjangcd, billingYm);
+        return billingYm + "-" + String.format("%04d", seq);
+    }
+
+    private String calcSendDate(String deductDate, String deductType) {
+        if ("EC".equals(deductType)) return deductDate;
+        return cmsHolidayService.getPrevBusinessDay(
+                LocalDate.parse(deductDate, DateTimeFormatter.ofPattern("yyyyMMdd"))
+                        .minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
     }
 
     /** 청구 자동생성 */
@@ -258,6 +523,8 @@ public class CmsBillingService {
                      , m.account_holder
                      , m.deduct_amount
                      , m.deduct_day
+                     , m.pause_start_date
+                     , m.pause_end_date
                 FROM cms_member m
                 WHERE m.spjangcd     = :spjangcd
                   AND m.status       = 'ACTIVE'
@@ -313,6 +580,13 @@ public class CmsBillingService {
                 if (deadlineDay.equals(todayStr) && nowHour >= 15) { skippedCount++; continue; }
             }
             if ("EC".equals(effectiveDeductType) && deductDate.equals(todayStr) && nowHour >= 11) { skippedCount++; continue; }
+
+            // 중지 기간 체크 — 청구년월 기준으로 판단
+            if (isPausedInBillingMonth(m, ym)) {
+                log.info("[generateBilling] 중지 기간 → 청구 생성 스킵 - memberId: {}", m.get("id"));
+                skippedCount++;
+                continue;
+            }
 
             String billingSeq = billingYm + "-" + String.format("%04d", nextSeq++);
 
@@ -583,12 +857,6 @@ public class CmsBillingService {
         return row != null ? ((Number) row.get("max_seq")).intValue() + 1 : 1;
     }
 
-    /** 단건 수동등록용 billing_seq 생성 */
-    private String generateBillingSeq(String spjangcd, String billingYm) {
-        int seq = getNextBillingSeqNo(spjangcd, billingYm);
-        return billingYm + "-" + String.format("%04d", seq);
-    }
-
     /** 수납내역 조회 (기간별, EB+EC 통합) */
     // 1️⃣ 일반 수납내역 조회 (SUCCESS, FAIL만)
     public List<Map<String, Object>> getBillingHistoryList(
@@ -712,12 +980,6 @@ public class CmsBillingService {
                 """, param);
     }
 
-    private String calcSendDate(String deductDate, String deductType) {
-        if ("EC".equals(deductType)) return deductDate;
-        return cmsHolidayService.getPrevBusinessDay(
-                LocalDate.parse(deductDate, DateTimeFormatter.ofPattern("yyyyMMdd"))
-                        .minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
-    }
 
     public List<Map<String, Object>> getSendableDates(String billingYm, String deductType) {
         String spjangcd = TenantContext.get();

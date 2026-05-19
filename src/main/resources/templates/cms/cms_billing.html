@@ -134,7 +134,7 @@
                             <tr>
                                 <th style="padding:5px; border:1px solid #ddd; text-align:center;">청구년월</th>
                                 <td style="padding:5px; border:1px solid #ddd;">
-                                    <input type="month" id="billing_ym_input" name="billing_ym">
+                                    <input type="month" id="billing_ym_input">
                                 </td>
                             </tr>
                             <tr>
@@ -328,6 +328,7 @@
         var theGrid;
         var viewdata;
         var memberList = [];
+        let pendingBillingData = null;
 
         var STATUS_MAP = {
             PENDING:   '대기',
@@ -696,7 +697,8 @@
             if (!$('#billing_amount').val()) { Alert.alert('', '청구금액을 입력하세요.'); return; }
 
             var data = FormUtil.extractForm($('#billingForm'));
-            data.billing_ym     = ymInput.replace('-', '');
+            console.log('data:', JSON.stringify(data));
+            data.billing_ym = $('#billing_ym_input').val().replace(/-/g, '');
             data.billing_amount = (data.billing_amount || '').replace(/,/g, '');
             data.deduct_date    = (data.deduct_date || '').replace(/-/g, '');
             if ($('#statusHidden').val()) data.status = $('#statusHidden').val();
@@ -707,9 +709,28 @@
                         Alert.alert('', '저장되었습니다.');
                         searchList();
                     } else {
-                        Alert.alert('저장 실패', result.message);
+                        // ⭐ 수정: 중지 기간 경고 메시지 처리 추가
+                        if (result.message && result.message.includes('중지 기간')) {
+                            Alert.confirm('경고', result.message, function() {
+                                forceSaveBilling(data);
+                            });
+                        } else {
+                            Alert.alert('저장 실패', result.message);
+                        }
                     }
                 });
+            });
+        }
+
+        function forceSaveBilling(data) {
+            AjaxUtil.postAsyncData('/api/cms/billing/save-force', data, function(result) {
+                if (result.success) {
+                    Alert.alert('', '청구가 등록되었습니다.');
+                    searchList();
+                    clearForm();
+                } else {
+                    Alert.alert('저장 실패', result.message || '청구 강제 저장에 실패했습니다.');
+                }
             });
         }
 
@@ -752,9 +773,7 @@
                         if (result.success) {
                             var d = result.data || {};
                             var cnt = d.count || 0;
-                            var skipped = d.skippedCount || 0;
                             var msg = cnt + '건이 생성되었습니다.';
-                            if (skipped > 0) msg += ' (' + skipped + '건은 출금일이 지나 제외되었습니다.)';
                             Alert.alert('', msg);
                             searchList();
                         } else {

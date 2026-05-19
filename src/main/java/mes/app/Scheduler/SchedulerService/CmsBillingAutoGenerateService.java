@@ -6,6 +6,7 @@ import mes.app.cms.service.CmsHolidayService;
 import mes.domain.services.SqlRunner;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -79,38 +80,103 @@ public class CmsBillingAutoGenerateService {
         List<Map<String, Object>> members = sqlRunner.getRows(/* skip_tenant_check */
                 """
                 SELECT m.id, m.member_name, m.bank_code, m.bank_account, m.account_holder,
-                       m.deduct_amount, m.deduct_day
-                FROM cms_member m
-                WHERE m.spjangcd    = :spjangcd
-                  AND m.status      = 'ACTIVE'
-                  AND m.agree_yn    = 'Y'
-                  AND m.start_date <= :lastDay
-                  AND m.end_date   >= :firstDay
-                  AND (
-                      m.cycle_type = 'REGULAR'   -- 정기: 매월 무조건 생성
-                      OR (
-                          m.cycle_type = 'IRREGULAR'  -- 비정기: 선택한 월만 생성
-                          AND :monthStr = ANY(STRING_TO_ARRAY(m.cycle_months, ','))
-                      )
-                  )
-                  AND NOT EXISTS (
-                      SELECT 1 FROM cms_billing b
-                      WHERE b.member_id  = m.id
-                        AND b.billing_ym = :billingYm
-                        AND b.spjangcd   = :spjangcd
-                  )
-                ORDER BY m.id
+                        m.deduct_amount, m.deduct_day,
+                        m.pause_start_date, m.pause_end_date
+                 FROM cms_member m
+                 WHERE m.spjangcd    = :spjangcd
+                   AND m.status      = 'ACTIVE'
+                   AND m.agree_yn    = 'Y'
+                   AND m.start_date <= :lastDay
+                   AND m.end_date   >= :firstDay
+                   AND (
+                       m.cycle_type = 'REGULAR'
+                       OR (
+                           m.cycle_type = 'IRREGULAR'
+                           AND :monthStr = ANY(STRING_TO_ARRAY(m.cycle_months, ','))
+                       )
+                   )
+                   AND NOT EXISTS (
+                       SELECT 1 FROM cms_billing b
+                       WHERE b.member_id  = m.id
+                         AND b.billing_ym = :billingYm
+                         AND b.spjangcd   = :spjangcd
+                   )
+                 ORDER BY m.id
                 """, param);
 
         if (members.isEmpty()) return 0;
 
         int nextSeq = getNextSeqNo(spjangcd, billingYm);
         int count = 0;
+        int skippedByPause = 0;
         for (Map<String, Object> m : members) {
+            if (isPausedInBillingMonth(m, ym)) {
+                log.info("[CmsBillingAutoGenerate] 중지 기간 → 청구 생성 스킵 - 납부자: {}", m.get("member_name"));
+                skippedByPause++;
+                continue;
+            }
+
             insertBilling(spjangcd, billingYm, ym, m, nextSeq++, userId);
             count++;
         }
+
+        if (skippedByPause > 0) {
+            log.info("[CmsBillingAutoGenerate] spjangcd={} 중지 기간으로 {}건 스킵", spjangcd, skippedByPause);
+        }
+
         return count;
+    }
+
+    /**
+     * 해당 청구년월이 납부자의 중지 기간과 겹치는지 확인.
+     * 청구는 다음달치를 미리 생성하므로 "오늘"이 아니라 "청구 대상 월" 기준으로 판단해야 함.
+     * 중지기간이 청구월의 첫날~마지막날과 하루라도 겹치면 해당 월 청구를 스킵.
+     */
+    private boolean isPausedInBillingMonth(Map<String, Object> member, YearMonth billingYm) {
+        String pauseStartStr = objToStr(member.get("pause_start_date"));
+        String pauseEndStr   = objToStr(member.get("pause_end_date"));
+
+        if (!StringUtils.hasText(pauseStartStr) || !StringUtils.hasText(pauseEndStr)) {
+            return false;
+        }
+
+        try {
+            // DB가 DATE 타입으로 반환하면 "yyyy-MM-dd", CHAR/VARCHAR면 "yyyyMMdd" 형태일 수 있음
+            LocalDate pauseStart = parseFlexDate(pauseStartStr);
+            LocalDate pauseEnd   = parseFlexDate(pauseEndStr);
+
+            LocalDate billingFirst = billingYm.atDay(1);
+            LocalDate billingLast  = billingYm.atEndOfMonth();
+
+            // 중지기간과 청구월이 하루라도 겹치면 스킵
+            // (pauseStart <= billingLast) AND (pauseEnd >= billingFirst)
+            return !pauseStart.isAfter(billingLast) && !pauseEnd.isBefore(billingFirst);
+        } catch (Exception e) {
+            log.error("[CmsBillingAutoGenerate] 중지 기간 파싱 오류 - member: {}, pauseStart: {}, pauseEnd: {}, error: {}",
+                    member.get("member_name"), pauseStartStr, pauseEndStr, e.getMessage());
+            return false;
+        }
+    }
+
+    /** DB 반환값이 java.sql.Date, LocalDate, String 어느 타입이든 안전하게 String 변환 */
+    private String objToStr(Object val) {
+        if (val == null) return "";
+        if (val instanceof java.sql.Date) {
+            return ((java.sql.Date) val).toLocalDate().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        }
+        if (val instanceof LocalDate) {
+            return ((LocalDate) val).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        }
+        return val.toString().trim();
+    }
+
+    /** "yyyyMMdd" 또는 "yyyy-MM-dd" 두 형식 모두 파싱 */
+    private LocalDate parseFlexDate(String s) {
+        s = s.trim();
+        if (s.contains("-")) {
+            return LocalDate.parse(s, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        }
+        return LocalDate.parse(s, DateTimeFormatter.ofPattern("yyyyMMdd"));
     }
 
     /** 납부자 1명에 대한 즉시 생성 */
@@ -131,7 +197,8 @@ public class CmsBillingAutoGenerateService {
         Map<String, Object> m = sqlRunner.getRow(/* skip_tenant_check */
                 """
                 SELECT id, member_name, bank_code, bank_account, account_holder,
-                       deduct_amount, deduct_day
+                       deduct_amount, deduct_day,
+                       pause_start_date, pause_end_date
                 FROM cms_member
                 WHERE id       = :memberId
                   AND spjangcd = :spjangcd
@@ -140,9 +207,9 @@ public class CmsBillingAutoGenerateService {
                   AND start_date <= :lastDay
                   AND end_date   >= :firstDay
                   AND (
-                      cycle_type = 'REGULAR'   -- 정기: 매월 무조건 생성
+                      cycle_type = 'REGULAR'
                       OR (
-                          cycle_type = 'IRREGULAR'  -- 비정기: 선택한 월만 생성
+                          cycle_type = 'IRREGULAR'
                           AND :monthStr = ANY(STRING_TO_ARRAY(cycle_months, ','))
                       )
                   )
@@ -153,6 +220,13 @@ public class CmsBillingAutoGenerateService {
                 """, param);
 
         if (m == null) return;
+
+        // 중지 기간 체크 — 청구년월 기준
+        if (isPausedInBillingMonth(m, ym)) {
+            log.info("[CmsBillingAutoGenerate] 중지 기간 → 청구 생성 스킵 - 납부자: {}", m.get("member_name"));
+            return;
+        }
+
         int nextSeq = getNextSeqNo(spjangcd, billingYm);
         insertBilling(spjangcd, billingYm, ym, m, nextSeq, userId);
         log.info("[CmsBillingAutoGenerate] 즉시생성 spjangcd={} memberId={}", spjangcd, memberId);

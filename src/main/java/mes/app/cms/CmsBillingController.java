@@ -1,5 +1,6 @@
 package mes.app.cms;
 
+import lombok.extern.slf4j.Slf4j;
 import mes.app.Scheduler.SchedulerService.CmsEb21SendService;
 import mes.app.Scheduler.SchedulerService.CmsEb22ReceiveService;
 import mes.app.Scheduler.SchedulerService.CmsEc21SendService;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/cms/billing")
 public class CmsBillingController {
@@ -88,39 +90,88 @@ public class CmsBillingController {
 
     /** 등록/수정 */
     @PostMapping("/save")
-    public AjaxResult save(
-            @RequestParam(value = "id",              required = false) Long   id,
-            @RequestParam(value = "billing_ym"                       ) String billingYm,
-            @RequestParam(value = "member_id",       required = false) String memberId,
-            @RequestParam(value = "member_name",     required = false) String memberName,
-            @RequestParam(value = "bank_code",       required = false) String bankCode,
-            @RequestParam(value = "bank_account",    required = false) String bankAccount,
-            @RequestParam(value = "account_holder",  required = false) String accountHolder,
-            @RequestParam(value = "billing_amount",  required = false) Long   billingAmount,
-            @RequestParam(value = "deduct_day",      required = false) String deductDay,
-            @RequestParam(value = "deduct_date",     required = false) String deductDate,
-            @RequestParam(value = "status",          required = false) String status,
-            @RequestParam(value = "memo",            required = false) String memo,
-            @RequestParam(value = "deduct_type",     required = false) String deductType,
+    public AjaxResult saveBilling(
+            @RequestParam(value = "id",             required = false) Long   id,
+            @RequestParam(value = "billing_ym",     required = false) String billingYm,
+            @RequestParam(value = "member_id",      required = false) String memberId,
+            @RequestParam(value = "member_name",    required = false) String memberName,
+            @RequestParam(value = "bank_code",      required = false) String bankCode,
+            @RequestParam(value = "bank_account",   required = false) String bankAccount,
+            @RequestParam(value = "account_holder", required = false) String accountHolder,
+            @RequestParam(value = "billing_amount", required = false) Long   billingAmount,
+            @RequestParam(value = "deduct_day",     required = false) String deductDay,
+            @RequestParam(value = "deduct_date",    required = false) String deductDate,
+            @RequestParam(value = "status",         required = false) String status,
+            @RequestParam(value = "memo",           required = false) String memo,
+            @RequestParam(value = "deduct_type",    required = false) String deductType,
             Authentication auth) {
+
         AjaxResult result = new AjaxResult();
-        User user = (User) auth.getPrincipal();
+
         try {
-            Long savedId = cmsBillingService.saveBilling(
-                    id, billingYm, memberId, memberName, bankCode, bankAccount, accountHolder,
-                    billingAmount, deductDay, deductDate, status, memo, deductType, user.getUsername());
+            String userId = auth.getName();
+            Long billingId = cmsBillingService.saveBilling(
+                    id, billingYm, memberId, memberName, bankCode, bankAccount,
+                    accountHolder, billingAmount, deductDay, deductDate,
+                    status, memo, deductType, userId);
 
+            result.data = billingId;
+            result.message = "청구가 저장되었습니다.";
 
-            if (savedId == null) {
-                result.success = false;
-                result.message = "저장에 실패했습니다.";
-            } else {
-                result.data = savedId;
-            }
         } catch (IllegalStateException e) {
+            // ⭐ 중지 기간 경고 메시지 처리
+            if (e.getMessage() != null && e.getMessage().contains("중지 기간")) {
+                result.success = false;
+                result.message = e.getMessage();  // "이 납부자는 현재 중지 기간입니다. (중지기간: ...) 계속 청구하시겠습니까?"
+                log.warn("[CmsBillingController] 중지 기간 경고 - message: {}", e.getMessage());
+            } else {
+                result.success = false;
+                result.message = e.getMessage();
+            }
+        } catch (Exception e) {
             result.success = false;
-            result.message = e.getMessage();
+            result.message = "저장에 실패했습니다: " + e.getMessage();
+            log.error("[CmsBillingController] 저장 실패", e);
         }
+
+        return result;
+    }
+
+    @PostMapping("/save-force")
+    public AjaxResult saveBillingForce(
+            @RequestParam(value = "id",             required = false) Long   id,
+            @RequestParam(value = "billing_ym",     required = false) String billingYm,
+            @RequestParam(value = "member_id",      required = false) String memberId,
+            @RequestParam(value = "member_name",    required = false) String memberName,
+            @RequestParam(value = "bank_code",      required = false) String bankCode,
+            @RequestParam(value = "bank_account",   required = false) String bankAccount,
+            @RequestParam(value = "account_holder", required = false) String accountHolder,
+            @RequestParam(value = "billing_amount", required = false) Long   billingAmount,
+            @RequestParam(value = "deduct_day",     required = false) String deductDay,
+            @RequestParam(value = "deduct_date",    required = false) String deductDate,
+            @RequestParam(value = "status",         required = false) String status,
+            @RequestParam(value = "memo",           required = false) String memo,
+            @RequestParam(value = "deduct_type",    required = false) String deductType,
+            Authentication auth) {
+
+        AjaxResult result = new AjaxResult();
+
+        try {
+            String userId = auth.getName();
+            Long billingId = cmsBillingService.saveBillingForce(
+                    id, billingYm, memberId, memberName, bankCode, bankAccount,
+                    accountHolder, billingAmount, deductDay, deductDate,
+                    status, memo, deductType, userId);
+
+            result.data = billingId;
+            result.message = "청구가 등록되었습니다.";
+
+        } catch (Exception e) {
+            result.success = false;
+            result.message = "저장에 실패했습니다: " + e.getMessage();
+            log.error("[CmsBillingController] 강제 저장 실패", e);
+        }
+
         return result;
     }
 

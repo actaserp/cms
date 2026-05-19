@@ -13,6 +13,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 
@@ -63,6 +66,9 @@ public class CmsMemberService {
                      , m.cycle_months
                      , m.start_date
                      , m.end_date
+                     , m.pause_start_date
+                     , m.pause_end_date
+                     , m.pause_reason
                      , m.agree_yn
                      , m.agree_date
                      , m.agree_method
@@ -134,6 +140,9 @@ public class CmsMemberService {
                      , m.cycle_months
                      , m.start_date
                      , m.end_date
+                     , m.pause_start_date
+                     , m.pause_end_date
+                     , m.pause_reason
                      , m.agree_yn
                      , m.agree_date
                      , m.agree_method
@@ -156,108 +165,128 @@ public class CmsMemberService {
                            String deductDay, Long deductAmount,
                            String cycleType, String cycleMonths,
                            String startDate, String endDate,
+                           String pauseStartDate, String pauseEndDate, String pauseReason,  // 추가됨
                            String agreeYn, String agreeMethod,
                            String status, String memo,
                            String userId) {
 
         String spjangcd = TenantContext.get();
-        MapSqlParameterSource param = new MapSqlParameterSource();
-        param.addValue("spjangcd", spjangcd);
-        param.addValue("memberType", memberType != null ? memberType : "P");
-        param.addValue("memberName", memberName);
-        param.addValue("memberNo", memberNo);
-        param.addValue("idNumber", idNumber);
-        param.addValue("phone", phone);
-        param.addValue("email", email);
-        param.addValue("zipcd", zipcd);
-        param.addValue("adresa", adresa);
-        param.addValue("adresb", adresb);
-        param.addValue("bankCode", bankCode);
-        param.addValue("bankAccount", bankAccount);
-        param.addValue("accountHolder", accountHolder);
-        param.addValue("deductDay", deductDay);
-        param.addValue("deductAmount", deductAmount);
-        param.addValue("cycleType", cycleType != null ? cycleType : "REGULAR");
-        // 비정기일 때 cycle_months 는 NULL
-        param.addValue("cycleMonths", "IRREGULAR".equals(cycleType) ? null : cycleMonths);
-        param.addValue("startDate", startDate);
-        param.addValue("endDate", endDate != null ? endDate : "99991231");
-        param.addValue("agreeYn", agreeYn != null ? agreeYn : "N");
-        param.addValue("agreeMethod", agreeMethod);
-        param.addValue("status", status != null ? status : "ACTIVE");
-        param.addValue("memo", memo);
-        param.addValue("userId", userId);
 
+        // 중지 기간 유효성 검사
+        if (StringUtils.hasText(pauseStartDate) && StringUtils.hasText(pauseEndDate)) {
+            validatePausePeriod(pauseStartDate, pauseEndDate);
+        } else if (StringUtils.hasText(pauseStartDate) || StringUtils.hasText(pauseEndDate)) {
+            // 시작일과 종료일 중 하나만 입력된 경우
+            throw new IllegalArgumentException("중지 기간은 시작일과 종료일을 모두 입력하거나 비워주세요.");
+        }
+
+        // 신규 등록
         if (id == null) {
-            // 납부자번호 자동 채번
-            Map<String, Object> seqRow = sqlRunner.getRow(
-                    """
-                            SELECT COALESCE(MAX(CAST(SUBSTRING(member_no, LENGTH(:spjangcd) + 1) AS INTEGER)), 0) + 1 AS next_seq
-                            FROM cms_member
-                            WHERE spjangcd = :spjangcd
-                              AND member_no ~ ('^' || :spjangcd || '[0-9]+$')
-                            """,
-                    new MapSqlParameterSource("spjangcd", spjangcd));
-            int nextSeq = seqRow != null ? ((Number) seqRow.get("next_seq")).intValue() : 1;
-            String autoMemberNo = spjangcd + String.format("%06d", nextSeq);
-            param.addValue("memberNo", autoMemberNo);
+            memberNo = generateMemberNo(spjangcd);
 
-            String sql = """
+            MapSqlParameterSource param = new MapSqlParameterSource();
+            param.addValue("spjangcd",      spjangcd);
+            param.addValue("memberType",    StringUtils.hasText(memberType) ? memberType : "C");
+            param.addValue("memberName",    memberName);
+            param.addValue("memberNo",      memberNo);
+            param.addValue("idNumber",      idNumber);
+            param.addValue("phone",         phone);
+            param.addValue("email",         email);
+            param.addValue("zipcd",         zipcd);
+            param.addValue("adresa",        adresa);
+            param.addValue("adresb",        adresb);
+            param.addValue("bankCode",      bankCode);
+            param.addValue("bankAccount",   bankAccount);
+            param.addValue("accountHolder", accountHolder);
+            param.addValue("deductDay",     deductDay);
+            param.addValue("deductAmount",  deductAmount);
+            param.addValue("cycleType",     cycleType);
+            param.addValue("cycleMonths",   cycleMonths);
+            param.addValue("startDate",     startDate);
+            param.addValue("endDate",       endDate);
+            param.addValue("pauseStartDate",  pauseStartDate);  // 추가됨
+            param.addValue("pauseEndDate",    pauseEndDate);    // 추가됨
+            param.addValue("pauseReason",     pauseReason);     // 추가됨
+            param.addValue("agreeYn",       agreeYn);
+            param.addValue("agreeMethod",   agreeMethod);
+            param.addValue("status",        StringUtils.hasText(status) ? status : "ACTIVE");
+            param.addValue("memo",          memo);
+            param.addValue("userId",        userId);
+
+            String insertSql = """
                     INSERT INTO cms_member (
-                        spjangcd, member_type, member_name, member_no, id_number,
-                        phone, email, zipcd, adresa, adresb,
+                        spjangcd, member_type, member_name, member_no,
+                        id_number, phone, email,
+                        zipcd, adresa, adresb,
                         bank_code, bank_account, account_holder,
-                        deduct_day, deduct_amount, cycle_type, cycle_months, start_date, end_date,
-                        agree_yn, agree_date, agree_method,
-                        status, memo,
+                        deduct_day, deduct_amount,
+                        cycle_type, cycle_months,
+                        start_date, end_date,
+                        pause_start_date, pause_end_date, pause_reason,
+                        agree_yn, agree_method, status, memo,
                         _creater_id, _created, _modifier_id, _modified
                     ) VALUES (
-                        :spjangcd, :memberType, :memberName, :memberNo, :idNumber,
-                        :phone, :email, :zipcd, :adresa, :adresb,
+                        :spjangcd, :memberType, :memberName, :memberNo,
+                        :idNumber, :phone, :email,
+                        :zipcd, :adresa, :adresb,
                         :bankCode, :bankAccount, :accountHolder,
-                        :deductDay, :deductAmount, :cycleType, :cycleMonths, :startDate, :endDate,
-                        :agreeYn, CASE WHEN :agreeYn = 'Y' THEN NOW() ELSE NULL END, :agreeMethod,
-                        :status, :memo,
+                        :deductDay, :deductAmount,
+                        :cycleType, :cycleMonths,
+                        :startDate, :endDate,
+                        :pauseStartDate, :pauseEndDate, :pauseReason,
+                        :agreeYn, :agreeMethod, :status, :memo,
                         :userId, NOW(), :userId, NOW()
-                    ) RETURNING id
+                    )
                     """;
-            Map<String, Object> row = sqlRunner.getRow(sql, param);
-            if (row == null) return null;
-            Long savedId = ((Number) row.get("id")).longValue();
 
-            String checkseq = NcpObjectStorageService.toCheckseq("cms_member");
-            Map<String, Object> fileInfo = sqlRunner.getRow(
-                    """
-                            SELECT filepath, filesvnm, fileextns
-                            FROM TB_FILEINFO
-                            WHERE checkseq = :checkseq
-                              AND bbsseq   = :bbsseq
-                              AND spjangcd = :spjangcd
-                            ORDER BY fileseq DESC
-                            LIMIT 1
-                            """,
-                    new MapSqlParameterSource("checkseq", checkseq)
-                            .addValue("bbsseq", savedId.intValue())
-                            .addValue("spjangcd", spjangcd));
+            sqlRunner.execute(insertSql, param);
 
-            String agreeFilePath = null;
-            String agreeExt = null;
-            if (fileInfo != null) {
-                agreeFilePath = fileInfo.get("filepath") + "/" + fileInfo.get("filesvnm");
-                agreeExt = str(fileInfo.get("fileextns")).toLowerCase();
-            }
+            // 신규 등록 로그
+            log.info("[CMS] 납부자 신규 등록 - ID: {}, 이름: {}, 중지기간: {} ~ {}",
+                    memberNo, memberName, pauseStartDate, pauseEndDate);
 
-            // cms_account_register 자동 생성
-            cmsAccountRegisterService.save(savedId, "1", agreeExt, agreeFilePath, userId);
-            return savedId;
+            Map<String, Object> result = sqlRunner.getRow(
+                    "SELECT id FROM cms_member WHERE spjangcd = :spjangcd AND member_no = :memberNo",
+                    new MapSqlParameterSource("spjangcd", spjangcd).addValue("memberNo", memberNo));
 
-        } else {
-            param.addValue("id", id);
-            String sql = """
+            return result != null ? ((Number) result.get("id")).longValue() : null;
+        }
+
+        // 수정
+        else {
+            MapSqlParameterSource param = new MapSqlParameterSource();
+            param.addValue("id",            id);
+            param.addValue("memberType",    StringUtils.hasText(memberType) ? memberType : "C");
+            param.addValue("memberName",    memberName);
+            param.addValue("idNumber",      idNumber);
+            param.addValue("phone",         phone);
+            param.addValue("email",         email);
+            param.addValue("zipcd",         zipcd);
+            param.addValue("adresa",        adresa);
+            param.addValue("adresb",        adresb);
+            param.addValue("bankCode",      bankCode);
+            param.addValue("bankAccount",   bankAccount);
+            param.addValue("accountHolder", accountHolder);
+            param.addValue("deductDay",     deductDay);
+            param.addValue("deductAmount",  deductAmount);
+            param.addValue("cycleType",     cycleType);
+            param.addValue("cycleMonths",   cycleMonths);
+            param.addValue("startDate",     startDate);
+            param.addValue("endDate",       endDate);
+            param.addValue("pauseStartDate",  pauseStartDate);  // 추가됨
+            param.addValue("pauseEndDate",    pauseEndDate);    // 추가됨
+            param.addValue("pauseReason",     pauseReason);     // 추가됨
+            param.addValue("agreeYn",       agreeYn);
+            param.addValue("agreeMethod",   agreeMethod);
+            param.addValue("status",        status);
+            param.addValue("memo",          memo);
+            param.addValue("userId",        userId);
+            param.addValue("spjangcd",      spjangcd);
+
+            String updateSql = """
                     UPDATE cms_member SET
                         member_type    = :memberType,
                         member_name    = :memberName,
-                        member_no      = :memberNo,
                         id_number      = :idNumber,
                         phone          = :phone,
                         email          = :email,
@@ -273,8 +302,10 @@ public class CmsMemberService {
                         cycle_months   = :cycleMonths,
                         start_date     = :startDate,
                         end_date       = :endDate,
+                        pause_start_date = :pauseStartDate,
+                        pause_end_date   = :pauseEndDate,
+                        pause_reason     = :pauseReason,
                         agree_yn       = :agreeYn,
-                        agree_date     = CASE WHEN :agreeYn = 'Y' AND agree_date IS NULL THEN NOW() ELSE agree_date END,
                         agree_method   = :agreeMethod,
                         status         = :status,
                         memo           = :memo,
@@ -282,35 +313,58 @@ public class CmsMemberService {
                         _modified      = NOW()
                     WHERE id = :id AND spjangcd = :spjangcd
                     """;
-            int affected = sqlRunner.execute(sql, param);
 
-            // cms_account_register 동기화 (PENDING 건만 — 이미 SENT/APPROVED는 건드리지 않음)
-            if (affected > 0) {
-                sqlRunner.execute(
-                        """
-                                UPDATE cms_account_register
-                                SET member_name    = (SELECT member_name FROM cms_member WHERE id = :memberId),
-                                    bank_code      = :bankCode,
-                                    bank_account   = :bankAccount,
-                                    account_holder = :accountHolder,
-                                    id_number      = :idNumber,
-                                    member_type    = :memberType,
-                                    _modified      = NOW()
-                                WHERE member_id = :memberId
-                                  AND spjangcd  = :spjangcd
-                                  AND status    = 'PENDING'
-                                  AND ei13_status IN ('PENDING', 'FAILED')
-                                """,
-                        new MapSqlParameterSource("memberId", id)
-                                .addValue("spjangcd", spjangcd)
-                                .addValue("bankCode", bankCode)
-                                .addValue("bankAccount", bankAccount)
-                                .addValue("accountHolder", accountHolder)
-                                .addValue("idNumber", idNumber)
-                                .addValue("memberType", memberType));
+            sqlRunner.execute(updateSql, param);
+
+            return id;
+        }
+    }
+
+    /**
+     * 중지 기간 유효성 검사 (추가됨)
+     */
+    private void validatePausePeriod(String pauseStartDate, String pauseEndDate) {
+        try {
+            LocalDate start = LocalDate.parse(pauseStartDate, DateTimeFormatter.ofPattern("yyyyMMdd"));
+            LocalDate end = LocalDate.parse(pauseEndDate, DateTimeFormatter.ofPattern("yyyyMMdd"));
+
+            if (start.isAfter(end)) {
+                throw new IllegalArgumentException("중지 종료일은 시작일보다 같거나 이후여야 합니다.");
             }
 
-            return affected > 0 ? id : null;
+            // 과거 날짜 경고 (로그에만 남김)
+            LocalDate today = LocalDate.now();
+            if (end.isBefore(today)) {
+                log.warn("[CMS] 이미 지난 중지 기간이 설정되었습니다 - 시작: {}, 종료: {}",
+                        pauseStartDate, pauseEndDate);
+            }
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("날짜 형식이 올바르지 않습니다. YYYYMMDD 형식으로 입력해주세요.");
+        }
+    }
+
+    /**
+     * 특정 날짜가 중지 기간인지 확인 (청구 생성 시 사용)
+     */
+    public boolean isPausedOnDate(Long memberId, LocalDate date) {
+        Map<String, Object> member = getMember(memberId);
+        if (member == null) return false;
+
+        String pauseStartDate = str(member.get("pause_start_date"));
+        String pauseEndDate = str(member.get("pause_end_date"));
+
+        if (!StringUtils.hasText(pauseStartDate) || !StringUtils.hasText(pauseEndDate)) {
+            return false;
+        }
+
+        try {
+            LocalDate start = LocalDate.parse(pauseStartDate, DateTimeFormatter.ofPattern("yyyyMMdd"));
+            LocalDate end = LocalDate.parse(pauseEndDate, DateTimeFormatter.ofPattern("yyyyMMdd"));
+
+            return !date.isBefore(start) && !date.isAfter(end);
+        } catch (Exception e) {
+            log.error("[CMS] 중지 기간 확인 중 오류 - memberId: {}, date: {}", memberId, date, e);
+            return false;
         }
     }
 

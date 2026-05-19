@@ -21,6 +21,16 @@
         input{
             width: 100%;
         }
+        .pause-period-section {
+            background: #fff9f0;
+            border: 1px solid #ffe4d4;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .pause-period-section .section-title {
+            color: #ff7f00;
+        }
     </style>
 </head>
 
@@ -59,7 +69,6 @@
                                     <option value="">전체</option>
                                     <option value="ACTIVE">활성</option>
                                     <option value="INACTIVE">비활성</option>
-                                    <option value="STOP">중지</option>
                                 </select>
                             </dd>
                         </dl>
@@ -208,7 +217,34 @@
                             </tr>
                             </tbody>
                         </table>
-
+                        <!-- 중지 기간 설정 -->
+                        <div class="pause-period-section">
+                            <div class="section-title">중지 기간 설정</div>
+                            <table class="write-table" style="width:100%; border-collapse:collapse;">
+                                <colgroup>
+                                    <col style="width:20%"><col style="width:30%">
+                                    <col style="width:20%"><col style="width:30%">
+                                </colgroup>
+                                <tbody>
+                                <tr>
+                                    <th style="padding:5px; border:1px solid #ddd; text-align:center;">중지 시작일</th>
+                                    <td style="padding:5px; border:1px solid #ddd;">
+                                        <input type="date" id="pause_start_date" name="pause_start_date" style="width:130px;">
+                                    </td>
+                                    <th style="padding:5px; border:1px solid #ddd; text-align:center;">중지 종료일</th>
+                                    <td style="padding:5px; border:1px solid #ddd;">
+                                        <input type="date" id="pause_end_date" name="pause_end_date" style="width:130px;">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th style="padding:5px; border:1px solid #ddd; text-align:center;">설명</th>
+                                    <td colspan="3" style="padding:5px; border:1px solid #ddd;">
+                                        <input type="text" id="pause_reason" name="pause_reason" placeholder="예: 일시적 중지, 계절 조정 등 (선택사항)">
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
                         <!-- 약정정보 -->
                         <div class="section-title">출금 약정 정보</div>
                         <table class="write-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
@@ -326,7 +362,6 @@
                                     <select id="status" name="status">
                                         <option value="ACTIVE">활성</option>
                                         <option value="INACTIVE">비활성</option>
-                                        <option value="STOP">중지</option>
                                     </select>
                                 </td>
                             </tr>
@@ -387,7 +422,7 @@
             }},
         {binding: 'status',           header: '상태',      width: 65,  align: 'center',
             cellTemplate: function(ctx) {
-                var map = { ACTIVE: '활성', INACTIVE: '비활성', STOP: '중지' };
+                var map = { ACTIVE: '활성', INACTIVE: '비활성'};
                 return map[ctx.value] || ctx.value || '';
             }},
     ];
@@ -608,6 +643,9 @@
         $('#deduct_day').val(item.deduct_day || '');
         $('#deductDayNote').toggle(item.deduct_day === '99');
         $('#deduct_amount').val(item.deduct_amount != null ? Number(item.deduct_amount).toLocaleString() : '');
+        $('#pause_start_date').val(toDateInput(item.pause_start_date));
+        $('#pause_end_date').val(toDateInput(item.pause_end_date));
+        $('#pause_reason').val(item.pause_reason || '');
 
         // 청구기간 (DB: YYYYMMDD → date input: YYYY-MM-DD)
         var endDate = item.end_date || '';
@@ -677,6 +715,9 @@
         $('#agreeUploaderDiv').empty();
 
         $('#status').val('ACTIVE');
+        $('#pause_start_date').val('');
+        $('#pause_end_date').val('');
+        $('#pause_reason').val('');
     }
 
     function saveMember() {
@@ -717,6 +758,23 @@
         // date input 값(YYYY-MM-DD)을 YYYYMMDD 로 변환 후 덮어쓰기
         data.start_date = fromDateInput($('#start_date').val());
         data.end_date   = $('#chkUnlimited').is(':checked') ? '99991231' : fromDateInput($('#end_date').val());
+
+        // 중지 기간 유효성 검사
+        var pauseStartDate = $('#pause_start_date').val();
+        var pauseEndDate   = $('#pause_end_date').val();
+        if ((pauseStartDate && !pauseEndDate) || (!pauseStartDate && pauseEndDate)) {
+            Alert.alert('', '중지 기간은 시작일과 종료일을 모두 입력하거나 비워주세요.');
+            return;
+        }
+        if (pauseStartDate && pauseEndDate && pauseStartDate > pauseEndDate) {
+            Alert.alert('', '중지 종료일은 시작일보다 같거나 이후여야 합니다.');
+            return;
+        }
+
+        // 중지 기간 데이터 세팅
+        data.pause_start_date = fromDateInput(pauseStartDate);
+        data.pause_end_date   = fromDateInput(pauseEndDate);
+        data.pause_reason     = $('#pause_reason').val();
 
         Alert.confirm('', '저장하시겠습니까?', function() {
             AjaxUtil.postAsyncData('/api/cms/member/save', data, function(result) {
