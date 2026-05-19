@@ -163,9 +163,14 @@ public class CmsEc22ReceiveService {
         // MSSQL 동기화 항목 수집 (PostgreSQL 커밋 후 일괄 처리)
         List<CmsErpResultSyncService.SyncItem> syncItems = new ArrayList<>();
 
+        // ✨ 배치 처리: 성공/실패 건을 분리해서 모음
+        List<Long> successIds = new ArrayList<>();
+        List<Map<String, Object>> failBillings = new ArrayList<>();
         int  successCount = 0, failCount = 0;
         long totalAmount  = 0;
+        String resultDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
 
+        // 1단계: 성공/실패 분류
         for (Map<String, Object> b : requestedBillings) {
             long   billingId     = ((Number) b.get("id")).longValue();
             long   billingAmount = b.get("billing_amount") != null ? ((Number) b.get("billing_amount")).longValue() : 0;
@@ -176,32 +181,22 @@ public class CmsEc22ReceiveService {
             int    lineSeq       = ((Number) b.get("line_seq")).intValue();
             String cltcd = str(b.get("cltcd"));
 
-            var p = new MapSqlParameterSource("billingId", billingId);
-            p.addValue("resultDate", LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")));
-
             if (failMap.containsKey(memberNo)) {
                 String resultCode = failMap.get(memberNo);
-                p.addValue("resultCode", resultCode);
-                p.addValue("resultMsg",  resolveFailMsg(resultCode));
-                sqlRunner.execute(/* skip_tenant_check */
-                        """
-                        UPDATE cms_billing SET status='FAIL', result_code=:resultCode,
-                            result_msg=:resultMsg, result_date=NULL, _modified=NOW()
-                        WHERE id=:billingId AND status='REQUESTED'
-                        """, p);
-                syncItems.add(new CmsErpResultSyncService.SyncItem(
-                        memberNo, memberName, bankAccount, lineSeq,
-                        false, resultCode, 0L, (long) feeRequest, cltcd));
+                failBillings.add(new java.util.HashMap<String, Object>() {{
+                    put("billingId", billingId);
+                    put("resultCode", resultCode);
+                    put("resultMsg", resolveFailMsg(resultCode));
+                    put("memberNo", memberNo);
+                    put("memberName", memberName);
+                    put("bankAccount", bankAccount);
+                    put("lineSeq", lineSeq);
+                    put("feeRequest", feeRequest);
+                    put("cltcd", cltcd);
+                }});
                 failCount++;
             } else {
-                p.addValue("feeSuccess", feeSuccess);
-                sqlRunner.execute(/* skip_tenant_check */
-                        """
-                        UPDATE cms_billing SET status='SUCCESS', result_code='0000',
-                            result_msg='출금성공', result_date=:resultDate,
-                            fee_success=:feeSuccess, _modified=NOW()
-                        WHERE id=:billingId AND status='REQUESTED'
-                        """, p);
+                successIds.add(billingId);
                 syncItems.add(new CmsErpResultSyncService.SyncItem(
                         memberNo, memberName, bankAccount, lineSeq,
                         true, null, billingAmount, (long)(feeRequest + feeSuccess), cltcd));
@@ -209,6 +204,68 @@ public class CmsEc22ReceiveService {
                 successCount++;
             }
         }
+
+        // 2단계: 배치 UPDATE (성공) - 1회 쿼리
+        if (!successIds.isEmpty()) {
+            sqlRunner.execute(/* skip_tenant_check */
+                    """
+                    UPDATE cms_billing SET status='SUCCESS', result_code='0000',
+                        result_msg='출금성공', result_date=:resultDate,
+                        fee_success=:feeSuccess, _modified=NOW()
+                    WHERE id = ANY(:ids::BIGINT[]) AND status='REQUESTED'
+                    """,
+                    new MapSqlParameterSource()
+                            .addValue("ids", successIds.toArray(new Long[0]))
+                            .addValue("resultDate", resultDate)
+                            .addValue("feeSuccess", feeSuccess));
+        }
+
+        // 3단계: 배치 UPDATE (실패) - 결과코드별 배치 처리
+        if (!failBillings.isEmpty()) {
+            // 결과코드별로 그룹화
+            Map<String, List<Long>> failIdsByCode = new java.util.HashMap<>();
+
+            for (Map<String, Object> fail : failBillings) {
+                String resultCode = (String) fail.get("resultCode");
+                Long billingId = (Long) fail.get("billingId");
+
+                failIdsByCode.computeIfAbsent(resultCode, k -> new ArrayList<>()).add(billingId);
+            }
+
+            // 각 결과코드별로 배치 UPDATE
+            for (Map.Entry<String, List<Long>> entry : failIdsByCode.entrySet()) {
+                String resultCode = entry.getKey();
+                List<Long> ids = entry.getValue();
+
+                sqlRunner.execute(/* skip_tenant_check */
+                        """
+                        UPDATE cms_billing SET status='FAIL', result_code=:resultCode,
+                            result_msg=:resultMsg, result_date=NULL, _modified=NOW()
+                        WHERE id = ANY(:ids::BIGINT[]) AND status='REQUESTED'
+                        """,
+                        new MapSqlParameterSource()
+                                .addValue("ids", ids.toArray(new Long[0]))
+                                .addValue("resultCode", resultCode)
+                                .addValue("resultMsg", resolveFailMsg(resultCode)));
+            }
+
+            // SyncItem 추가 (실패)
+            for (Map<String, Object> fail : failBillings) {
+                String memberNo = (String) fail.get("memberNo");
+                String memberName = (String) fail.get("memberName");
+                String bankAccount = (String) fail.get("bankAccount");
+                int lineSeq = (int) fail.get("lineSeq");
+                String resultCode = (String) fail.get("resultCode");
+                int feeRequest = (int) fail.get("feeRequest");
+                String cltcd = (String) fail.get("cltcd");
+
+                syncItems.add(new CmsErpResultSyncService.SyncItem(
+                        memberNo, memberName, bankAccount, lineSeq,
+                        false, resultCode, 0L, (long) feeRequest, cltcd));
+            }
+        }
+
+        log.info("[CmsEc22Receive] 배치 UPDATE 완료 - 성공={}건, 실패={}건", successCount, failCount);
 
         // billing_count, billing_amount 업데이트
         if (resultFileId > 0) {
@@ -230,7 +287,6 @@ public class CmsEc22ReceiveService {
 
         // PostgreSQL 트랜잭션 커밋 후 MSSQL INSERT 실행
         // - @Transactional 메서드가 정상 종료돼야 커밋되므로
-        //   여기서 예외 발생 시 PostgreSQL도 롤백되고 MSSQL도 실행 안 됨
         // - MSSQL 실패는 로그만 남김 (PostgreSQL은 이미 커밋)
         // ✨ ERP 체크: ERP 연동이 활성화된 경우에만 MSSQL에 INSERT
         Map<String, Object> erpInfo = sqlRunner.getRow(/* skip_tenant_check */
