@@ -30,4 +30,4 @@ RUN mvn dependency:go-offline -B
 COPY . .
 
 # 빌드 실패를 방지하기 위해 clean 후 실행
-CMD ["mvn", "spring-boot:run", "-Dspring-boot.run.profiles=mes"]
+CMD ["mvn", "spring-boot:run", "-Dspring-boot.run.profiles=cms"]

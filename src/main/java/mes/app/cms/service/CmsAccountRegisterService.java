@@ -131,7 +131,7 @@ public class CmsAccountRegisterService {
 
         List<Long> ei13Needed = sqlRunner.getRows(/* skip_tenant_check */
                         "SELECT id FROM cms_account_register WHERE id IN (:ids) AND ei13_status IN ('PENDING','FAILED') and spjangcd = :spjangcd",
-                        new MapSqlParameterSource("ids", ids))
+                        new MapSqlParameterSource("ids", ids).addValue("spjangcd", spjangcd))
                 .stream().map(r -> ((Number)r.get("id")).longValue()).collect(Collectors.toList());
 
         int sent = 0, failed = 0;
@@ -150,7 +150,7 @@ public class CmsAccountRegisterService {
 
         List<Long> eb13Needed = sqlRunner.getRows(/* skip_tenant_check */
                         "SELECT id FROM cms_account_register WHERE id IN (:ids) AND ei13_status = 'SENT' AND eb13_status IN ('PENDING','FAILED') and spjangcd = :spjangcd",
-                        new MapSqlParameterSource("ids", ids))
+                        new MapSqlParameterSource("ids", ids).addValue("spjangcd", spjangcd))
                 .stream().map(r -> ((Number)r.get("id")).longValue()).collect(Collectors.toList());
 
         if (!eb13Needed.isEmpty()) {
@@ -240,7 +240,7 @@ public class CmsAccountRegisterService {
     public void updateAgreeFile(Long registerId, Long memberId) {
         String spjangcd = TenantContext.get();
 
-        String checkseq = NcpObjectStorageService.toCheckseq("cms_account_register");
+        String checkseq = NcpObjectStorageService.toCheckseq("AGREE");
         Map<String, Object> fileInfo = sqlRunner.getRow(
                 """
                 SELECT filepath, filesvnm, fileextns

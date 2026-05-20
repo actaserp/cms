@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>자동이체 신청서</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Malgun Gothic', sans-serif; font-size: 13px; background: #f5f6fa; }
+
+    .wrap { max-width: 700px; margin: 30px auto; background: #fff; border: 1px solid #ddd; padding: 30px; }
+
+    h2 { text-align: center; font-size: 18px; margin-bottom: 6px; }
+    .subtitle { text-align: center; font-size: 12px; color: #666; margin-bottom: 24px; }
+
+    .section-title {
+      font-size: 13px; font-weight: 700; color: #333;
+      padding: 6px 0 4px; border-bottom: 2px solid #333; margin: 16px 0 8px;
+    }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+    th { background: #f5f6fa; padding: 7px 10px; border: 1px solid #ccc;
+      text-align: left; font-weight: 600; width: 35%; white-space: nowrap; }
+    td { padding: 6px 8px; border: 1px solid #ccc; }
+    td input[type=text], td input[type=tel] {
+      width: 100%; border: none; border-bottom: 1px solid #aaa;
+      padding: 3px 4px; font-size: 13px; background: transparent;
+      font-family: inherit;
+    }
+    td input[readonly] { color: #555; background: #fafafa; }
+    td input:focus { outline: none; border-bottom-color: #4a6cf7; }
+
+    .agree-box {
+      border: 1px solid #ccc; padding: 12px; margin-bottom: 10px;
+      font-size: 12px; color: #333; line-height: 1.6;
+    }
+    .agree-box .agree-title { font-weight: 700; margin-bottom: 6px; }
+    .agree-row { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; }
+    .agree-row label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+
+    .sign-section { margin-top: 20px; }
+    .sign-row { display: flex; gap: 20px; align-items: flex-start; margin-top: 12px; }
+    .sign-block { flex: 1; }
+    .sign-block label { display: block; font-size: 12px; color: #555; margin-bottom: 4px; }
+    .sign-canvas-wrap {
+      border: 1px solid #ccc; border-radius: 4px; background: #fff;
+      position: relative; overflow: hidden;
+    }
+    .sign-canvas-wrap canvas { display: block; }
+    .sign-btn-row { display: flex; gap: 6px; margin-top: 6px; }
+    .btn-clear {
+      padding: 4px 12px; font-size: 12px; border: 1px solid #ccc;
+      background: #fff; border-radius: 3px; cursor: pointer;
+    }
+
+    .notice {
+      font-size: 11px; color: #666; line-height: 1.7;
+      border-top: 1px solid #ddd; padding-top: 10px; margin-top: 10px;
+    }
+    .notice li { margin-left: 16px; }
+
+    .date-row { text-align: right; margin: 16px 0 8px; font-size: 13px; }
+
+    .btn-submit {
+      display: block; width: 100%; padding: 13px;
+      background: #4a6cf7; color: #fff; font-size: 15px; font-weight: 700;
+      border: none; border-radius: 4px; cursor: pointer; margin-top: 20px;
+    }
+    .btn-submit:hover { background: #3a5ce6; }
+    .btn-submit:disabled { background: #aaa; cursor: not-allowed; }
+
+    .completed-msg {
+      text-align: center; padding: 60px 20px; color: #155724;
+      font-size: 16px; font-weight: 700;
+    }
+    .error-msg {
+      text-align: center; padding: 60px 20px; color: #721c24; font-size: 15px;
+    }
+
+    .sign-canvas-wrap canvas {
+      display: block;
+      width: 100%;
+      height: 160px;
+    }
+
+    @media (max-width: 600px) {
+      .wrap { margin: 0; padding: 16px; }
+      .sign-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrap" id="mainWrap">
+  <!-- 에러/완료 메시지 -->
+  <div id="errorDiv" class="error-msg" style="display:none;"></div>
+  <div id="completedDiv" class="completed-msg" style="display:none;">
+    ✅ 자동이체 신청이 완료되었습니다.<br>
+    <span style="font-size:13px; font-weight:400; color:#333; margin-top:8px; display:block;">
+            이 창을 닫으셔도 됩니다.
+        </span>
+  </div>
+
+  <!-- 신청서 본문 -->
+  <div id="formDiv">
+    <h2>(지로/CMS/펌뱅킹) 자동이체 신청서</h2>
+    <p class="subtitle">아래 내용을 확인하시고 정보를 입력한 후 서명해 주세요.</p>
+
+    <!-- 수납기관 -->
+    <div class="section-title">▢ 수납기관 및 요금 종류</div>
+    <table>
+      <tr>
+        <th>수납기관명</th>
+        <td><input type="text" id="company_name" readonly></td>
+      </tr>
+      <tr>
+        <th>수납 요금종류</th>
+        <td><input type="text" id="charge_type"  readonly></td>
+      </tr>
+    </table>
+
+    <!-- 출금이체 신청 내용 -->
+    <div class="section-title">▢ 출금이체 신청 내용 (신청고객 기재란)</div>
+    <table>
+      <tr>
+        <th>계좌주명</th>
+        <td><input type="text" id="account_holder" placeholder="예금주명 입력"></td>
+      </tr>
+      <tr>
+        <th>생년월일(사업자등록번호)</th>
+        <td><input type="text" id="id_number" placeholder="생년월일 8자리 또는 사업자번호 10자리"></td>
+      </tr>
+      <tr>
+        <th>금융기관명</th>
+        <td><input type="text" id="bank_name" placeholder="은행명"></td>
+      </tr>
+      <tr>
+        <th>출금계좌번호</th>
+        <td><input type="text" id="bank_account" placeholder="하이픈(-) 제외"></td>
+      </tr>
+      <tr>
+        <th>계좌주 연락처</th>
+        <td><input type="tel" id="phone" placeholder="연락처"></td>
+      </tr>
+    </table>
+
+    <!-- 개인정보 수집 동의 -->
+    <div class="agree-box">
+      <div class="agree-title">[개인(신용)정보 수집 및 이용 동의]</div>
+      <table style="margin-bottom:0;">
+        <tr><th style="width:25%;">수집항목</th><td>[필수] 금융기관명, 출금계좌번호, 성명, 생년월일, 연락처</td></tr>
+        <tr><th>수집목적</th><td>자동이체 서비스의 제공</td></tr>
+        <tr><th>보유기간</th><td>자동이체 이용 종료 또는 해지 후 5년까지</td></tr>
+      </table>
+      <p style="font-size:11px; color:#555; margin-top:6px;">
+        신청인은 위의 개인(신용)정보 수집 및 이용을 거부할 권리가 있으나, 권리행사 시 자동이체 신청이 거부될 수 있습니다.
+      </p>
+      <div class="agree-row">
+        <label><input type="radio" name="agree1" value="Y"> 동의함</label>
+        <label><input type="radio" name="agree1" value="N"> 동의안함</label>
+      </div>
+    </div>
+
+    <!-- 제3자 제공 동의 -->
+    <div class="agree-box">
+      <div class="agree-title">[개인(신용)정보 제3자 제공 동의]</div>
+      <table style="margin-bottom:0;">
+        <tr><th style="width:25%;">제공받는 자</th><td>사단법인 금융결제원, 상기 청구기관(이용기관)</td></tr>
+        <tr><th>제공항목</th><td>[필수] 금융기관명, 출금계좌번호, 성명, 생년월일, 연락처</td></tr>
+        <tr><th>제공목적</th><td>자동이체 서비스의 제공, 출금동의 확인, 신규 등록 및 해지 사실 통지</td></tr>
+        <tr><th>보유기간</th><td>자동이체 이용 종료 또는 해지 후 5년까지</td></tr>
+      </table>
+      <p style="font-size:11px; color:#555; margin-top:6px;">
+        신청인은 위의 개인(신용)정보 제3자 제공을 거부할 권리가 있으나, 권리행사 시 자동이체 신청이 거부될 수 있습니다.
+      </p>
+      <div class="agree-row">
+        <label><input type="radio" name="agree2" value="Y"> 동의함</label>
+        <label><input type="radio" name="agree2" value="N"> 동의안함</label>
+      </div>
+    </div>
+
+    <p style="font-size:11px; color:#555; line-height:1.6; margin-bottom:12px;">
+      [출금이체 동의여부 및 해지사실 통지 안내] 은행 등 금융회사 및 금융결제원은 자동이체 제도의 안정적 운영을 위하여
+      고객의 연락처 정보를 활용하여 문자메세지, 유선 등으로 고객의 출금이체 동의여부 및 해지사실을 통지할 수 있습니다.
+    </p>
+
+    <p style="font-size:13px; text-align:center; margin-bottom:16px;">
+      상기 금융거래정보의 제공 및 개인(신용)정보의 수집 및 이용, 제3자 제공에 동의하며 자동이체를 신청합니다.
+    </p>
+
+    <!-- 날짜 -->
+    <div class="date-row" id="todayDate"></div>
+
+    <!-- 동의 방법 선택 -->
+    <div class="section-title">▢ 동의 방법 선택</div>
+    <div style="display:flex; gap:8px; margin-bottom:16px;">
+      <button id="btnTabSign" onclick="switchTab('sign')"
+              style="flex:1; padding:10px; border:2px solid #4a6cf7; background:#4a6cf7; color:#fff; border-radius:4px; cursor:pointer; font-size:13px;">
+        ✏️ 전자서명
+      </button>
+      <button id="btnTabFile" onclick="switchTab('file')"
+              style="flex:1; padding:10px; border:2px solid #ccc; background:#fff; color:#333; border-radius:4px; cursor:pointer; font-size:13px;">
+        📎 서면 첨부
+      </button>
+    </div>
+
+    <!-- 전자서명 탭 -->
+    <div id="tabSign">
+      <div class="sign-section">
+        <div class="section-title">▢ 서명</div>
+        <div class="sign-row">
+          <div class="sign-block">
+            <label>신청인 서명 <span style="color:red;">*</span></label>
+            <div class="sign-canvas-wrap">
+              <canvas id="signCanvas" width="280" height="120"></canvas>
+            </div>
+            <div class="sign-btn-row">
+              <button class="btn-clear" onclick="clearSign()">초기화</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 서면 첨부 탭 -->
+    <div id="tabFile" style="display:none;">
+      <div class="section-title">▢ 서면 첨부</div>
+      <div style="background:#f0f7ff; border:1px solid #b8d4f0; border-radius:4px; padding:12px; margin-bottom:12px;">
+        <p style="font-size:12px; color:#2c5f8a; margin-bottom:8px;">
+          아래 버튼으로 빈 양식을 다운로드하여 작성/날인 후 업로드해 주세요.
+        </p>
+        <a href="/cms/api/cms/sign/form-download" download
+           style="display:inline-block; padding:8px 16px; border:1px solid #4a6cf7; background:#fff; color:#4a6cf7; border-radius:4px; font-size:12px; text-decoration:none;">
+          📄 빈 양식 다운로드
+        </a>
+      </div>
+      <div id="fileDropZone"
+           style="border:2px dashed #ccc; border-radius:4px; padding:30px; text-align:center; cursor:pointer; background:#fafafa;"
+           onclick="document.getElementById('agreeFileInput').click()"
+           ondragover="event.preventDefault(); this.style.borderColor='#4a6cf7';"
+           ondragleave="this.style.borderColor='#ccc';"
+           ondrop="handleFileDrop(event)">
+        <div style="font-size:24px; margin-bottom:8px;">📎</div>
+        <div style="font-size:13px; color:#555;">클릭하거나 파일을 드래그하여 업로드</div>
+        <div style="font-size:11px; color:#aaa; margin-top:4px;">PDF, JPG, JPEG, PNG, GIF, TIF 허용</div>
+        <input type="file" id="agreeFileInput" accept=".pdf,.jpg,.jpeg,.png,.gif,.tif"
+               style="display:none;" onchange="handleFileSelect(this)">
+      </div>
+      <div id="selectedFileInfo" style="display:none; margin-top:8px; padding:8px 12px;
+           background:#e8f5e9; border-radius:4px; font-size:12px; color:#2e7d32;">
+      </div>
+    </div>
+
+    <ul class="notice">
+      <li>인감 또는 서명은 해당 예금계좌 사용인감 또는 서명을 날인하여야 합니다.</li>
+      <li>기존 신청내용을 변경하고자 하는 경우에는 먼저 해지신청을 하고 신규 작성을 하여야 합니다.</li>
+      <li>주계약자와 예금주가 다른 경우 반드시 예금주의 별도 서명을 받아야 합니다.</li>
+    </ul>
+
+    <button class="btn-submit" id="btnSubmit" onclick="submitForm()">신청서 제출</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/4.1.7/signature_pad.umd.min.js"></script>
+<script>
+  var token = new URLSearchParams(location.search).get('token')
+          || location.pathname.split('/').pop();
+  var signaturePad;
+  var memberData = {};
+
+  // 오늘 날짜 표시
+  (function() {
+    var d = new Date();
+    document.getElementById('todayDate').textContent =
+            d.getFullYear() + '년 ' + (d.getMonth()+1) + '월 ' + d.getDate() + '일';
+  })();
+
+  // 서명 패드 초기화
+  window.onload = function() {
+    var canvas = document.getElementById('signCanvas');
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    signaturePad = new SignaturePad(canvas, {
+      backgroundColor: 'rgb(255,255,255)',
+      penColor: 'rgb(0,0,0)'
+    });
+    loadMemberData();
+  };
+
+  var currentTab = 'sign';
+  var selectedFile = null;
+
+  function switchTab(tab) {
+    currentTab = tab;
+    if (tab === 'sign') {
+      document.getElementById('tabSign').style.display = 'block';
+      document.getElementById('tabFile').style.display = 'none';
+      document.getElementById('btnTabSign').style.background = '#4a6cf7';
+      document.getElementById('btnTabSign').style.color = '#fff';
+      document.getElementById('btnTabSign').style.borderColor = '#4a6cf7';
+      document.getElementById('btnTabFile').style.background = '#fff';
+      document.getElementById('btnTabFile').style.color = '#333';
+      document.getElementById('btnTabFile').style.borderColor = '#ccc';
+    } else {
+      document.getElementById('tabSign').style.display = 'none';
+      document.getElementById('tabFile').style.display = 'block';
+      document.getElementById('btnTabSign').style.background = '#fff';
+      document.getElementById('btnTabSign').style.color = '#333';
+      document.getElementById('btnTabSign').style.borderColor = '#ccc';
+      document.getElementById('btnTabFile').style.background = '#4a6cf7';
+      document.getElementById('btnTabFile').style.color = '#fff';
+      document.getElementById('btnTabFile').style.borderColor = '#4a6cf7';
+    }
+  }
+
+  function handleFileSelect(input) {
+    if (input.files && input.files[0]) {
+      setSelectedFile(input.files[0]);
+    }
+  }
+
+  function handleFileDrop(event) {
+    event.preventDefault();
+    document.getElementById('fileDropZone').style.borderColor = '#ccc';
+    var file = event.dataTransfer.files[0];
+    if (file) setSelectedFile(file);
+  }
+
+  function setSelectedFile(file) {
+    selectedFile = file;
+    var size = file.size > 1024 * 1024
+            ? (file.size / 1024 / 1024).toFixed(1) + ' MB'
+            : Math.round(file.size / 1024) + ' KB';
+    var info = document.getElementById('selectedFileInfo');
+    info.style.display = 'block';
+    info.textContent = '✅ ' + file.name + ' (' + size + ')';
+  }
+
+  function clearSign() {
+    signaturePad.clear();
+  }
+
+  // 납부자 데이터 로드
+  function loadMemberData() {
+    fetch('/cms/api/cms/sign/' + token)
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+              if (!res.success) {
+                showError(res.message || '유효하지 않은 링크입니다.');
+                return;
+              }
+              if (res.data.completed) {
+                showCompleted();
+                return;
+              }
+              memberData = res.data;
+              fillForm(res.data);
+            })
+            .catch(function() {
+              showError('서버 연결에 실패했습니다.');
+            });
+  }
+
+  function fillForm(data) {
+    setText('company_name', data.company_name || '');
+    setText('charge_type', data.charge_type || 'CMS 자동이체');
+    setText('account_holder', data.account_holder || data.member_name || '');
+    setText('id_number', data.id_number || '');
+    setText('bank_name', data.bank_name || '');
+    setText('bank_account', data.bank_account || '');
+    setText('phone', data.phone || '');
+  }
+
+  function setText(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.value = val;
+  }
+
+  function submitForm() {
+    // 공통 유효성 검사
+    if (!document.getElementById('account_holder').value.trim()) {
+      alert('계좌주명을 입력해주세요.'); return;
+    }
+    if (!document.getElementById('bank_account').value.trim()) {
+      alert('출금계좌번호를 입력해주세요.'); return;
+    }
+    var agree1 = document.querySelector('input[name="agree1"]:checked');
+    var agree2 = document.querySelector('input[name="agree2"]:checked');
+    if (!agree1 || agree1.value !== 'Y') {
+      alert('개인정보 수집 및 이용에 동의해주세요.'); return;
+    }
+    if (!agree2 || agree2.value !== 'Y') {
+      alert('개인정보 제3자 제공에 동의해주세요.'); return;
+    }
+
+    if (currentTab === 'sign') {
+      submitBySign();
+    } else {
+      submitByFile();
+    }
+  }
+
+  function submitBySign() {
+    if (signaturePad.isEmpty()) {
+      alert('서명해주세요.'); return;
+    }
+
+    document.getElementById('btnSubmit').disabled = true;
+    document.getElementById('btnSubmit').textContent = '제출 중...';
+
+    var payload = {
+      token: token,
+      account_holder: document.getElementById('account_holder').value.trim(),
+      id_number: document.getElementById('id_number').value.trim(),
+      bank_name: document.getElementById('bank_name').value.trim(),
+      bank_account: document.getElementById('bank_account').value.replace(/-/g, '').trim(),
+      phone: document.getElementById('phone').value.trim(),
+      sign_image: signaturePad.toDataURL('image/png')
+    };
+
+    fetch('/cms/api/cms/sign/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+              if (res.success) {
+                showCompleted();
+              } else {
+                alert(res.message || '제출에 실패했습니다.');
+                document.getElementById('btnSubmit').disabled = false;
+                document.getElementById('btnSubmit').textContent = '신청서 제출';
+              }
+            })
+            .catch(function() {
+              alert('서버 오류가 발생했습니다.');
+              document.getElementById('btnSubmit').disabled = false;
+              document.getElementById('btnSubmit').textContent = '신청서 제출';
+            });
+  }
+
+  function submitByFile() {
+    if (!selectedFile) {
+      alert('동의서 파일을 첨부해주세요.'); return;
+    }
+
+    document.getElementById('btnSubmit').disabled = true;
+    document.getElementById('btnSubmit').textContent = '제출 중...';
+
+    var formData = new FormData();
+    formData.append('token', token);
+    formData.append('file', selectedFile);
+    formData.append('account_holder', document.getElementById('account_holder').value.trim());
+    formData.append('id_number', document.getElementById('id_number').value.trim());
+    formData.append('bank_name', document.getElementById('bank_name').value.trim());
+    formData.append('bank_account', document.getElementById('bank_account').value.replace(/-/g, '').trim());
+    formData.append('phone', document.getElementById('phone').value.trim());
+
+    fetch('/cms/api/cms/sign/submit-file', {
+      method: 'POST',
+      body: formData
+    })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+              if (res.success) {
+                showCompleted();
+              } else {
+                alert(res.message || '제출에 실패했습니다.');
+                document.getElementById('btnSubmit').disabled = false;
+                document.getElementById('btnSubmit').textContent = '신청서 제출';
+              }
+            })
+            .catch(function() {
+              alert('서버 오류가 발생했습니다.');
+              document.getElementById('btnSubmit').disabled = false;
+              document.getElementById('btnSubmit').textContent = '신청서 제출';
+            });
+  }
+
+  function showCompleted() {
+    document.getElementById('formDiv').style.display = 'none';
+    document.getElementById('completedDiv').style.display = 'block';
+  }
+
+  function showError(msg) {
+    document.getElementById('formDiv').style.display = 'none';
+    document.getElementById('errorDiv').style.display = 'block';
+    document.getElementById('errorDiv').textContent = msg;
+  }
+</script>
+</body>
+</html>

@@ -39,7 +39,10 @@ public class WebMvcConfig implements WebMvcConfigurer{
                         
                         // 6. 모바일(어차피 다 id 값으로 필터함)
                         "/api/mobile_main/**", "/api/attendance_submit/**", "/api/commute_current/**",
-                        "/api/attendance_current/**"
+                        "/api/attendance_current/**",
+
+                        // 서명
+                        "/api/cms/sign/**"
                 );
     }
 
