@@ -153,7 +153,7 @@ public class CmsEb21SendService {
         // 파일명: EB21{MMDD}_{YYYY} (금결원 규격)
         String mmdd     = targetDate.substring(4, 8);
         String yyyy     = targetDate.substring(0, 4);
-        String fileName = "EB21" + mmdd + "_" + yyyy;
+        String fileName = FEATURE_CODE + mmdd + "_" + yyyy;
         String objectKey = storageService.buildObjectKey(spjangcd, FEATURE_CODE, fileName);
 
         // 3. NCP 업로드

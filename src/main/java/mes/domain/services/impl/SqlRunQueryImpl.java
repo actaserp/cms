@@ -139,7 +139,7 @@ public class SqlRunQueryImpl implements SqlRunner {
 							, "bookmark", "menu_item"
 							, "sys_option", "sys_code", "cms_file_billing"
 							, "bill_plans", "mat_comp_uprice", "user_group_menu"
-							, "seq_maker", "menu_front_folder", "cms_bank_code"};
+							, "seq_maker", "menu_front_folder", "cms_bank_code", "cms_holiday"};
 
 			for (String table : whiteList) {
 				if (lowSql.contains(table)) return;

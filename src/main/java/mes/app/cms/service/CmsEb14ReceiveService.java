@@ -32,10 +32,12 @@ import java.util.Properties;
 @RequiredArgsConstructor
 public class CmsEb14ReceiveService {
 
+    private static final String FEATURE_CODE = "EB14";
     private static final Charset EUC_KR = Charset.forName("EUC-KR");
 
     private final SqlRunner sqlRunner;
     private final CmsTokenService cmsTokenService;
+    private final NcpObjectStorageService storageService;
 
     @Value("${cms.sftp-host}")
     private String sftpHost;
@@ -67,9 +69,8 @@ public class CmsEb14ReceiveService {
     public void receive(String spjangcd) throws Exception {
         String targetDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String mmdd = targetDate.substring(4, 8);
-        String fileName = "EB14" + mmdd;
+        String fileName = "EB14" + mmdd + "_" + targetDate.substring(0, 4);
 
-        // SFTP 수신 계정 획득
         String[] cred = cmsTokenService.getSftpReceiveCredential(spjangcd, "EB14", targetDate);
         byte[] fileBytes = sftpDownload(fileName, cred[0], cred[1]);
 
@@ -78,10 +79,36 @@ public class CmsEb14ReceiveService {
             return;
         }
 
-        parseAndUpdate(spjangcd, fileBytes, targetDate);
+        // NCP 업로드
+        String objectKey = storageService.buildObjectKey(spjangcd, "EB14", fileName);
+        try (var bis = new ByteArrayInputStream(fileBytes)) {
+            storageService.upload(objectKey, bis, fileBytes.length, "application/octet-stream");
+        }
+
+        // cms_file INSERT
+        var fp = new MapSqlParameterSource();
+        fp.addValue("spjangcd",  spjangcd);
+        fp.addValue("fileName",  fileName);
+        fp.addValue("filePath",  objectKey);
+        fp.addValue("targetDate", targetDate);
+        Map<String, Object> fileRow = sqlRunner.getRow(/* skip_tenant_check */
+                """
+                INSERT INTO cms_file (
+                    spjangcd, file_name, file_type, file_path,
+                    target_date, billing_count, billing_amount,
+                    send_status, _creater_id, _created, _modifier_id, _modified
+                ) VALUES (
+                    :spjangcd, :fileName, 'EB14', :filePath,
+                    CAST(:targetDate AS DATE), 0, 0,
+                    'RECEIVED', 'SYSTEM', NOW(), 'SYSTEM', NOW()
+                ) RETURNING id
+                """, fp);
+        long fileId = ((Number) fileRow.get("id")).longValue();
+
+        parseAndUpdate(spjangcd, fileBytes, targetDate, fileId);
     }
 
-    private void parseAndUpdate(String spjangcd, byte[] fileBytes, String targetDate) {
+    private void parseAndUpdate(String spjangcd, byte[] fileBytes, String targetDate, long fileId) {
         // 120 bytes 단위로 파싱
         int recordSize = 120;
         int totalRecords = fileBytes.length / recordSize;
@@ -100,8 +127,8 @@ public class CmsEb14ReceiveService {
             // 신청구분(6번, pos=25, len=1) 납부자번호(6번, pos=26, len=20)
             // 처리결과코드(12번 결과코드, pos=89, len=1) 불능코드(pos=90, len=4)
             String memberNo  = line.substring(26, 46).trim();
-            String resultCd  = line.substring(89, 90).trim();
-            String failCode  = line.substring(90, 94).trim();
+            String resultCd  = line.substring(91, 92).trim();  // 89 → 91
+            String failCode  = line.substring(92, 96).trim();  // 90 → 92
 
             if ("N".equals(resultCd)) {
                 failMemberNos.add(memberNo);
@@ -138,7 +165,7 @@ public class CmsEb14ReceiveService {
             sqlRunner.execute(/* skip_tenant_check */
                     """
                     UPDATE cms_account_register
-                    SET eb14_received_at=NOW(), status='APPROVED', _modified=NOW()
+                    SET eb14_received_at=NOW(), eb14_result='Y', status='APPROVED', _modified=NOW()
                     WHERE spjangcd=:spjangcd AND apply_date=:targetDate
                       AND member_no NOT IN (:failNos)
                       AND eb13_status='SENT' AND status='PENDING'
@@ -147,7 +174,7 @@ public class CmsEb14ReceiveService {
             sqlRunner.execute(/* skip_tenant_check */
                     """
                     UPDATE cms_account_register
-                    SET eb14_received_at=NOW(), status='APPROVED', _modified=NOW()
+                    SET eb14_received_at=NOW(), eb14_result='Y', status='APPROVED', _modified=NOW()
                     WHERE spjangcd=:spjangcd AND apply_date=:targetDate
                       AND eb13_status='SENT' AND status='PENDING'
                     """, param);
@@ -165,6 +192,28 @@ public class CmsEb14ReceiveService {
                   AND r.status = 'APPROVED'
                 """, param);
 
+        List<Map<String, Object>> registers = sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT id FROM cms_account_register
+                WHERE spjangcd=:spjangcd AND apply_date=:targetDate
+                  AND eb13_status='SENT'
+                """,
+                new MapSqlParameterSource("spjangcd", spjangcd)
+                        .addValue("targetDate", targetDate));
+
+        int seq = 1;
+        for (Map<String, Object> r : registers) {
+            long registerId = ((Number) r.get("id")).longValue();
+            sqlRunner.execute(/* skip_tenant_check */
+                    """
+                    INSERT INTO cms_file_register (file_id, register_id, line_seq)
+                    VALUES (:fileId, :registerId, :seq)
+                    """,
+                    new MapSqlParameterSource("fileId", fileId)
+                            .addValue("registerId", registerId)
+                            .addValue("seq", seq++));
+        }
+
         log.info("[CmsEb14] 처리완료 spjangcd={} 불능={}건", spjangcd, failMemberNos.size());
     }
 
@@ -179,15 +228,21 @@ public class CmsEb14ReceiveService {
             session.connect(15000);
             ChannelSftp channel = (ChannelSftp) session.openChannel("sftp");
             channel.connect(10000);
+
             try (var baos = new ByteArrayOutputStream()) {
-                channel.get(fileName, baos);
-                log.info("[CmsEb14] SFTP 다운로드 완료: {}", fileName);
-                return baos.toByteArray();
-            } catch (SftpException e) {
-                if (e.getMessage() != null && e.getMessage().contains("No such file")) {
-                    return null;
+                try {
+                    channel.get(fileName, baos);
+                } catch (SftpException e) {
+                    String msg = e.getMessage() != null ? e.getMessage() : "";
+                    if (msg.contains("inputstream is closed") || msg.contains("End of IO")) {
+                        log.warn("[CmsEb14] SFTP 서버 강제종료(정상) - 수신 데이터: {}bytes", baos.size());
+                        if (baos.size() > 0) return baos.toByteArray();
+                    } else if (msg.contains("No such file")) {
+                        return null;
+                    }
+                    throw e;
                 }
-                throw e;
+                return baos.toByteArray();
             } finally {
                 try { channel.disconnect(); } catch (Exception ignored) {}
                 try { session.disconnect(); } catch (Exception ignored) {}

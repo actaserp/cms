@@ -53,13 +53,13 @@ public class CmsFileController {
     }
 
     /** 파일 다운로드 */
-    @GetMapping("/eb-files/{id}/download")
+    @GetMapping("/cms-files/{id}/download")
     public void download(@PathVariable Long id, HttpServletResponse response) throws Exception {
-        cmsFileService.downloadEbFile(id, response);
+        cmsFileService.downloadFile(id, response);
     }
 
     /** SFTP 수동 전송 */
-    @PostMapping("/eb-files/{id}/send-sftp")
+    @PostMapping("/cms-files/{id}/send-sftp")
     public AjaxResult sendSftp(@PathVariable Long id, Authentication auth) {
         User user = (User) auth.getPrincipal();
         AjaxResult result = new AjaxResult();
@@ -69,10 +69,10 @@ public class CmsFileController {
     }
 
     /** 삭제 (PENDING/FAILED 상태만) */
-    @DeleteMapping("/eb-files/{id}")
+    @DeleteMapping("/cms-files/{id}")
     public AjaxResult delete(@PathVariable Long id) {
         AjaxResult result = new AjaxResult();
-        boolean ok = cmsFileService.deleteEbFile(id);
+        boolean ok = cmsFileService.deleteFile(id);
         if (!ok) { result.success = false; result.message = "삭제 실패 — PENDING 상태인 파일만 삭제할 수 있습니다."; }
         return result;
     }
@@ -90,31 +90,6 @@ public class CmsFileController {
         AjaxResult result = new AjaxResult();
         if (res.containsKey("error")) { result.success = false; result.message = (String) res.get("error"); }
         else { result.data = res; }
-        return result;
-    }
-
-    /** 파일 다운로드 */
-    @GetMapping("/ec-files/{id}/download")
-    public void downloadEc(@PathVariable Long id, HttpServletResponse response) throws Exception {
-        cmsFileService.downloadEcFile(id, response);
-    }
-
-    /** SFTP 수동 전송 */
-    @PostMapping("/ec-files/{id}/send-sftp")
-    public AjaxResult sendEcSftp(@PathVariable Long id, Authentication auth) {
-        User user = (User) auth.getPrincipal();
-        AjaxResult result = new AjaxResult();
-        boolean ok = cmsFileService.sendEcSftp(id, user.getUsername());
-        if (!ok) { result.success = false; result.message = "SFTP 전송에 실패했습니다."; }
-        return result;
-    }
-
-    /** 삭제 (PENDING/FAILED 상태만) */
-    @DeleteMapping("/ec-files/{id}")
-    public AjaxResult deleteEc(@PathVariable Long id) {
-        AjaxResult result = new AjaxResult();
-        boolean ok = cmsFileService.deleteEcFile(id);
-        if (!ok) { result.success = false; result.message = "삭제 실패 — PENDING 상태인 파일만 삭제할 수 있습니다."; }
         return result;
     }
 
@@ -150,23 +125,45 @@ public class CmsFileController {
                 result.success = false; result.message = "전송완료 상태인 파일만 취소할 수 있습니다."; return result;
             }
 
-            if (cmsFileService.hasResultFile(id)) {
-                result.success = false; result.message = "결과파일이 이미 수신된 파일은 취소할 수 없습니다."; return result;
-            }
-
             String spjangcd   = String.valueOf(file.get("spjangcd"));
             String fileName   = String.valueOf(file.get("file_name"));
             String fileType   = fileName.substring(0, 4);
             String targetDate = String.valueOf(file.get("target_date")).replace("-", "");
+
+            if (List.of("EB21", "EC21", "EB13").contains(fileType) && cmsFileService.hasResultFile(id)) {
+                result.success = false; result.message = "결과파일이 이미 수신된 파일은 취소할 수 없습니다."; return result;
+            }
+
             cmsTokenService.getFileStatus(spjangcd, fileType, targetDate);
             boolean cancelled = cmsTokenService.cancelFile(spjangcd, fileType, targetDate);
             if (cancelled) {
                 cmsFileService.updateSendStatus(id, "CANCELLED");
                 cmsFileService.revertBillingsToPending(id);
+                cmsFileService.revertRegistersToPending(id);
 
             } else {
                 result.success = false; result.message = "금결원 취소 요청 실패";
             }
+        } catch (Exception e) {
+            result.success = false; result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    @GetMapping("/cms-files/{id}/error")
+    public AjaxResult getCenterError(@PathVariable Long id) {
+        AjaxResult result = new AjaxResult();
+        try {
+            Map<String, Object> file = cmsFileService.getFile(id);
+            if (file == null) {
+                result.success = false; result.message = "파일을 찾을 수 없습니다."; return result;
+            }
+            String spjangcd   = String.valueOf(file.get("spjangcd"));
+            String fileName   = String.valueOf(file.get("file_name"));
+            String fileType   = fileName.substring(0, 4);
+            String targetDate = String.valueOf(file.get("target_date")).replace("-", "");
+            com.fasterxml.jackson.databind.JsonNode errorData = cmsTokenService.getCenterError(spjangcd, fileType, targetDate);
+            result.data = errorData.path("data");
         } catch (Exception e) {
             result.success = false; result.message = e.getMessage();
         }

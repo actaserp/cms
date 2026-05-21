@@ -165,6 +165,8 @@
                     <button type="button" class="btn-default" id="btnReRegister"
                             style="background:#6c757d; color:#fff;" disabled>재신청
                     </button>
+                    <button type="button" class="btn-default" id="btnReceiveEb14"
+                            style="background:#17a2b8; color:#fff;">결과수신</button>
                 </div>
             </div>
 
@@ -302,12 +304,22 @@
                     memberName: $('#srchMemberName').val(),
                     status: $('#srchStatus').val()
                 },
-                success: function (result) {
+                success: function(result) {
                     if (result.success) {
-                        if (theGrid) theGrid.dispose();
-                        bindGrid(result.data || []);
-                        updateSummary(result.data || []);
-                        $('#detailPanel').hide();
+                        bindGrid(result.data);
+                        updateSummary(result.data);
+                        updateButtons();
+
+                        // EB14 버튼 — 선택 무관, EB13 SENT 건 존재 여부
+                        var hasEb13Sent = result.data.some(function(i) {
+                            return i.eb13_status === 'SENT' && !i.eb14_received_at;
+                        });
+                        $('#btnReceiveEb14')
+                            .prop('disabled', !hasEb13Sent)
+                            .css({
+                                'background': hasEb13Sent ? '#17a2b8' : '#a0d8e0',
+                                'cursor': hasEb13Sent ? 'pointer' : 'not-allowed'
+                            });
                     }
                 }
             });
@@ -318,6 +330,12 @@
                 item.selected = false;
             });
             viewdata = new wijmo.collections.CollectionView(data);
+
+            if (theGrid) {
+                theGrid.itemsSource = viewdata;
+                return;
+            }
+
             theGrid = new wijmo.grid.FlexGrid('#theGrid', {
                 autoGenerateColumns: false,
                 showMarquee: true,
@@ -327,7 +345,6 @@
             });
             theGrid.rowHeaders.columns.splice(0, 1);
 
-            // 헤더 체크박스
             theGrid.formatItem.addHandler(function (s, e) {
                 var col = s.columns[e.col];
                 if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
@@ -394,8 +411,11 @@
 
             var canReRegister = selected.some(function(i) {
                 return i.status === 'REJECTED'
+                    || i.status === 'FAILED'
                     || i.ei13_status === 'FAILED'
-                    || i.eb13_status === 'FAILED';
+                    || i.eb13_status === 'FAILED'
+                    || (i.ei13_status === 'PENDING' && i.eb13_status !== 'PENDING')
+                    || (i.eb13_status === 'PENDING' && i.ei13_status === 'SENT');
             });
 
             $('#btnRegister')
@@ -413,6 +433,7 @@
                     'color': '#fff',
                     'cursor': canReRegister ? 'pointer' : 'not-allowed'
                 });
+
         }
 
         // 계좌등록 신청 — EI13 → EB13 자동 순서 처리
@@ -454,8 +475,11 @@
                 var item = viewdata.items.find(function(i) { return i.id === id; });
                 return item && (
                     item.status === 'REJECTED' ||
+                    item.status === 'FAILED' ||
                     item.ei13_status === 'FAILED' ||
-                    item.eb13_status === 'FAILED'
+                    item.eb13_status === 'FAILED' ||
+                    (item.ei13_status === 'PENDING' && item.eb13_status !== 'PENDING') ||
+                    (item.eb13_status === 'PENDING' && item.ei13_status === 'SENT')
                 );
             });
             if (!ids.length) {
@@ -513,7 +537,7 @@
                     accept_files: 'pdf,jpg,jpeg,png,gif,tif',
                     multiple:     false,
                     max_count:    1,
-                    file_size:    10,
+                    file_size:    0.3,
                     manual_upload: false,
                     upload_callback: function() {
                         $.ajax({
@@ -524,7 +548,7 @@
                             success: function() { modal.close(); searchList(); }
                         });
                     },
-                    can_write: item.status === 'PENDING'
+                    can_write: item.status === 'PENDING' || item.ei13_status === 'FAILED'
                 });
 
                 // deleteFile 오버라이드 — 파일 삭제 시 agree_file_path 초기화
@@ -552,6 +576,19 @@
             return s.length >= 19 ? s.substring(0, 19) : s;
         }
 
+        function receiveEb14() {
+            Alert.confirm('', 'EB14 결과를 수신하시겠습니까?', function() {
+                AjaxUtil.postAsyncData('/api/cms/account-register/receive-eb14', {}, function(result) {
+                    if (result.success) {
+                        Alert.alert('', 'EB14 결과수신이 완료되었습니다.');
+                    } else {
+                        Alert.alert('수신 실패', result.message);
+                    }
+                    searchList();
+                });
+            });
+        }
+
         $(document).ready(function () {
             $('#btnSearch').click(searchList);
             $('#srchMemberName').keypress(function (e) {
@@ -559,6 +596,7 @@
             });
             $('#btnRegister').click(register);
             $('#btnReRegister').click(reRegister);
+            $('#btnReceiveEb14').click(receiveEb14);
         });
     </script>
 

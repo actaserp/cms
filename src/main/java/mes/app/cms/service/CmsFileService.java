@@ -52,13 +52,8 @@ public class CmsFileService {
         if (StringUtils.hasText(dateFrom))  { sql += " AND f.target_date >= CAST(:dateFrom AS DATE)"; param.addValue("dateFrom", dateFrom); }
         if (StringUtils.hasText(dateTo))    { sql += " AND f.target_date <= CAST(:dateTo AS DATE)";   param.addValue("dateTo", dateTo); }
         if (StringUtils.hasText(fileType)) {
-            if (fileType.equals("EB") || fileType.equals("EC")) {
-                sql += " AND f.file_type LIKE :fileType";
-                param.addValue("fileType", fileType + "%");
-            } else {
-                sql += " AND f.file_type = :fileType";
-                param.addValue("fileType", fileType);
-            }
+            sql += " AND f.file_type = :fileType";
+            param.addValue("fileType", fileType);
         }
         if (StringUtils.hasText(sendStatus)){ sql += " AND f.send_status = :sendStatus";              param.addValue("sendStatus", sendStatus); }
 
@@ -73,34 +68,6 @@ public class CmsFileService {
 
     // ── 다운로드 ───────────────────────────────────────────────────────────────
 
-    public void downloadEbFile(Long id, HttpServletResponse response) throws Exception {
-        String spjangcd = TenantContext.get();
-        var param = new MapSqlParameterSource("id", id).addValue("spjangcd", spjangcd);
-
-        Map<String, Object> row = sqlRunner.getRow(
-                "SELECT file_name, file_path FROM cms_file WHERE id = :id AND spjangcd = :spjangcd", param);
-
-        if (row == null) { response.sendError(HttpServletResponse.SC_NOT_FOUND); return; }
-
-        String objectKey = (String) row.get("file_path");
-        String fileName  = (String) row.get("file_name");
-
-        try (ResponseInputStream<GetObjectResponse> s3Stream = storageService.download(objectKey);
-             BufferedOutputStream out = new BufferedOutputStream(response.getOutputStream())) {
-
-            String encoded = URLEncoder.encode(fileName, "UTF-8").replace("+", "%20");
-            response.setContentType("application/octet-stream");
-            response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encoded);
-
-            byte[] buf = new byte[8192];
-            int read;
-            while ((read = s3Stream.read(buf)) != -1) out.write(buf, 0, read);
-            out.flush();
-        } catch (Exception e) {
-            log.error("EB파일 다운로드 오류: {}", objectKey, e);
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "다운로드 오류");
-        }
-    }
 
     // ── 수동 SFTP 재전송 (FAILED 파일 재시도) ─────────────────────────────────
 
@@ -123,7 +90,12 @@ public class CmsFileService {
             // NCP에서 파일 읽어 SFTP 전송
             try (ResponseInputStream<GetObjectResponse> s3Stream = storageService.download(objectKey)) {
                 byte[] fileBytes = s3Stream.readAllBytes();
-                cmsEb21SendService.sftpSendBytes(fileBytes, fileName, targetDate, spjangcd);
+                String fileType = ((String) row.get("file_name")).substring(0, 4);
+                if (fileType.startsWith("EC")) {
+                    cmsEc21SendService.sftpSendBytes(fileBytes, fileName, targetDate, spjangcd);
+                } else {
+                    cmsEb21SendService.sftpSendBytes(fileBytes, fileName, targetDate, spjangcd);
+                }
             }
 
             var up = new MapSqlParameterSource("id", id).addValue("userId", userId);
@@ -145,15 +117,9 @@ public class CmsFileService {
         }
     }
 
-
-    public Map<String, Object> generateEcFile(String targetDate, String userId) {
-        return cmsEc21SendService.runForSpjang(TenantContext.get(), targetDate, userId);
-    }
-
-    public void downloadEcFile(Long id, HttpServletResponse response) throws Exception {
+    public void downloadFile(Long id, HttpServletResponse response) throws Exception {
         String spjangcd = TenantContext.get();
         var param = new MapSqlParameterSource("id", id).addValue("spjangcd", spjangcd);
-
         Map<String, Object> row = sqlRunner.getRow(
                 "SELECT file_name, file_path FROM cms_file WHERE id = :id AND spjangcd = :spjangcd", param);
 
@@ -164,93 +130,32 @@ public class CmsFileService {
 
         try (ResponseInputStream<GetObjectResponse> s3Stream = storageService.download(objectKey);
              BufferedOutputStream out = new BufferedOutputStream(response.getOutputStream())) {
-
             String encoded = URLEncoder.encode(fileName, "UTF-8").replace("+", "%20");
             response.setContentType("application/octet-stream");
             response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encoded);
-
             byte[] buf = new byte[8192];
             int read;
             while ((read = s3Stream.read(buf)) != -1) out.write(buf, 0, read);
             out.flush();
         } catch (Exception e) {
-            log.error("EC파일 다운로드 오류: {}", objectKey, e);
+            log.error("파일 다운로드 오류: {}", objectKey, e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "다운로드 오류");
         }
     }
 
-    public boolean sendEcSftp(Long id, String userId) {
-        String spjangcd = TenantContext.get();
-        var param = new MapSqlParameterSource("id", id).addValue("spjangcd", spjangcd);
-
-        Map<String, Object> row = sqlRunner.getRow(
-                "SELECT send_status, file_name, file_path, TO_CHAR(target_date,'YYYYMMDD') AS target_date_str FROM cms_file WHERE id = :id AND spjangcd = :spjangcd", param);
-
-        if (row == null) return false;
-        String sendStatus = (String) row.get("send_status");
-        if (!"PENDING".equals(sendStatus) && !"FAILED".equals(sendStatus)) return false;
-
-        try {
-            String objectKey  = (String) row.get("file_path");
-            String fileName   = (String) row.get("file_name");
-            String targetDate = (String) row.get("target_date_str");
-
-            try (ResponseInputStream<GetObjectResponse> s3Stream = storageService.download(objectKey)) {
-                byte[] fileBytes = s3Stream.readAllBytes();
-                cmsEc21SendService.sftpSendBytes(fileBytes, fileName, targetDate, spjangcd);
-            }
-
-            var up = new MapSqlParameterSource("id", id).addValue("userId", userId);
-            sqlRunner.execute("""
-                    UPDATE cms_file SET send_status='SENT', send_type='SFTP', sent_at=NOW(),
-                        _modifier_id=:userId, _modified=NOW()
-                    WHERE id=:id
-                    """, up);
-            return true;
-        } catch (Exception e) {
-            log.error("EC SFTP 수동 전송 오류", e);
-            var ep = new MapSqlParameterSource("id", id).addValue("errMsg", e.getMessage()).addValue("userId", userId);
-            sqlRunner.execute("""
-                    UPDATE cms_file SET send_status='FAILED', error_message=:errMsg,
-                        _modifier_id=:userId, _modified=NOW()
-                    WHERE id=:id
-                    """, ep);
-            return false;
-        }
-    }
-
-    @Transactional
-    public boolean deleteEcFile(Long id) {
-        String spjangcd = TenantContext.get();
-        var param = new MapSqlParameterSource("id", id).addValue("spjangcd", spjangcd);
-
-        Map<String, Object> row = sqlRunner.getRow(
-                "SELECT file_path, send_status FROM cms_file WHERE id = :id AND spjangcd = :spjangcd", param);
-
-        if (row == null) return false;
-        String status = (String) row.get("send_status");
-        if (!"PENDING".equals(status) && !"FAILED".equals(status)) return false;
-
-        sqlRunner.execute("UPDATE cms_billing SET status='PENDING', file_id=NULL, _modified=NOW() WHERE file_id=:id AND spjangcd=:spjangcd", param);
-        sqlRunner.execute("DELETE FROM cms_file_billing WHERE file_id=:id", param);
-
-        String objectKey = (String) row.get("file_path");
-        if (StringUtils.hasText(objectKey)) {
-            try { storageService.delete(objectKey); } catch (Exception e) { log.warn("NCP 파일 삭제 실패: {}", objectKey); }
-        }
-
-        return sqlRunner.execute("DELETE FROM cms_file WHERE id=:id AND spjangcd=:spjangcd", param) > 0;
+    public Map<String, Object> generateEcFile(String targetDate, String userId) {
+        return cmsEc21SendService.runForSpjang(TenantContext.get(), targetDate, userId);
     }
 
     // ── 삭제 (PENDING / FAILED 상태만) ────────────────────────────────────────
 
     @Transactional
-    public boolean deleteEbFile(Long id) {
+    public boolean deleteFile(Long id) {
         String spjangcd = TenantContext.get();
         var param = new MapSqlParameterSource("id", id).addValue("spjangcd", spjangcd);
 
         Map<String, Object> row = sqlRunner.getRow(
-                "SELECT file_path, send_status FROM cms_file WHERE id = :id AND spjangcd = :spjangcd", param);
+                "SELECT file_path, send_status, file_type FROM cms_file WHERE id = :id AND spjangcd = :spjangcd", param);
 
         if (row == null) return false;
         String status = (String) row.get("send_status");
@@ -263,6 +168,22 @@ public class CmsFileService {
         String objectKey = (String) row.get("file_path");
         if (StringUtils.hasText(objectKey)) {
             try { storageService.delete(objectKey); } catch (Exception e) { log.warn("NCP 파일 삭제 실패: {}", objectKey); }
+        }
+
+        String fileType2 = (String) row.get("file_type");
+
+        if ("EI13".equals(fileType2) || "EB13".equals(fileType2)) {
+            sqlRunner.execute("""
+        UPDATE cms_account_register r
+        SET ei13_status = CASE WHEN :isEi13 THEN 'PENDING' ELSE ei13_status END,
+            eb13_status = CASE WHEN :isEb13 THEN 'PENDING' ELSE eb13_status END,
+            status = 'PENDING', _modified = NOW()
+        FROM cms_file_register fr
+        WHERE fr.file_id = :id AND fr.register_id = r.id
+        """,
+                    param.addValue("isEi13", "EI13".equals(fileType2))
+                            .addValue("isEb13", "EB13".equals(fileType2)));
+            sqlRunner.execute("DELETE FROM cms_file_register WHERE file_id=:id", param);
         }
 
         return sqlRunner.execute("DELETE FROM cms_file WHERE id=:id AND spjangcd=:spjangcd", param) > 0;
@@ -301,9 +222,17 @@ public class CmsFileService {
     public boolean hasResultFile(Long fileId) {
         Map<String, Object> file = getFile(fileId);
         if (file == null) return false;
-        String fileTypePrefix = String.valueOf(file.get("file_name")).substring(0, 2);
         String targetDate = String.valueOf(file.get("target_date"));
         String spjangcd = String.valueOf(file.get("spjangcd"));
+
+        Map<String, String> resultTypeMap = Map.of(
+                "EB21", "EB22",
+                "EC21", "EC22",
+                "EB13", "EB14"
+        );
+        String requestType = String.valueOf(file.get("file_name")).substring(0, 4);
+        String resultType  = resultTypeMap.getOrDefault(requestType, null);
+        if (resultType == null) return false;
 
         List<Map<String, Object>> resultFiles = sqlRunner.getRows(/* skip_tenant_check */
                 """
@@ -314,8 +243,28 @@ public class CmsFileService {
                 """,
                 new MapSqlParameterSource()
                         .addValue("spjangcd",   spjangcd)
-                        .addValue("resultType", fileTypePrefix + "_RESULT")
+                        .addValue("resultType", resultType)
                         .addValue("targetDate", targetDate));
         return !resultFiles.isEmpty();
+    }
+
+    public void revertRegistersToPending(Long fileId) {
+        Map<String, Object> file = getFile(fileId);
+        if (file == null) return;
+        String fileType = (String) file.get("file_type");
+        if (!"EI13".equals(fileType) && !"EB13".equals(fileType)) return;
+
+        var param = new MapSqlParameterSource("fileId", fileId);
+        sqlRunner.execute("""
+        UPDATE cms_account_register r
+        SET ei13_status = CASE WHEN :isEi13 THEN 'PENDING' ELSE ei13_status END,
+            eb13_status = CASE WHEN :isEb13 THEN 'PENDING' ELSE eb13_status END,
+            status = 'PENDING', _modified = NOW()
+        FROM cms_file_register fr
+        WHERE fr.file_id = :fileId AND fr.register_id = r.id
+        """,
+                param.addValue("isEi13", "EI13".equals(fileType))
+                        .addValue("isEb13", "EB13".equals(fileType)));
+        sqlRunner.execute("DELETE FROM cms_file_register WHERE file_id=:fileId", param);
     }
 }

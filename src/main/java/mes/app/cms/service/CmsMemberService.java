@@ -182,7 +182,11 @@ public class CmsMemberService {
 
         // 신규 등록
         if (id == null) {
-            memberNo = generateMemberNo(spjangcd);
+            if (!StringUtils.hasText(memberNo)) {
+                memberNo = generateMemberNo(spjangcd);
+            } else {
+                memberNo = memberNo.toUpperCase();
+            }
 
             MapSqlParameterSource param = new MapSqlParameterSource();
             param.addValue("spjangcd",      spjangcd);
@@ -248,6 +252,11 @@ public class CmsMemberService {
             Map<String, Object> result = sqlRunner.getRow(
                     "SELECT id FROM cms_member WHERE spjangcd = :spjangcd AND member_no = :memberNo",
                     new MapSqlParameterSource("spjangcd", spjangcd).addValue("memberNo", memberNo));
+
+            Long savedId = result != null ? ((Number) result.get("id")).longValue() : null;
+            if (savedId != null && StringUtils.hasText(bankAccount)) {
+                cmsAccountRegisterService.save(savedId, "1", null, null, userId);
+            }
 
             return result != null ? ((Number) result.get("id")).longValue() : null;
         }
@@ -377,12 +386,25 @@ public class CmsMemberService {
                 .addValue("id", id)
                 .addValue("spjangcd", spjangcd);
 
-        sqlRunner.execute(/* skip_tenant_check */
-                "DELETE FROM cms_billing WHERE member_id = :id AND spjangcd = :spjangcd", param);
-        sqlRunner.execute(/* skip_tenant_check */
-                "DELETE FROM cms_account_register WHERE member_id = :id AND spjangcd = :spjangcd", param);
-        return sqlRunner.execute(/* skip_tenant_check */
-                "DELETE FROM cms_member WHERE id = :id AND spjangcd = :spjangcd", param) > 0;
+        // 1. 매핑 테이블
+        sqlRunner.execute("DELETE FROM cms_file_billing WHERE billing_id IN (SELECT id FROM cms_billing WHERE member_id = :id AND spjangcd = :spjangcd)", param);
+        sqlRunner.execute("DELETE FROM cms_file_register WHERE register_id IN (SELECT id FROM cms_account_register WHERE member_id = :id AND spjangcd = :spjangcd)", param);
+
+        // 2. 본 테이블
+        sqlRunner.execute("DELETE FROM cms_billing WHERE member_id = :id AND spjangcd = :spjangcd", param);
+        sqlRunner.execute("DELETE FROM cms_account_register WHERE member_id = :id AND spjangcd = :spjangcd", param);
+
+        // 3. cms_file — 해당 member 관련 파일 (다른 member 파일과 공유될 수 있으니 고아 파일만)
+        // cms_file은 여러 member가 공유할 수 있어서 file_register/file_billing 없는 것만 삭제
+        sqlRunner.execute("""
+    DELETE FROM cms_file 
+    WHERE spjangcd = :spjangcd
+      AND id NOT IN (SELECT file_id FROM cms_file_billing)
+      AND id NOT IN (SELECT file_id FROM cms_file_register)
+    """, param);
+
+        // 4. 마지막
+        return sqlRunner.execute("DELETE FROM cms_member WHERE id = :id AND spjangcd = :spjangcd", param) > 0;
     }
 
     public Map<String, Object> excelUpload(MultipartFile file, String userId) {

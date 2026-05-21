@@ -39,11 +39,6 @@ public class CmsHolidayService {
     @Value("${cms.api-base-url}")
     private String apiBaseUrl;
 
-    /** 캐시: key = yyyyMM, value = {yyyyMMdd -> isHoliday} */
-    private final Map<String, Map<String, Boolean>> cache       = new ConcurrentHashMap<>();
-    /** 캐시 만료시각: key = yyyyMM */
-    private final Map<String, Instant>              cacheExpiry = new ConcurrentHashMap<>();
-
     // ── public API ──────────────────────────────────────────────────────────
 
     /**
@@ -114,31 +109,45 @@ public class CmsHolidayService {
         return holidays;
     }
 
-    /** 캐시 초기화 (필요 시 수동 호출용) */
-    public void clearCache() {
-        cache.clear();
-        cacheExpiry.clear();
-        log.info("[CmsHoliday] 캐시 초기화");
-    }
-
     // ── 내부 ────────────────────────────────────────────────────────────────
 
     private Map<String, Boolean> getMonthData(String ym) {
-        Instant expiry = cacheExpiry.get(ym);
-        if (expiry != null && Instant.now().isBefore(expiry) && cache.containsKey(ym)) {
-            return cache.get(ym);
+        // 1. DB 먼저 확인
+        List<Map<String, Object>> rows = sqlRunner.getRows(/* skip_tenant_check */
+                "SELECT holiday_date, is_holiday FROM cms_holiday WHERE ym = :ym",
+                new MapSqlParameterSource("ym", ym));
+
+        if (!rows.isEmpty()) {
+            Map<String, Boolean> result = new LinkedHashMap<>();
+            for (Map<String, Object> row : rows) {
+                result.put(str(row.get("holiday_date")), (Boolean) row.get("is_holiday"));
+            }
+            return result;
         }
+
+        // 2. DB 없으면 API 호출
         try {
             Map<String, Boolean> data = fetchFromApi(ym);
-            cache.put(ym, data);
-            cacheExpiry.put(ym, Instant.now().plusSeconds(86400));
+            // DB 저장
+            for (Map.Entry<String, Boolean> e : data.entrySet()) {
+                sqlRunner.execute(/* skip_tenant_check */
+                        """
+                        INSERT INTO cms_holiday (ym, holiday_date, is_holiday)
+                        VALUES (:ym, :date, :isHoliday)
+                        ON CONFLICT (ym, holiday_date) DO NOTHING
+                        """,
+                        new MapSqlParameterSource("ym", ym)
+                                .addValue("date", e.getKey())
+                                .addValue("isHoliday", e.getValue()));
+            }
             return data;
         } catch (Exception e) {
             log.error("[CmsHoliday] API 조회 실패 ym={}: {}", ym, e.getMessage());
-            if (cache.containsKey(ym)) return cache.get(ym);
             return Collections.emptyMap();
         }
     }
+
+    private String str(Object v) { return v != null ? v.toString() : ""; }
 
     private Map<String, Boolean> fetchFromApi(String ym) throws Exception {
         LocalDate first = LocalDate.parse(ym + "01", FMT);

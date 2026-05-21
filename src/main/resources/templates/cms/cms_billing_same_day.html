@@ -146,7 +146,15 @@
                             <tr>
                                 <th style="padding:5px; border:1px solid #ddd; text-align:center;"><span class="eq">*</span>납부자</th>
                                 <td style="padding:5px; border:1px solid #ddd;">
-                                    <select id="member_id" name="member_id" style="width:100%;"></select>
+                                    <div style="position:relative;">
+                                        <input type="text" id="member_search" placeholder="납부자명 또는 납부자번호 입력"
+                                               autocomplete="off" style="width:100%; box-sizing:border-box;">
+                                        <input type="hidden" id="member_id" name="member_id">
+                                        <div id="member_dropdown" style="display:none; position:absolute; z-index:9999;
+                                         background:#fff; border:1px solid #ddd; border-radius:4px;
+                                         max-height:200px; overflow-y:auto; width:100%; top:100%; left:0;
+                                         box-shadow:0 2px 8px rgba(0,0,0,0.15);"></div>
+                                    </div>
                                 </td>
                             </tr>
                             </tbody>
@@ -389,7 +397,21 @@
                 + String(minDate.getMonth() + 1).padStart(2, '0') + '-'
                 + String(minDate.getDate()).padStart(2, '0');
 
-            $('#deduct_date').attr('min', minDateStr).val(minDateStr);
+            checkAndSetBusinessDay(minDateStr, function(adjustedDate) {
+                $('#deduct_date').attr('min', minDateStr).val(adjustedDate);
+                var compact = adjustedDate.replace(/-/g, '');
+                $.ajax({
+                    url: withCtx('/api/cms/billing/send-date'),
+                    type: 'GET',
+                    data: { deduct_date: compact },
+                    success: function(result) {
+                        $('#send_date').val(fmtDate8(
+                            (result.success && result.data) ? result.data.send_date : calcSimplePrevDay(compact)
+                        ));
+                    },
+                    error: function() { $('#send_date').val(fmtDate8(calcSimplePrevDay(compact))); }
+                });
+            }, true);
 
             if (isAfterNoon) {
                 $('#divAfterNoonWarning').show();
@@ -407,41 +429,117 @@
             searchList();
         }
 
+        function fmtDate8(v) {
+            if (!v) return '';
+            var s = String(v).replace(/-/g, '');
+            return s.length === 8 ? s.substring(0,4) + '-' + s.substring(4,6) + '-' + s.substring(6,8) : v;
+        }
+
         function loadMembers() {
             $.ajax({
                 url: withCtx('/api/cms/member/list'),
                 type: 'GET',
-                data: { status: 'ACTIVE' },
                 success: function(result) {
-                    if (result.success && result.data) {
-                        memberList = result.data;
-                        var opts = '<option value="">납부자 선택</option>';
-                        result.data.forEach(function(m) {
-                            opts += '<option value="' + m.id + '"'
-                                + ' data-bank_code="'      + (m.bank_code      || '') + '"'
-                                + ' data-bank_name="'      + (m.bank_name      || '') + '"'
-                                + ' data-bank_account="'   + (m.bank_account   || '') + '"'
-                                + ' data-account_holder="' + (m.account_holder || '') + '"'
-                                + ' data-deduct_amount="'  + (m.deduct_amount  || '') + '"'
-                                + ' data-deduct_day="'     + (m.deduct_day     || '') + '"'
-                                + '>' + m.member_name + '</option>';
-                        });
-                        $('#member_id').html(opts);
-                    }
+                    if (result.success) memberList = result.data;
                 }
             });
         }
 
-        $('#member_id').on('change', function() {
-            var opt = $(this).find('option:selected');
-            if (!opt.val()) { clearMemberFields(); return; }
-            $('#td_bank_name').text(opt.data('bank_name') || '-');
-            $('#td_bank_account').text(opt.data('bank_account') || '-');
-            $('#td_account_holder').text(opt.data('account_holder') || '-');
-            $('#bank_code').val(opt.data('bank_code'));
-            $('#bank_account').val(opt.data('bank_account'));
-            $('#account_holder').val(opt.data('account_holder'));
-            $('#member_name').val(opt.text());
+        var memberHighlightIndex = -1;
+
+        $('#member_search').on('input', function() {
+            memberHighlightIndex = -1;
+            var keyword = $(this).val().trim().toLowerCase();
+            if (!keyword) { $('#member_dropdown').hide(); return; }
+
+            var filtered = memberList.filter(function(m) {
+                return m.member_name.toLowerCase().indexOf(keyword) >= 0
+                    || (m.member_no && m.member_no.toLowerCase().indexOf(keyword) >= 0);
+            });
+
+            if (filtered.length === 0) { $('#member_dropdown').hide(); return; }
+
+            var html = filtered.slice(0, 20).map(function(m) {
+                return '<div class="member-option" data-id="' + m.id + '"'
+                    + ' data-name="' + m.member_name + '"'
+                    + ' data-bank-code="' + (m.bank_code||'') + '"'
+                    + ' data-bank-account="' + (m.bank_account||'') + '"'
+                    + ' data-account-holder="' + (m.account_holder||'') + '"'
+                    + ' data-bank-name="' + (m.bank_name||'') + '"'
+                    + ' style="padding:8px 12px; cursor:pointer; font-size:13px;">'
+                    + m.member_name + ' <span style="color:#888; font-size:11px;">(' + (m.member_no||'') + ')</span>'
+                    + '</div>';
+            }).join('');
+
+            $('#member_dropdown').html(html).show();
+        });
+
+        $('#member_search').on('keydown', function(e) {
+            var $items = $('#member_dropdown .member-option:visible');
+            if (!$items.length) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                memberHighlightIndex = Math.min(memberHighlightIndex + 1, $items.length - 1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                memberHighlightIndex = Math.max(memberHighlightIndex - 1, 0);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (memberHighlightIndex >= 0) {
+                    $items.eq(memberHighlightIndex).trigger('click');
+                }
+                return;
+            } else if (e.key === 'Escape') {
+                $('#member_dropdown').hide();
+                memberHighlightIndex = -1;
+                return;
+            } else {
+                return;
+            }
+
+            // 하이라이트 처리
+            $items.css('background', '');
+            $items.eq(memberHighlightIndex).css('background', '#f0f2ff');
+
+            // 스크롤 따라가기
+            var $item = $items.eq(memberHighlightIndex);
+            var $drop = $('#member_dropdown');
+            var itemTop = $item.position().top + $drop.scrollTop();
+            var itemBottom = itemTop + $item.outerHeight();
+            var dropHeight = $drop.outerHeight();
+            if (itemBottom > $drop.scrollTop() + dropHeight) {
+                $drop.scrollTop(itemBottom - dropHeight);
+            } else if (itemTop < $drop.scrollTop()) {
+                $drop.scrollTop(itemTop);
+            }
+        });
+
+        $(document).on('mouseover', '.member-option', function() {
+            $('#member_dropdown .member-option').css('background', '');
+            $(this).css('background', '#f0f2ff');
+            memberHighlightIndex = $('#member_dropdown .member-option').index(this);
+        });
+
+        $(document).on('click', '.member-option', function() {
+            var $t = $(this);
+            $('#member_id').val($t.data('id'));
+            $('#member_search').val($t.data('name'));
+            $('#member_name').val($t.data('name'));
+            $('#td_bank_name').text($t.data('bank-name') || '-');
+            $('#td_bank_account').text($t.data('bank-account') || '-');
+            $('#td_account_holder').text($t.data('account-holder') || '-');
+            $('#bank_code').val($t.data('bank-code'));
+            $('#bank_account').val($t.data('bank-account'));
+            $('#account_holder').val($t.data('account-holder'));
+            $('#member_dropdown').hide();
+        });
+
+        // 외부 클릭 시 드롭다운 닫기
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('#member_search, #member_dropdown').length) {
+                $('#member_dropdown').hide();
+            }
         });
 
         $('#deduct_date').on('change', function() {
@@ -458,7 +556,7 @@
                     if (result.success && result.data && result.data !== compact) {
                         var next = result.data;
                         var nextFmt = next.substring(0,4) + '-' + next.substring(4,6) + '-' + next.substring(6,8);
-                        Alert.alert('', '선택하신 날짜(' + val + ')는 휴일입니다.\n출금일이 ' + nextFmt + '(으)로 자동 변경됩니다.');
+                        Notify.info('선택하신 날짜는 휴일입니다.\n출금일이 ' + nextFmt + '(으)로 자동 변경됩니다.');
                         $('#deduct_date').val(nextFmt);
                         compact = next;
                     }
@@ -896,6 +994,29 @@
                             Alert.alert('재청구 실패', result.message);
                         }
                     });
+            });
+        }
+
+        // 출금일자 휴일 체크 후 다음 영업일로 보정
+        function checkAndSetBusinessDay(dateStr, callback, silent) {
+            var compact = dateStr.replace(/-/g, '');
+            $.ajax({
+                url: withCtx('/api/cms/holiday/next-business-day'),
+                type: 'GET',
+                data: { date: compact },
+                success: function(result) {
+                    if (result.success && result.data) {
+                        var next = String(result.data);
+                        var nextFmt = next.substring(0,4) + '-' + next.substring(4,6) + '-' + next.substring(6,8);
+                        if (next !== compact && !silent) {
+                            Notify.info('휴일로 출금일이 ' + nextFmt + '(으)로 자동 변경되었습니다.');
+                        }
+                        if (callback) callback(nextFmt);
+                    } else {
+                        if (callback) callback(dateStr);
+                    }
+                },
+                error: function() { if (callback) callback(dateStr); }
             });
         }
 

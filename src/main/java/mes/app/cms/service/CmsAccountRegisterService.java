@@ -1,5 +1,7 @@
 package mes.app.cms.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import lombok.extern.slf4j.Slf4j;
 import mes.app.common.TenantContext;
 import mes.app.files.NcpObjectStorageService;
 import mes.domain.services.SqlRunner;
@@ -12,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class CmsAccountRegisterService {
 
@@ -22,6 +25,9 @@ public class CmsAccountRegisterService {
 
     @Autowired
     CmsEb13SendService cmsEb13SendService;
+
+    @Autowired
+    CmsTokenService cmsTokenService;
 
     private String str(Object v) { return v != null ? v.toString() : ""; }
 
@@ -90,6 +96,8 @@ public class CmsAccountRegisterService {
 
         if (member == null) return null;
 
+        if (!StringUtils.hasText(str(member.get("bank_account")))) return null;
+
         var param = new MapSqlParameterSource();
         param.addValue("spjangcd",      spjangcd);
         param.addValue("memberId",      memberId);
@@ -135,16 +143,31 @@ public class CmsAccountRegisterService {
                 .stream().map(r -> ((Number)r.get("id")).longValue()).collect(Collectors.toList());
 
         int sent = 0, failed = 0;
+        String applyDate = java.time.LocalDate.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
 
         if (!ei13Needed.isEmpty()) {
+
             Map<String, Object> ei13Result = cmsEi13SendService.send(ei13Needed);
-            // EI13 실패 건수 반영
+
             failed += ei13Result.get("failed") != null ? ((Number)ei13Result.get("failed")).intValue() : 0;
             int ei13Sent = ei13Result.get("sent") != null ? ((Number)ei13Result.get("sent")).intValue() : 0;
 
             if (ei13Sent == 0) {
-                // EI13 전부 실패면 EB13 시도 안 함
                 return Map.of("sent", sent, "failed", failed);
+            }
+
+            // EI13 금결원 검증 확인
+            try {
+                JsonNode statusNode = cmsTokenService.getFileStatus(spjangcd, "EI13", applyDate, true);
+                int fileStatus = statusNode.path("data").path("file_status").asInt(-1);
+                log.info("[Register] EI13 파일상태 spjangcd={} fileStatus={}", spjangcd, fileStatus);
+                if (fileStatus >= 2 && fileStatus <= 4) {
+                    log.warn("[Register] EI13 센터오류 fileStatus={}", fileStatus);
+                    return Map.of("sent", 0, "failed", ei13Needed.size());
+                }
+            } catch (Exception e) {
+                log.warn("[Register] EI13 상태확인 실패 (무시): {}", e.getMessage());
             }
         }
 
@@ -154,9 +177,40 @@ public class CmsAccountRegisterService {
                 .stream().map(r -> ((Number)r.get("id")).longValue()).collect(Collectors.toList());
 
         if (!eb13Needed.isEmpty()) {
+
             Map<String, Object> eb13Result = cmsEb13SendService.send(eb13Needed);
             sent  += eb13Result.get("sent")   != null ? ((Number)eb13Result.get("sent")).intValue()   : 0;
             failed += eb13Result.get("failed") != null ? ((Number)eb13Result.get("failed")).intValue() : 0;
+
+            // EB13 금결원 검증 확인
+            if (sent > 0) {
+                try {
+                    JsonNode statusNode = cmsTokenService.getFileStatus(spjangcd, "EB13", applyDate, true);
+                    int fileStatus = statusNode.path("data").path("file_status").asInt(-1);
+                    log.info("[Register] EB13 파일상태 spjangcd={} fileStatus={}", spjangcd, fileStatus);
+                    if (fileStatus >= 2 && fileStatus <= 4) {
+                        String validationMsg = statusNode.path("data").path("validation_message").asText("");
+                        log.warn("[Register] EB13 센터오류 fileStatus={} msg={}", fileStatus, validationMsg);
+
+                        // cms_account_register eb13_status FAILED
+                        sqlRunner.execute(/* skip_tenant_check */
+                                """
+                                UPDATE cms_account_register
+                                SET eb13_status='FAILED', status='FAILED',
+                                    memo=:msg, _modified=NOW()
+                                WHERE id IN (:ids) AND spjangcd=:spjangcd
+                                """,
+                                new MapSqlParameterSource("ids", eb13Needed)
+                                        .addValue("spjangcd", spjangcd)
+                                        .addValue("msg", "금결원 센터오류 (status=" + fileStatus + "): " + validationMsg));
+
+                        sent = 0;
+                        failed += eb13Needed.size();
+                    }
+                } catch (Exception e) {
+                    log.warn("[Register] EB13 상태확인 실패 (무시): {}", e.getMessage());
+                }
+            }
         }
 
         return Map.of("sent", sent, "failed", failed);
@@ -164,8 +218,12 @@ public class CmsAccountRegisterService {
 
     /** 재신청 — REJECTED 건 새 PENDING으로 INSERT */
     public Map<String, Object> reRegister(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of("sent", 0, "failed", 0);
+        }
         String spjangcd = TenantContext.get();
 
+        // 수정 — 조건 제거하고 ids로만 조회
         List<Map<String, Object>> targets = sqlRunner.getRows(/* skip_tenant_check */
                 """
                 SELECT id, member_id, member_name, member_no, bank_code, bank_account,
@@ -173,7 +231,6 @@ public class CmsAccountRegisterService {
                        agree_file_path, ei13_sent_at, ei13_status, eb13_status, status
                 FROM cms_account_register
                 WHERE id IN (:ids) AND spjangcd = :spjangcd
-                  AND (status = 'REJECTED' OR ei13_status = 'FAILED' OR eb13_status = 'FAILED')
                 """,
                 new MapSqlParameterSource("ids", ids).addValue("spjangcd", spjangcd));
 
@@ -202,12 +259,11 @@ public class CmsAccountRegisterService {
                 boolean ei13Valid = false;
                 if (ei13SentAtObj != null) {
                     java.sql.Timestamp ei13SentAt = (java.sql.Timestamp) ei13SentAtObj;
-                    ei13Valid = ei13SentAt.toLocalDateTime()
-                            .isAfter(java.time.LocalDateTime.now().minusHours(24));
+                    ei13Valid = ei13SentAt.toLocalDateTime().toLocalDate()
+                            .isEqual(java.time.LocalDate.now());
                 }
 
                 if (ei13Valid) {
-                    // 24시간 이내 → EB13만 리셋
                     sqlRunner.execute(/* skip_tenant_check */
                             """
                             UPDATE cms_account_register
@@ -217,7 +273,7 @@ public class CmsAccountRegisterService {
                             """,
                             new MapSqlParameterSource("id", existingId));
                 } else {
-                    // 24시간 초과 → 전체 리셋
+                    // 날짜 변경 → 전체 리셋
                     sqlRunner.execute(/* skip_tenant_check */
                             """
                             UPDATE cms_account_register
@@ -228,6 +284,17 @@ public class CmsAccountRegisterService {
                             """,
                             new MapSqlParameterSource("id", existingId));
                 }
+            }  else {
+                // 추가 — 취소 등 나머지 케이스 → 전체 리셋
+                sqlRunner.execute(/* skip_tenant_check */
+                        """
+                        UPDATE cms_account_register
+                        SET ei13_status='PENDING', eb13_status='PENDING',
+                            status='PENDING', memo=NULL,
+                            ei13_sent_at=NULL, eb13_sent_at=NULL, _modified=NOW()
+                        WHERE id = :id
+                        """,
+                        new MapSqlParameterSource("id", existingId));
             }
             registerIds.add(existingId);
         }

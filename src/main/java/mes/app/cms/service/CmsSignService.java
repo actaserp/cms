@@ -176,7 +176,7 @@ public class CmsSignService {
         String objectKey = saveAgreeFile(registerId, spjangcd, pdfBytes, String.valueOf(member.get("member_name")));
 
         sqlRunner.execute(/* skip_tenant_check */
-                "UPDATE cms_account_register SET agree_file_path = :filePath WHERE id = :id AND spjangcd = :spjangcd",
+                "UPDATE cms_account_register SET agree_file_path = :filePath, agree_ext = 'pdf', agree_type = '3' WHERE id = :id AND spjangcd = :spjangcd",
                 new MapSqlParameterSource()
                         .addValue("filePath", objectKey)
                         .addValue("id", registerId)
@@ -470,7 +470,9 @@ public class CmsSignService {
         String ext = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
         java.util.List<String> allowed = java.util.Arrays.asList("pdf", "jpg", "jpeg", "png", "gif", "tif");
         if (!allowed.contains(ext)) throw new IllegalStateException("허용되지 않는 파일 형식입니다. (pdf, jpg, jpeg, png, gif, tif)");
-
+        if (file.getSize() > 300 * 1024) {
+            throw new IllegalStateException("동의자료 파일은 300KB 이하만 업로드 가능합니다.");
+        }
         // 은행코드 조회
         String bankCode = getBankCodeByName(bankName);
 
@@ -531,9 +533,10 @@ public class CmsSignService {
 
         // 4. agree_file_path 업데이트
         sqlRunner.execute(/* skip_tenant_check */
-                "UPDATE cms_account_register SET agree_file_path = :filePath WHERE id = :id AND spjangcd = :spjangcd",
+                "UPDATE cms_account_register SET agree_file_path = :filePath, agree_ext = :ext WHERE id = :id AND spjangcd = :spjangcd",
                 new MapSqlParameterSource()
                         .addValue("filePath", objectKey)
+                        .addValue("ext", ext)
                         .addValue("id", registerId)
                         .addValue("spjangcd", spjangcd));
 

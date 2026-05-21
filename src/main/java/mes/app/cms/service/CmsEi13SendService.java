@@ -1,5 +1,6 @@
 package mes.app.cms.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.jcraft.jsch.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +33,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class CmsEi13SendService {
 
-    private static final String FEATURE_CODE = "EB_FILE";
+    private static final String FEATURE_CODE = "EI13";
     private static final Charset EUC_KR = Charset.forName("EUC-KR");
 
     private final SqlRunner sqlRunner;
@@ -78,7 +79,7 @@ public class CmsEi13SendService {
 
         String applyDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String mmdd = applyDate.substring(4, 8);
-        String fileName = "EI13" + mmdd;
+        String fileName = "EI13" + mmdd + "_" + applyDate.substring(0, 4);
 
         int sent = 0, failed = 0;
         try {
@@ -94,16 +95,52 @@ public class CmsEi13SendService {
             String[] cred = cmsTokenService.getSftpSendCredential(spjangcd, "EI13", applyDate);
             sftpUpload(fileBytes, fileName, cred[0], cred[1]);
 
+            // cms_file INSERT
+            var fp = new MapSqlParameterSource();
+            fp.addValue("spjangcd",    spjangcd);
+            fp.addValue("fileName",    fileName);
+            fp.addValue("filePath",    objectKey);
+            fp.addValue("targetDate",  applyDate);
+            fp.addValue("recordCount", targets.size());
+            Map<String, Object> fileRow = sqlRunner.getRow(/* skip_tenant_check */
+                    """
+                    INSERT INTO cms_file (
+                        spjangcd, file_name, file_type, file_path,
+                        target_date, billing_count, billing_amount,
+                        send_status, send_type, sent_at,
+                        _creater_id, _created, _modifier_id, _modified
+                    ) VALUES (
+                        :spjangcd, :fileName, 'EI13', :filePath,
+                        CAST(:targetDate AS DATE), :recordCount, 0,
+                        'SENT', 'SFTP', NOW(),
+                        'SYSTEM', NOW(), 'SYSTEM', NOW()
+                    ) RETURNING id
+                    """, fp);
+            long fileId = ((Number) fileRow.get("id")).longValue();
+
+            // cms_file_register 매핑
+            int seq = 1;
+            for (Map<String, Object> t : targets) {
+                long registerId = ((Number) t.get("id")).longValue();
+                sqlRunner.execute(/* skip_tenant_check */
+                        """
+                        INSERT INTO cms_file_register (file_id, register_id, line_seq)
+                        VALUES (:fileId, :registerId, :seq)
+                        """,
+                        new MapSqlParameterSource("fileId", fileId)
+                                .addValue("registerId", registerId)
+                                .addValue("seq", seq++));
+            }
+
             // 상태 업데이트
             var param = new MapSqlParameterSource();
             param.addValue("ids", registerIds);
-            param.addValue("filePath", objectKey);
             param.addValue("applyDate", applyDate);
             sqlRunner.execute(/* skip_tenant_check */
                     """
                     UPDATE cms_account_register
                     SET ei13_status='SENT', ei13_sent_at=NOW(),
-                        ei13_file_path=:filePath, apply_date=:applyDate, _modified=NOW()
+                        apply_date=:applyDate, _modified=NOW()
                     WHERE id IN (:ids)
                     """, param);
 
@@ -241,8 +278,9 @@ public class CmsEi13SendService {
             channel.put(bis, fileName);
             log.info("[CmsEi13] SFTP 업로드 완료: {}", fileName);
         } catch (SftpException e) {
-            if (e.getMessage() != null && e.getMessage().contains("End of IO")) {
-                log.warn("[CmsEi13] SFTP 서버 강제종료(정상): {}", e.getMessage());
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            if (msg.contains("End of IO") || msg.contains("inputstream is closed")) {
+                log.warn("[CmsEi13] SFTP 서버 강제종료(정상): {}", msg);
             } else {
                 throw e;
             }

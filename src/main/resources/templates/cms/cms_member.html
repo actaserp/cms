@@ -213,6 +213,9 @@
                                 <th style="padding:5px; border:1px solid #ddd; text-align:center;">출금계좌번호</th>
                                 <td colspan="3" style="padding:5px; border:1px solid #ddd;">
                                     <input type="text" id="bank_account" name="bank_account" placeholder="하이픈 제외">
+                                    <div style="font-size:11px; color:#4a6cf7; margin-top:3px;">
+                                        계좌 정보를 입력하면 출금이체 인증 신청이 자동으로 생성됩니다.
+                                    </div>
                                 </td>
                             </tr>
                             </tbody>
@@ -620,7 +623,11 @@
         applyMemberTypeLabel(type);
 
         $('#member_name').val(item.member_name || '');
-        $('#member_no').val(item.member_no || '');
+        $('#member_no')
+            .val(item.member_no || '')
+            .prop('readonly', true)
+            .css({'background': '#f5f6fa', 'color': '#888'})
+            .attr('placeholder', '');
         $('#id_number').val(item.id_number || '');
         $('#phone').val(item.phone || '');
         $('#email').val(item.email || '');
@@ -712,12 +719,22 @@
         $('#pause_reason').val('');
         $('#sign_url').val('');
         $('#btnCopySignUrl').hide();
+        $('#member_no')
+            .prop('readonly', false)
+            .css({'background': '', 'color': ''})
+            .attr('placeholder', '비워두면 자동생성');
     }
 
     function saveMember() {
         if (!$('#member_name').val()) {
             Alert.alert('', '납부자명을 입력해주세요.');
             $('#member_name').focus();
+            return;
+        }
+        var memberNo = $('#member_no').val();
+        if (memberNo && !/^[A-Z0-9]+$/.test(memberNo)) {
+            Alert.alert('', '납부자번호는 영문 대문자와 숫자만 입력 가능합니다.');
+            $('#member_no').focus();
             return;
         }
 

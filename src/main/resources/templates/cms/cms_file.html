@@ -1,0 +1,406 @@
+<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .wj-header { text-align: center !important; }
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 11px; font-weight: 600; }
+        .status-PENDING   { background: #fff3cd; color: #856404; }
+        .status-SENT      { background: #d4edda; color: #155724; }
+        .status-FAILED    { background: #f8d7da; color: #721c24; }
+        .status-RECEIVED  { background: #d1ecf1; color: #0c5460; }
+        .status-CANCELLED { background: #e2e3e5; color: #383d41; }
+        .type-EI13 { background: #d4edda; color: #155724; }
+        .type-EB13 { background: #e2d9f3; color: #4a235a; }
+        .type-EB14 { background: #fde8d8; color: #7d3c0a; }
+        .type-EB21 { background: #e2d9f3; color: #4a235a; }
+        .type-EB22 { background: #fde8d8; color: #7d3c0a; }
+        .type-EC21 { background: #cce5ff; color: #004085; }
+        .type-EC22 { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>파일 관리</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>관리자 메뉴</li>
+                <li>파일 관리</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt><label>날짜(from)</label></dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="date" class="form-control2" id="srchDateFrom" style="width:140px;">
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt><label>날짜(to)</label></dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="date" class="form-control2" id="srchDateTo" style="width:140px;">
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt><label>파일유형</label></dt>
+                        <dd>
+                            <select id="srchFileType" class="form-control2" style="min-width:220px;">
+                                <option value="">전체</option>
+                                <option value="EI13">출금동의증빙자료 (EI13)</option>
+                                <option value="EB13">출금이체신청 (EB13)</option>
+                                <option value="EB14">출금이체신청결과 (EB14)</option>
+                                <option value="EB21">익일출금신청 (EB21)</option>
+                                <option value="EB22">익일출금신청결과 (EB22)</option>
+                                <option value="EC21">당일출금신청 (EC21)</option>
+                                <option value="EC22">당일출금신청결과 (EC22)</option>
+                            </select>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt><label>전송상태</label></dt>
+                        <dd>
+                            <select id="srchSendStatus" class="form-control2" style="min-width:90px;">
+                                <option value="">전체</option>
+                                <option value="PENDING">대기</option>
+                                <option value="SENT">완료</option>
+                                <option value="FAILED">오류</option>
+                                <option value="CANCELLED">전송취소</option>
+                                <option value="RECEIVED">결과수신</option>
+                            </select>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt><span class="eq"></span></dt>
+                        <dd>
+                            <li><a class="btn btn-delete" id="btnSearch">
+                                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색">검색</a></li>
+                        </dd>
+                    </dl>
+                </div>
+
+                <div style="padding: 6px 0; display:flex; gap:4px; align-items:center;">
+                    <button type="button" class="btn-default" id="btnGenerate"
+                            style="width:130px; background:#4a6cf7; color:#fff;">파일 수동생성</button>
+                    <button type="button" class="btn-default" id="btnDownload">다운로드</button>
+                    <button type="button" class="btn-default" id="btnSendSftp"
+                            style="background:#17a2b8; color:#fff;">SFTP전송</button>
+                    <button type="button" class="btn-default" id="btnCheckStatus"
+                            style="background:#6f42c1; color:#fff; width:120px;">금결원 상태확인</button>
+                    <button type="button" class="btn-default" id="btnCheckError"
+                            style="background:#fd7e14; color:#fff; width:120px;">센터오류 조회</button>
+                    <button type="button" class="btn-default" id="btnCancelFile"
+                            style="background:#dc3545; color:#fff;">전송취소</button>
+                    <button type="button" class="btn-danger" id="btnDel">삭제</button>
+                </div>
+            </div>
+
+            <div class="container-fluid">
+                <div id="theGrid"></div>
+            </div>
+        </section>
+    </div>
+
+    <!-- 수동생성 모달 -->
+    <div id="modalGenerate" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+         background:rgba(0,0,0,0.4); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:28px 32px; min-width:320px; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 16px; font-size:15px;">파일 수동 생성</h3>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
+                <tr>
+                    <th style="padding:6px 8px; text-align:left; white-space:nowrap; color:#555;">파일유형</th>
+                    <td style="padding:6px 8px;">
+                        <select id="genFileType" class="form-control2" style="width:200px;">
+                            <option value="EB21">익일출금신청 (EB21)</option>
+                            <option value="EC21">당일출금신청 (EC21)</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th style="padding:6px 8px; text-align:left; white-space:nowrap; color:#555;">출금일자</th>
+                    <td style="padding:6px 8px;">
+                        <input type="date" id="genTargetDate" class="form-control2" style="width:160px;">
+                    </td>
+                </tr>
+            </table>
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" class="btn-default" id="btnModalOk"
+                        style="background:#4a6cf7; color:#fff;">생성</button>
+                <button type="button" class="btn-default" id="btnModalCancel">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <footer style="margin-top: 24px;">
+        <p>Copyright&#169; 0000 corp. All rights reserved.</p>
+    </footer>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        var theGrid;
+        var viewdata;
+
+        var FILE_TYPE_MAP = {
+            EI13: '출금동의증빙자료',
+            EB13: '출금이체신청',
+            EB14: '출금이체신청결과',
+            EB21: '익일출금신청',
+            EB22: '익일출금신청결과',
+            EC21: '당일출금신청',
+            EC22: '당일출금신청결과'
+        };
+        var SEND_STATUS_MAP = {
+            PENDING: '대기', SENT: '완료', FAILED: '오류',
+            RECEIVED: '결과수신', CANCELLED: '전송취소'
+        };
+        var FILE_STATUS_MAP = {
+            0: '전송오류(재전송필요)', 1: '센터수신중', 2: '센터오류', 3: '센터오류',
+            4: '센터오류(재전송필요)', 5: '송신취소', 6: '수신가능', 7: '검증오류',
+            8: '송신완료', 9: '수신기한경과', 10: '송신불능', 11: '센터검증중'
+        };
+
+        var columns = [
+            {binding: 'id',            header: 'ID',         width: 60,  align: 'center', visible: false},
+            {binding: 'file_name',     header: '파일명',     width: 180, align: 'left'},
+            {binding: 'file_type',     header: '유형',       width: 150, align: 'center',
+                cellTemplate: function(ctx) {
+                    var label = FILE_TYPE_MAP[ctx.value] || ctx.value || '';
+                    return '<span class="status-badge type-' + ctx.value + '">' + label + '</span>';
+                }},
+            {binding: 'target_date',   header: '대상일자',   width: 110, align: 'center'},
+            {binding: 'send_status',   header: '전송상태',   width: 90,  align: 'center',
+                cellTemplate: function(ctx) {
+                    var label = SEND_STATUS_MAP[ctx.value] || ctx.value || '';
+                    return '<span class="status-badge status-' + ctx.value + '">' + label + '</span>';
+                }},
+            {binding: '_created',      header: '생성일시',   width: 170, align: 'center'},
+            {binding: 'sent_at_kst',   header: '전송일시',   width: 170, align: 'center'},
+            {binding: 'error_message', header: '에러메시지', width: 300, align: 'left'}
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            var now = new Date();
+            var y = now.getFullYear(), m = now.getMonth() + 1;
+            var firstDay = y + '-' + String(m).padStart(2,'0') + '-01';
+            var lastDay  = new Date(y, m, 0);
+            var lastStr  = y + '-' + String(m).padStart(2,'0') + '-' + String(lastDay.getDate()).padStart(2,'0');
+            $('#srchDateFrom').val(firstDay);
+            $('#srchDateTo').val(lastStr);
+            searchList();
+        }
+
+        function searchList() {
+            $.ajax({
+                url: withCtx('/api/cms/cms-files'),
+                type: 'GET',
+                data: {
+                    date_from:   $('#srchDateFrom').val(),
+                    date_to:     $('#srchDateTo').val(),
+                    file_type:   $('#srchFileType').val(),
+                    send_status: $('#srchSendStatus').val()
+                },
+                success: function(result) {
+                    if (result.success) {
+                        if (theGrid) theGrid.dispose();
+                        bindGrid(result.data);
+                    }
+                }
+            });
+        }
+
+        function bindGrid(data) {
+            viewdata = new wijmo.collections.CollectionView(data);
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+            theGrid.rowHeaders.columns.splice(0, 1);
+        }
+
+        function selectedItem() {
+            return theGrid && theGrid.selectedItems.length > 0 ? theGrid.selectedItems[0] : null;
+        }
+
+        function apiPrefix(fileType) {
+            if (!fileType) return 'cms-files';
+            if (fileType.startsWith('EC')) return 'ec-files';
+            if (fileType.startsWith('EB')) return 'eb-files';
+            return 'cms-files';
+        }
+
+        function downloadFile() {
+            var item = selectedItem();
+            if (!item) { Alert.alert('', '다운로드할 파일을 선택하세요.'); return; }
+            window.location.href = withCtx('/api/cms/cms-files/' + item.id + '/download');
+        }
+
+        function sendSftp() {
+            var item = selectedItem();
+            if (!item) { Alert.alert('', 'SFTP 전송할 파일을 선택하세요.'); return; }
+            if (item.send_status !== 'PENDING') {
+                Alert.alert('', 'PENDING(대기) 상태인 파일만 SFTP 전송할 수 있습니다.'); return;
+            }
+            Alert.confirm('', '[' + item.file_name + '] 파일을 SFTP 전송하시겠습니까?', function() {
+                AjaxUtil.postAsyncData('/api/cms/' + apiPrefix(item.file_type) + '/' + item.id + '/send-sftp', {}, function(result) {
+                    if (result.success) {
+                        Alert.alert('', 'SFTP 전송이 완료되었습니다.');
+                        searchList();
+                    } else {
+                        Alert.alert('전송 실패', result.message);
+                    }
+                });
+            });
+        }
+
+        function deleteFile() {
+            var item = selectedItem();
+            if (!item) { Alert.alert('', '삭제할 파일을 선택하세요.'); return; }
+            if (item.send_status !== 'PENDING') {
+                Alert.alert('', 'PENDING(대기) 상태인 파일만 삭제할 수 있습니다.'); return;
+            }
+            Alert.confirm('', '[' + item.file_name + '] 파일을 삭제하시겠습니까?\n연결된 청구 건의 상태가 PENDING으로 복원됩니다.', function() {
+                $.ajax({
+                    url: withCtx('/api/cms/' + apiPrefix(item.file_type) + '/' + item.id),
+                    type: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
+                    success: function(result) {
+                        if (result.success) {
+                            Alert.alert('', '삭제되었습니다.');
+                            searchList();
+                        } else {
+                            Alert.alert('삭제 실패', result.message);
+                        }
+                    }
+                });
+            });
+        }
+
+        function openGenerateModal() {
+            var selected = $('#srchFileType').val();
+            $('#genFileType').val((selected === 'EB21' || selected === 'EC21') ? selected : 'EB21');
+            var now = new Date();
+            var tomorrow = new Date(now.getTime() + 86400000);
+            var ds = tomorrow.getFullYear() + '-'
+                + String(tomorrow.getMonth() + 1).padStart(2,'0') + '-'
+                + String(tomorrow.getDate()).padStart(2,'0');
+            $('#genTargetDate').val(ds);
+            $('#modalGenerate').css('display', 'flex');
+        }
+
+        function doGenerate() {
+            var targetDate = $('#genTargetDate').val();
+            var fileType   = $('#genFileType').val();
+            if (!targetDate) { Alert.alert('', '출금일자를 선택하세요.'); return; }
+            var url = fileType === 'EC21' ? '/api/cms/ec-files/generate' : '/api/cms/eb-files/generate';
+            $('#modalGenerate').hide();
+            AjaxUtil.postAsyncData(url,
+                { target_date: targetDate.replace(/-/g, '') },
+                function(result) {
+                    if (result.success && result.data) {
+                        var d = result.data;
+                        Alert.alert('', fileType + ' 파일이 생성되었습니다.\n파일명: ' + d.file_name
+                            + '\n청구건수: ' + d.billing_count
+                            + '\n청구금액: ' + Number(d.billing_amount).toLocaleString() + '원');
+                        searchList();
+                    } else {
+                        Alert.alert('생성 실패', result.message || '알 수 없는 오류');
+                    }
+                }
+            );
+        }
+
+        function checkFileStatus() {
+            var item = selectedItem();
+            if (!item) { Alert.alert('', '상태를 확인할 파일을 선택하세요.'); return; }
+            AjaxUtil.postAsyncData('/api/cms/cms-files/' + item.id + '/status', {}, function(result) {
+                if (result.success && result.data) {
+                    var d = result.data;
+                    var statusLabel = FILE_STATUS_MAP[d.file_status] !== undefined
+                        ? FILE_STATUS_MAP[d.file_status] + ' (' + d.file_status + ')' : d.file_status;
+                    var msg = '파일명: ' + d.file_name
+                        + '\n상태: ' + statusLabel
+                        + (d.validation_message ? '\n검증메시지: ' + d.validation_message : '');
+                    Alert.alert('금결원 파일 상태', msg);
+                } else {
+                    Alert.alert('조회 실패', result.message);
+                }
+            });
+        }
+
+        function cancelFile() {
+            var item = selectedItem();
+            if (!item) { Alert.alert('', '취소할 파일을 선택하세요.'); return; }
+            if (item.send_status !== 'SENT') {
+                Alert.alert('', '전송완료(SENT) 상태인 파일만 취소할 수 있습니다.'); return;
+            }
+            Alert.confirm('', '[' + item.file_name + '] 파일 전송을 취소하시겠습니까?', function() {
+                AjaxUtil.postAsyncData('/api/cms/cms-files/' + item.id + '/cancel', {}, function(result) {
+                    if (result.success) {
+                        Alert.alert('', '전송이 취소되었습니다.');
+                        searchList();
+                    } else {
+                        Alert.alert('취소 실패', result.message);
+                    }
+                });
+            });
+        }
+
+        function checkCenterError() {
+            var item = selectedItem();
+            if (!item) { Alert.alert('', '조회할 파일을 선택하세요.'); return; }
+            AjaxUtil.getAsyncData('/api/cms/cms-files/' + item.id + '/error', {}, function(result) {
+                if (result.success && result.data) {
+                    var d = result.data;
+                    if (!d || (Array.isArray(d) && d.length === 0)) {
+                        Alert.alert('센터 오류 조회', '오류 내역이 없습니다.'); return;
+                    }
+                    // 오류 내역 표시
+                    var msg = '';
+                    if (Array.isArray(d)) {
+                        d.forEach(function(e, i) {
+                            msg += (i+1) + '. 납부자번호: ' + (e.member_no || e.payer_no || '-')
+                                + '\n   오류코드: ' + (e.error_code || '-')
+                                + '\n   오류내용: ' + (e.error_message || '-') + '\n\n';
+                        });
+                    } else {
+                        msg = JSON.stringify(d, null, 2);
+                    }
+                    Alert.alert('센터 오류 조회', msg);
+                } else {
+                    Alert.alert('조회 실패', result.message);
+                }
+            });
+        }
+
+        $(document).ready(function() {
+            $('#btnSearch').click(searchList);
+            $('#btnGenerate').click(openGenerateModal);
+            $('#btnDownload').click(downloadFile);
+            $('#btnSendSftp').click(sendSftp);
+            $('#btnDel').click(deleteFile);
+            $('#btnModalOk').click(doGenerate);
+            $('#btnModalCancel').click(function() { $('#modalGenerate').hide(); });
+            $('#btnCancelFile').click(cancelFile);
+            $('#btnCheckStatus').click(checkFileStatus);
+            $('#btnCheckError').click(checkCenterError);
+        });
+    </script>
+</th:block>
+
+</html>
