@@ -2,6 +2,7 @@ package mes.app.definition;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import mes.app.cms.service.CmsTokenService;
+import mes.app.common.TenantContext;
 import mes.app.definition.service.WorkPlaceService;
 import mes.domain.entity.Tb_xa012;
 import mes.domain.entity.User;
@@ -247,11 +248,11 @@ public class WorkPlaceController {
         return result;
     }
 
-    @GetMapping("/detail/{spjangcd}")
+    @GetMapping("/detail")
     public AjaxResult getSpjangDetail(
-            @PathVariable String spjangcd,
             Authentication auth) {
         AjaxResult result = new AjaxResult();
+        String spjangcd = TenantContext.get();
         User user = (User) auth.getPrincipal();
         if (!isAdmin(auth) && !user.getSpjangcd().equals(spjangcd)) {
             result.success = false;

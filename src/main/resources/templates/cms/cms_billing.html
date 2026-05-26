@@ -97,7 +97,7 @@
                         </div>
                         <div style="display:flex; gap:4px; flex-wrap:wrap;">
                             <button type="button" class="btn-default" id="btnErpImport"
-                                    style="background:#e67e22; color:#fff;width: 120px;">ERP 가져오기</button>
+                                    style="background:#e67e22; color:#fff;width: 120px;display: none;">ERP 가져오기</button>
                             <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>
                             <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>
                             <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;">재청구</button>
@@ -454,6 +454,17 @@
             $('#billing_ym_input').val(ym);
 
             searchList();
+
+            $.ajax({
+                url: withCtx('/api/workplace/detail/'),
+                success: function(res) {
+                    if (res.data && res.data.erp) {
+                        $('#btnErpImport').show();
+                    } else {
+                        $('#btnErpImport').hide();
+                    }
+                }
+            });
         }
 
         function fmtDate8(v) {
