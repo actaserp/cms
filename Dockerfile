@@ -9,7 +9,7 @@ WORKDIR /app
 
 RUN mkdir -p /app/data/cms
 
-COPY mes-0.0.1-SNAPSHOT.jar app.jar
+COPY cms-0.0.1-SNAPSHOT.jar app.jar
 
 ENTRYPOINT ["java", \
   "-Dspring.profiles.active=cms,ncp", \
