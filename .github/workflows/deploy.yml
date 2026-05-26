@@ -11,10 +11,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'maven'
 
       - name: Grant execute permission for mvnw
         run: chmod +x ./mvnw
@@ -22,7 +23,7 @@ jobs:
       - name: Build JAR
         run: ./mvnw clean package -DskipTests
 
-      - name: Copy files to server
+      - name: Copy JAR to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
