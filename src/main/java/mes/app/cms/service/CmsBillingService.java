@@ -1004,4 +1004,236 @@ public class CmsBillingService {
         ORDER BY b.deduct_date
         """, param);
     }
+
+    /** ERP TB_DA023 → cms_billing 청구 가져오기 */
+    public Map<String, Object> importFromErp(String billingYm, String userId) {
+        String spjangcd = TenantContext.get();
+        int inserted = 0, skipped = 0;
+
+        // ERP 접속정보 조회
+        Map<String, Object> erp = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT host, port, db_name, username, password, custcd FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd));
+        if (erp == null) throw new IllegalStateException("ERP 접속정보가 없습니다.");
+
+        String custcd = str(erp.get("custcd"));
+        String dbUrl = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
+                str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
+
+        try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
+        catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
+
+        // 이미 가져온 erp_mis_key 목록 (중복 방지)
+        List<Map<String, Object>> existingKeys = sqlRunner.getRows(/* skip_tenant_check */
+                "SELECT erp_mis_key FROM cms_billing WHERE spjangcd = :spjangcd AND billing_ym = :billingYm AND erp_mis_key IS NOT NULL",
+                new MapSqlParameterSource("spjangcd", spjangcd).addValue("billingYm", billingYm));
+        java.util.Set<String> existingMisKeys = existingKeys.stream()
+                .map(r -> str(r.get("erp_mis_key")))
+                .collect(java.util.stream.Collectors.toSet());
+
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
+                dbUrl, str(erp.get("username")), str(erp.get("password")))) {
+
+            String sql = """
+            SELECT
+                A.cltcd,
+                A.actcd,
+                A.misdate,
+                A.misnum,
+                A.yyyymm,
+                D.BANKCLTCD,
+                (A.misamt - ISNULL(A.bamt,0) - ISNULL(A.jamt,0) - ISNULL(A.sunamt,0)
+                          - ISNULL(A.gamt,0) - ISNULL(A.csamt,0) - ISNULL(A.cmar,0)
+                          - ISNULL(A.dcamt,0)) AS billing_amount,
+                C1.cltnm AS member_name
+            FROM TB_DA023 A WITH(NOLOCK)
+            INNER JOIN TB_XCLIENT C1 WITH(NOLOCK)
+                ON A.cltcd = C1.cltcd AND C1.custcd = ?
+            INNER JOIN TB_CMSEB13 D WITH(NOLOCK)
+                ON A.cltcd = D.CLTCD AND D.custcd = ?
+            WHERE A.custcd = ?
+            AND RIGHT(A.yyyymm, 4) = ?
+            AND A.gubun IN (SELECT artcd FROM TB_DA020 WITH(NOLOCK) WHERE jgubun = '1')
+            AND D.SPFLAG = '1' AND D.ENDFLAG = 'Y'
+            AND C1.allchk = '1'
+            AND LEN(ISNULL(D.ACTCD,'')) = 0
+            AND (A.misamt - ISNULL(A.bamt,0) - ISNULL(A.jamt,0) - ISNULL(A.sunamt,0)
+                          - ISNULL(A.gamt,0) - ISNULL(A.csamt,0) - ISNULL(A.cmar,0)
+                          - ISNULL(A.dcamt,0)) > 0
+            AND (A.sangdate IS NULL OR LEN(ISNULL(A.sangdate,'')) = 0)
+            AND A.misdate + A.misnum NOT IN (
+                SELECT misdate + misnum FROM TB_CMSEB21 WITH(NOLOCK)
+                WHERE ENDFLAG = 'Y' AND BANKCLTCD = D.BANKCLTCD)
+            AND A.misdate + A.misnum NOT IN (
+                SELECT misdate + misnum FROM TB_CMSEC21 WITH(NOLOCK)
+                WHERE ENDFLAG = 'Y' AND BANKCLTCD = D.BANKCLTCD)
+            AND A.misdate + A.misnum NOT IN (
+                SELECT misdate + misnum FROM TB_DA026 WITH(NOLOCK))
+
+            UNION
+
+            SELECT
+                A.actcd AS cltcd,
+                A.actcd,
+                A.misdate,
+                A.misnum,
+                A.yyyymm,
+                D.BANKCLTCD,
+                (A.misamt - ISNULL(A.bamt,0) - ISNULL(A.jamt,0) - ISNULL(A.sunamt,0)
+                          - ISNULL(A.gamt,0) - ISNULL(A.csamt,0) - ISNULL(A.cmar,0)
+                          - ISNULL(A.dcamt,0)) AS billing_amount,
+                F.actnm AS member_name
+            FROM TB_DA023 A WITH(NOLOCK)
+            INNER JOIN TB_E101 C WITH(NOLOCK)
+                ON A.actcd = C.actcd AND C.custcd = ? AND C.contg <> '04' AND C.cmsflag = '1'
+            INNER JOIN TB_CMSEB13 D WITH(NOLOCK)
+                ON A.actcd = D.actcd AND D.custcd = ?
+            INNER JOIN TB_E601 F WITH(NOLOCK)
+                ON A.spjangcd = F.spjangcd AND A.actcd = F.actcd
+            WHERE A.custcd = ?
+            AND RIGHT(A.yyyymm, 4) = ?
+            AND A.gubun IN (SELECT artcd FROM TB_DA020 WITH(NOLOCK) WHERE jgubun = '1')
+            AND D.SPFLAG = '1' AND D.ENDFLAG = 'Y'
+            AND LEN(ISNULL(D.ACTCD,'')) > 0
+            AND (A.misamt - ISNULL(A.bamt,0) - ISNULL(A.jamt,0) - ISNULL(A.sunamt,0)
+                          - ISNULL(A.gamt,0) - ISNULL(A.csamt,0) - ISNULL(A.cmar,0)
+                          - ISNULL(A.dcamt,0)) > 0
+            AND (A.sangdate IS NULL OR LEN(ISNULL(A.sangdate,'')) = 0)
+            AND A.misdate + A.misnum NOT IN (
+                SELECT misdate + misnum FROM TB_CMSEB21 WITH(NOLOCK)
+                WHERE ENDFLAG = 'Y' AND BANKCLTCD = D.BANKCLTCD)
+            AND A.misdate + A.misnum NOT IN (
+                SELECT misdate + misnum FROM TB_CMSEC21 WITH(NOLOCK)
+                WHERE ENDFLAG = 'Y' AND BANKCLTCD = D.BANKCLTCD)
+            AND A.misdate + A.misnum NOT IN (
+                SELECT misdate + misnum FROM TB_DA026 WITH(NOLOCK))
+            """;
+
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, custcd);
+                ps.setString(2, custcd);
+                ps.setString(3, custcd);
+                ps.setString(4, billingYm);
+                ps.setString(5, custcd);
+                ps.setString(6, custcd);
+                ps.setString(7, custcd);
+                ps.setString(8, billingYm);
+
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String cltcd         = rs.getString("cltcd");
+                        String misdate       = rs.getString("misdate");
+                        String misnum        = rs.getString("misnum");
+                        String misKey        = misdate + misnum;
+                        String bankcltcd     = rs.getString("BANKCLTCD");
+                        double billingAmount = rs.getDouble("billing_amount");
+
+                        if (billingAmount <= 0) { skipped++; continue; }
+
+                        // 이미 가져온 건 제외
+                        if (existingMisKeys.contains(misKey)) { skipped++; continue; }
+
+                        // cms_member 조회 — BANKCLTCD → member_no 우선, 없으면 cltcd로 fallback
+                        Map<String, Object> member = null;
+                        if (StringUtils.hasText(bankcltcd)) {
+                            member = sqlRunner.getRow(/* skip_tenant_check */
+                                    """
+                                    SELECT id, member_name, member_no, bank_code, bank_account,
+                                           account_holder, deduct_day
+                                    FROM cms_member
+                                    WHERE spjangcd = :spjangcd AND member_no = :memberNo
+                                    """,
+                                    new MapSqlParameterSource("spjangcd", spjangcd)
+                                            .addValue("memberNo", bankcltcd));
+                        }
+                        if (member == null) {
+                            member = sqlRunner.getRow(/* skip_tenant_check */
+                                    """
+                                    SELECT id, member_name, member_no, bank_code, bank_account,
+                                           account_holder, deduct_day
+                                    FROM cms_member
+                                    WHERE spjangcd = :spjangcd AND cltcd = :cltcd
+                                    """,
+                                    new MapSqlParameterSource("spjangcd", spjangcd)
+                                            .addValue("cltcd", cltcd));
+                        }
+                        if (member == null) {
+                            log.warn("[ERP청구] cms_member 없음 cltcd={} bankcltcd={}", cltcd, bankcltcd);
+                            skipped++;
+                            continue;
+                        }
+
+                        // 출금일 계산
+                        String deductDay  = str(member.get("deduct_day"));
+                        String deductDate = calcDeductDate(billingYm, deductDay);
+                        String sendDate   = cmsHolidayService.getPrevBusinessDay(deductDate);
+
+                        // cms_billing INSERT
+                        var param = new MapSqlParameterSource();
+                        param.addValue("spjangcd",      spjangcd);
+                        param.addValue("billingYm",     billingYm);
+                        param.addValue("memberId",      member.get("id"));
+                        param.addValue("memberName",    member.get("member_name"));
+                        param.addValue("memberNo",      member.get("member_no"));
+                        param.addValue("bankCode",      member.get("bank_code"));
+                        param.addValue("bankAccount",   member.get("bank_account"));
+                        param.addValue("accountHolder", member.get("account_holder"));
+                        param.addValue("deductDay",     deductDay);
+                        param.addValue("billingAmount", (long) billingAmount);
+                        param.addValue("deductDate",    deductDate);
+                        param.addValue("sendDate",      sendDate);
+                        param.addValue("erpMisKey",     misKey);
+                        param.addValue("userId",        userId);
+
+                        sqlRunner.execute(/* skip_tenant_check */
+                                """
+                                INSERT INTO cms_billing (
+                                    spjangcd, billing_ym, billing_seq,
+                                    member_id, member_name, member_no,
+                                    bank_code, bank_account, account_holder,
+                                    deduct_day, billing_amount, deduct_date, send_date,
+                                    deduct_type, status, erp_mis_key,
+                                    _creater_id, _created, _modifier_id, _modified
+                                ) VALUES (
+                                    :spjangcd, :billingYm,
+                                    (SELECT COALESCE(MAX(CAST(billing_seq AS BIGINT)), 0) + 1
+                                     FROM cms_billing WHERE spjangcd = :spjangcd AND billing_ym = :billingYm),
+                                    :memberId, :memberName, :memberNo,
+                                    :bankCode, :bankAccount, :accountHolder,
+                                    :deductDay, :billingAmount, :deductDate, :sendDate,
+                                    'EB', 'PENDING', :erpMisKey,
+                                    :userId, NOW(), :userId, NOW()
+                                )
+                                """, param);
+                        inserted++;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("[ERP청구] 실패 spjangcd={}: {}", spjangcd, e.getMessage(), e);
+            throw new IllegalStateException("ERP 청구 가져오기 실패: " + e.getMessage());
+        }
+
+        log.info("[ERP청구] 완료 spjangcd={} 신규={} 건너뜀={}", spjangcd, inserted, skipped);
+        return Map.of("inserted", inserted, "skipped", skipped);
+    }
+
+    private String calcDeductDate(String yyyymm, String deductDay) {
+        if (!StringUtils.hasText(deductDay)) deductDay = "25";
+        int year  = Integer.parseInt(yyyymm.substring(0, 4));
+        int month = Integer.parseInt(yyyymm.substring(4, 6));
+        LocalDate base = LocalDate.of(year, month, 1);
+
+        if ("99".equals(deductDay)) {
+            LocalDate lastDay = base.withDayOfMonth(base.lengthOfMonth());
+            return cmsHolidayService.getPrevBusinessDay(
+                    lastDay.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+        }
+        int day = Integer.parseInt(deductDay);
+        if (day > base.lengthOfMonth()) day = base.lengthOfMonth();
+        return cmsHolidayService.getNextBusinessDay(
+                LocalDate.of(year, month, day).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+    }
+
+    private String str(Object v) { return v != null ? v.toString() : ""; }
 }

@@ -412,4 +412,19 @@ public class CmsBillingController {
         }
         return result;
     }
+
+    @PostMapping("/import-from-erp")
+    public AjaxResult importFromErp(
+            @RequestParam("billing_ym") String billingYm,
+            Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        try {
+            result.data = cmsBillingService.importFromErp(billingYm, user.getUsername());
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
 }
