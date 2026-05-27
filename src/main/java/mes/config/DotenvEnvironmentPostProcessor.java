@@ -51,6 +51,16 @@ public class DotenvEnvironmentPostProcessor
                 System.setProperty(k, v.toString());
             }
         });
+
+        // 이 아래에 추가
+        System.out.println("[DotenvLoader] 로드된 키 목록:");
+        map.forEach((k, v) -> {
+            String masked = v.toString().length() > 4
+                    ? v.toString().substring(0, 4) + "****"
+                    : "****";
+            System.out.println("  " + k + " = " + masked);
+        });
+        System.out.println("[DotenvLoader] confPath = " + resolveConfPath());
     }
 
     private String resolveConfPath() {
