@@ -180,7 +180,7 @@ public class FilesController {
 			return;
 		}
 
-		String objectKey = "guide/ACTAS_시스템설정_매뉴얼.pdf";
+		String objectKey = "guide/ACTAS_CMS_사용자매뉴얼.pdf";
 
 		try (ResponseInputStream<GetObjectResponse> s3Stream = storageService.download(objectKey);
 			 BufferedOutputStream out = new BufferedOutputStream(response.getOutputStream())) {

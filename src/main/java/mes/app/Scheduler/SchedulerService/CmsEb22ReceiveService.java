@@ -61,12 +61,12 @@ public class CmsEb22ReceiveService {
                 """
                 SELECT f.spjangcd, TO_CHAR(f.target_date, 'YYYYMMDD') AS target_date, f.id AS file_id
                 FROM cms_file f
-                WHERE f.file_type = 'EB_REQUEST'
+                WHERE f.file_type = 'EB21'
                   AND f.send_status = 'SENT'
                   AND NOT EXISTS (
                       SELECT 1 FROM cms_file r
                       WHERE r.spjangcd = f.spjangcd
-                        AND r.file_type = 'EB_RESULT'
+                        AND r.file_type = 'EB22'
                         AND r.target_date = f.target_date
                   )
                 """,
@@ -118,7 +118,7 @@ public class CmsEb22ReceiveService {
             log.warn("[CmsEb22Receive] NCP 업로드 실패 (처리는 계속): {}", e.getMessage());
         }
 
-        // cms_file(EB_RESULT) INSERT
+        // cms_file(EB22) INSERT
         long resultFileId = -1L;
         Map<String, Object> resultFileRow = sqlRunner.getRow(/* skip_tenant_check */
                 """
@@ -127,7 +127,7 @@ public class CmsEb22ReceiveService {
                     target_date, billing_count, billing_amount,
                     send_status, _creater_id, _created, _modifier_id, _modified, send_type
                 ) VALUES (
-                    :spjangcd, :fileName, 'EB_RESULT', :filePath,
+                    :spjangcd, :fileName, 'EB22', :filePath,
                     CAST(:targetDate AS DATE), 0, 0,
                     'RECEIVED', 'SYSTEM', NOW(), 'SYSTEM', NOW(), 'SFTP'
                 ) RETURNING id
@@ -483,7 +483,7 @@ public class CmsEb22ReceiveService {
                     SELECT COUNT(*) as cnt FROM cms_file
                     WHERE spjangcd = :spjangcd
                       AND file_name = :fileName
-                      AND file_type = 'EB_RESULT'
+                      AND file_type = 'EB22'
                       AND target_date = CAST(:targetDate AS DATE)
                     """,
                     new MapSqlParameterSource()
@@ -534,7 +534,7 @@ public class CmsEb22ReceiveService {
                     """
                     SELECT id FROM cms_file
                     WHERE spjangcd = :spjangcd
-                      AND file_type = 'EB_REQUEST'
+                      AND file_type = 'EB21'
                       AND target_date = CAST(:targetDate AS DATE)
                       AND send_status = 'SENT'
                     """,

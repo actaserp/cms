@@ -181,7 +181,7 @@ public class CmsEb21SendService {
                     target_date, billing_count, billing_amount,
                     send_status, _creater_id, _created, _modifier_id, _modified
                 ) VALUES (
-                    :spjangcd, :fileName, 'EB_REQUEST', :filePath,
+                    :spjangcd, :fileName, 'EB21', :filePath,
                     CAST(:targetDate AS DATE), :billingCount, :billingAmount,
                     'PENDING', 'SYSTEM', NOW(), 'SYSTEM', NOW()
                 ) RETURNING id
