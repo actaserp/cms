@@ -759,10 +759,10 @@ public class CmsMemberService {
         E.delmon5, E.delmon6, E.delmon7, E.delmon8,
         E.delmon9, E.delmon10, E.delmon11, E.delmon12,
         (SELECT TOP 1 SPDATE FROM TB_CMSEB13
-         WHERE CLTCD = C.cltcd AND ACTCD IS NOT NULL
+         WHERE CLTCD = C.cltcd AND ACTCD IS NULL
          ORDER BY SPDATE DESC) AS agree_date,
         (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13
-         WHERE CLTCD = C.cltcd AND ACTCD IS NOT NULL
+         WHERE CLTCD = C.cltcd AND ACTCD IS NULL
          ORDER BY SPDATE DESC) AS bankcltcd
     FROM TB_XCLIENT C WITH(NOLOCK)
     INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd
