@@ -263,7 +263,7 @@ public class WorkPlaceService {
                 INSERT INTO tb_xa012_erp (spjangcd, host, port, db_name, custcd,
                     username, password, ms_spjangcd, use_yn)
                 VALUES (:spjangcd, :host, :port, :dbName, :custcd,
-                    :username, :password, :msSpjangcd, :userYn)
+                    :username, :password, :msSpjangcd, :useYn)
                 ON CONFLICT (spjangcd) DO UPDATE SET
                     host        = EXCLUDED.host,
                     port        = EXCLUDED.port,
