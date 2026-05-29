@@ -680,7 +680,7 @@ public class CmsMemberService {
      * - 금액/약정일/청구기간/출금월 모두 동기화
      */
     public Map<String, Object> syncFromErp(String spjangcd, String userId) {
-        int inserted = 0, updated = 0, failed = 0;
+        int inserted = 0, updated = 0, skipped = 0, failed = 0;
 
         // 1. ERP 접속정보 + custcd + ms_spjangcd 조회
         Map<String, Object> erp = sqlRunner.getRow(/* skip_tenant_check */
@@ -897,31 +897,63 @@ public class CmsMemberService {
                                 int rows = sqlRunner.execute(/* skip_tenant_check */
                                         """
                                         UPDATE cms_member SET
-                                            member_name    = :memberName,
-                                            member_no      = :memberNo,
-                                            id_number      = :idNumber,
-                                            bank_code      = :bankCode,
-                                            bank_account   = :bankAccount,
-                                            phone          = :phone,
-                                            email          = :email,
-                                            adresa         = :adresa,
-                                            zipcd          = :zipcd,
-                                            deduct_amount  = :deductAmount,
-                                            deduct_day     = :deductDay,
-                                            start_date     = :startDate,
-                                            end_date       = :endDate,
-                                            cycle_type     = :cycleType,
-                                            cycle_months   = :cycleMonths,
-                                            agree_yn       = :agreeYn,
-                                            agree_date     = COALESCE(agree_date, CAST(:agreeDate AS DATE)),
-                                            cltcd          = :cltcd,
-                                            _modifier_id   = :userId,
-                                            _modified      = NOW(),
-                                            bankcltcd = COALESCE(:bankcltcd, bankcltcd),
-                                            agree_yn  = :agreeYn
-                                        WHERE spjangcd = :spjangcd AND cltcd = :cltcd
+                                         member_name    = :memberName,
+                                         member_no      = COALESCE(:memberNo, member_no),
+                                         id_number      = :idNumber,
+                                         bank_code      = :bankCode,
+                                         bank_account   = :bankAccount,
+                                         phone          = :phone,
+                                         email          = :email,
+                                         adresa         = :adresa,
+                                         zipcd          = :zipcd,
+                                         deduct_amount  = :deductAmount,
+                                         deduct_day     = :deductDay,
+                                         start_date     = :startDate,
+                                         end_date       = :endDate,
+                                         cycle_type     = :cycleType,
+                                         cycle_months   = :cycleMonths,
+                                         agree_yn       = :agreeYn,
+                                         agree_date     = COALESCE(agree_date, CAST(:agreeDate AS DATE)),
+                                         cltcd          = :cltcd,
+                                         bankcltcd      = COALESCE(:bankcltcd, bankcltcd),
+                                         _modifier_id   = CASE WHEN (
+                                             COALESCE(member_name, '')    != COALESCE(:memberName, '')    OR
+                                             COALESCE(id_number, '')      != COALESCE(:idNumber, '')      OR
+                                             COALESCE(bank_code, '')      != COALESCE(:bankCode, '')      OR
+                                             COALESCE(bank_account, '')   != COALESCE(:bankAccount, '')   OR
+                                             COALESCE(phone, '')          != COALESCE(:phone, '')         OR
+                                             COALESCE(email, '')          != COALESCE(:email, '')         OR
+                                             COALESCE(adresa, '')         != COALESCE(:adresa, '')        OR
+                                             COALESCE(zipcd, '')          != COALESCE(:zipcd, '')         OR
+                                             COALESCE(deduct_amount, 0)   != COALESCE(:deductAmount, 0)   OR
+                                             COALESCE(deduct_day, '')     != COALESCE(:deductDay, '')     OR
+                                             COALESCE(start_date, '')     != COALESCE(:startDate, '')     OR
+                                             COALESCE(end_date, '')       != COALESCE(:endDate, '')       OR
+                                             COALESCE(cycle_type, '')     != COALESCE(:cycleType, '')     OR
+                                             COALESCE(cycle_months, '')   != COALESCE(:cycleMonths, '')   OR
+                                             COALESCE(agree_yn, '')       != COALESCE(:agreeYn, '')
+                                         ) THEN :userId ELSE _modifier_id END,
+                                         _modified      = CASE WHEN (
+                                             COALESCE(member_name, '')    != COALESCE(:memberName, '')    OR
+                                             COALESCE(id_number, '')      != COALESCE(:idNumber, '')      OR
+                                             COALESCE(bank_code, '')      != COALESCE(:bankCode, '')      OR
+                                             COALESCE(bank_account, '')   != COALESCE(:bankAccount, '')   OR
+                                             COALESCE(phone, '')          != COALESCE(:phone, '')         OR
+                                             COALESCE(email, '')          != COALESCE(:email, '')         OR
+                                             COALESCE(adresa, '')         != COALESCE(:adresa, '')        OR
+                                             COALESCE(zipcd, '')          != COALESCE(:zipcd, '')         OR
+                                             COALESCE(deduct_amount, 0)   != COALESCE(:deductAmount, 0)   OR
+                                             COALESCE(deduct_day, '')     != COALESCE(:deductDay, '')     OR
+                                             COALESCE(start_date, '')     != COALESCE(:startDate, '')     OR
+                                             COALESCE(end_date, '')       != COALESCE(:endDate, '')       OR
+                                             COALESCE(cycle_type, '')     != COALESCE(:cycleType, '')     OR
+                                             COALESCE(cycle_months, '')   != COALESCE(:cycleMonths, '')   OR
+                                             COALESCE(agree_yn, '')       != COALESCE(:agreeYn, '')
+                                         ) THEN NOW() ELSE _modified END
+                                     WHERE spjangcd = :spjangcd AND cltcd = :cltcd
                                         """, p);
                                 if (rows > 0) updated++;
+                                else skipped++;
                             }
                         } catch (Exception e) {
                             log.warn("[ERP동기화] 행 처리 실패: {}", e.getMessage());
@@ -935,8 +967,8 @@ public class CmsMemberService {
             throw new IllegalStateException("MS DB 연결 또는 조회 실패: " + e.getMessage());
         }
 
-        log.info("[ERP동기화] 완료 spjangcd={} 신규={} 수정={} 실패={}", spjangcd, inserted, updated, failed);
-        return Map.of("inserted", inserted, "updated", updated, "failed", failed);
+        log.info("[ERP동기화] 완료 spjangcd={} 신규={} 수정={} 스킵={} 실패={}", spjangcd, inserted, updated, skipped, failed);
+        return Map.of("inserted", inserted, "updated", updated, "skipped", skipped, "failed", failed);
     }
 
     private String cleanDate(String date) {
