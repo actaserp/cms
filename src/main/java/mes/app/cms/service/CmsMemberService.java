@@ -740,42 +740,44 @@ public class CmsMemberService {
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
                 url, str(erp.get("username")), str(erp.get("password")))) {
 
-            // 4. TB_XCLIENT JOIN TB_E101 (최신 계약 기준)
             String sql = """
-                
-                    SELECT
-                     E.cltcd       AS cltcd,
-                     C.cltnm       AS member_name,
-                     C.cmsrnum     AS id_number,
-                     B.bnkcode     AS bank_code,
-                     C.accnum      AS bank_account,
-                     C.hptelnum    AS phone,
-                     C.agneremail  AS email,
-                     C.cltadres    AS adresa,
-                     C.zipcd       AS zipcd,
-                     E.amt         AS deduct_amount,
-                     E.dedate      AS deduct_day,
-                     E.stdate      AS start_date,
-                     E.enddate     AS end_date,
-                     E.delmon1, E.delmon2, E.delmon3, E.delmon4,
-                     E.delmon5, E.delmon6, E.delmon7, E.delmon8,
-                     E.delmon9, E.delmon10, E.delmon11, E.delmon12,
-                     (SELECT TOP 1 SPDATE FROM TB_CMSEB13
-                      WHERE CLTCD = E.cltcd AND CUSTCD = E.custcd AND ACTCD IS NOT NULL
-                      ORDER BY SPDATE DESC) AS agree_date,
-                     (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13
-                      WHERE CLTCD = E.cltcd AND CUSTCD = E.custcd AND ACTCD IS NOT NULL
-                      ORDER BY SPDATE DESC) AS bankcltcd
-                 FROM TB_E101 E WITH(NOLOCK)
-                 INNER JOIN TB_XCLIENT C WITH(NOLOCK) ON C.cltcd = E.cltcd AND C.custcd = E.custcd
-                 INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd
-                 WHERE E.custcd = ?
-                 AND C.allchk = '1'
-                 AND E.stdate = (
-                     SELECT MAX(stdate) FROM TB_E101
-                     WHERE cltcd = E.cltcd AND custcd = ?
-                 )
-                """;
+    SELECT
+        E.cltcd       AS cltcd,
+        C.cltnm       AS member_name,
+        C.cmsrnum     AS id_number,
+        B.bnkcode     AS bank_code,
+        C.accnum      AS bank_account,
+        C.hptelnum    AS phone,
+        C.agneremail  AS email,
+        C.cltadres    AS adresa,
+        C.zipcd       AS zipcd,
+        E.amt         AS deduct_amount,
+        E.dedate      AS deduct_day,
+        E.stdate      AS start_date,
+        E.enddate     AS end_date,
+        E.delmon1, E.delmon2, E.delmon3, E.delmon4,
+        E.delmon5, E.delmon6, E.delmon7, E.delmon8,
+        E.delmon9, E.delmon10, E.delmon11, E.delmon12,
+        (SELECT TOP 1 SPDATE FROM TB_CMSEB13
+         WHERE CLTCD = E.cltcd AND CUSTCD = E.custcd AND ACTCD IS NOT NULL
+         ORDER BY SPDATE DESC) AS agree_date,
+        (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13
+         WHERE CLTCD = E.cltcd AND CUSTCD = E.custcd AND ACTCD IS NOT NULL
+         ORDER BY SPDATE DESC) AS bankcltcd
+    FROM TB_E101 E WITH(NOLOCK)
+    INNER JOIN TB_XCLIENT C WITH(NOLOCK) ON C.cltcd = E.cltcd AND C.custcd = E.custcd
+    INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd
+    WHERE E.custcd = ?
+    AND C.allchk = '1'
+    AND E.stdate = (
+        SELECT MAX(stdate) FROM TB_E101
+        WHERE cltcd = E.cltcd AND custcd = ?
+    )
+    AND EXISTS (
+        SELECT 1 FROM TB_CMSEB13
+        WHERE CLTCD = E.cltcd AND CUSTCD = E.custcd AND ACTCD IS NOT NULL AND BANKCLTCD IS NOT NULL
+    )
+    """;
 
             try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, custcd);
@@ -799,7 +801,7 @@ public class CmsMemberService {
                             String startDate     = cleanDate(rs.getString("start_date"));
                             String endDate       = cleanDate(rs.getString("end_date"));
                             String agreeDate = cleanDate(rs.getString("agree_date"));
-                            String cltcd     = rs.getString("member_no");  // TB_XCLIENT.cltcd
+                            String cltcd    = rs.getString("cltcd");
                             String bankcltcd = rs.getString("bankcltcd");
                             String agreeYn;
                             String memberNo;
@@ -809,9 +811,8 @@ public class CmsMemberService {
                                 memberNo = bankcltcd;
                                 agreeYn  = "Y";
                             } else {
-                                // 인증 안 됨 → SaaS 채번
-                                memberNo = null;
-                                agreeYn  = "N";
+                                skipped++;
+                                continue;
                             }
 
                             if (endDate == null || endDate.isEmpty()) endDate = "99991231";
