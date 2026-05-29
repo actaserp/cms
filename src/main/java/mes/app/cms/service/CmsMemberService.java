@@ -183,7 +183,7 @@ public class CmsMemberService {
         // 신규 등록
         if (id == null) {
             if (!StringUtils.hasText(memberNo)) {
-                memberNo = generateMemberNo(spjangcd);
+                memberNo = generateMemberNo(spjangcd, bankCode, idNumber);
             } else {
                 memberNo = memberNo.toUpperCase();
             }
@@ -510,7 +510,7 @@ public class CmsMemberService {
                         else failed++;
                     } else {
                         // INSERT
-                        String newMemberNo = generateMemberNo(spjangcd);
+                        String newMemberNo = generateMemberNo(spjangcd, bankCode, idNumber);
                         param.addValue("memberNo", newMemberNo);
                         Map<String, Object> insertedRow = sqlRunner.getRow(/* skip_tenant_check */
                                 """
@@ -644,17 +644,33 @@ public class CmsMemberService {
         };
     }
 
-    private String generateMemberNo(String spjangcd) {
-        Map<String, Object> seqRow = sqlRunner.getRow(
+    private String generateMemberNo(String spjangcd, String bankCode, String idNumber) {
+        // 은행코드 3자리
+        String bank = (bankCode != null ? bankCode : "000");
+
+        // 사업자번호 뒤 5자리
+        String idPart = "";
+        if (idNumber != null && idNumber.length() >= 5) {
+            idPart = idNumber.replaceAll("[^0-9]", "");
+            idPart = idPart.substring(idPart.length() - 5);
+        } else {
+            idPart = "00000";
+        }
+
+        // 순번 2자리 (중복 방지)
+        String prefix = bank + idPart;
+        Map<String, Object> seqRow = sqlRunner.getRow(/* skip_tenant_check */
                 """
-                        SELECT COALESCE(MAX(CAST(SUBSTRING(member_no, LENGTH(:spjangcd) + 1) AS INTEGER)), 0) + 1 AS next_seq
-                        FROM cms_member
-                        WHERE spjangcd = :spjangcd
-                          AND member_no ~ ('^' || :spjangcd || '[0-9]+$')
-                        """,
-                new MapSqlParameterSource("spjangcd", spjangcd));
-        int nextSeq = seqRow != null ? ((Number) seqRow.get("next_seq")).intValue() : 1;
-        return spjangcd + String.format("%06d", nextSeq);
+                SELECT COALESCE(MAX(CAST(SUBSTRING(member_no, 9) AS INTEGER)), 0) + 1 AS next_seq
+                FROM cms_member
+                WHERE spjangcd = :spjangcd
+                  AND member_no LIKE :prefix
+                """,
+                new MapSqlParameterSource("spjangcd", spjangcd)
+                        .addValue("prefix", prefix + "%"));
+        int seq = seqRow != null ? ((Number) seqRow.get("next_seq")).intValue() : 1;
+
+        return prefix + String.format("%02d", seq);
     }
 
     /**
@@ -744,10 +760,10 @@ public class CmsMemberService {
                     E.delmon5, E.delmon6, E.delmon7, E.delmon8,
                     E.delmon9, E.delmon10, E.delmon11, E.delmon12,
                     (SELECT TOP 1 SPDATE FROM TB_CMSEB13
-                     WHERE CLTCD = C.cltcd AND ACTCD IS NULL
+                     WHERE CLTCD = C.cltcd AND ACTCD IS NOT NULL
                      ORDER BY SPDATE DESC) AS agree_date,
                     (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13
-                     WHERE CLTCD = C.cltcd AND ACTCD IS NULL
+                     WHERE CLTCD = C.cltcd AND ACTCD IS NOT NULL
                      ORDER BY SPDATE DESC) AS bankcltcd
                 FROM TB_XCLIENT C WITH(NOLOCK)
                 INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd
@@ -794,7 +810,7 @@ public class CmsMemberService {
                                 agreeYn  = "Y";
                             } else {
                                 // 인증 안 됨 → SaaS 채번
-                                memberNo = generateMemberNo(spjangcd);
+                                memberNo = null;
                                 agreeYn  = "N";
                             }
 
@@ -878,7 +894,7 @@ public class CmsMemberService {
                                 inserted++;
                             } else {
                                 // 업데이트 — 계좌정보 + 계약정보 모두 갱신
-                                sqlRunner.execute(/* skip_tenant_check */
+                                int rows = sqlRunner.execute(/* skip_tenant_check */
                                         """
                                         UPDATE cms_member SET
                                             member_name    = :memberName,
@@ -905,7 +921,7 @@ public class CmsMemberService {
                                             agree_yn  = :agreeYn
                                         WHERE spjangcd = :spjangcd AND cltcd = :cltcd
                                         """, p);
-                                updated++;
+                                if (rows > 0) updated++;
                             }
                         } catch (Exception e) {
                             log.warn("[ERP동기화] 행 처리 실패: {}", e.getMessage());

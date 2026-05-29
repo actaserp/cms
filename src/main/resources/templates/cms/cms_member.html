@@ -83,6 +83,7 @@
                 </div>
                 <div class="container-fluid">
                     <div id="theGrid"></div>
+                    <div id="gridCount" style="font-size:12px; color:#888; margin-top:4px; text-align:right;"></div>
                 </div>
             </section>
 
@@ -607,6 +608,8 @@
 
         theGrid.rowHeaders.columns.splice(0, 1);
 
+        $('#gridCount').text('총 ' + (data ? data.length : 0) + '건');
+
         theGrid.hostElement.addEventListener('dblclick', function() {
             var item = theGrid.selectedItems[0];
             if (!item) return;
@@ -890,19 +893,10 @@
         });
         $('#btnErpSync').click(function() {
             Alert.confirm('', 'ERP(MS SQL)에서 납부자 정보를 동기화하시겠습니까?', function() {
-                $.ajax({
-                    url: withCtx('/api/cms/member/erp-sync'),
-                    type: 'POST',
-                    headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
-                    success: function(result) {
-                        if (result.success) {
-                            var d = result.data || {};
-                            Alert.alert('', '동기화 완료: 신규 ' + (d.inserted || 0) + '건, 수정 ' + (d.updated || 0) + '건');
-                            searchList();
-                        } else {
-                            Alert.alert('', result.message || '동기화 실패');
-                        }
-                    }
+                AjaxUtil.post(withCtx('/api/cms/member/erp-sync'), {}, function(result) {
+                    var d = result.data || {};
+                    Alert.alert('', '동기화 완료: 신규 ' + (d.inserted || 0) + '건, 기존 ' + (d.updated || 0) + '건');
+                    searchList();
                 });
             });
         });
