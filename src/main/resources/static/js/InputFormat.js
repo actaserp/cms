@@ -26,7 +26,6 @@ function attachTelFormatterAll(inputSelector) {
         });
     });
 }
-window.attachTelFormatter = attachTelFormatter;// 전역 등록
 
 // 사업자번호 포맷 
 function attachBizNumberFormatterAll(inputSelector) {
@@ -57,5 +56,7 @@ function attachBizNumberFormatterAll(inputSelector) {
         });
     });
 }
+
+window.attachTelFormatterAll = attachTelFormatterAll; // 전역 등록
 window.attachBizNumberFormatterAll = attachBizNumberFormatterAll; // 전역등록
 
