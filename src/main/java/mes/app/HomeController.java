@@ -119,7 +119,7 @@ public class HomeController {
 	@RequestMapping(value= "/intro", method=RequestMethod.GET)
     public ModelAndView pageIntro(HttpServletRequest request, HttpSession session) {
 		ModelAndView mv = new ModelAndView();
-		mv.setViewName("intro");
+		mv.setViewName("cms-intro");
 		return mv;
 	}
 	
