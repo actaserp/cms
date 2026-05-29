@@ -742,7 +742,7 @@ public class CmsMemberService {
 
             String sql = """
     SELECT
-        E.cltcd       AS cltcd,
+        C.cltcd       AS cltcd,
         C.cltnm       AS member_name,
         C.cmsrnum     AS id_number,
         B.bnkcode     AS bank_code,
@@ -759,23 +759,20 @@ public class CmsMemberService {
         E.delmon5, E.delmon6, E.delmon7, E.delmon8,
         E.delmon9, E.delmon10, E.delmon11, E.delmon12,
         (SELECT TOP 1 SPDATE FROM TB_CMSEB13
-         WHERE CLTCD = E.cltcd AND CUSTCD = E.custcd AND ACTCD IS NOT NULL
+         WHERE CLTCD = C.cltcd AND ACTCD IS NOT NULL
          ORDER BY SPDATE DESC) AS agree_date,
         (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13
-         WHERE CLTCD = E.cltcd AND CUSTCD = E.custcd AND ACTCD IS NOT NULL
+         WHERE CLTCD = C.cltcd AND ACTCD IS NOT NULL
          ORDER BY SPDATE DESC) AS bankcltcd
-    FROM TB_E101 E WITH(NOLOCK)
-    INNER JOIN TB_XCLIENT C WITH(NOLOCK) ON C.cltcd = E.cltcd AND C.custcd = E.custcd
+    FROM TB_XCLIENT C WITH(NOLOCK)
     INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd
-    WHERE E.custcd = ?
+    INNER JOIN TB_E101 E WITH(NOLOCK)
+        ON C.cltcd = E.cltcd AND E.custcd = ?
+    WHERE C.custcd = ?
     AND C.allchk = '1'
     AND E.stdate = (
         SELECT MAX(stdate) FROM TB_E101
         WHERE cltcd = E.cltcd AND custcd = ?
-    )
-    AND EXISTS (
-        SELECT 1 FROM TB_CMSEB13
-        WHERE CLTCD = E.cltcd AND CUSTCD = E.custcd AND ACTCD IS NOT NULL AND BANKCLTCD IS NOT NULL
     )
     """;
 
