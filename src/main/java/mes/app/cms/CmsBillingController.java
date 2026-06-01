@@ -106,10 +106,13 @@ public class CmsBillingController {
             @RequestParam(value = "deduct_type",    required = false) String deductType,
             Authentication auth) {
 
+        User user = (User) auth.getPrincipal();
+
+
         AjaxResult result = new AjaxResult();
 
         try {
-            String userId = auth.getName();
+            String userId = user.getUsername();
             Long billingId = cmsBillingService.saveBilling(
                     id, billingYm, memberId, memberName, bankCode, bankAccount,
                     accountHolder, billingAmount, deductDay, deductDate,
@@ -153,11 +156,11 @@ public class CmsBillingController {
             @RequestParam(value = "memo",           required = false) String memo,
             @RequestParam(value = "deduct_type",    required = false) String deductType,
             Authentication auth) {
-
+        User user = (User) auth.getPrincipal();
         AjaxResult result = new AjaxResult();
 
         try {
-            String userId = auth.getName();
+            String userId = user.getUsername();
             Long billingId = cmsBillingService.saveBillingForce(
                     id, billingYm, memberId, memberName, bankCode, bankAccount,
                     accountHolder, billingAmount, deductDay, deductDate,

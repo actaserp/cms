@@ -101,13 +101,13 @@
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>출금이제 인증 관리</h2>
+                <h2>출금이체 인증 관리</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>수납 관리</li>
-                <li>출금이제 인증 관리</li>
+                <li>출금이체 인증 관리</li>
             </ul>
         </div>
 
@@ -159,6 +159,8 @@
                     </dl>
                 </div>
                 <div style="display:flex; gap:4px; padding: 6px 0;">
+                    <button type="button" class="btn-default" id="btnCreateFromErp"
+                            style="background:#28a745; color:#fff; width: 120px;">미인증 불러오기</button>
                     <button type="button" class="btn-default" id="btnRegister"
                             style="background:#4a6cf7; color:#fff; width: 120px;" disabled>인증 등록 신청
                     </button>
@@ -589,6 +591,20 @@
             });
         }
 
+        function createFromErp() {
+            Alert.confirm('', '미인증 납부자의 계좌등록 신청을 생성하시겠습니까?', function() {
+                AjaxUtil.postAsyncData('/api/cms/account-register/create-from-erp', {}, function(result) {
+                    if (result.success) {
+                        var d = result.data || {};
+                        Alert.alert('', '생성 완료: ' + (d.created || 0) + '건');
+                    } else {
+                        Alert.alert('실패', result.message);
+                    }
+                    searchList();
+                });
+            });
+        }
+
         $(document).ready(function () {
             $('#btnSearch').click(searchList);
             $('#srchMemberName').keypress(function (e) {
@@ -597,6 +613,7 @@
             $('#btnRegister').click(register);
             $('#btnReRegister').click(reRegister);
             $('#btnReceiveEb14').click(receiveEb14);
+            $('#btnCreateFromErp').click(createFromErp);
         });
     </script>
 

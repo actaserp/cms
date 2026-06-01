@@ -150,9 +150,7 @@
                                 </td>
                                 <th style="padding:5px; border:1px solid #ddd; text-align:center;">납부자번호</th>
                                 <td style="padding:5px; border:1px solid #ddd;">
-                                    <input type="text" id="member_no" name="member_no"
-                                           readonly
-                                           style="background:#f5f6fa; color:#888;">
+                                    <input type="text" id="member_no" name="member_no">
                                 </td>
                             </tr>
                             <tr>
@@ -323,7 +321,13 @@
                                 <th style="padding:5px; border:1px solid #ddd; text-align:center;">동의여부</th>
                                 <td style="padding:5px; border:1px solid #ddd;">
                                     <input type="hidden" id="agree_yn" name="agree_yn" value="N">
-                                    <span id="agreeYnDisplay" class="status-badge" style="padding:3px 10px;">미동의</span>
+                                    <span id="agreeYnDisplay" class="status-badge" style="padding:3px 10px;">미신청</span>
+                                    <button type="button" id="btnManualAgree"
+                                            style="display:none; margin-left:8px; padding:3px 10px;
+                                               background:#28a745; color:#fff; border:none; border-radius:4px;
+                                               font-size:12px; cursor:pointer; height: 28px;">
+                                        강제 동의 처리
+                                    </button>
                                 </td>
                             </tr>
                             <tr>
@@ -625,8 +629,8 @@
         $('#member_name').val(item.member_name || '');
         $('#member_no')
             .val(item.member_no || '')
-            .prop('readonly', true)
-            .css({'background': '#f5f6fa', 'color': '#888'})
+            .prop('readonly', false)
+            .css({'background': '', 'color': ''})
             .attr('placeholder', '');
         $('#id_number').val(item.id_number || '');
         $('#phone').val(item.phone || '');
@@ -676,6 +680,12 @@
         $('#agreeYnDisplay')
             .text(item.agree_status || '미신청')
             .css({ background: s.bg, color: s.color });
+
+        if (item.agree_status === '미신청' || item.agree_status === '인증거절' || item.agree_status === '인증실패') {
+            $('#btnManualAgree').show().data('memberId', item.id);
+        } else {
+            $('#btnManualAgree').hide();
+        }
 
         // 동의방식 라디오 복원
         var method = item.agree_method || 'LATER';
@@ -921,6 +931,23 @@
             if (!url) return;
             navigator.clipboard.writeText(url).then(function() {
                 Notify.success('URL이 복사되었습니다.');
+            });
+        });
+
+        $('#btnManualAgree').click(function() {
+            var memberId = $(this).data('memberId');
+            if (!memberId) return;
+            Alert.confirm('', 'ERP에서 동의 확인된 납부자로 처리하시겠습니까?', function() {
+                AjaxUtil.postAsyncData('/api/cms/member/manual-agree',
+                    { member_id: memberId },
+                    function(result) {
+                        if (result.success) {
+                            Alert.alert('', '동의 처리되었습니다.');
+                            searchList();
+                        } else {
+                            Alert.alert('', result.message);
+                        }
+                    });
             });
         });
     });

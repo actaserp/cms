@@ -428,6 +428,8 @@ public class AccountController {
             String bizAddr = (String) params.get("bizAddr");
             String billPlanId = (String) params.get("bill_plan_id");
             String corpNum = bizNo.replaceAll("-", ""); // 하이픈 제거
+            String cmsOrgCode = (String) params.get("cmsOrgCode");
+            String cmsApiAgree = (String) params.get("cmsApiAgree");
 
             // 2. 휴/폐업 및 유효성 체크
             // salesInvoiceService를 사용하여 국세청 기준 유효성 검사
@@ -460,9 +462,11 @@ public class AccountController {
             // 5. tb_xa012 저장 SQL (엔티티 컬럼명 매핑)
             String sql = """
                         INSERT INTO tb_xa012 
-                        (spjangcd, saupnum, spjangnm, biztype, item, adresa, bill_plans_id, state, subscriptiondate)
+                        (spjangcd, saupnum, spjangnm, biztype, item, adresa, bill_plans_id, state, subscriptiondate,
+                        cms_org_code, cms_api_agree_yn, cms_api_agree_date)
                         VALUES 
-                        (:spjangcd, :saupnum, :spjangnm, :biztype, :item, :adresa, :bill_plans_id, :state, :subscriptiondate)
+                        (:spjangcd, :saupnum, :spjangnm, :biztype, :item, :adresa, :bill_plans_id, :state, :subscriptiondate,
+                        :cmsOrgCode, :cmsApiAgree, :cmsApiAgreeDate)
                     """;
 
             MapSqlParameterSource dicParam = new MapSqlParameterSource();
@@ -475,6 +479,9 @@ public class AccountController {
             dicParam.addValue("bill_plans_id", Integer.parseInt(billPlanId));
             dicParam.addValue("state", "신청"); // 초기 상태값
             dicParam.addValue("subscriptiondate", LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+            dicParam.addValue("cmsOrgCode", StringUtils.hasText(cmsOrgCode) ? cmsOrgCode : null);
+            dicParam.addValue("cmsApiAgree", cmsApiAgree);
+            dicParam.addValue("cmsApiAgreeDate", "Y".equals(cmsApiAgree) ? java.time.LocalDateTime.now() : null);
 
             this.sqlRunner.execute(sql, dicParam);
 

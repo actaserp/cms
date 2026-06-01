@@ -165,4 +165,21 @@ public class CmsAccountRegisterController {
         cmsAccountRegisterService.clearAgreeFile(registerId);
         return result;
     }
+
+    @PostMapping("/create-from-erp")
+    @ResponseBody
+    public AjaxResult createFromErp(Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        String userId = String.valueOf(user.getId());
+        AjaxResult result = new AjaxResult();
+        try {
+            Map<String, Object> res = cmsAccountRegisterService.createFromErpMembers(userId);
+            result.success = true;
+            result.data = res;
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
 }

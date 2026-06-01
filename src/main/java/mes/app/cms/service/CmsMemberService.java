@@ -265,6 +265,7 @@ public class CmsMemberService {
         else {
             MapSqlParameterSource param = new MapSqlParameterSource();
             param.addValue("id",            id);
+            param.addValue("memberNo", memberNo);
             param.addValue("memberType",    StringUtils.hasText(memberType) ? memberType : "C");
             param.addValue("memberName",    memberName);
             param.addValue("idNumber",      idNumber);
@@ -294,6 +295,7 @@ public class CmsMemberService {
 
             String updateSql = """
                     UPDATE cms_member SET
+                        member_no      = :memberNo,
                         member_type    = :memberType,
                         member_name    = :memberName,
                         id_number      = :idNumber,
@@ -324,6 +326,17 @@ public class CmsMemberService {
                     """;
 
             sqlRunner.execute(updateSql, param);
+
+            sqlRunner.execute(/* skip_tenant_check */
+                    """
+                    UPDATE cms_account_register
+                    SET member_no = :memberNo
+                    WHERE member_id = :id AND spjangcd = :spjangcd
+                    """,
+                    new MapSqlParameterSource()
+                            .addValue("memberNo", memberNo)
+                            .addValue("id", id)
+                            .addValue("spjangcd", spjangcd));
 
             return id;
         }
@@ -741,40 +754,43 @@ public class CmsMemberService {
                 url, str(erp.get("username")), str(erp.get("password")))) {
 
             String sql = """
-    SELECT
-        C.cltcd       AS cltcd,
-        C.cltnm       AS member_name,
-        C.cmsrnum     AS id_number,
-        B.bnkcode     AS bank_code,
-        C.accnum      AS bank_account,
-        C.hptelnum    AS phone,
-        C.agneremail  AS email,
-        C.cltadres    AS adresa,
-        C.zipcd       AS zipcd,
-        E.amt         AS deduct_amount,
-        E.dedate      AS deduct_day,
-        E.stdate      AS start_date,
-        E.enddate     AS end_date,
-        E.delmon1, E.delmon2, E.delmon3, E.delmon4,
-        E.delmon5, E.delmon6, E.delmon7, E.delmon8,
-        E.delmon9, E.delmon10, E.delmon11, E.delmon12,
-        (SELECT TOP 1 SPDATE FROM TB_CMSEB13
-         WHERE CLTCD = C.cltcd AND ACTCD IS NULL
-         ORDER BY SPDATE DESC) AS agree_date,
-        (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13
-         WHERE CLTCD = C.cltcd AND ACTCD IS NULL
-         ORDER BY SPDATE DESC) AS bankcltcd
-    FROM TB_XCLIENT C WITH(NOLOCK)
-    INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd
-    INNER JOIN TB_E101 E WITH(NOLOCK)
-        ON C.cltcd = E.cltcd AND E.custcd = ?
-    WHERE C.custcd = ?
-    AND C.allchk = '1'
-    AND E.stdate = (
-        SELECT MAX(stdate) FROM TB_E101
-        WHERE cltcd = E.cltcd AND custcd = ?
-    )
-    """;
+                SELECT
+                    C.cltcd       AS cltcd,
+                    C.cltnm       AS member_name,
+                    C.cmsrnum     AS id_number,
+                    B.bnkcode     AS bank_code,
+                    C.accnum      AS bank_account,
+                    C.hptelnum    AS phone,
+                    C.agneremail  AS email,
+                    C.cltadres    AS adresa,
+                    C.zipcd       AS zipcd,
+                    E.amt         AS deduct_amount,
+                    E.dedate      AS deduct_day,
+                    E.stdate      AS start_date,
+                    E.enddate     AS end_date,
+                    E.delmon1, E.delmon2, E.delmon3, E.delmon4,
+                    E.delmon5, E.delmon6, E.delmon7, E.delmon8,
+                    E.delmon9, E.delmon10, E.delmon11, E.delmon12,
+                    (SELECT TOP 1 SPDATE FROM TB_CMSEB13
+                     WHERE CLTCD = C.cltcd AND ACTCD IS NULL
+                     ORDER BY SPDATE DESC) AS agree_date,
+                    (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13
+                     WHERE CLTCD = C.cltcd AND ACTCD IS NULL
+                     ORDER BY SPDATE DESC) AS bankcltcd
+                FROM TB_XCLIENT C WITH(NOLOCK)
+                INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd
+                INNER JOIN TB_E101 E WITH(NOLOCK)
+                    ON C.cltcd = E.cltcd AND E.custcd = ?
+                WHERE C.custcd = ?
+                AND C.accnum IS NOT NULL
+                AND LTRIM(RTRIM(C.accnum)) != ''
+                AND C.cmsrnum IS NOT NULL
+                AND LTRIM(RTRIM(C.cmsrnum)) != ''
+                AND E.stdate = (
+                    SELECT MAX(stdate) FROM TB_E101
+                    WHERE cltcd = E.cltcd AND custcd = ?
+                )
+                """;
 
             try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, custcd);
@@ -803,13 +819,20 @@ public class CmsMemberService {
                             String agreeYn;
                             String memberNo;
 
+                            // 기존 member 조회
+                            Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
+                                    "SELECT id, _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :cltcd",
+                                    new MapSqlParameterSource("spjangcd", spjangcd).addValue("cltcd", cltcd));
+
                             if (StringUtils.hasText(bankcltcd)) {
                                 // TB_CMSEB13 인증 완료 → BANKCLTCD를 member_no로
                                 memberNo = bankcltcd;
                                 agreeYn  = "Y";
                             } else {
-                                skipped++;
-                                continue;
+                                memberNo = existing != null
+                                        ? str(existing.get("member_no"))           // 기존 member_no 유지
+                                        : generateMemberNo(spjangcd, null, idNumber); // 신규 채번
+                                agreeYn = "N";
                             }
 
                             if (endDate == null || endDate.isEmpty()) endDate = "99991231";
@@ -835,11 +858,6 @@ public class CmsMemberService {
                             String cycleType   = (months.size() == 12) ? "REGULAR" : "IRREGULAR";
                             if ("REGULAR".equals(cycleType)) cycleMonths = null;
 
-                            // 기존 member 조회
-                            Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
-                                    "SELECT id FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :cltcd",
-                                    new MapSqlParameterSource("spjangcd", spjangcd).addValue("cltcd", cltcd));
-
                             MapSqlParameterSource p = new MapSqlParameterSource();
                             p.addValue("spjangcd",      spjangcd);
                             p.addValue("memberNo",      memberNo);
@@ -864,6 +882,7 @@ public class CmsMemberService {
                             p.addValue("bankcltcd", bankcltcd);
                             p.addValue("userId",        userId);
                             p.addValue("agreeDate", agreeDate);
+                            p.addValue("agreeMethod", StringUtils.hasText(bankcltcd) ? "ERP" : null);
 
                             if (existing == null) {
                                 // member_no = MS cltcd 그대로 사용
@@ -876,7 +895,7 @@ public class CmsMemberService {
                                             deduct_amount, deduct_day,
                                             start_date, end_date,
                                             cycle_type, cycle_months,
-                                            agree_yn, agree_date, cltcd, status,
+                                            agree_yn, agree_date, agree_method, cltcd, status,
                                             _creater_id, _created, _modifier_id, _modified
                                         ) VALUES (
                                             :spjangcd, :memberNo, :memberType, :memberName,
@@ -885,12 +904,14 @@ public class CmsMemberService {
                                             :deductAmount, :deductDay,
                                             :startDate, :endDate,
                                             :cycleType, :cycleMonths,
-                                            :agreeYn, CAST(:agreeDate AS DATE), :cltcd, 'ACTIVE',
+                                            :agreeYn, CAST(:agreeDate AS DATE), :agreeMethod, :cltcd, 'ACTIVE',
                                             :userId, NOW(), :userId, NOW()
                                         )
                                         """, p);
                                 inserted++;
                             } else {
+                                String beforeModified = str(existing.get("_modified"));
+
                                 // 업데이트 — 계좌정보 + 계약정보 모두 갱신
                                 int rows = sqlRunner.execute(/* skip_tenant_check */
                                         """
@@ -911,6 +932,7 @@ public class CmsMemberService {
                                          cycle_type     = :cycleType,
                                          cycle_months   = :cycleMonths,
                                          agree_yn       = :agreeYn,
+                                         agree_method = COALESCE(agree_method, :agreeMethod),
                                          agree_date     = COALESCE(agree_date, CAST(:agreeDate AS DATE)),
                                          cltcd          = :cltcd,
                                          bankcltcd      = COALESCE(:bankcltcd, bankcltcd),
@@ -950,8 +972,18 @@ public class CmsMemberService {
                                          ) THEN NOW() ELSE _modified END
                                      WHERE spjangcd = :spjangcd AND cltcd = :cltcd
                                         """, p);
-                                if (rows > 0) updated++;
-                                else skipped++;
+
+                                Map<String, Object> after = sqlRunner.getRow(/* skip_tenant_check */
+                                        "SELECT _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :cltcd",
+                                        new MapSqlParameterSource("spjangcd", spjangcd).addValue("cltcd", cltcd));
+
+                                String afterModified = after != null ? str(after.get("_modified")) : "";
+
+                                if (!beforeModified.equals(afterModified)) {
+                                    updated++;  // 실제 값 변경된 경우만
+                                } else {
+                                    skipped++;  // 값 동일 → 스킵
+                                }
                             }
                         } catch (Exception e) {
                             log.warn("[ERP동기화] 행 처리 실패: {}", e.getMessage());
@@ -975,5 +1007,23 @@ public class CmsMemberService {
         // 6자리면 20XX로 변환
         if (cleaned.length() == 6) cleaned = "20" + cleaned;
         return cleaned.length() >= 8 ? cleaned.substring(0, 8) : cleaned;
+    }
+
+    public void manualAgree(Long memberId, String userId) {
+        String spjangcd = TenantContext.get();
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_member SET
+                    agree_yn     = 'Y',
+                    agree_date   = COALESCE(agree_date, CAST(NOW() AS DATE)),
+                    agree_method = 'MANUAL',
+                    _modifier_id = :userId,
+                    _modified    = NOW()
+                WHERE id = :memberId AND spjangcd = :spjangcd
+                """,
+                new MapSqlParameterSource()
+                        .addValue("memberId", memberId)
+                        .addValue("spjangcd", spjangcd)
+                        .addValue("userId", userId));
     }
 }

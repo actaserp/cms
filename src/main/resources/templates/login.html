@@ -403,6 +403,29 @@
                                     <span class="hint-text" style="margin-left: 10px; color: #666;">* 입금 확인 후 최종 승인됩니다.</span>
                                 </td>
                             </tr>
+                            <tr>
+                                <th>금결원 기관코드</th>
+                                <td colspan="3">
+                                    <input type="text" id="cmsOrgCode" name="cmsOrgCode"
+                                           placeholder="금융결제원 기관코드 (없으면 비워두세요)" class="wp50">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>CMS 이용 동의 <span style="color:red;">*</span></th>
+                                <td colspan="3">
+                                    <div style="border:1px solid #ddd; padding:12px; border-radius:4px;
+                                        background:#f9f9f9; font-size:12px; color:#444; margin-bottom:8px; line-height:1.6;">
+                                        이용기관이 금융결제원 CMS 이용에 있어,
+                                        <strong>(주)온아이티시스템</strong>이 제공하는 프로그램을 통해
+                                        입출금자료를 생성하고 처리하는 것에 동의합니다.
+                                    </div>
+                                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                        <input type="checkbox" id="cmsApiAgree" name="cmsApiAgree" value="Y"
+                                               style="outline:none; width:auto;">
+                                        <span style="font-size:13px; font-weight:600;">위 내용을 확인하였으며 동의합니다.</span>
+                                    </label>
+                                </td>
+                            </tr>
                             </tbody>
                         </table>
                     </div>
@@ -1206,6 +1229,11 @@
                 return false;
             }
 
+            if (!$('#cmsApiAgree').is(':checked')) {
+                Alert.alert('', 'CMS 이용 동의를 체크해주세요.');
+                return false;
+            }
+
             // [Step 1] 사업장 정보(tb_xa012)부터 저장
             $.ajax({
                 url: withCtx('/biz/save'),
@@ -1216,7 +1244,9 @@
                     bizType: data.bizType,
                     bizItem: data.bizItem,
                     bizAddr: data.bizAddr,
-                    bill_plan_id: data.bill_plan
+                    bill_plan_id: data.bill_plan,
+                    cmsOrgCode:   data.cmsOrgCode,
+                    cmsApiAgree:  $('#cmsApiAgree').is(':checked') ? 'Y' : 'N'
                 },
                 headers: { 'X-CSRF-TOKEN': $('input[name="_csrf"]').val() },
                 success: function (bizRes) {

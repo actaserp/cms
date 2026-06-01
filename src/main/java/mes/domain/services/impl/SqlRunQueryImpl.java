@@ -74,10 +74,10 @@ public class SqlRunQueryImpl implements SqlRunner {
     	int rowEffected = 0;
 		checkTenantSafety(sql);
     	// TODO Auto-generated method stub
-    	try {
-    		rowEffected = this.jdbcTemplate.update(sql, dicParam);
+		try {
+			rowEffected = this.jdbcTemplate.update(sql, dicParam);
 		} catch (Exception e) {
-			// TODO: handle exception
+			log.error("SqlRunner.execute 오류: {}", e.getMessage(), e); // 임시 추가
 			logWriter.addDbLog("error", "SqlRunQueryImpl.excute", e);
 		}
     	

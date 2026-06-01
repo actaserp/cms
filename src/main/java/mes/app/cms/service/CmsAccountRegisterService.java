@@ -368,4 +368,35 @@ public class CmsAccountRegisterService {
                 new MapSqlParameterSource("id", registerId)
                         .addValue("spjangcd", spjangcd));
     }
+
+    public Map<String, Object> createFromErpMembers(String userId) {
+        String spjangcd = TenantContext.get();
+        int created = 0;
+
+        // agree_yn = 'N'이고 아직 register가 없는 멤버만
+        List<Map<String, Object>> members = sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT m.id
+                FROM cms_member m
+                WHERE m.spjangcd = :spjangcd
+                AND m.agree_yn = 'N'
+                AND m.status = 'ACTIVE'
+                AND m.cltcd IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM cms_account_register r
+                    WHERE r.member_id = m.id
+                    AND r.spjangcd = m.spjangcd
+                )
+                """,
+                new MapSqlParameterSource("spjangcd", spjangcd));
+
+        for (Map<String, Object> m : members) {
+            Long memberId = ((Number) m.get("id")).longValue();
+            save(memberId, "1", null, null, userId);
+            created++;
+        }
+
+        log.info("[ERP미인증등록] spjangcd={} 생성={}", spjangcd, created);
+        return Map.of("created", created);
+    }
 }

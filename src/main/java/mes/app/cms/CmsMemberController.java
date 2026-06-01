@@ -149,4 +149,20 @@ public class CmsMemberController {
         return result;
     }
 
+    @PostMapping("/manual-agree")
+    @ResponseBody
+    public AjaxResult manualAgree(@RequestParam Long member_id, Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        String userId = String.valueOf(user.getId());
+        AjaxResult result = new AjaxResult();
+        try {
+            cmsMemberService.manualAgree(member_id, userId);
+            result.success = true;
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
 }
