@@ -125,20 +125,35 @@ public class WorkPlaceService {
 
         @SuppressWarnings("unchecked")
         Map<String, Object> erp = (Map<String, Object>) req.get("erp");
-        if (erp != null && !str(erp.get("host")).isEmpty()) {
-            // ERP 데이터 있으면 저장
-            saveErp(spjangcd, erp);
-        } else {
-            // ERP 체크 해제 → DELETE 아닌 UPDATE to NULL
+        String erpUseYn = erp != null ? str(erp.get("useYn")) : "N";
+        String erpCurrentStatus = erp != null ? str(erp.get("status")) : "INACTIVE";
+
+        if ("Y".equals(erpUseYn)) {
+            // 신규 신청 → PENDING 으로 upsert (host 등 정보는 없음)
             sqlRunner.execute(/* skip_tenant_check */
                     """
-                    UPDATE tb_xa012_erp SET 
-                        use_yn = 'N'
+                    INSERT INTO tb_xa012_erp (spjangcd, use_yn, status)
+                    VALUES (:spjangcd, 'Y', :status)
+                    ON CONFLICT (spjangcd) DO UPDATE SET
+                        use_yn = 'Y',
+                        status = CASE
+                            WHEN tb_xa012_erp.status = 'ACTIVE' THEN 'ACTIVE'
+                            ELSE :status
+                        END
+                    """,
+                    new MapSqlParameterSource()
+                            .addValue("spjangcd", spjangcd)
+                            .addValue("status", "PENDING"));
+        } else {
+            // 체크 해제 → INACTIVE
+            sqlRunner.execute(/* skip_tenant_check */
+                    """
+                    UPDATE tb_xa012_erp SET
+                        use_yn = 'N',
+                        status = 'INACTIVE'
                     WHERE spjangcd = :spjangcd
                     """,
                     new MapSqlParameterSource("spjangcd", spjangcd));
-
-            log.info("[Workplace] ERP 정보 삭제: spjangcd={}", spjangcd);
         }
     }
 
@@ -241,7 +256,6 @@ public class WorkPlaceService {
                      java.sql.ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) custcd = rs.getString("custcd");
                 }
-                log.info("[ERP저장] custcd 자동조회 성공: {}", custcd);
             } catch (Exception e) {
                 log.warn("[ERP저장] custcd 자동조회 실패: {}", e.getMessage());
             }
@@ -256,14 +270,13 @@ public class WorkPlaceService {
         p.addValue("username",   erp.get("username"));
         p.addValue("password",   erp.get("password"));
         p.addValue("msSpjangcd", erp.get("msSpjangcd"));
-        p.addValue("useYn",      "Y");
 
         sqlRunner.execute(/* skip_tenant_check */
                 """
                 INSERT INTO tb_xa012_erp (spjangcd, host, port, db_name, custcd,
-                    username, password, ms_spjangcd, use_yn)
+                    username, password, ms_spjangcd, use_yn, status)
                 VALUES (:spjangcd, :host, :port, :dbName, :custcd,
-                    :username, :password, :msSpjangcd, :useYn)
+                    :username, :password, :msSpjangcd, 'Y', 'ACTIVE')
                 ON CONFLICT (spjangcd) DO UPDATE SET
                     host        = EXCLUDED.host,
                     port        = EXCLUDED.port,
@@ -272,7 +285,8 @@ public class WorkPlaceService {
                     username    = EXCLUDED.username,
                     password    = EXCLUDED.password,
                     ms_spjangcd = EXCLUDED.ms_spjangcd,
-                    use_yn      = EXCLUDED.use_yn
+                    use_yn      = 'Y',
+                    status      = 'ACTIVE'
                 """, p);
     }
 
@@ -365,4 +379,37 @@ public class WorkPlaceService {
     // ── 유틸 ──────────────────────────────────────────────
 
     private String str(Object v) { return v != null ? v.toString() : ""; }
+
+
+    public List<Map<String, Object>> getErpList() {
+        return sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT s.spjangcd, s.spjangnm, s.prenm, s.tel1,
+                       e.status, e.use_yn, e.host, e.port, e.db_name,
+                       e.custcd, e.username, e.password, e.ms_spjangcd
+                FROM tb_xa012 s
+                LEFT JOIN tb_xa012_erp e ON s.spjangcd = e.spjangcd
+                WHERE e.use_yn = 'Y'
+                ORDER BY 
+                    CASE e.status WHEN 'PENDING' THEN 0 WHEN 'ACTIVE' THEN 1 ELSE 2 END,
+                    s.spjangcd
+                """,
+                new MapSqlParameterSource());
+    }
+
+    public void saveErpByAdmin(Map<String, Object> req) {
+        saveErp(str(req.get("spjangcd")), req);
+    }
+
+    public void cancelErpByAdmin(String spjangcd) {
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE tb_xa012_erp SET
+                    host = NULL, port = NULL, db_name = NULL,
+                    custcd = NULL, username = NULL, password = NULL,
+                    ms_spjangcd = NULL, use_yn = 'N', status = 'INACTIVE'
+                WHERE spjangcd = :spjangcd
+                """,
+                new MapSqlParameterSource("spjangcd", spjangcd));
+    }
 }

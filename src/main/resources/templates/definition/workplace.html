@@ -344,6 +344,7 @@
                                     <input type="checkbox" id="erpYn" onchange="onErpToggle(this)">
                                     ERP(MS SQL) 연동 사용
                                 </label>
+                                <span id="erpStatusBadge" style="font-size:12px; margin-left:12px;"></span>
                             </td>
                             <th>자동 청구생성</th>
                             <td colspan="4">
@@ -360,40 +361,6 @@
                                     <input type="checkbox" id="autoSendYn">
                                     자동 전송 사용
                                 </label>
-                            </td>
-                        </tr>
-                        <tr id="erpSectionRow" style="display:none;">
-                            <td colspan="10" style="padding:0;">
-                                <div class="erp-section visible" id="erpSection" style="margin:0; border-radius:0;">
-                                    <table>
-                                        <tr>
-                                            <th>DB 호스트</th>
-                                            <td><input type="text" id="erpHost" placeholder="192.168.0.1"></td>
-                                            <th>포트</th>
-                                            <td><input type="text" id="erpPort" placeholder="1433" style="width:80px;"></td>
-                                        </tr>
-                                        <tr>
-                                            <th>DB명</th>
-                                            <td><input type="text" id="erpDbName" placeholder="데이터베이스명"></td>
-                                            <th>업체코드</th>
-                                            <td><input type="text" id="erpCustcd" placeholder="ACTAS" style="width:100px;"></td>
-                                        </tr>
-                                        <tr>
-                                            <th>계정</th>
-                                            <td><input type="text" id="erpUsername" placeholder="접속 계정"></td>
-                                            <th>비밀번호</th>
-                                            <td><input type="text" id="erpPassword" placeholder="접속 비밀번호"></td>
-                                        </tr>
-                                        <tr>
-                                            <th>MS 사업장코드</th>
-                                            <td colspan="3">
-                                                <input type="text" id="erpMsSpjangcd" placeholder="ZZ" style="width:80px;">
-                                                <button type="button" class="btn-erp-test" onclick="testErpConnection()">연결 테스트</button>
-                                                <span class="erp-status" id="erpStatus"></span>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </div>
                             </td>
                         </tr>
 
@@ -730,19 +697,24 @@
 
             // ERP
             var erp = item.erp || {};
-            var erpYn = !!erp.host;
-            document.getElementById('erpYn').checked = erpYn;
-            document.getElementById('erpSectionRow').style.display = erpYn ? '' : 'none';
-            document.getElementById('erpHost').value       = erp.host || '';
-            document.getElementById('erpPort').value       = erp.port || '';
-            document.getElementById('erpDbName').value     = erp.db_name || '';
-            document.getElementById('erpCustcd').value     = erp.custcd || '';
-            document.getElementById('erpUsername').value   = erp.username || '';
-            document.getElementById('erpPassword').value   = erp.password || '';
-            document.getElementById('erpMsSpjangcd').value = erp.ms_spjangcd || '';
-            document.getElementById('erpStatus').textContent = '';
+            var erpStatus = erp.status || 'INACTIVE';
+            var erpYnChecked = (erpStatus === 'ACTIVE' || erpStatus === 'PENDING');
+            document.getElementById('erpYn').checked = erpYnChecked;
+            renderErpStatusBadge(erpStatus);
 
             cmsInstituteData = null;
+        }
+
+        function renderErpStatusBadge(status) {
+            var el = document.getElementById('erpStatusBadge');
+            el.dataset.status = status || 'INACTIVE';
+            if (status === 'ACTIVE') {
+                el.innerHTML = '<span style="color:#52c41a; font-weight:600;">✓ 연동 완료</span>';
+            } else if (status === 'PENDING') {
+                el.innerHTML = '<span style="color:#fa8c16; font-weight:600;">⏳ 신청 대기중 (관리자 처리 예정)</span>';
+            } else {
+                el.innerHTML = '';
+            }
         }
 
         function bindCmsInfo(cms) {
@@ -891,8 +863,13 @@
 
         // ── ERP 연동 ──────────────────────────────────────────
         function onErpToggle(chk) {
-            document.getElementById('erpSectionRow').style.display = chk.checked ? '' : 'none';
-            document.getElementById('erpStatus').textContent = '';
+            // 이미 ACTIVE면 해제 불가
+            var badge = document.getElementById('erpStatusBadge');
+            if (!chk.checked && badge.dataset.status === 'ACTIVE') {
+                Alert.alert('', 'ERP 연동 중입니다. 해제하려면 관리자에게 문의하세요.');
+                chk.checked = true;
+                return;
+            }
         }
 
         function testErpConnection() {
@@ -1079,32 +1056,11 @@
         function save() {
             Alert.confirm('', '저장하시겠습니까?', function () {
                 var erpYn = document.getElementById('erpYn').checked;
+                var erpCurrentStatus = document.getElementById('erpStatusBadge').dataset.status || 'INACTIVE';
                 var d = cmsInstituteData || {};
                 var eb21 = d.eb21_service_settings || {};
                 var ec21 = d.ec21_service_settings || {};
                 var eb31 = d.eb31_service_settings || {};
-
-                var erpHost = $('#erpHost').val().trim();
-                var erpPort = $('#erpPort').val().trim();
-                var erpDbName = $('#erpDbName').val().trim();
-                var erpCustcd = $('#erpCustcd').val().trim();
-                var erpUsername = $('#erpUsername').val().trim();
-                var erpPassword = $('#erpPassword').val().trim();
-                var erpMsSpjangcd = $('#erpMsSpjangcd').val().trim();
-
-                // ERP 체크박스 ON 또는 필드 입력 시
-                var hasErpInput = erpHost || erpPort || erpDbName || erpCustcd || erpUsername || erpPassword || erpMsSpjangcd;
-
-                if (erpYn || hasErpInput) {
-                    // 모든 필드 필수
-                    if (!erpHost) { Alert.alert('', 'ERP: DB 호스트를 입력하세요.'); return; }
-                    if (!erpPort) { Alert.alert('', 'ERP: 포트를 입력하세요.'); return; }
-                    if (!erpDbName) { Alert.alert('', 'ERP: DB명을 입력하세요.'); return; }
-                    if (!erpCustcd) { Alert.alert('', 'ERP: 업체코드를 입력하세요.'); return; }
-                    if (!erpUsername) { Alert.alert('', 'ERP: 계정을 입력하세요.'); return; }
-                    if (!erpPassword) { Alert.alert('', 'ERP: 비밀번호를 입력하세요.'); return; }
-                    if (!erpMsSpjangcd) { Alert.alert('', 'ERP: MS 사업장코드를 입력하세요.'); return; }
-                }
 
                 var payload = {
                     spjangcd:    $('#spjangcd2').val(),
@@ -1141,15 +1097,12 @@
                         eb31FeeRequest:   eb31.bank_fee_for_each_request || null,
                         eb31FeeSuccess:   eb31.bank_fee_for_each_successful_request || null
                     },
-                    erp: erpYn ? {
-                        host:       $('#erpHost').val(),
-                        port:       $('#erpPort').val(),
-                        dbName:     $('#erpDbName').val(),
-                        custcd:     $('#erpCustcd').val(),
-                        username:   $('#erpUsername').val(),
-                        password:   $('#erpPassword').val(),
-                        msSpjangcd: $('#erpMsSpjangcd').val()
-                    } : null
+                    erp: {
+                        useYn: erpYn ? 'Y' : 'N',
+                        // ACTIVE는 관리자만 바꾸므로 현재 상태 유지
+                        // 신규 체크 시 PENDING으로
+                        status: erpYn && erpCurrentStatus === 'INACTIVE' ? 'PENDING' : erpCurrentStatus
+                    }
                 };
 
                 $.ajax({

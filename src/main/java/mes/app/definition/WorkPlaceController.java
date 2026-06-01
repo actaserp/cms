@@ -277,4 +277,27 @@ public class WorkPlaceController {
         }
         return result;
     }
+
+    // ERP 신청 목록 조회 (관리자용)
+    @GetMapping("/erp/list")
+    @ResponseBody
+    public Map<String, Object> getErpList() {
+        return Map.of("success", true, "data", workPlaceService.getErpList());
+    }
+
+    // ERP 설정 저장 (관리자용)
+    @PostMapping("/erp/save")
+    @ResponseBody
+    public Map<String, Object> saveErpByAdmin(@RequestBody Map<String, Object> req) {
+        workPlaceService.saveErpByAdmin(req);
+        return Map.of("success", true);
+    }
+
+    @PostMapping("/erp/cancel")
+    @ResponseBody
+    public Map<String, Object> cancelErpByAdmin(@RequestBody Map<String, Object> req) {
+        String spjangcd = req.get("spjangcd") != null ? req.get("spjangcd").toString() : "";
+        workPlaceService.cancelErpByAdmin(spjangcd);
+        return Map.of("success", true);
+    }
 }
