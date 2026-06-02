@@ -293,7 +293,13 @@ public class CmsSignService {
                 new com.openhtmltopdf.pdfboxout.PdfRendererBuilder();
         java.net.URL fontUrl = getClass().getResource("/static/font/NotoSansKR-Regular.ttf");
         if (fontUrl != null) {
-            builder.useFont(new java.io.File(fontUrl.toURI()), "Noto Sans KR");
+            try (java.io.InputStream fontStream = getClass().getResourceAsStream("/static/font/NotoSansKR-Regular.ttf")) {
+                java.io.File tempFont = java.io.File.createTempFile("NotoSansKR", ".ttf");
+                tempFont.deleteOnExit();
+                java.nio.file.Files.copy(fontStream, tempFont.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                builder.useFont(tempFont, "Noto Sans KR");
+            }
         }
         builder.useFastMode();
         builder.withHtmlContent(html, null);
