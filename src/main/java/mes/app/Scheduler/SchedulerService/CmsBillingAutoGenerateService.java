@@ -235,7 +235,10 @@ public class CmsBillingAutoGenerateService {
     private void insertBilling(String spjangcd, String billingYm, YearMonth ym,
                                Map<String, Object> m, int seq, String userId) {
         String lastDay   = ym.atEndOfMonth().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String deductDay = str(m.get("deduct_day"));
+        String deductDay = (String) m.get("deduct_day");
+        if (deductDay == null || deductDay.isEmpty() || "null".equals(deductDay)) {
+            return;
+        }
         String deductDate = "99".equals(deductDay) ? lastDay : billingYm + deductDay;
 
         // 휴일이면 다음 영업일로 보정

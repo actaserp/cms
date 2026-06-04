@@ -573,6 +573,12 @@ public class CmsBillingService {
         for (Map<String, Object> m : members) {
             String deductDay = (String) m.get("deduct_day");
             String deductDate = "99".equals(deductDay) ? lastDay : billingYm + deductDay;
+
+            if (deductDay == null || deductDay.isEmpty()) {
+                skippedCount++;
+                continue;
+            }
+
             deductDate = cmsHolidayService.getNextBusinessDay(deductDate);
 
             // 오늘 이전 날짜 스킵
