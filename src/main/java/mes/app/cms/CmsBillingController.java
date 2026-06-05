@@ -430,4 +430,40 @@ public class CmsBillingController {
         }
         return result;
     }
+
+    /** 약정일별 수동 청구 가능 건수 조회 */
+    @GetMapping("/deduct-day-summary")
+    public AjaxResult getDeductDaySummary(
+            @RequestParam("billing_ym") String billingYm,
+            @RequestParam(value = "deduct_type", required = false) String deductType) {
+        AjaxResult result = new AjaxResult();
+        result.data = cmsBillingService.getDeductDaySummary(billingYm, deductType);
+        return result;
+    }
+
+    /** 수동 청구 생성 - 선택한 약정일 기준, send_date = 오늘 */
+    @PostMapping("/generate-manual")
+    public AjaxResult generateManual(
+            @RequestParam("billing_ym")               String billingYm,
+            @RequestParam("deduct_days")              String deductDaysStr,
+            @RequestParam(value = "deduct_type", required = false) String deductType,
+            Authentication auth) {
+
+        User user = (User) auth.getPrincipal();
+        AjaxResult result = new AjaxResult();
+        try {
+            List<String> deductDays = Arrays.stream(deductDaysStr.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+
+            result.data = cmsBillingService.generateBillingManual(
+                    billingYm, deductDays, deductType, user.getUsername());
+        } catch (Exception e) {
+            result.success = false;
+            result.message = "청구 생성 실패: " + e.getMessage();
+            log.error("[CmsBillingController] 수동 청구 생성 실패", e);
+        }
+        return result;
+    }
 }

@@ -9,6 +9,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -686,12 +687,7 @@ public class CmsMemberService {
         return prefix + String.format("%02d", seq);
     }
 
-    /**
-     * ERP(MS SQL) TB_XCLIENT + TB_E101 → cms_member 동기화
-     * - TB_XCLIENT(allchk='1') INNER JOIN TB_E101(최신 계약) 기준
-     * - member_no(cltcd) 기준 upsert
-     * - 금액/약정일/청구기간/출금월 모두 동기화
-     */
+    @Transactional
     public Map<String, Object> syncFromErp(String spjangcd, String userId) {
         int inserted = 0, updated = 0, skipped = 0, failed = 0;
 
@@ -718,30 +714,30 @@ public class CmsMemberService {
 
         // 은행코드 매핑 (TB_XBANK.bnkcode → cms_bank_code.bank_code)
         Map<String, String> bnkCodeMap = new java.util.HashMap<>();
-        bnkCodeMap.put("002", "002"); // 산업은행
-        bnkCodeMap.put("003", "003"); // 기업은행
-        bnkCodeMap.put("007", "007"); // 수협
-        bnkCodeMap.put("008", "008"); // 수출입은행
-        bnkCodeMap.put("012", "011"); // 농협 → NH농협
-        bnkCodeMap.put("019", "004"); // 국민은행
-        bnkCodeMap.put("020", "020"); // 우리은행
-        bnkCodeMap.put("023", "023"); // SC제일은행
-        bnkCodeMap.put("027", "027"); // 한국씨티은행
-        bnkCodeMap.put("032", "032"); // 부산은행
-        bnkCodeMap.put("034", "034"); // 광주은행
-        bnkCodeMap.put("035", "035"); // 제주은행
-        bnkCodeMap.put("037", "037"); // 전북은행
-        bnkCodeMap.put("039", "039"); // 경남은행
-        bnkCodeMap.put("045", "045"); // 새마을금고
-        bnkCodeMap.put("047", "048"); // 신협
-        bnkCodeMap.put("050", "050"); // 저축은행
-        bnkCodeMap.put("064", "064"); // 산림조합
-        bnkCodeMap.put("071", "071"); // 우체국
-        bnkCodeMap.put("081", "081"); // 하나은행
-        bnkCodeMap.put("088", "088"); // 신한은행
-        bnkCodeMap.put("089", "089"); // 케이뱅크
-        bnkCodeMap.put("090", "090"); // 카카오뱅크
-        bnkCodeMap.put("092", "092"); // 토스뱅크
+        bnkCodeMap.put("002", "002");
+        bnkCodeMap.put("003", "003");
+        bnkCodeMap.put("007", "007");
+        bnkCodeMap.put("008", "008");
+        bnkCodeMap.put("012", "011");
+        bnkCodeMap.put("019", "004");
+        bnkCodeMap.put("020", "020");
+        bnkCodeMap.put("023", "023");
+        bnkCodeMap.put("027", "027");
+        bnkCodeMap.put("032", "032");
+        bnkCodeMap.put("034", "034");
+        bnkCodeMap.put("035", "035");
+        bnkCodeMap.put("037", "037");
+        bnkCodeMap.put("039", "039");
+        bnkCodeMap.put("045", "045");
+        bnkCodeMap.put("047", "048");
+        bnkCodeMap.put("050", "050");
+        bnkCodeMap.put("064", "064");
+        bnkCodeMap.put("071", "071");
+        bnkCodeMap.put("081", "081");
+        bnkCodeMap.put("088", "088");
+        bnkCodeMap.put("089", "089");
+        bnkCodeMap.put("090", "090");
+        bnkCodeMap.put("092", "092");
 
         // 3. MS DB 연결
         String url = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
@@ -753,97 +749,107 @@ public class CmsMemberService {
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
                 url, str(erp.get("username")), str(erp.get("password")))) {
 
-            String sql = """
-                SELECT
-                    C.cltcd       AS cltcd,
-                    C.cltnm       AS member_name,
-                    C.cmsrnum     AS id_number,
-                    B.bnkcode     AS bank_code,
-                    C.accnum      AS bank_account,
-                    C.hptelnum    AS phone,
-                    C.agneremail  AS email,
-                    C.cltadres    AS adresa,
-                    C.zipcd       AS zipcd,
-                    E.amt         AS deduct_amount,
-                    E.dedate      AS deduct_day,
-                    E.stdate      AS start_date,
-                    E.enddate     AS end_date,
-                    E.delmon1, E.delmon2, E.delmon3, E.delmon4,
-                    E.delmon5, E.delmon6, E.delmon7, E.delmon8,
-                    E.delmon9, E.delmon10, E.delmon11, E.delmon12,
-                    (SELECT TOP 1 SPDATE FROM TB_CMSEB13
-                     WHERE CLTCD = C.cltcd AND ACTCD IS NULL
-                     ORDER BY SPDATE DESC) AS agree_date,
-                    (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13
-                     WHERE CLTCD = C.cltcd AND ACTCD IS NULL
-                     ORDER BY SPDATE DESC) AS bankcltcd
-                FROM TB_XCLIENT C WITH(NOLOCK)
-                INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd
-                INNER JOIN TB_E101 E WITH(NOLOCK)
-                    ON C.cltcd = E.cltcd AND E.custcd = ?
-                WHERE C.custcd = ?
-                AND C.accnum IS NOT NULL
-                AND LTRIM(RTRIM(C.accnum)) != ''
-                AND C.cmsrnum IS NOT NULL
-                AND LTRIM(RTRIM(C.cmsrnum)) != ''
-                AND E.stdate = (
-                    SELECT MAX(stdate) FROM TB_E101
-                    WHERE cltcd = E.cltcd AND custcd = ?
-                )
-                """;
+            // TB_E601 기준으로 actcd별 현장 조회
+            // - 거래처 CMS: allchk = 1 (TB_XCLIENT)
+            // - 현장 CMS: cmsflag = 1 (TB_E101) → actcd != cltcd 케이스
+            // - accyn = 1: EB13 인증완료 → agree_yn = Y
+            String sql = "SELECT"
+                    + " C.cltcd AS cltcd,"
+                    + " E6.actcd AS actcd,"
+                    + " E6.actnm AS member_name,"
+                    + " C.cmsrnum AS id_number,"
+                    + " B.bnkcode AS bank_code,"
+                    + " C.accnum AS bank_account,"
+                    + " C.hptelnum AS phone,"
+                    + " C.agneremail AS email,"
+                    + " C.cltadres AS adresa,"
+                    + " C.zipcd AS zipcd,"
+                    + " CASE WHEN E1.contyul IS NOT NULL AND E1.contyul > 0"
+                    + "      THEN ROUND(E1.amt * (E1.contyul / 100.0) * 1.1, 0)"
+                    + "      ELSE E1.amt END AS deduct_amount,"
+                    + " C.autodate AS deduct_day,"
+                    + " C.autoflag AS auto_flag,"
+                    + " E1.stdate AS start_date,"
+                    + " E1.enddate AS end_date,"
+                    + " E1.accyn AS accyn,"
+                    + " E1.delmon1, E1.delmon2, E1.delmon3, E1.delmon4,"
+                    + " E1.delmon5, E1.delmon6, E1.delmon7, E1.delmon8,"
+                    + " E1.delmon9, E1.delmon10, E1.delmon11, E1.delmon12"
+                    + " FROM TB_XCLIENT C WITH(NOLOCK)"
+                    + " INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd"
+                    + " INNER JOIN TB_E601 E6 WITH(NOLOCK) ON C.cltcd = E6.cltcd AND C.custcd = E6.custcd"
+                    + " INNER JOIN TB_E101 E1 WITH(NOLOCK) ON E6.actcd = E1.actcd AND E6.custcd = E1.custcd"
+                    + " WHERE C.custcd = ?"
+                    + " AND C.accnum IS NOT NULL AND LTRIM(RTRIM(C.accnum)) != ''"
+                    + " AND C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum)) != ''"
+                    + " AND (C.allchk = 1 OR E1.cmsflag = 1)"
+                    + " AND E1.enddate >= CONVERT(varchar(8), GETDATE(), 112)"
+                    + " AND E1.stdate <= CONVERT(varchar(8), GETDATE(), 112)"
+                    + " AND E1.stdate = (SELECT MAX(stdate) FROM TB_E101"
+                    + "     WHERE actcd = E6.actcd AND custcd = ?"
+                    + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
+                    + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))"
+                    + " AND E1.amt = (SELECT MAX(amt) FROM TB_E101"
+                    + "     WHERE actcd = E6.actcd AND custcd = ?"
+                    + "     AND stdate = E1.stdate"
+                    + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
+                    + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))"
+                    + " AND E1.enddate = (SELECT MAX(enddate) FROM TB_E101"
+                    + "     WHERE actcd = E6.actcd AND custcd = ?"
+                    + "     AND stdate = E1.stdate"
+                    + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
+                    + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))";
 
             try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, custcd);
                 ps.setString(2, custcd);
                 ps.setString(3, custcd);
+                ps.setString(4, custcd);
 
                 try (java.sql.ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         try {
-                            String memberName    = rs.getString("member_name");
-                            String idNumber      = rs.getString("id_number");
-                            String bnkCode       = rs.getString("bank_code"); // TB_XBANK.bnkcode
-                            String bankCode      = bnkCodeMap.getOrDefault(bnkCode, bnkCode); // cms_bank_code 변환
-                            String bankAccount   = rs.getString("bank_account");
-                            String phone         = rs.getString("phone");
-                            String email         = rs.getString("email");
-                            String adresa        = rs.getString("adresa");
-                            String zipcd2        = rs.getString("zipcd");
-                            Long   deductAmount  = rs.getLong("deduct_amount");
-                            String deductDay     = rs.getString("deduct_day");
-                            String startDate     = cleanDate(rs.getString("start_date"));
-                            String endDate       = cleanDate(rs.getString("end_date"));
-                            String agreeDate = cleanDate(rs.getString("agree_date"));
-                            String cltcd    = rs.getString("cltcd");
-                            String bankcltcd = rs.getString("bankcltcd");
-                            String agreeYn;
-                            String memberNo;
+                            String cltcd       = rs.getString("cltcd");
+                            String actcd       = rs.getString("actcd");
+                            String memberName  = rs.getString("member_name");
+                            String idNumber    = rs.getString("id_number");
+                            String bnkCode     = rs.getString("bank_code");
+                            String bankCode    = bnkCodeMap.getOrDefault(bnkCode, bnkCode);
+                            String bankAccount = rs.getString("bank_account");
+                            String phone       = rs.getString("phone");
+                            String email       = rs.getString("email");
+                            String adresa      = rs.getString("adresa");
+                            String zipcd2      = rs.getString("zipcd");
+                            Long   deductAmount = rs.getLong("deduct_amount");
+                            String startDate   = cleanDate(rs.getString("start_date"));
+                            String endDate     = cleanDate(rs.getString("end_date"));
+                            String accyn       = rs.getString("accyn");
 
-                            // 기존 member 조회
-                            Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
-                                    "SELECT id, _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :cltcd",
-                                    new MapSqlParameterSource("spjangcd", spjangcd).addValue("cltcd", cltcd));
+                            // accyn = 1 → EB13 인증완료 → agree_yn = Y
+                            String agreeYn = "1".equals(accyn) ? "Y" : "N";
 
-                            if (StringUtils.hasText(bankcltcd)) {
-                                // TB_CMSEB13 인증 완료 → BANKCLTCD를 member_no로
-                                memberNo = bankcltcd;
-                                agreeYn  = "Y";
+                            // deduct_day 처리: autoflag 0=당월, 1=말일, 2=익월
+                            String autoFlag  = rs.getString("auto_flag");
+                            String deductDay = rs.getString("deduct_day");
+
+                            if ("1".equals(autoFlag)) {
+                                deductDay = "99";
+                            } else if (deductDay == null || deductDay.trim().isEmpty()) {
+                                log.warn("[ERP동기화] deduct_day 없음 - 스킵: cltcd={} actcd={} member={}", cltcd, actcd, memberName);
+                                skipped++;
+                                continue;
                             } else {
-                                memberNo = existing != null
-                                        ? str(existing.get("member_no"))           // 기존 member_no 유지
-                                        : generateMemberNo(spjangcd, null, idNumber); // 신규 채번
-                                agreeYn = "N";
+                                try {
+                                    deductDay = String.format("%02d", Integer.parseInt(deductDay.trim()));
+                                } catch (NumberFormatException e) {
+                                    log.warn("[ERP동기화] deduct_day 파싱 실패 - 스킵: cltcd={} actcd={} deduct_day={}", cltcd, actcd, deductDay);
+                                    skipped++;
+                                    continue;
+                                }
                             }
 
                             if (endDate == null || endDate.isEmpty()) endDate = "99991231";
                             if (bankAccount != null) bankAccount = bankAccount.replaceAll("-", "").trim();
-
-                            // deduct_day 2자리 패딩 (24 → "24", 9 → "09")
-                            if (deductDay != null && !deductDay.trim().isEmpty()) {
-                                try {
-                                    deductDay = String.format("%02d", Integer.parseInt(deductDay.trim()));
-                                } catch (NumberFormatException ignored) {}
-                            }
 
                             // cycle_months: delmon1~12 중 값 있는 것 콤마 연결
                             List<String> months = new java.util.ArrayList<>();
@@ -853,39 +859,43 @@ public class CmsMemberService {
                                     months.add(String.valueOf(Integer.parseInt(mon.trim())));
                                 }
                             }
-                            // 1~12 전부 있으면 REGULAR, 일부만 있으면 IRREGULAR
                             String cycleMonths = months.isEmpty() ? null : String.join(",", months);
                             String cycleType   = (months.size() == 12) ? "REGULAR" : "IRREGULAR";
                             if ("REGULAR".equals(cycleType)) cycleMonths = null;
 
+                            // actcd 기준으로 기존 member 조회
+                            Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
+                                    "SELECT id, _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :actcd",
+                                    new MapSqlParameterSource("spjangcd", spjangcd).addValue("actcd", actcd));
+
+                            // memberNo: actcd 기반 채번
+                            String memberNo = existing != null
+                                    ? str(existing.get("member_no"))
+                                    : generateMemberNo(spjangcd, null, idNumber);
+
                             MapSqlParameterSource p = new MapSqlParameterSource();
-                            p.addValue("spjangcd",      spjangcd);
-                            p.addValue("memberNo",      memberNo);
-                            p.addValue("cltcd",    cltcd);
-                            p.addValue("agreeYn",  agreeYn);
-                            p.addValue("memberName",    memberName);
-                            p.addValue("memberType",    "C");
-                            p.addValue("idNumber",      idNumber);
-                            p.addValue("bankCode",      bankCode);
-                            p.addValue("bankAccount",   bankAccount);
-                            p.addValue("phone",         phone);
-                            p.addValue("email",         email);
-                            p.addValue("adresa",        adresa);
-                            p.addValue("zipcd",         zipcd2);
-                            p.addValue("deductAmount",  deductAmount);
-                            p.addValue("deductDay",     deductDay);
-                            p.addValue("startDate",     startDate);
-                            p.addValue("endDate",       endDate);
-                            p.addValue("cycleType",     cycleType);
-                            p.addValue("cycleMonths",   cycleMonths);
-                            p.addValue("agreeYn",   agreeYn);
-                            p.addValue("bankcltcd", bankcltcd);
-                            p.addValue("userId",        userId);
-                            p.addValue("agreeDate", agreeDate);
-                            p.addValue("agreeMethod", StringUtils.hasText(bankcltcd) ? "ERP" : null);
+                            p.addValue("spjangcd",    spjangcd);
+                            p.addValue("memberNo",    memberNo);
+                            p.addValue("cltcd",       actcd);       // actcd를 cltcd로 저장
+                            p.addValue("agreeYn",     agreeYn);
+                            p.addValue("memberName",  memberName);
+                            p.addValue("memberType",  "C");
+                            p.addValue("idNumber",    idNumber);
+                            p.addValue("bankCode",    bankCode);
+                            p.addValue("bankAccount", bankAccount);
+                            p.addValue("phone",       phone);
+                            p.addValue("email",       email);
+                            p.addValue("adresa",      adresa);
+                            p.addValue("zipcd",       zipcd2);
+                            p.addValue("deductAmount", deductAmount);
+                            p.addValue("deductDay",   deductDay);
+                            p.addValue("startDate",   startDate);
+                            p.addValue("endDate",     endDate);
+                            p.addValue("cycleType",   cycleType);
+                            p.addValue("cycleMonths", cycleMonths);
+                            p.addValue("userId",      userId);
 
                             if (existing == null) {
-                                // member_no = MS cltcd 그대로 사용
                                 sqlRunner.execute(/* skip_tenant_check */
                                         """
                                         INSERT INTO cms_member (
@@ -895,7 +905,7 @@ public class CmsMemberService {
                                             deduct_amount, deduct_day,
                                             start_date, end_date,
                                             cycle_type, cycle_months,
-                                            agree_yn, agree_date, agree_method, cltcd, status,
+                                            agree_yn, cltcd, status,
                                             _creater_id, _created, _modifier_id, _modified
                                         ) VALUES (
                                             :spjangcd, :memberNo, :memberType, :memberName,
@@ -904,7 +914,7 @@ public class CmsMemberService {
                                             :deductAmount, :deductDay,
                                             :startDate, :endDate,
                                             :cycleType, :cycleMonths,
-                                            :agreeYn, CAST(:agreeDate AS DATE), :agreeMethod, :cltcd, 'ACTIVE',
+                                            :agreeYn, :cltcd, 'ACTIVE',
                                             :userId, NOW(), :userId, NOW()
                                         )
                                         """, p);
@@ -912,8 +922,7 @@ public class CmsMemberService {
                             } else {
                                 String beforeModified = str(existing.get("_modified"));
 
-                                // 업데이트 — 계좌정보 + 계약정보 모두 갱신
-                                int rows = sqlRunner.execute(/* skip_tenant_check */
+                                sqlRunner.execute(/* skip_tenant_check */
                                         """
                                         UPDATE cms_member SET
                                          member_name    = :memberName,
@@ -931,11 +940,7 @@ public class CmsMemberService {
                                          end_date       = :endDate,
                                          cycle_type     = :cycleType,
                                          cycle_months   = :cycleMonths,
-                                         agree_yn       = :agreeYn,
-                                         agree_method = COALESCE(agree_method, :agreeMethod),
-                                         agree_date     = COALESCE(agree_date, CAST(:agreeDate AS DATE)),
-                                         cltcd          = :cltcd,
-                                         bankcltcd      = COALESCE(:bankcltcd, bankcltcd),
+                                         agree_yn       = CASE WHEN :agreeYn = 'Y' THEN 'Y' ELSE agree_yn END,
                                          _modifier_id   = CASE WHEN (
                                              COALESCE(member_name, '')    != COALESCE(:memberName, '')    OR
                                              COALESCE(id_number, '')      != COALESCE(:idNumber, '')      OR
@@ -950,8 +955,7 @@ public class CmsMemberService {
                                              COALESCE(start_date, '')     != COALESCE(:startDate, '')     OR
                                              COALESCE(end_date, '')       != COALESCE(:endDate, '')       OR
                                              COALESCE(cycle_type, '')     != COALESCE(:cycleType, '')     OR
-                                             COALESCE(cycle_months, '')   != COALESCE(:cycleMonths, '')   OR
-                                             COALESCE(agree_yn, '')       != COALESCE(:agreeYn, '')
+                                             COALESCE(cycle_months, '')   != COALESCE(:cycleMonths, '')
                                          ) THEN :userId ELSE _modifier_id END,
                                          _modified      = CASE WHEN (
                                              COALESCE(member_name, '')    != COALESCE(:memberName, '')    OR
@@ -967,22 +971,21 @@ public class CmsMemberService {
                                              COALESCE(start_date, '')     != COALESCE(:startDate, '')     OR
                                              COALESCE(end_date, '')       != COALESCE(:endDate, '')       OR
                                              COALESCE(cycle_type, '')     != COALESCE(:cycleType, '')     OR
-                                             COALESCE(cycle_months, '')   != COALESCE(:cycleMonths, '')   OR
-                                             COALESCE(agree_yn, '')       != COALESCE(:agreeYn, '')
+                                             COALESCE(cycle_months, '')   != COALESCE(:cycleMonths, '')
                                          ) THEN NOW() ELSE _modified END
                                      WHERE spjangcd = :spjangcd AND cltcd = :cltcd
                                         """, p);
 
                                 Map<String, Object> after = sqlRunner.getRow(/* skip_tenant_check */
                                         "SELECT _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :cltcd",
-                                        new MapSqlParameterSource("spjangcd", spjangcd).addValue("cltcd", cltcd));
+                                        new MapSqlParameterSource("spjangcd", spjangcd).addValue("cltcd", actcd));
 
                                 String afterModified = after != null ? str(after.get("_modified")) : "";
 
                                 if (!beforeModified.equals(afterModified)) {
-                                    updated++;  // 실제 값 변경된 경우만
+                                    updated++;
                                 } else {
-                                    skipped++;  // 값 동일 → 스킵
+                                    skipped++;
                                 }
                             }
                         } catch (Exception e) {

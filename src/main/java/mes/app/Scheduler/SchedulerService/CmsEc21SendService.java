@@ -230,6 +230,11 @@ public class CmsEc21SendService {
         if (sent) {
             int updatedCount = cmsBillingService.updateStatusToRequested(billingIds, fileId, feeRequest);
             log.info("[CmsEc21FileGenerate] billing REQUESTED 전환: {}건", updatedCount);
+
+            String actualSendDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            cmsBillingService.updateSendDate(billingIds, actualSendDate);
+            log.info("[CmsEb21FileGenerate] send_date 업데이트: {}건 → {}", billingIds.size(), actualSendDate);
+
         } else {
             cmsBillingService.updateStatusToError(billingIds, errMsg);
             log.warn("[CmsEc21FileGenerate] billing ERROR 전환: {}건", billingIds.size());

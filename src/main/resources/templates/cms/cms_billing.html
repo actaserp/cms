@@ -327,6 +327,33 @@
         </div>
     </div>
 
+    <div id="modalGenerateBilling" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+     background:rgba(0,0,0,0.45); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:24px; width:420px; max-width:95vw;
+                box-shadow:0 4px 24px rgba(0,0,0,0.15);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h3 style="font-size:16px; font-weight:600; margin:0;">수동 청구 생성</h3>
+                <button onclick="$('#modalGenerateBilling').hide();"
+                        style="background:none; border:none; font-size:18px; cursor:pointer; color:#888;">✕</button>
+            </div>
+
+            <div style="font-size:12px; color:#888; margin-bottom:12px;">
+                청구 가능한 약정일만 표시됩니다. <strong>청구 신청일 = 오늘</strong>로 생성됩니다.
+            </div>
+
+            <div id="generateDayList" style="margin-bottom:16px;">
+                <div style="text-align:center; color:#aaa; padding:20px;">로딩 중...</div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:8px; border-top:1px solid #eee; padding-top:14px;">
+                <button onclick="$('#modalGenerateBilling').hide();"
+                        class="btn-default" style="min-width:70px;">취소</button>
+                <button id="btnGenerateConfirm" onclick="confirmGenerateManual();"
+                        class="btn-default" style="background:#4a6cf7; color:#fff; min-width:90px;">청구 생성</button>
+            </div>
+        </div>
+    </div>
+
     <footer style="margin-top: 24px;">
         <p>Copyright&#169; 0000 corp. All rights reserved.</p>
     </footer>
@@ -1090,7 +1117,7 @@
         function checkAndSetBusinessDay(dateStr, callback, silent) {
             var compact = dateStr.replace(/-/g, '');
             $.ajax({
-                url: withCtx('/api/cms/holiday/next-business-day'),
+                url: '/api/cms/holiday/next-business-day',
                 type: 'GET',
                 data: { date: compact },
                 success: function(result) {
@@ -1109,10 +1136,119 @@
             });
         }
 
+        // 청구생성 버튼 클릭 → 모달 오픈
+        function openGenerateModal() {
+            var ymVal = $('#srchBillingYm').val();
+            if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
+
+            $('#generateDayList').html('<div style="text-align:center; color:#aaa; padding:20px;">로딩 중...</div>');
+            $('#modalGenerateBilling').css('display', 'flex');
+
+            $.ajax({
+                url: '/api/cms/billing/deduct-day-summary',
+                type: 'GET',
+                data: {
+                    billing_ym:   ymVal.replace('-', ''),
+                    deduct_type:  'EB'
+                },
+                success: function(result) {
+                    if (!result.success) {
+                        $('#generateDayList').html('<div style="color:#e74c3c; padding:10px;">' + result.message + '</div>');
+                        return;
+                    }
+                    renderGenerateDayList(result.data || []);
+                },
+                error: function() {
+                    $('#generateDayList').html('<div style="color:#e74c3c; padding:10px;">조회 실패</div>');
+                }
+            });
+        }
+
+        function renderGenerateDayList(rows) {
+            if (!rows || rows.length === 0) {
+                $('#generateDayList').html('<div style="color:#aaa; padding:16px; text-align:center;">청구 가능한 약정일이 없습니다.</div>');
+                return;
+            }
+
+            var html = '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+            html += '<thead><tr style="background:#f5f6fa;">';
+            html += '<th style="padding:8px; border:1px solid #dde0ea; text-align:center; width:40px;">선택</th>';
+            html += '<th style="padding:8px; border:1px solid #dde0ea; text-align:center;">약정일</th>';
+            html += '<th style="padding:8px; border:1px solid #dde0ea; text-align:center;">건수</th>';
+            html += '<th style="padding:8px; border:1px solid #dde0ea; text-align:center;">상태</th>';
+            html += '</tr></thead><tbody>';
+
+            rows.forEach(function(row) {
+                var available  = row.available;
+                var reason     = row.reason || '';
+                var rowStyle   = available ? '' : 'color:#aaa; background:#fafafa;';
+                var badgeStyle = available
+                    ? 'background:#d4edda; color:#155724;'
+                    : 'background:#f8d7da; color:#721c24;';
+                var badgeText  = available ? '가능' : reason || '불가';
+
+                html += '<tr style="' + rowStyle + '">';
+                html += '<td style="padding:8px; border:1px solid #dde0ea; text-align:center;">';
+                if (available) {
+                    html += '<input type="checkbox" class="chk-deduct-day" value="' + row.deduct_day + '" checked>';
+                } else {
+                    html += '<input type="checkbox" class="chk-deduct-day" value="' + row.deduct_day + '" disabled>';
+                }
+                html += '</td>';
+                html += '<td style="padding:8px; border:1px solid #dde0ea; text-align:center; font-weight:600;">' + row.deduct_day + '</td>';
+                html += '<td style="padding:8px; border:1px solid #dde0ea; text-align:center;">' + row.count + '건</td>';
+                html += '<td style="padding:8px; border:1px solid #dde0ea; text-align:center;">';
+                html += '<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; ' + badgeStyle + '">' + badgeText + '</span>';
+                html += '</td></tr>';
+            });
+
+            html += '</tbody></table>';
+            $('#generateDayList').html(html);
+        }
+
+        function confirmGenerateManual() {
+            var ymVal = $('#srchBillingYm').val();
+            if (!ymVal) return;
+
+            // 체크된 약정일 수집
+            var selectedDays = [];
+            $('.chk-deduct-day:checked').each(function() {
+                selectedDays.push($(this).val());
+            });
+
+            if (selectedDays.length === 0) {
+                Alert.alert('', '청구할 약정일을 선택하세요.');
+                return;
+            }
+
+            $('#modalGenerateBilling').hide();
+
+            Alert.confirm('', '[' + ymVal + '] ' + selectedDays.join(', ') + ' 약정일 청구를 생성하시겠습니까?\n청구 신청일 = 오늘로 생성됩니다.', function() {
+
+                AjaxUtil.postAsyncData('/api/cms/billing/generate-manual',
+                    {
+                        billing_ym:   ymVal.replace('-', ''),
+                        deduct_days:  selectedDays.join(','),
+                        deduct_type:  'EB'
+                    },
+                    function(result) {
+                        if (result.success) {
+                            var d = result.data || {};
+                            var msg = (d.count || 0) + '건이 생성되었습니다.';
+                            if (d.skippedCount > 0) msg += ' (' + d.skippedCount + '건 스킵)';
+                            Alert.alert('', msg);
+                            searchList();
+                        } else {
+                            Alert.alert('생성 실패', result.message);
+                        }
+                    });
+            });
+        }
+
         $(document).ready(function() {
             $('#btnSearch').click(searchList);
             $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
-            $('#btnGenerate').click(generateBilling);
+            $('#btnGenerate').click(openGenerateModal);
             $('#btnCancel').click(cancelBilling);
             $('#btnResend').click(openRechargeModal);
             $('#btnNew').click(clearForm);

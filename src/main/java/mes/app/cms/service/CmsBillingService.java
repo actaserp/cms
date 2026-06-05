@@ -1214,4 +1214,249 @@ public class CmsBillingService {
     }
 
     private String str(Object v) { return v != null ? v.toString() : ""; }
+
+    /**
+     * 수동 청구 생성 전 약정일별 청구 가능 건수 조회
+     * - 오늘 기준 청구 가능한 약정일만 반환
+     * - 이미 해당 월에 청구된 건은 제외
+     */
+    public List<Map<String, Object>> getDeductDaySummary(String billingYm, String deductType) {
+        String spjangcd = TenantContext.get();
+        YearMonth ym = YearMonth.parse(billingYm, DateTimeFormatter.ofPattern("yyyyMM"));
+        String firstDay = ym.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String lastDay  = ym.atEndOfMonth().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String monthStr = String.valueOf(ym.getMonthValue());
+        String todayStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String effectiveDeductType = deductType != null ? deductType : "EB";
+        int nowHour = java.time.LocalTime.now().getHour();
+
+        // 청구 가능한 납부자 조회 (이미 청구된 건 제외)
+        List<Map<String, Object>> members = sqlRunner.getRows("""
+        SELECT m.id, m.deduct_day, m.deduct_amount, m.pause_start_date, m.pause_end_date
+        FROM cms_member m
+        WHERE m.spjangcd  = :spjangcd
+          AND m.status    = 'ACTIVE'
+          AND m.agree_yn  = 'Y'
+          AND m.agree_date IS NOT NULL
+          AND m.start_date <= :lastDay
+          AND m.end_date   >= :firstDay
+          AND (
+              m.cycle_type = 'REGULAR'
+              OR (m.cycle_type = 'IRREGULAR' AND :monthStr = ANY(STRING_TO_ARRAY(m.cycle_months, ',')))
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM cms_billing b
+              WHERE b.member_id   = m.id
+                AND b.billing_ym  = :billingYm
+                AND b.spjangcd    = :spjangcd
+                AND b.deduct_type = :deductType
+          )
+        ORDER BY m.deduct_day
+        """,
+                new MapSqlParameterSource()
+                        .addValue("spjangcd",   spjangcd)
+                        .addValue("billingYm",  billingYm)
+                        .addValue("firstDay",   firstDay)
+                        .addValue("lastDay",    lastDay)
+                        .addValue("monthStr",   monthStr)
+                        .addValue("deductType", effectiveDeductType));
+
+        // 약정일별로 그룹핑하면서 청구 가능 여부 체크
+        Map<String, Integer> dayCntMap    = new LinkedHashMap<>();
+        Map<String, Boolean> dayAvailMap  = new LinkedHashMap<>();
+        Map<String, String>  dayReasonMap = new LinkedHashMap<>();
+
+        for (Map<String, Object> m : members) {
+            String deductDay = (String) m.get("deduct_day");
+            if (deductDay == null || deductDay.isEmpty()) continue;
+
+            // 중지 기간 체크
+            if (isPausedInBillingMonth(m, ym)) continue;
+
+            // 출금일 계산
+            String deductDate = "99".equals(deductDay) ? lastDay : billingYm + deductDay;
+            deductDate = cmsHolidayService.getNextBusinessDay(deductDate);
+
+            // 청구 가능 여부 판단
+            boolean available = true;
+            String reason = "";
+
+            if (deductDate.compareTo(todayStr) < 0) {
+                available = false;
+                reason = "출금일 경과";
+            } else if ("EB".equals(effectiveDeductType)) {
+                String deadlineDay = cmsHolidayService.getPrevBusinessDay(
+                        LocalDate.parse(deductDate, DateTimeFormatter.ofPattern("yyyyMMdd"))
+                                .minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+                if (deadlineDay.compareTo(todayStr) < 0) {
+                    available = false;
+                    reason = "신청마감 경과";
+                } else if (deadlineDay.equals(todayStr) && nowHour >= 15) {
+                    available = false;
+                    reason = "오늘 15시 마감 초과";
+                }
+            } else if ("EC".equals(effectiveDeductType)) {
+                if (deductDate.equals(todayStr) && nowHour >= 11) {
+                    available = false;
+                    reason = "오늘 11시 마감 초과";
+                }
+            }
+
+            // 약정일별 집계
+            String displayDay = "99".equals(deductDay) ? "말일" : Integer.parseInt(deductDay) + "일";
+            dayCntMap.merge(displayDay, 1, Integer::sum);
+            // available이 한 번이라도 true면 가능
+            dayAvailMap.merge(displayDay, available, (a, b) -> a || b);
+            if (!available && !dayReasonMap.containsKey(displayDay)) {
+                dayReasonMap.put(displayDay, reason);
+            }
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (String day : dayCntMap.keySet()) {
+            Map<String, Object> row = new HashMap<>();
+            row.put("deduct_day",  day);
+            row.put("count",       dayCntMap.get(day));
+            row.put("available",   dayAvailMap.getOrDefault(day, false));
+            row.put("reason",      dayReasonMap.getOrDefault(day, ""));
+            result.add(row);
+        }
+        return result;
+    }
+
+    /**
+     * 수동 청구 생성 - 선택한 약정일들로 청구 생성
+     * send_date = 오늘 (수동 즉시 생성이므로)
+     */
+    @Transactional
+    public Map<String, Object> generateBillingManual(String billingYm, List<String> deductDays, String deductType, String userId) {
+        String spjangcd = TenantContext.get();
+        YearMonth ym = YearMonth.parse(billingYm, DateTimeFormatter.ofPattern("yyyyMM"));
+        String firstDay = ym.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String lastDay  = ym.atEndOfMonth().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String monthStr = String.valueOf(ym.getMonthValue());
+        String todayStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String effectiveDeductType = deductType != null ? deductType : "EB";
+        int nowHour = java.time.LocalTime.now().getHour();
+
+        // 선택한 약정일 목록 (말일 → 99 변환)
+        List<String> normalizedDays = deductDays.stream()
+                .map(d -> "말일".equals(d) ? "99" : String.format("%02d", Integer.parseInt(d.replace("일", ""))))
+                .collect(java.util.stream.Collectors.toList());
+
+        // 대상 납부자 조회
+        List<Map<String, Object>> members = sqlRunner.getRows("""
+        SELECT m.id, m.member_name, m.bank_code, m.bank_account, m.account_holder,
+               m.deduct_amount, m.deduct_day, m.pause_start_date, m.pause_end_date
+        FROM cms_member m
+        WHERE m.spjangcd  = :spjangcd
+          AND m.status    = 'ACTIVE'
+          AND m.agree_yn  = 'Y'
+          AND m.agree_date IS NOT NULL
+          AND m.start_date <= :lastDay
+          AND m.end_date   >= :firstDay
+          AND m.deduct_day = ANY(:deductDays::TEXT[])
+          AND (
+              m.cycle_type = 'REGULAR'
+              OR (m.cycle_type = 'IRREGULAR' AND :monthStr = ANY(STRING_TO_ARRAY(m.cycle_months, ',')))
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM cms_billing b
+              WHERE b.member_id   = m.id
+                AND b.billing_ym  = :billingYm
+                AND b.spjangcd    = :spjangcd
+                AND b.deduct_type = :deductType
+          )
+        ORDER BY m.deduct_day, m.id
+        """,
+                new MapSqlParameterSource()
+                        .addValue("spjangcd",   spjangcd)
+                        .addValue("billingYm",  billingYm)
+                        .addValue("firstDay",   firstDay)
+                        .addValue("lastDay",    lastDay)
+                        .addValue("monthStr",   monthStr)
+                        .addValue("deductDays", normalizedDays.toArray(new String[0]))
+                        .addValue("deductType", effectiveDeductType));
+
+        int count = 0, skippedCount = 0;
+        int nextSeq = getNextBillingSeqNo(spjangcd, billingYm);
+
+        for (Map<String, Object> m : members) {
+            String deductDay  = (String) m.get("deduct_day");
+            if (deductDay == null || deductDay.isEmpty()) { skippedCount++; continue; }
+
+            // 중지 기간 체크
+            if (isPausedInBillingMonth(m, ym)) { skippedCount++; continue; }
+
+            String deductDate = "99".equals(deductDay) ? lastDay : billingYm + deductDay;
+            deductDate = cmsHolidayService.getNextBusinessDay(deductDate);
+
+            // 마감 체크
+            if (deductDate.compareTo(todayStr) < 0) { skippedCount++; continue; }
+            if ("EB".equals(effectiveDeductType)) {
+                String deadlineDay = cmsHolidayService.getPrevBusinessDay(
+                        LocalDate.parse(deductDate, DateTimeFormatter.ofPattern("yyyyMMdd"))
+                                .minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+                if (deadlineDay.compareTo(todayStr) < 0) { skippedCount++; continue; }
+                if (deadlineDay.equals(todayStr) && nowHour >= 15) { skippedCount++; continue; }
+            }
+            if ("EC".equals(effectiveDeductType) && deductDate.equals(todayStr) && nowHour >= 11) {
+                skippedCount++; continue;
+            }
+
+            String billingSeq = billingYm + "-" + String.format("%04d", nextSeq++);
+
+            // send_date = 오늘 (수동 생성)
+            var ip = new MapSqlParameterSource();
+            ip.addValue("spjangcd",      spjangcd);
+            ip.addValue("billingYm",     billingYm);
+            ip.addValue("billingSeq",    billingSeq);
+            ip.addValue("memberId",      ((Number) m.get("id")).longValue());
+            ip.addValue("memberName",    m.get("member_name"));
+            ip.addValue("bankCode",      m.get("bank_code"));
+            ip.addValue("bankAccount",   m.get("bank_account"));
+            ip.addValue("accountHolder", m.get("account_holder"));
+            ip.addValue("billingAmount", m.get("deduct_amount"));
+            ip.addValue("deductDay",     deductDay);
+            ip.addValue("deductDate",    deductDate);
+            ip.addValue("sendDate",      todayStr);   // 수동 생성 → send_date = 오늘
+            ip.addValue("deductType",    effectiveDeductType);
+            ip.addValue("userId",        userId);
+
+            sqlRunner.execute("""
+            INSERT INTO cms_billing (
+                spjangcd, billing_ym, billing_seq,
+                member_id, member_name, bank_code, bank_account, account_holder,
+                billing_amount, deduct_day, deduct_date, send_date,
+                deduct_type, status, _creater_id, _created, _modifier_id, _modified
+            ) VALUES (
+                :spjangcd, :billingYm, :billingSeq,
+                :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
+                :billingAmount, :deductDay, :deductDate, :sendDate,
+                :deductType, 'PENDING', :userId, NOW(), :userId, NOW()
+            )
+            """, ip);
+            count++;
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("count",        count);
+        result.put("skippedCount", skippedCount);
+        return result;
+    }
+
+    public void updateSendDate(List<Long> billingIds, String actualSendDate) {
+        if (billingIds == null || billingIds.isEmpty()) return;
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_billing
+                SET send_date    = :sendDate,
+                    _modified    = NOW()
+                WHERE id = ANY(:ids::BIGINT[])
+                  AND status IN ('PENDING', 'REQUESTED')
+                """,
+                new MapSqlParameterSource()
+                        .addValue("sendDate", actualSendDate)
+                        .addValue("ids", billingIds.toArray(new Long[0])));
+    }
 }
