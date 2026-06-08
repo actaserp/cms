@@ -42,6 +42,7 @@ public class CmsBillingService {
                  , b.billing_seq
                  , b.member_id
                  , b.member_name
+                 , m.member_no
                  , b.bank_code
                  , bc.bank_name
                  , b.bank_account
@@ -66,6 +67,7 @@ public class CmsBillingService {
                 ) THEN 'Y' ELSE 'N' END AS recharged_yn
             FROM cms_billing b
             LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
+            LEFT JOIN cms_member m ON m.id = b.member_id
             WHERE b.spjangcd    = :spjangcd
               AND b.billing_ym  = :billingYm
               AND b.deduct_type = :deductType
@@ -1016,6 +1018,7 @@ public class CmsBillingService {
     }
 
     /** ERP TB_DA023 → cms_billing 청구 가져오기 */
+    /** ERP TB_DA024 → cms_billing 청구 가져오기 */
     public Map<String, Object> importFromErp(String billingYm, String userId) {
         String spjangcd = TenantContext.get();
         int inserted = 0, skipped = 0;
@@ -1052,27 +1055,29 @@ public class CmsBillingService {
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
                 dbUrl, str(erp.get("username")), str(erp.get("password")))) {
 
+            // TB_DA024에 actcd 컬럼이 있으므로 바로 사용
             String sql = """
-                SELECT
-                    D.cltcd,
-                    D.misdate,
-                    D.misnum,
-                    C.cltnm                           AS member_name,
-                    SUM(D.samt + ISNULL(D.addamt, 0)) AS billing_amount
-                FROM TB_DA024 D WITH(NOLOCK)
-                INNER JOIN TB_XCLIENT C WITH(NOLOCK)
-                    ON D.cltcd = C.cltcd
-                    AND C.custcd = ?
-                    AND C.accnum IS NOT NULL
-                    AND LTRIM(RTRIM(C.accnum)) != ''
-                    AND C.cmsrnum IS NOT NULL
-                    AND LTRIM(RTRIM(C.cmsrnum)) != ''
-                WHERE D.custcd = ?
-                AND LEFT(D.misdate, 6) = ?
-                AND D.samt > 0
-                GROUP BY D.cltcd, D.misdate, D.misnum, C.cltnm
-                ORDER BY D.cltcd, D.misdate
-                """;
+            SELECT
+                D.cltcd,
+                D.actcd,
+                D.misdate,
+                D.misnum,
+                C.cltnm                           AS member_name,
+                SUM(D.samt + ISNULL(D.addamt, 0)) AS billing_amount
+            FROM TB_DA024 D WITH(NOLOCK)
+            INNER JOIN TB_XCLIENT C WITH(NOLOCK)
+                ON D.cltcd = C.cltcd
+                AND C.custcd = ?
+                AND C.accnum IS NOT NULL
+                AND LTRIM(RTRIM(C.accnum)) != ''
+                AND C.cmsrnum IS NOT NULL
+                AND LTRIM(RTRIM(C.cmsrnum)) != ''
+            WHERE D.custcd = ?
+            AND LEFT(D.misdate, 6) = ?
+            AND D.samt > 0
+            GROUP BY D.cltcd, D.actcd, D.misdate, D.misnum, C.cltnm
+            ORDER BY D.cltcd, D.misdate
+            """;
 
             try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, custcd);
@@ -1082,36 +1087,40 @@ public class CmsBillingService {
                 try (java.sql.ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         String cltcd         = rs.getString("cltcd");
+                        String actcd         = rs.getString("actcd");
                         String misdate       = rs.getString("misdate");
                         String misnum        = rs.getString("misnum");
                         String misKey        = misdate + misnum;
                         double billingAmount = rs.getDouble("billing_amount");
                         String memberName    = rs.getString("member_name");
 
+                        // actcd 없으면 cltcd 사용
+                        if (!StringUtils.hasText(actcd)) actcd = cltcd;
+
                         if (billingAmount <= 0) { skipped++; continue; }
 
                         // 중복 체크
                         if (existingMisKeys.contains(misKey)) {
-                            log.info("[ERP청구] 중복 스킵 cltcd={} misKey={}", cltcd, misKey);
+                            log.info("[ERP청구] 중복 스킵 cltcd={} actcd={} misKey={}", cltcd, actcd, misKey);
                             skipped++;
                             continue;
                         }
 
-                        // cms_member 조회
+                        // cms_member 조회 (actcd 기준)
                         Map<String, Object> member = sqlRunner.getRow(/* skip_tenant_check */
                                 """
                                 SELECT id, member_name, member_no, bank_code, bank_account,
                                        account_holder, deduct_day, agree_yn
                                 FROM cms_member
-                                WHERE spjangcd = :spjangcd AND cltcd = :cltcd
+                                WHERE spjangcd = :spjangcd AND cltcd = :actcd
                                 """,
                                 new MapSqlParameterSource("spjangcd", spjangcd)
-                                        .addValue("cltcd", cltcd));
+                                        .addValue("actcd", actcd));
 
                         if (member == null) {
-                            log.warn("[ERP청구] cms_member 없음 cltcd={} memberName={}", cltcd, memberName);
+                            log.warn("[ERP청구] cms_member 없음 cltcd={} actcd={} memberName={}", cltcd, actcd, memberName);
                             notFound.add(Map.of(
-                                    "cltcd", cltcd,
+                                    "cltcd",       cltcd,
                                     "member_name", memberName
                             ));
                             skipped++;
@@ -1120,7 +1129,7 @@ public class CmsBillingService {
 
                         String agreeYn = str(member.get("agree_yn"));
                         if (!"Y".equals(agreeYn)) {
-                            log.warn("[ERP청구] 미인증 납부자 스킵 cltcd={} memberName={}", cltcd, memberName);
+                            log.warn("[ERP청구] 미인증 납부자 스킵 cltcd={} actcd={} memberName={}", cltcd, actcd, memberName);
                             notFound.add(Map.of("cltcd", cltcd, "member_name", memberName + "(미인증)"));
                             skipped++;
                             continue;
@@ -1131,7 +1140,7 @@ public class CmsBillingService {
                         String deductDate = calcDeductDate(billingYm, deductDay);
                         String sendDate   = calcSendDate(deductDate, "EB");
 
-                        String billingSeq = generateBillingSeq(spjangcd, billingYm);  // ← 기존 메서드 사
+                        String billingSeq = generateBillingSeq(spjangcd, billingYm);
 
                         // cms_billing INSERT
                         MapSqlParameterSource param = new MapSqlParameterSource();
@@ -1148,7 +1157,7 @@ public class CmsBillingService {
                         param.addValue("sendDate",      sendDate);
                         param.addValue("erpMisKey",     misKey);
                         param.addValue("userId",        userId);
-                        param.addValue("billingSeq", billingSeq);
+                        param.addValue("billingSeq",    billingSeq);
 
                         int rows = sqlRunner.execute(/* skip_tenant_check */
                                 """
@@ -1169,13 +1178,13 @@ public class CmsBillingService {
                                 )
                                 """, param);
 
-                        log.info("[ERP청구] INSERT rowEffected={} cltcd={} misKey={}", rows, cltcd, misKey);
+                        log.info("[ERP청구] INSERT rowEffected={} cltcd={} actcd={} misKey={}", rows, cltcd, actcd, misKey);
 
                         if (rows > 0) {
                             existingMisKeys.add(misKey);
                             inserted++;
                         } else {
-                            log.error("[ERP청구] INSERT 실패 (0 rows) cltcd={} misKey={}", cltcd, misKey);
+                            log.error("[ERP청구] INSERT 실패 (0 rows) cltcd={} actcd={} misKey={}", cltcd, actcd, misKey);
                             skipped++;
                         }
                     }
@@ -1191,8 +1200,8 @@ public class CmsBillingService {
 
         return Map.of(
                 "inserted", inserted,
-                "skipped", skipped,
-                "notFound", notFound  // 납부자 동기화 필요 목록
+                "skipped",  skipped,
+                "notFound", notFound
         );
     }
 

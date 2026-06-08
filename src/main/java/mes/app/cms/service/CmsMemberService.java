@@ -660,22 +660,24 @@ public class CmsMemberService {
 
     private String generateMemberNo(String spjangcd, String bankCode, String idNumber) {
         // 은행코드 3자리
-        String bank = (bankCode != null ? bankCode : "000");
+        String bank = (bankCode != null && bankCode.length() >= 3) ? bankCode.substring(0, 3) : "000";
 
-        // 사업자번호 뒤 5자리
-        String idPart = "";
-        if (idNumber != null && idNumber.length() >= 5) {
-            idPart = idNumber.replaceAll("[^0-9]", "");
-            idPart = idPart.substring(idPart.length() - 5);
-        } else {
-            idPart = "00000";
+        // 사업자번호 숫자만 추출 후 뒤 5자리
+        String idPart = "00000";
+        if (idNumber != null) {
+            String digits = idNumber.replaceAll("[^0-9]", "");
+            if (digits.length() >= 5) {
+                idPart = digits.substring(digits.length() - 5);
+            } else if (!digits.isEmpty()) {
+                idPart = String.format("%05d", Integer.parseInt(digits));
+            }
         }
 
         // 순번 2자리 (중복 방지)
         String prefix = bank + idPart;
         Map<String, Object> seqRow = sqlRunner.getRow(/* skip_tenant_check */
                 """
-                SELECT COALESCE(MAX(CAST(SUBSTRING(member_no, 9) AS INTEGER)), 0) + 1 AS next_seq
+                SELECT COALESCE(MAX(CAST(SUBSTRING(member_no, 9, 2) AS INTEGER)), 0) + 1 AS next_seq
                 FROM cms_member
                 WHERE spjangcd = :spjangcd
                   AND member_no LIKE :prefix
@@ -864,7 +866,7 @@ public class CmsMemberService {
 
                             // actcd 기준으로 기존 member 조회
                             Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
-                                    "SELECT id, _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :actcd",
+                                    "SELECT id, member_no, _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :actcd",
                                     new MapSqlParameterSource("spjangcd", spjangcd).addValue("actcd", actcd));
 
                             // memberNo: actcd 기반 채번
@@ -874,7 +876,7 @@ public class CmsMemberService {
 
                             MapSqlParameterSource p = new MapSqlParameterSource();
                             p.addValue("spjangcd",    spjangcd);
-                            p.addValue("memberNo",    memberNo);
+                            p.addValue("memberNo", StringUtils.hasText(memberNo) ? memberNo : null);
                             p.addValue("cltcd",       actcd);       // actcd를 cltcd로 저장
                             p.addValue("agreeYn",     agreeYn);
                             p.addValue("memberName",  memberName);

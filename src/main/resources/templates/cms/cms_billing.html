@@ -388,6 +388,7 @@
             },
             {binding: 'billing_seq',    header: '청구번호', width: 120, align: 'center'},
             {binding: 'member_name',    header: '납부자명', width: 130, align: 'left'},
+            {binding: 'member_no',      header: '납부자번호', width: 120, align: 'center'},
             {binding: 'bank_name',      header: '은행',    width: 80,  align: 'center'},
             {binding: 'bank_account',   header: '계좌번호', width: 150, align: 'center'},
             {binding: 'deduct_day',     header: '약정일',  width: 70,  align: 'center',
@@ -758,6 +759,7 @@
             $('#billing_ym_input').val(ym.length === 6 ? ym.substring(0,4) + '-' + ym.substring(4,6) : '');
             $('#billing_seq').val(item.billing_seq || '');
             $('#member_id').val(item.member_id || '');
+            $('#member_search').val(item.member_name || '');
             $('#td_bank_name').text(item.bank_name || '-');
             $('#td_bank_account').text(item.bank_account || '-');
             $('#td_account_holder').text(item.account_holder || '-');
@@ -1272,7 +1274,16 @@
                         function(result) {
                             if (result.success) {
                                 var d = result.data || {};
-                                Alert.alert('', '완료: 신규 ' + (d.inserted||0) + '건, 건너뜀 ' + (d.skipped||0) + '건');
+                                var msg = '완료: 신규 ' + (d.inserted||0) + '건, 건너뜀 ' + (d.skipped||0) + '건';
+
+                                if (d.notFound && d.notFound.length > 0) {
+                                    msg += '\n\n[납부자 미등록 ' + d.notFound.length + '건]';
+                                    d.notFound.forEach(function(m) {
+                                        msg += '\n· ' + m.member_name + ' (' + m.cltcd + ')';
+                                    });
+                                }
+
+                                Alert.alert('', msg);
                                 searchList();
                             } else {
                                 Alert.alert('실패', result.message);
