@@ -739,122 +739,65 @@ public class CmsMemberService {
                 url, str(erp.get("username")), str(erp.get("password")))) {
 
             String sql =
-            // =============================================
-            // 1. allchk = 1 : 거래처 기준 (cltcd = actcd)
-            // =============================================
             "SELECT"
-                    + " C.cltcd AS cltcd,"
-                    + " C.cltcd AS actcd,"
-                    + " C.cltnm AS member_name,"
-                    + " C.cmsrnum AS id_number,"
-                    + " B.bnkcode AS bank_code,"
-                    + " C.accnum AS bank_account,"
-                    + " C.hptelnum AS phone,"
-                    + " C.agneremail AS email,"
-                    + " C.cltadres AS adresa,"
-                    + " C.zipcd AS zipcd,"
-                    + " CASE WHEN E1.contyul IS NOT NULL AND E1.contyul > 0"
-                    + "      THEN ROUND(E1.amt * (E1.contyul / 100.0) * 1.1, 0)"
-                    + "      ELSE E1.amt END AS deduct_amount,"
-                    + " C.autodate AS deduct_day,"
-                    + " C.autoflag AS auto_flag,"
-                    + " E1.stdate AS start_date,"
-                    + " E1.enddate AS end_date,"
-                    + " E1.accyn AS accyn,"
-                    + " (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13 WITH(NOLOCK)"
-                    + "  WHERE CUSTCD = C.custcd AND CLTCD = C.cltcd"
-                    + "  AND ENDFLAG = 'Y' ORDER BY SPDATE DESC) AS member_no,"
-                    + " E1.delmon1, E1.delmon2, E1.delmon3, E1.delmon4,"
-                    + " E1.delmon5, E1.delmon6, E1.delmon7, E1.delmon8,"
-                    + " E1.delmon9, E1.delmon10, E1.delmon11, E1.delmon12"
-                    + " FROM TB_XCLIENT C WITH(NOLOCK)"
-                    + " INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd"
-                    + " INNER JOIN TB_E101 E1 WITH(NOLOCK) ON C.cltcd = E1.actcd AND C.custcd = E1.custcd"
-                    + " WHERE C.custcd = ?"
-                    + " AND C.allchk = 1"
-                    + " AND C.accnum IS NOT NULL AND LTRIM(RTRIM(C.accnum)) != ''"
-                    + " AND C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum)) != ''"
-                    + " AND E1.enddate >= CONVERT(varchar(8), GETDATE(), 112)"
-                    + " AND E1.stdate <= CONVERT(varchar(8), GETDATE(), 112)"
-                    + " AND E1.stdate = (SELECT MAX(stdate) FROM TB_E101"
-                    + "     WHERE actcd = C.cltcd AND custcd = ?"
-                    + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
-                    + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))"
-                    + " AND E1.amt = (SELECT MAX(amt) FROM TB_E101"
-                    + "     WHERE actcd = C.cltcd AND custcd = ?"
-                    + "     AND stdate = E1.stdate"
-                    + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
-                    + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))"
-                    + " AND E1.enddate = (SELECT MAX(enddate) FROM TB_E101"
-                    + "     WHERE actcd = C.cltcd AND custcd = ?"
-                    + "     AND stdate = E1.stdate"
-                    + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
-                    + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))"
-
-                    // =============================================
-                    // 2. cmsflag = 1 : 현장 기준 (actcd 각각)
-                    // =============================================
-                    + " UNION ALL"
-                    + " SELECT"
-                    + " C.cltcd AS cltcd,"
-                    + " E6.actcd AS actcd,"
-                    + " E6.actnm AS member_name,"
-                    + " C.cmsrnum AS id_number,"
-                    + " B.bnkcode AS bank_code,"
-                    + " C.accnum AS bank_account,"
-                    + " C.hptelnum AS phone,"
-                    + " C.agneremail AS email,"
-                    + " C.cltadres AS adresa,"
-                    + " C.zipcd AS zipcd,"
-                    + " CASE WHEN E1.contyul IS NOT NULL AND E1.contyul > 0"
-                    + "      THEN ROUND(E1.amt * (E1.contyul / 100.0) * 1.1, 0)"
-                    + "      ELSE E1.amt END AS deduct_amount,"
-                    + " C.autodate AS deduct_day,"
-                    + " C.autoflag AS auto_flag,"
-                    + " E1.stdate AS start_date,"
-                    + " E1.enddate AS end_date,"
-                    + " E1.accyn AS accyn,"
-                    + " (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13 WITH(NOLOCK)"
-                    + "  WHERE CUSTCD = C.custcd AND CLTCD = C.cltcd"
-                    + "  AND ENDFLAG = 'Y' ORDER BY SPDATE DESC) AS member_no,"
-                    + " E1.delmon1, E1.delmon2, E1.delmon3, E1.delmon4,"
-                    + " E1.delmon5, E1.delmon6, E1.delmon7, E1.delmon8,"
-                    + " E1.delmon9, E1.delmon10, E1.delmon11, E1.delmon12"
-                    + " FROM TB_XCLIENT C WITH(NOLOCK)"
-                    + " INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd"
-                    + " INNER JOIN TB_E601 E6 WITH(NOLOCK) ON C.cltcd = E6.cltcd AND C.custcd = E6.custcd"
-                    + " INNER JOIN TB_E101 E1 WITH(NOLOCK) ON E6.actcd = E1.actcd AND E6.custcd = E1.custcd"
-                    + " WHERE C.custcd = ?"
-                    + " AND C.allchk = 0"
-                    + " AND E1.cmsflag = 1"
-                    + " AND C.accnum IS NOT NULL AND LTRIM(RTRIM(C.accnum)) != ''"
-                    + " AND C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum)) != ''"
-                    + " AND E1.enddate >= CONVERT(varchar(8), GETDATE(), 112)"
-                    + " AND E1.stdate <= CONVERT(varchar(8), GETDATE(), 112)"
-                    + " AND E1.stdate = (SELECT MAX(stdate) FROM TB_E101"
-                    + "     WHERE actcd = E6.actcd AND custcd = ?"
-                    + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
-                    + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))"
-                    + " AND E1.amt = (SELECT MAX(amt) FROM TB_E101"
-                    + "     WHERE actcd = E6.actcd AND custcd = ?"
-                    + "     AND stdate = E1.stdate"
-                    + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
-                    + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))"
-                    + " AND E1.enddate = (SELECT MAX(enddate) FROM TB_E101"
-                    + "     WHERE actcd = E6.actcd AND custcd = ?"
-                    + "     AND stdate = E1.stdate"
-                    + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
-                    + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))";
+            + " C.cltcd AS cltcd,"
+            + " E6.actcd AS actcd,"
+            + " CASE WHEN C.allchk = 1 THEN C.cltnm ELSE E6.actnm END AS member_name,"
+            + " C.cmsrnum AS id_number,"
+            + " B.bnkcode AS bank_code,"
+            + " C.accnum AS bank_account,"
+            + " C.hptelnum AS phone,"
+            + " C.agneremail AS email,"
+            + " C.cltadres AS adresa,"
+            + " C.zipcd AS zipcd,"
+            + " CASE WHEN E1.contyul IS NOT NULL AND E1.contyul > 0"
+            + "      THEN ROUND(E1.amt * (E1.contyul / 100.0) * 1.1, 0)"
+            + "      ELSE E1.amt END AS deduct_amount,"
+            + " C.autodate AS deduct_day,"
+            + " C.autoflag AS auto_flag,"
+            + " E1.stdate AS start_date,"
+            + " E1.enddate AS end_date,"
+            + " E1.accyn AS accyn,"
+            + " (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13 WITH(NOLOCK)"
+            + "  WHERE CUSTCD = C.custcd"
+            + "  AND (CLTCD = C.cltcd OR CLTCD = E6.actcd)"
+            + "  AND ENDFLAG = 'Y' ORDER BY SPDATE DESC) AS member_no,"
+            + " E1.delmon1, E1.delmon2, E1.delmon3, E1.delmon4,"
+            + " E1.delmon5, E1.delmon6, E1.delmon7, E1.delmon8,"
+            + " E1.delmon9, E1.delmon10, E1.delmon11, E1.delmon12"
+            + " FROM TB_XCLIENT C WITH(NOLOCK)"
+            + " INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd"
+            + " INNER JOIN TB_E601 E6 WITH(NOLOCK) ON C.cltcd = E6.cltcd AND C.custcd = E6.custcd"
+            + " INNER JOIN TB_E101 E1 WITH(NOLOCK) ON E6.actcd = E1.actcd AND E6.custcd = E1.custcd"
+            + " WHERE C.custcd = ?"
+            + " AND ("
+            + "     (C.allchk = 1 AND E6.actcd = C.cltcd)"
+            + "     OR (C.allchk = 0 AND E1.cmsflag = 1)"
+            + " )"
+            + " AND C.accnum IS NOT NULL AND LTRIM(RTRIM(C.accnum)) != ''"
+            + " AND C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum)) != ''"
+            + " AND E1.enddate >= CONVERT(varchar(8), GETDATE(), 112)"
+            + " AND E1.stdate <= CONVERT(varchar(8), GETDATE(), 112)"
+            + " AND E1.stdate = (SELECT MAX(stdate) FROM TB_E101"
+            + "     WHERE actcd = E6.actcd AND custcd = ?"
+            + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
+            + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))"
+            + " AND E1.amt = (SELECT MAX(amt) FROM TB_E101"
+            + "     WHERE actcd = E6.actcd AND custcd = ?"
+            + "     AND stdate = E1.stdate"
+            + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
+            + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))"
+            + " AND E1.enddate = (SELECT MAX(enddate) FROM TB_E101"
+            + "     WHERE actcd = E6.actcd AND custcd = ?"
+            + "     AND stdate = E1.stdate"
+            + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
+            + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))";
 
             try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, custcd); // allchk 쿼리 custcd
-                ps.setString(2, custcd); // allchk MAX(stdate)
-                ps.setString(3, custcd); // allchk MAX(amt)
-                ps.setString(4, custcd); // allchk MAX(enddate)
-                ps.setString(5, custcd); // cmsflag 쿼리 custcd
-                ps.setString(6, custcd); // cmsflag MAX(stdate)
-                ps.setString(7, custcd); // cmsflag MAX(amt)
-                ps.setString(8, custcd); // cmsflag MAX(enddate)
+                ps.setString(1, custcd);
+                ps.setString(2, custcd);
+                ps.setString(3, custcd);
+                ps.setString(4, custcd);
 
                 try (java.sql.ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
@@ -875,6 +818,7 @@ public class CmsMemberService {
                             String endDate      = cleanDate(rs.getString("end_date"));
                             String accyn        = rs.getString("accyn");
                             String erpMemberNo  = rs.getString("member_no"); // TB_CMSEB13 BANKCLTCD
+                            if ("null".equalsIgnoreCase(erpMemberNo)) erpMemberNo = null;
 
                             // accyn = 1 → EB13 인증완료 → agree_yn = Y
                             // TB_CMSEB13에 BANKCLTCD 있으면 → agree_yn = Y
