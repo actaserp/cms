@@ -687,7 +687,6 @@ public class CmsMemberService {
         return prefix + String.format("%02d", seq);
     }
 
-    @Transactional
     public Map<String, Object> syncFromErp(String spjangcd, String userId) {
         int inserted = 0, updated = 0, skipped = 0, failed = 0;
 
