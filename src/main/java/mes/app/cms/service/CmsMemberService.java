@@ -703,7 +703,7 @@ public class CmsMemberService {
         String msSpjangcd = str(erp.get("ms_spjangcd"));
         if (custcd.isEmpty()) throw new IllegalStateException("업체코드(custcd)가 설정되어 있지 않습니다.");
 
-        // 2. CMS 승인 여부 확인 (ms_spjangcd 기준 매칭)
+        // 2. CMS 승인 여부 확인
         Map<String, Object> cms = sqlRunner.getRow(/* skip_tenant_check */
                 "SELECT is_normal_status FROM tb_xa012_cms WHERE spjangcd = :spjangcd AND ms_spjangcd IS NOT DISTINCT FROM :msSpjangcd",
                 new MapSqlParameterSource("spjangcd", spjangcd)
@@ -713,32 +713,20 @@ public class CmsMemberService {
             throw new IllegalStateException("CMS 서비스 상태가 승인이 아닙니다.");
         }
 
-        // 은행코드 매핑 (TB_XBANK.bnkcode → cms_bank_code.bank_code)
+        // 은행코드 매핑
         Map<String, String> bnkCodeMap = new java.util.HashMap<>();
-        bnkCodeMap.put("002", "002");
-        bnkCodeMap.put("003", "003");
-        bnkCodeMap.put("007", "007");
-        bnkCodeMap.put("008", "008");
-        bnkCodeMap.put("012", "011");
-        bnkCodeMap.put("019", "004");
-        bnkCodeMap.put("020", "020");
-        bnkCodeMap.put("023", "023");
-        bnkCodeMap.put("027", "027");
-        bnkCodeMap.put("032", "032");
-        bnkCodeMap.put("034", "034");
-        bnkCodeMap.put("035", "035");
-        bnkCodeMap.put("037", "037");
-        bnkCodeMap.put("039", "039");
-        bnkCodeMap.put("045", "045");
-        bnkCodeMap.put("047", "048");
-        bnkCodeMap.put("050", "050");
-        bnkCodeMap.put("064", "064");
-        bnkCodeMap.put("071", "071");
-        bnkCodeMap.put("081", "081");
-        bnkCodeMap.put("088", "088");
-        bnkCodeMap.put("089", "089");
-        bnkCodeMap.put("090", "090");
-        bnkCodeMap.put("092", "092");
+        bnkCodeMap.put("002", "002"); bnkCodeMap.put("003", "003");
+        bnkCodeMap.put("007", "007"); bnkCodeMap.put("008", "008");
+        bnkCodeMap.put("012", "011"); bnkCodeMap.put("019", "004");
+        bnkCodeMap.put("020", "020"); bnkCodeMap.put("023", "023");
+        bnkCodeMap.put("027", "027"); bnkCodeMap.put("032", "032");
+        bnkCodeMap.put("034", "034"); bnkCodeMap.put("035", "035");
+        bnkCodeMap.put("037", "037"); bnkCodeMap.put("039", "039");
+        bnkCodeMap.put("045", "045"); bnkCodeMap.put("047", "048");
+        bnkCodeMap.put("050", "050"); bnkCodeMap.put("064", "064");
+        bnkCodeMap.put("071", "071"); bnkCodeMap.put("081", "081");
+        bnkCodeMap.put("088", "088"); bnkCodeMap.put("089", "089");
+        bnkCodeMap.put("090", "090"); bnkCodeMap.put("092", "092");
 
         // 3. MS DB 연결
         String url = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
@@ -750,10 +738,6 @@ public class CmsMemberService {
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
                 url, str(erp.get("username")), str(erp.get("password")))) {
 
-            // TB_E601 기준으로 actcd별 현장 조회
-            // - 거래처 CMS: allchk = 1 (TB_XCLIENT)
-            // - 현장 CMS: cmsflag = 1 (TB_E101) → actcd != cltcd 케이스
-            // - accyn = 1: EB13 인증완료 → agree_yn = Y
             String sql = "SELECT"
                     + " C.cltcd AS cltcd,"
                     + " E6.actcd AS actcd,"
@@ -773,6 +757,11 @@ public class CmsMemberService {
                     + " E1.stdate AS start_date,"
                     + " E1.enddate AS end_date,"
                     + " E1.accyn AS accyn,"
+                    // ★ TB_CMSEB13에서 납부자번호(BANKCLTCD) 조회
+                    + " (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13 WITH(NOLOCK)"
+                    + "  WHERE CUSTCD = C.custcd AND CLTCD = C.cltcd"
+                    + "  AND ENDFLAG = 'Y'"
+                    + "  ORDER BY SPDATE DESC) AS member_no,"
                     + " E1.delmon1, E1.delmon2, E1.delmon3, E1.delmon4,"
                     + " E1.delmon5, E1.delmon6, E1.delmon7, E1.delmon8,"
                     + " E1.delmon9, E1.delmon10, E1.delmon11, E1.delmon12"
@@ -810,26 +799,28 @@ public class CmsMemberService {
                 try (java.sql.ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         try {
-                            String cltcd       = rs.getString("cltcd");
-                            String actcd       = rs.getString("actcd");
-                            String memberName  = rs.getString("member_name");
-                            String idNumber    = rs.getString("id_number");
-                            String bnkCode     = rs.getString("bank_code");
-                            String bankCode    = bnkCodeMap.getOrDefault(bnkCode, bnkCode);
-                            String bankAccount = rs.getString("bank_account");
-                            String phone       = rs.getString("phone");
-                            String email       = rs.getString("email");
-                            String adresa      = rs.getString("adresa");
-                            String zipcd2      = rs.getString("zipcd");
+                            String cltcd        = rs.getString("cltcd");
+                            String actcd        = rs.getString("actcd");
+                            String memberName   = rs.getString("member_name");
+                            String idNumber     = rs.getString("id_number");
+                            String bnkCode      = rs.getString("bank_code");
+                            String bankCode     = bnkCodeMap.getOrDefault(bnkCode, bnkCode);
+                            String bankAccount  = rs.getString("bank_account");
+                            String phone        = rs.getString("phone");
+                            String email        = rs.getString("email");
+                            String adresa       = rs.getString("adresa");
+                            String zipcd2       = rs.getString("zipcd");
                             Long   deductAmount = rs.getLong("deduct_amount");
-                            String startDate   = cleanDate(rs.getString("start_date"));
-                            String endDate     = cleanDate(rs.getString("end_date"));
-                            String accyn       = rs.getString("accyn");
+                            String startDate    = cleanDate(rs.getString("start_date"));
+                            String endDate      = cleanDate(rs.getString("end_date"));
+                            String accyn        = rs.getString("accyn");
+                            String erpMemberNo  = rs.getString("member_no"); // TB_CMSEB13 BANKCLTCD
 
                             // accyn = 1 → EB13 인증완료 → agree_yn = Y
-                            String agreeYn = "1".equals(accyn) ? "Y" : "N";
+                            // TB_CMSEB13에 BANKCLTCD 있으면 → agree_yn = Y
+                            String agreeYn = (StringUtils.hasText(erpMemberNo) || "1".equals(accyn)) ? "Y" : "N";
 
-                            // deduct_day 처리: autoflag 0=당월, 1=말일, 2=익월
+                            // deduct_day 처리
                             String autoFlag  = rs.getString("auto_flag");
                             String deductDay = rs.getString("deduct_day");
 
@@ -852,7 +843,7 @@ public class CmsMemberService {
                             if (endDate == null || endDate.isEmpty()) endDate = "99991231";
                             if (bankAccount != null) bankAccount = bankAccount.replaceAll("-", "").trim();
 
-                            // cycle_months: delmon1~12 중 값 있는 것 콤마 연결
+                            // cycle_months
                             List<String> months = new java.util.ArrayList<>();
                             for (int i = 1; i <= 12; i++) {
                                 String mon = rs.getString("delmon" + i);
@@ -869,32 +860,40 @@ public class CmsMemberService {
                                     "SELECT id, member_no, _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :actcd",
                                     new MapSqlParameterSource("spjangcd", spjangcd).addValue("actcd", actcd));
 
-                            // memberNo: actcd 기반 채번
-                            String memberNo = existing != null
-                                    ? str(existing.get("member_no"))
-                                    : generateMemberNo(spjangcd, null, idNumber);
+                            // member_no 결정:
+                            // 1. 기존 member_no 있으면 유지
+                            // 2. 없으면 TB_CMSEB13 BANKCLTCD 사용
+                            // 3. 둘 다 없으면 null
+                            String memberNo;
+                            if (existing != null && StringUtils.hasText(str(existing.get("member_no")))) {
+                                memberNo = str(existing.get("member_no"));
+                            } else if (StringUtils.hasText(erpMemberNo)) {
+                                memberNo = erpMemberNo;
+                            } else {
+                                memberNo = null;
+                            }
 
                             MapSqlParameterSource p = new MapSqlParameterSource();
-                            p.addValue("spjangcd",    spjangcd);
-                            p.addValue("memberNo", StringUtils.hasText(memberNo) ? memberNo : null);
-                            p.addValue("cltcd",       actcd);       // actcd를 cltcd로 저장
-                            p.addValue("agreeYn",     agreeYn);
-                            p.addValue("memberName",  memberName);
-                            p.addValue("memberType",  "C");
-                            p.addValue("idNumber",    idNumber);
-                            p.addValue("bankCode",    bankCode);
-                            p.addValue("bankAccount", bankAccount);
-                            p.addValue("phone",       phone);
-                            p.addValue("email",       email);
-                            p.addValue("adresa",      adresa);
-                            p.addValue("zipcd",       zipcd2);
+                            p.addValue("spjangcd",     spjangcd);
+                            p.addValue("memberNo",     memberNo);
+                            p.addValue("cltcd",        actcd);
+                            p.addValue("agreeYn",      agreeYn);
+                            p.addValue("memberName",   memberName);
+                            p.addValue("memberType",   "C");
+                            p.addValue("idNumber",     idNumber);
+                            p.addValue("bankCode",     bankCode);
+                            p.addValue("bankAccount",  bankAccount);
+                            p.addValue("phone",        phone);
+                            p.addValue("email",        email);
+                            p.addValue("adresa",       adresa);
+                            p.addValue("zipcd",        zipcd2);
                             p.addValue("deductAmount", deductAmount);
-                            p.addValue("deductDay",   deductDay);
-                            p.addValue("startDate",   startDate);
-                            p.addValue("endDate",     endDate);
-                            p.addValue("cycleType",   cycleType);
-                            p.addValue("cycleMonths", cycleMonths);
-                            p.addValue("userId",      userId);
+                            p.addValue("deductDay",    deductDay);
+                            p.addValue("startDate",    startDate);
+                            p.addValue("endDate",      endDate);
+                            p.addValue("cycleType",    cycleType);
+                            p.addValue("cycleMonths",  cycleMonths);
+                            p.addValue("userId",       userId);
 
                             if (existing == null) {
                                 sqlRunner.execute(/* skip_tenant_check */
@@ -943,36 +942,36 @@ public class CmsMemberService {
                                          cycle_months   = :cycleMonths,
                                          agree_yn       = CASE WHEN :agreeYn = 'Y' THEN 'Y' ELSE agree_yn END,
                                          _modifier_id   = CASE WHEN (
-                                             COALESCE(member_name, '')    != COALESCE(:memberName, '')    OR
-                                             COALESCE(id_number, '')      != COALESCE(:idNumber, '')      OR
-                                             COALESCE(bank_code, '')      != COALESCE(:bankCode, '')      OR
-                                             COALESCE(bank_account, '')   != COALESCE(:bankAccount, '')   OR
-                                             COALESCE(phone, '')          != COALESCE(:phone, '')         OR
-                                             COALESCE(email, '')          != COALESCE(:email, '')         OR
-                                             COALESCE(adresa, '')         != COALESCE(:adresa, '')        OR
-                                             COALESCE(zipcd, '')          != COALESCE(:zipcd, '')         OR
-                                             COALESCE(deduct_amount, 0)   != COALESCE(:deductAmount, 0)   OR
-                                             COALESCE(deduct_day, '')     != COALESCE(:deductDay, '')     OR
-                                             COALESCE(start_date, '')     != COALESCE(:startDate, '')     OR
-                                             COALESCE(end_date, '')       != COALESCE(:endDate, '')       OR
-                                             COALESCE(cycle_type, '')     != COALESCE(:cycleType, '')     OR
-                                             COALESCE(cycle_months, '')   != COALESCE(:cycleMonths, '')
+                                             COALESCE(member_name, '')  != COALESCE(:memberName, '')  OR
+                                             COALESCE(id_number, '')    != COALESCE(:idNumber, '')    OR
+                                             COALESCE(bank_code, '')    != COALESCE(:bankCode, '')    OR
+                                             COALESCE(bank_account, '') != COALESCE(:bankAccount, '') OR
+                                             COALESCE(phone, '')        != COALESCE(:phone, '')       OR
+                                             COALESCE(email, '')        != COALESCE(:email, '')       OR
+                                             COALESCE(adresa, '')       != COALESCE(:adresa, '')      OR
+                                             COALESCE(zipcd, '')        != COALESCE(:zipcd, '')       OR
+                                             COALESCE(deduct_amount, 0) != COALESCE(:deductAmount, 0) OR
+                                             COALESCE(deduct_day, '')   != COALESCE(:deductDay, '')   OR
+                                             COALESCE(start_date, '')   != COALESCE(:startDate, '')   OR
+                                             COALESCE(end_date, '')     != COALESCE(:endDate, '')     OR
+                                             COALESCE(cycle_type, '')   != COALESCE(:cycleType, '')   OR
+                                             COALESCE(cycle_months, '') != COALESCE(:cycleMonths, '')
                                          ) THEN :userId ELSE _modifier_id END,
                                          _modified      = CASE WHEN (
-                                             COALESCE(member_name, '')    != COALESCE(:memberName, '')    OR
-                                             COALESCE(id_number, '')      != COALESCE(:idNumber, '')      OR
-                                             COALESCE(bank_code, '')      != COALESCE(:bankCode, '')      OR
-                                             COALESCE(bank_account, '')   != COALESCE(:bankAccount, '')   OR
-                                             COALESCE(phone, '')          != COALESCE(:phone, '')         OR
-                                             COALESCE(email, '')          != COALESCE(:email, '')         OR
-                                             COALESCE(adresa, '')         != COALESCE(:adresa, '')        OR
-                                             COALESCE(zipcd, '')          != COALESCE(:zipcd, '')         OR
-                                             COALESCE(deduct_amount, 0)   != COALESCE(:deductAmount, 0)   OR
-                                             COALESCE(deduct_day, '')     != COALESCE(:deductDay, '')     OR
-                                             COALESCE(start_date, '')     != COALESCE(:startDate, '')     OR
-                                             COALESCE(end_date, '')       != COALESCE(:endDate, '')       OR
-                                             COALESCE(cycle_type, '')     != COALESCE(:cycleType, '')     OR
-                                             COALESCE(cycle_months, '')   != COALESCE(:cycleMonths, '')
+                                             COALESCE(member_name, '')  != COALESCE(:memberName, '')  OR
+                                             COALESCE(id_number, '')    != COALESCE(:idNumber, '')    OR
+                                             COALESCE(bank_code, '')    != COALESCE(:bankCode, '')    OR
+                                             COALESCE(bank_account, '') != COALESCE(:bankAccount, '') OR
+                                             COALESCE(phone, '')        != COALESCE(:phone, '')       OR
+                                             COALESCE(email, '')        != COALESCE(:email, '')       OR
+                                             COALESCE(adresa, '')       != COALESCE(:adresa, '')      OR
+                                             COALESCE(zipcd, '')        != COALESCE(:zipcd, '')       OR
+                                             COALESCE(deduct_amount, 0) != COALESCE(:deductAmount, 0) OR
+                                             COALESCE(deduct_day, '')   != COALESCE(:deductDay, '')   OR
+                                             COALESCE(start_date, '')   != COALESCE(:startDate, '')   OR
+                                             COALESCE(end_date, '')     != COALESCE(:endDate, '')     OR
+                                             COALESCE(cycle_type, '')   != COALESCE(:cycleType, '')   OR
+                                             COALESCE(cycle_months, '') != COALESCE(:cycleMonths, '')
                                          ) THEN NOW() ELSE _modified END
                                      WHERE spjangcd = :spjangcd AND cltcd = :cltcd
                                         """, p);
