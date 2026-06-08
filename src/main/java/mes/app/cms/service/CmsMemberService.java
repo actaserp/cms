@@ -880,6 +880,9 @@ public class CmsMemberService {
                             // TB_CMSEB13에 BANKCLTCD 있으면 → agree_yn = Y
                             String agreeYn = (StringUtils.hasText(erpMemberNo) || "1".equals(accyn)) ? "Y" : "N";
 
+                            log.info("[ERP동기화] member확인: cltcd={} actcd={} erpMemberNo='{}' accyn='{}' agreeYn={}",
+                                    cltcd, actcd, erpMemberNo, accyn, agreeYn);
+
                             // deduct_day 처리
                             String autoFlag  = rs.getString("auto_flag");
                             String deductDay = rs.getString("deduct_day");
@@ -899,6 +902,9 @@ public class CmsMemberService {
                                     continue;
                                 }
                             }
+
+                            log.info("[ERP동기화] deductDay확인: cltcd={} actcd={} autoFlag='{}' rawAutodate='{}' deductDay='{}'",
+                                    cltcd, actcd, autoFlag, rs.getString("deduct_day"), deductDay);
 
                             if (endDate == null || endDate.isEmpty()) endDate = "99991231";
                             if (bankAccount != null) bankAccount = bankAccount.replaceAll("-", "").trim();
