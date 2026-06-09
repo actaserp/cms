@@ -54,7 +54,7 @@ public class CmsDashboardService {
         FROM cms_billing
         WHERE spjangcd   = :spjangcd
           AND deduct_date BETWEEN :ymStart AND :ymEnd
-          status != 'CANCEL'
+          and status != 'CANCEL'
         GROUP BY deduct_date
         ORDER BY deduct_date
         """;
@@ -79,7 +79,7 @@ public class CmsDashboardService {
             LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
             WHERE b.spjangcd   = :spjangcd
               AND b.deduct_date = :date
-              status != 'CANCEL'
+              and status != 'CANCEL'
             ORDER BY b.billing_seq
             """;
         return sqlRunner.getRows(sql, param);
