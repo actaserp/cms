@@ -63,7 +63,7 @@ public class WorkPlaceService {
 
         String msSpjangcd = erpRow != null ? str(erpRow.get("ms_spjangcd")) : null;
         Map<String, Object> cms = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT * FROM tb_xa012_cms WHERE spjangcd = :spjangcd AND ms_spjangcd IS NOT DISTINCT FROM :msSpjangcd",
+                "SELECT * FROM tb_xa012_cms WHERE spjangcd = :spjangcd",
                 new MapSqlParameterSource("spjangcd", spjangcd).addValue("msSpjangcd", msSpjangcd));
         xa012.put("cms", cms);
 

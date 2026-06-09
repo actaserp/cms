@@ -742,7 +742,7 @@ public class CmsMemberService {
             "SELECT"
             + " C.cltcd AS cltcd,"
             + " E6.actcd AS actcd,"
-            + " CASE WHEN C.allchk = 1 THEN C.cltnm ELSE E6.actnm END AS member_name,"
+            + " E6.actnm AS member_name,"
             + " C.cmsrnum AS id_number,"
             + " B.bnkcode AS bank_code,"
             + " C.accnum AS bank_account,"
@@ -750,18 +750,21 @@ public class CmsMemberService {
             + " C.agneremail AS email,"
             + " C.cltadres AS adresa,"
             + " C.zipcd AS zipcd,"
-            + " CASE WHEN E1.contyul IS NOT NULL AND E1.contyul > 0"
-            + "      THEN ROUND(E1.amt * (E1.contyul / 100.0) * 1.1, 0)"
-            + "      ELSE E1.amt END AS deduct_amount,"
+            + " CASE"
+            + "     WHEN E1.contyul IS NOT NULL AND E1.contyul > 0 AND E1.addyn = 0"
+            + "          THEN ROUND(E1.amt * (E1.contyul / 100.0) * 1.1, 0)"
+            + "     WHEN E1.contyul IS NOT NULL AND E1.contyul > 0"
+            + "          THEN ROUND(E1.amt * (E1.contyul / 100.0), 0)"
+            + "     WHEN E1.addyn = 0"
+            + "          THEN ROUND(E1.amt * 1.1, 0)"
+            + "     ELSE E1.amt"
+            + " END AS deduct_amount,"
             + " C.autodate AS deduct_day,"
             + " C.autoflag AS auto_flag,"
             + " E1.stdate AS start_date,"
             + " E1.enddate AS end_date,"
             + " E1.accyn AS accyn,"
-            + " (SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13 WITH(NOLOCK)"
-            + "  WHERE CUSTCD = C.custcd"
-            + "  AND (CLTCD = C.cltcd OR CLTCD = E6.actcd)"
-            + "  AND ENDFLAG = 'Y' ORDER BY SPDATE DESC) AS member_no,"
+            + " EB.BANKCLTCD AS member_no,"
             + " E1.delmon1, E1.delmon2, E1.delmon3, E1.delmon4,"
             + " E1.delmon5, E1.delmon6, E1.delmon7, E1.delmon8,"
             + " E1.delmon9, E1.delmon10, E1.delmon11, E1.delmon12"
@@ -769,10 +772,13 @@ public class CmsMemberService {
             + " INNER JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd"
             + " INNER JOIN TB_E601 E6 WITH(NOLOCK) ON C.cltcd = E6.cltcd AND C.custcd = E6.custcd"
             + " INNER JOIN TB_E101 E1 WITH(NOLOCK) ON E6.actcd = E1.actcd AND E6.custcd = E1.custcd"
+            + " INNER JOIN TB_CMSEB13 EB WITH(NOLOCK)"
+            + "     ON (EB.CLTCD = C.cltcd OR EB.CLTCD = E6.actcd)"
+            + "     AND EB.CUSTCD = C.custcd AND EB.ENDFLAG = 'Y'"
             + " WHERE C.custcd = ?"
             + " AND ("
-            + "     (C.allchk = 1 AND E6.actcd = C.cltcd)"
-            + "     OR (C.allchk = 0 AND E1.cmsflag = 1)"
+            + "     (C.allchk = 1 AND (SELECT COUNT(*) FROM TB_E601 WITH(NOLOCK) WHERE cltcd = C.cltcd AND custcd = C.custcd) = 1)"
+            + "     OR E1.cmsflag = 1"
             + " )"
             + " AND C.accnum IS NOT NULL AND LTRIM(RTRIM(C.accnum)) != ''"
             + " AND C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum)) != ''"
@@ -822,7 +828,7 @@ public class CmsMemberService {
 
                             // accyn = 1 → EB13 인증완료 → agree_yn = Y
                             // TB_CMSEB13에 BANKCLTCD 있으면 → agree_yn = Y
-                            String agreeYn = (StringUtils.hasText(erpMemberNo) || "1".equals(accyn)) ? "Y" : "N";
+                            String agreeYn = StringUtils.hasText(erpMemberNo) ? "Y" : "N";
 
                             log.info("[ERP동기화] member확인: cltcd={} actcd={} erpMemberNo='{}' accyn='{}' agreeYn={}",
                                     cltcd, actcd, erpMemberNo, accyn, agreeYn);

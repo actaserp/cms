@@ -315,8 +315,8 @@ public class CmsSignService {
     private String saveAgreeFile(Long memberId, String spjangcd, byte[] pdfBytes, String member_name) throws Exception {
         String uuid = java.util.UUID.randomUUID().toString();
         String fileName = "agree_" + memberId + "_" + uuid + ".pdf";
-        String objectKey = ncpObjectStorageService.buildObjectKey(spjangcd, "cms_member", fileName);
-        String filePrefix = ncpObjectStorageService.getFilePrefix(spjangcd, "cms_member");
+        String objectKey = ncpObjectStorageService.buildObjectKey(spjangcd, "agree", fileName);
+        String filePrefix = ncpObjectStorageService.getFilePrefix(spjangcd, "agree");
 
         // NCP 업로드
         ncpObjectStorageService.upload(
@@ -495,8 +495,8 @@ public class CmsSignService {
         String memberName = String.valueOf(member.get("member_name"));
         String uuid = java.util.UUID.randomUUID().toString();
         String fileName = "agree_" + registerId + "_" + uuid + "." + ext;
-        String objectKey = ncpObjectStorageService.buildObjectKey(spjangcd, "cms_member", fileName);
-        String filePrefix = ncpObjectStorageService.getFilePrefix(spjangcd, "cms_member");
+        String objectKey = ncpObjectStorageService.buildObjectKey(spjangcd, "agree", fileName);
+        String filePrefix = ncpObjectStorageService.getFilePrefix(spjangcd, "agree");
 
         // 기존 파일 삭제
         Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
