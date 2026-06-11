@@ -138,6 +138,13 @@ public class SystemController {
         result.data = items;
         result.success = true;
 		return result;
-	}	
+	}
+
+	private static final String START_TIME = String.valueOf(System.currentTimeMillis());
+
+	@GetMapping("/api/system/version")
+	public Map<String, String> getVersion() {
+		return Map.of("version", START_TIME);
+	}
 
 }

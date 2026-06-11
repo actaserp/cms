@@ -97,7 +97,8 @@ public class CmsEb14ReceiveService {
             if (!pendingDateSet.contains(transactionDate)) continue;
 
             String mmdd    = transactionDate.substring(4, 8);
-            String fileName = "EB14" + mmdd;
+            String yyyy     = transactionDate.substring(0, 4);
+            String fileName = "EB14" + mmdd + "_" + yyyy;
 
             Map<String, Object> fileInfo = new HashMap<>();
             fileInfo.put("fileName",        fileName);
@@ -115,8 +116,9 @@ public class CmsEb14ReceiveService {
         if (!StringUtils.hasText(targetDate)) {
             targetDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         }
-        String mmdd = targetDate.substring(4, 8);
-        String fileName = "EB14" + mmdd;
+        String mmdd     = targetDate.substring(4, 8);
+        String yyyy     = targetDate.substring(0, 4);
+        String fileName = "EB14" + mmdd + "_" + yyyy;
 
         String[] cred = cmsTokenService.getSftpReceiveCredential(spjangcd, "EB14", targetDate);
         byte[] fileBytes = sftpDownload(fileName, cred[0], cred[1]);

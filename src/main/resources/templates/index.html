@@ -2472,6 +2472,23 @@
         wrapper.appendChild(select);
     });
 
+    (function() {
+        var currentVersion = null;
+
+        $.get(withCtx('/api/system/version'), function(res) {
+            currentVersion = res.version;
+        });
+
+        setInterval(function() {
+            if (!currentVersion) return;
+            $.get(withCtx('/api/system/version'), function(res) {
+                if (res.version !== currentVersion) {
+                    location.reload();
+                }
+            });
+        }, 60000);
+    })();
+
 </script>
 
 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
