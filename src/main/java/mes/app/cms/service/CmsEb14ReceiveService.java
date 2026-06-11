@@ -74,32 +74,36 @@ public class CmsEb14ReceiveService {
         List<Map<String, Object>> result = new ArrayList<>();
         if (node == null) return result;
 
+        // cms_account_register에서 미처리 eb13_sent_at 날짜 목록 조회
+        List<Map<String, Object>> pendingDates = sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT DISTINCT TO_CHAR(eb13_sent_at, 'YYYYMMDD') AS sent_date
+                FROM cms_account_register
+                WHERE spjangcd = :spjangcd
+                  AND eb13_status = 'SENT'
+                  AND eb14_received_at IS NULL
+                """,
+                new MapSqlParameterSource("spjangcd", spjangcd));
+
+        Set<String> pendingDateSet = pendingDates.stream()
+                .map(r -> (String) r.get("sent_date"))
+                .collect(java.util.stream.Collectors.toSet());
+
         JsonNode files = node.path("data").path("content");
         for (JsonNode file : files) {
             String transactionDate = file.path("transaction_date").asText();
             if (!StringUtils.hasText(transactionDate)) continue;
+            // 미처리 날짜에 해당하는 파일만 포함
+            if (!pendingDateSet.contains(transactionDate)) continue;
 
-            String yyyy    = transactionDate.substring(0, 4);
             String mmdd    = transactionDate.substring(4, 8);
             String fileName = "EB14" + mmdd;
-
-            // 이미 처리됐는지 확인
-            Map<String, Object> processed = sqlRunner.getRow(/* skip_tenant_check */
-                    """
-                    SELECT COUNT(*) AS cnt FROM cms_file
-                    WHERE spjangcd = :spjangcd
-                      AND file_type = 'EB14'
-                      AND target_date = CAST(:targetDate AS DATE)
-                    """,
-                    new MapSqlParameterSource("spjangcd", spjangcd)
-                            .addValue("targetDate", transactionDate));
-            long cnt = processed != null ? ((Number) processed.get("cnt")).longValue() : 0L;
 
             Map<String, Object> fileInfo = new HashMap<>();
             fileInfo.put("fileName",        fileName);
             fileInfo.put("transactionDate", transactionDate);
             fileInfo.put("fileStatus",      file.path("file_status").asInt());
-            fileInfo.put("processed",       cnt > 0);
+            fileInfo.put("processed",       false);
             result.add(fileInfo);
         }
 
