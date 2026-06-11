@@ -75,7 +75,7 @@ public class CmsErpResultSyncService {
                             custcd, spjangcd, bnkcode, cmsnum, bank_tran_id,
                             tran_date, print_content, tran_amt,
                             inout_type, flag, su_amt, cltcd
-                        ) VALUES (?,?,?,?,?,?,?,?,0,0,?)
+                        ) VALUES (?,?,?,?,?,?,?,?,0,0,?,?)
                         """)) {
                         ps.setString(1, custcd);
                         ps.setString(2, msSpjangcd);

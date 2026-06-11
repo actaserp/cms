@@ -58,10 +58,12 @@
                             </dd>
                         </dl>
                         <dl>
-                            <dt><label>출금신청일<span style="font-size:11px; color:#aaa;"> (삭제시 전체 검색)</span></label></dt>
+                            <dt><label>출금신청일</label></dt>
                             <dd>
-                                <div class="srch-box">
-                                    <input type="date" class="form-control2" id="srchSendDate" style="width:130px;">
+                                <div class="srch-box" style="display:flex; align-items:center; gap:4px;">
+                                    <input type="date" class="form-control2" id="srchSendDateFrom" style="width:130px;">
+                                    <span>~</span>
+                                    <input type="date" class="form-control2" id="srchSendDateTo" style="width:130px;">
                                 </div>
                             </dd>
                         </dl>
@@ -389,6 +391,7 @@
             {binding: 'billing_seq',    header: '청구번호', width: 120, align: 'center'},
             {binding: 'member_name',    header: '납부자명', width: 130, align: 'left'},
             {binding: 'member_no',      header: '납부자번호', width: 120, align: 'center'},
+            {binding: 'id_number',      header: '사업자번호',     width: 130, align: 'center'},
             {binding: 'bank_name',      header: '은행',    width: 80,  align: 'center'},
             {binding: 'bank_account',   header: '계좌번호', width: 150, align: 'center'},
             {binding: 'deduct_day',     header: '약정일',  width: 70,  align: 'center',
@@ -478,7 +481,8 @@
                 + String(now.getDate()).padStart(2, '0');
 
             $('#srchBillingYm').val(ym);
-            $('#srchSendDate').val(todayStr);
+            $('#srchSendDateFrom').val(todayStr);
+            $('#srchSendDateTo').val(todayStr);
             $('#billing_ym_input').val(ym);
 
             searchList();
@@ -668,7 +672,8 @@
                 type: 'GET',
                 data: {
                     billing_ym:  ymVal.replace('-', ''),
-                    send_date:   ($('#srchSendDate').val() || '').replace(/-/g, ''),
+                    send_date_from: ($('#srchSendDateFrom').val() || '').replace(/-/g, ''),
+                    send_date_to:   ($('#srchSendDateTo').val()   || '').replace(/-/g, ''),
                     member_name: $('#srchMemberName').val(),
                     status:      $('#srchStatus').val()
                 },
@@ -697,6 +702,9 @@
                 itemsSource: viewdata
             });
             theGrid.rowHeaders.columns.splice(0, 1);
+
+            new FlexGridContextMenu(this.theGrid);
+            this.theGrid.downloadFileName = '수납 청구 관리';
 
             // 헤더 체크박스
             theGrid.formatItem.addHandler(function(s, e) {

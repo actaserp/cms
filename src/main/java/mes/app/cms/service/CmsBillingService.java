@@ -29,7 +29,7 @@ public class CmsBillingService {
     private CmsMemberService cmsMemberService;
 
     /** 청구 목록 조회 */
-    public List<Map<String, Object>> getBillingList(String billingYm, String sendDate, String memberName, String status, String deductType) {
+    public List<Map<String, Object>> getBillingList(String billingYm, String sendDateFrom, String sendDateTo, String memberName, String status, String deductType) {
         String spjangcd = TenantContext.get();
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
@@ -37,48 +37,55 @@ public class CmsBillingService {
         param.addValue("deductType", deductType != null ? deductType : "EB");
 
         String sql = """
-            SELECT b.id
-                 , b.billing_ym
-                 , b.billing_seq
-                 , b.member_id
-                 , b.member_name
-                 , m.member_no
-                 , b.bank_code
-                 , bc.bank_name
-                 , b.bank_account
-                 , b.account_holder
-                 , b.billing_amount
-                 , b.deduct_day
-                 , b.deduct_date
-                 , b.send_date
-                 , b.status
-                 , b.result_code
-                 , b.result_msg
-                 , b.result_date
-                 , b.memo
-                 , b._created
-                 , b._modified
-                 , CASE WHEN EXISTS (
-                    SELECT 1 FROM cms_billing rb
-                    WHERE rb.spjangcd = b.spjangcd
-                      AND rb.member_id = b.member_id
-                      AND rb.memo LIKE '%불능 / 재청구%'
-                      AND rb.status NOT IN ('CANCEL', 'FAIL', 'ERROR')
-                ) THEN 'Y' ELSE 'N' END AS recharged_yn
-            FROM cms_billing b
-            LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
-            LEFT JOIN cms_member m ON m.id = b.member_id
-            WHERE b.spjangcd    = :spjangcd
-              AND b.billing_ym  = :billingYm
-              AND b.deduct_type = :deductType
-            """;
+        SELECT b.id
+             , b.billing_ym
+             , b.billing_seq
+             , b.member_id
+             , b.member_name
+             , m.member_no
+             , m.id_number
+             , b.bank_code
+             , bc.bank_name
+             , b.bank_account
+             , b.account_holder
+             , b.billing_amount
+             , b.deduct_day
+             , b.deduct_date
+             , b.send_date
+             , b.status
+             , b.result_code
+             , b.result_msg
+             , b.result_date
+             , b.memo
+             , b._created
+             , b._modified
+             , CASE WHEN EXISTS (
+                SELECT 1 FROM cms_billing rb
+                WHERE rb.spjangcd = b.spjangcd
+                  AND rb.member_id = b.member_id
+                  AND rb.memo LIKE '%불능 / 재청구%'
+                  AND rb.status NOT IN ('CANCEL', 'FAIL', 'ERROR')
+            ) THEN 'Y' ELSE 'N' END AS recharged_yn
+        FROM cms_billing b
+        LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
+        LEFT JOIN cms_member m ON m.id = b.member_id
+        WHERE b.spjangcd    = :spjangcd
+          AND b.billing_ym  = :billingYm
+          AND b.deduct_type = :deductType
+        """;
 
-        if (StringUtils.hasText(sendDate)) {
-            sql += """
-                 AND b.send_date = :sendDate
-                """;
-            param.addValue("sendDate", sendDate);
+        if (StringUtils.hasText(sendDateFrom) && StringUtils.hasText(sendDateTo)) {
+            sql += " AND b.send_date BETWEEN :sendDateFrom AND :sendDateTo";
+            param.addValue("sendDateFrom", sendDateFrom);
+            param.addValue("sendDateTo",   sendDateTo);
+        } else if (StringUtils.hasText(sendDateFrom)) {
+            sql += " AND b.send_date >= :sendDateFrom";
+            param.addValue("sendDateFrom", sendDateFrom);
+        } else if (StringUtils.hasText(sendDateTo)) {
+            sql += " AND b.send_date <= :sendDateTo";
+            param.addValue("sendDateTo", sendDateTo);
         }
+
         if (StringUtils.hasText(memberName)) {
             sql += " AND b.member_name LIKE '%' || :memberName || '%'";
             param.addValue("memberName", memberName);
@@ -535,7 +542,6 @@ public class CmsBillingService {
                 WHERE m.spjangcd     = :spjangcd
                   AND m.status       = 'ACTIVE'
                   AND m.agree_yn     = 'Y'
-                  AND m.agree_date IS NOT NULL
                   AND m.start_date  <= :lastDay
                   AND m.end_date    >= :firstDay
                   AND (
@@ -673,6 +679,7 @@ public class CmsBillingService {
             SELECT b.id
                  , b.billing_seq
                  , b.member_name
+                 , m.id_number
                  , b.bank_code
                  , bc.bank_name
                  , b.bank_account
@@ -698,6 +705,7 @@ public class CmsBillingService {
                     ) THEN 'Y' ELSE 'N' END AS recharged_yn
             FROM cms_billing b
             LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
+            LEFT JOIN cms_member m ON m.id = b.member_id
             WHERE b.spjangcd    = :spjangcd
               AND b.billing_ym  = :billingYm
               AND b.deduct_type = :deductType
@@ -1246,7 +1254,6 @@ public class CmsBillingService {
         WHERE m.spjangcd  = :spjangcd
           AND m.status    = 'ACTIVE'
           AND m.agree_yn  = 'Y'
-          AND m.agree_date IS NOT NULL
           AND m.start_date <= :lastDay
           AND m.end_date   >= :firstDay
           AND (
@@ -1361,7 +1368,6 @@ public class CmsBillingService {
         WHERE m.spjangcd  = :spjangcd
           AND m.status    = 'ACTIVE'
           AND m.agree_yn  = 'Y'
-          AND m.agree_date IS NOT NULL
           AND m.start_date <= :lastDay
           AND m.end_date   >= :firstDay
           AND m.deduct_day = ANY(:deductDays::TEXT[])

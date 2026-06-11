@@ -743,7 +743,12 @@ public class CmsMemberService {
             + " C.cltcd AS cltcd,"
             + " E6.actcd AS actcd,"
             + " E6.actnm AS member_name,"
-            + " C.cmsrnum AS id_number,"
+            + " C.corpperclafi AS corpperclafi,"
+            + " CASE"
+            + "     WHEN C.corpperclafi = '0' AND C.prenum IS NOT NULL AND LTRIM(RTRIM(C.prenum)) != ''"
+            + "          THEN C.prenum"
+            + "     ELSE C.cmsrnum"
+            + " END AS id_number,"
             + " B.bnkcode AS bank_code,"
             + " C.accnum AS bank_account,"
             + " C.hptelnum AS phone,"
@@ -889,13 +894,23 @@ public class CmsMemberService {
                                 memberNo = null;
                             }
 
+                            String corpperclafi = rs.getString("corpperclafi");
+                            String memberType;
+                            if ("0".equals(corpperclafi) && StringUtils.hasText(idNumber) && idNumber.length() == 13) {
+                                memberType = "P";  // 개인
+                            } else if ("0".equals(corpperclafi)) {
+                                memberType = "S";  // 개인사업자
+                            } else {
+                                memberType = "C";  // 법인
+                            }
+
                             MapSqlParameterSource p = new MapSqlParameterSource();
                             p.addValue("spjangcd",     spjangcd);
                             p.addValue("memberNo",     memberNo);
                             p.addValue("cltcd",        actcd);
                             p.addValue("agreeYn",      agreeYn);
                             p.addValue("memberName",   memberName);
-                            p.addValue("memberType",   "C");
+                            p.addValue("memberType",   memberType);
                             p.addValue("idNumber",     idNumber);
                             p.addValue("bankCode",     bankCode);
                             p.addValue("bankAccount",  bankAccount);
@@ -942,6 +957,7 @@ public class CmsMemberService {
                                         """
                                         UPDATE cms_member SET
                                          member_name    = :memberName,
+                                         member_type    = :memberType,
                                          member_no      = COALESCE(:memberNo, member_no),
                                          id_number      = :idNumber,
                                          bank_code      = :bankCode,
@@ -958,6 +974,7 @@ public class CmsMemberService {
                                          cycle_months   = :cycleMonths,
                                          agree_yn       = CASE WHEN :agreeYn = 'Y' THEN 'Y' ELSE agree_yn END,
                                          _modifier_id   = CASE WHEN (
+                                             COALESCE(member_type, '') != COALESCE(:memberType, '') OR
                                              COALESCE(member_name, '')  != COALESCE(:memberName, '')  OR
                                              COALESCE(id_number, '')    != COALESCE(:idNumber, '')    OR
                                              COALESCE(bank_code, '')    != COALESCE(:bankCode, '')    OR
@@ -974,6 +991,7 @@ public class CmsMemberService {
                                              COALESCE(cycle_months, '') != COALESCE(:cycleMonths, '')
                                          ) THEN :userId ELSE _modifier_id END,
                                          _modified      = CASE WHEN (
+                                             COALESCE(member_type, '') != COALESCE(:memberType, '') OR
                                              COALESCE(member_name, '')  != COALESCE(:memberName, '')  OR
                                              COALESCE(id_number, '')    != COALESCE(:idNumber, '')    OR
                                              COALESCE(bank_code, '')    != COALESCE(:bankCode, '')    OR
