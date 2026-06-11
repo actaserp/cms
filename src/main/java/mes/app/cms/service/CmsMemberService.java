@@ -744,6 +744,7 @@ public class CmsMemberService {
             + " E6.actcd AS actcd,"
             + " E6.actnm AS member_name,"
             + " C.corpperclafi AS corpperclafi,"
+            + " C.saupnum AS saupnum,"
             + " CASE"
             + "     WHEN C.saupnum IS NOT NULL AND LTRIM(RTRIM(C.saupnum)) != ''"
             + "          THEN REPLACE(LTRIM(RTRIM(C.saupnum)), '-', '')"
