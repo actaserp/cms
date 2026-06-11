@@ -2474,19 +2474,37 @@
 
     (function() {
         var currentVersion = null;
+        var needsReload = false;
+        var lastActivity = Date.now();
+        var INACTIVE_MS = 5 * 60 * 1000;
+
+        $(document).on('mousemove keydown click', function() {
+            lastActivity = Date.now();
+        });
 
         $.get(withCtx('/api/system/version'), function(res) {
             currentVersion = res.version;
         });
 
+        function checkAndReload() {
+            if (needsReload && Date.now() - lastActivity > INACTIVE_MS) {
+                location.reload();
+            }
+        }
+
         setInterval(function() {
             if (!currentVersion) return;
             $.get(withCtx('/api/system/version'), function(res) {
                 if (res.version !== currentVersion) {
-                    location.reload();
+                    if (Date.now() - lastActivity > INACTIVE_MS) {
+                        location.reload();
+                    } else {
+                        needsReload = true;
+                    }
                 }
             });
-        }, 60000);
+            checkAndReload();
+        }, 5 * 60 * 1000);
     })();
 
 </script>
