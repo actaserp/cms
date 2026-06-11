@@ -1,5 +1,6 @@
 package mes.app.cms.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.jcraft.jsch.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,10 +19,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 /**
  * EB14 — 출금이체 신청결과 수신
@@ -49,27 +47,72 @@ public class CmsEb14ReceiveService {
         // EB13 송신한 모든 사업장 대상
         List<Map<String, Object>> spjangs = sqlRunner.getRows(/* skip_tenant_check */
                 """
-                SELECT DISTINCT spjangcd FROM cms_account_register
+                SELECT DISTINCT spjangcd,
+                       TO_CHAR(MIN(eb13_sent_at), 'YYYYMMDD') AS eb13_sent_date
+                FROM cms_account_register
                 WHERE eb13_status = 'SENT'
                   AND eb14_received_at IS NULL
-                  AND eb13_sent_at >= NOW() - INTERVAL '3 days'
+                  AND eb13_sent_at >= NOW() - INTERVAL '7 days'
+                GROUP BY spjangcd
                 """,
                 new MapSqlParameterSource());
 
         for (Map<String, Object> row : spjangs) {
             String spjangcd = (String) row.get("spjangcd");
+            String eb13SentDate = (String) row.get("eb13_sent_date");
             try {
-                receive(spjangcd);
+                receive(spjangcd, eb13SentDate);
             } catch (Exception e) {
                 log.error("[CmsEb14] 수신 실패 spjangcd={}: {}", spjangcd, e.getMessage(), e);
             }
         }
     }
 
-    public void receive(String spjangcd) throws Exception {
-        String targetDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+
+    public List<Map<String, Object>> getFileList(String spjangcd) throws Exception {
+        JsonNode node = cmsTokenService.getFileList(spjangcd, "EB14");
+        List<Map<String, Object>> result = new ArrayList<>();
+        if (node == null) return result;
+
+        JsonNode files = node.path("data").path("content");
+        for (JsonNode file : files) {
+            String transactionDate = file.path("transaction_date").asText();
+            if (!StringUtils.hasText(transactionDate)) continue;
+
+            String yyyy    = transactionDate.substring(0, 4);
+            String mmdd    = transactionDate.substring(4, 8);
+            String fileName = "EB14" + mmdd;
+
+            // 이미 처리됐는지 확인
+            Map<String, Object> processed = sqlRunner.getRow(/* skip_tenant_check */
+                    """
+                    SELECT COUNT(*) AS cnt FROM cms_file
+                    WHERE spjangcd = :spjangcd
+                      AND file_type = 'EB14'
+                      AND target_date = CAST(:targetDate AS DATE)
+                    """,
+                    new MapSqlParameterSource("spjangcd", spjangcd)
+                            .addValue("targetDate", transactionDate));
+            long cnt = processed != null ? ((Number) processed.get("cnt")).longValue() : 0L;
+
+            Map<String, Object> fileInfo = new HashMap<>();
+            fileInfo.put("fileName",        fileName);
+            fileInfo.put("transactionDate", transactionDate);
+            fileInfo.put("fileStatus",      file.path("file_status").asInt());
+            fileInfo.put("processed",       cnt > 0);
+            result.add(fileInfo);
+        }
+
+        result.sort((a, b) -> ((String) b.get("transactionDate")).compareTo((String) a.get("transactionDate")));
+        return result;
+    }
+
+    public void receive(String spjangcd, String targetDate) throws Exception {
+        if (!StringUtils.hasText(targetDate)) {
+            targetDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        }
         String mmdd = targetDate.substring(4, 8);
-        String fileName = "EB14" + mmdd + "_" + targetDate.substring(0, 4);
+        String fileName = "EB14" + mmdd;
 
         String[] cred = cmsTokenService.getSftpReceiveCredential(spjangcd, "EB14", targetDate);
         byte[] fileBytes = sftpDownload(fileName, cred[0], cred[1]);

@@ -745,7 +745,9 @@ public class CmsMemberService {
             + " E6.actnm AS member_name,"
             + " C.corpperclafi AS corpperclafi,"
             + " CASE"
-            + "     WHEN C.corpperclafi = '0' AND C.prenum IS NOT NULL AND LTRIM(RTRIM(C.prenum)) != ''"
+            + "     WHEN C.saupnum IS NOT NULL AND LTRIM(RTRIM(C.saupnum)) != ''"
+            + "          THEN REPLACE(LTRIM(RTRIM(C.saupnum)), '-', '')"
+            + "     WHEN C.prenum IS NOT NULL AND LTRIM(RTRIM(C.prenum)) != '' AND LEN(LTRIM(RTRIM(C.prenum))) = 13"
             + "          THEN C.prenum"
             + "     ELSE C.cmsrnum"
             + " END AS id_number,"
@@ -829,6 +831,7 @@ public class CmsMemberService {
                             String endDate      = cleanDate(rs.getString("end_date"));
                             String accyn        = rs.getString("accyn");
                             String erpMemberNo  = rs.getString("member_no"); // TB_CMSEB13 BANKCLTCD
+                            String saupnum = rs.getString("saupnum");
                             if ("null".equalsIgnoreCase(erpMemberNo)) erpMemberNo = null;
 
                             // accyn = 1 → EB13 인증완료 → agree_yn = Y
@@ -896,12 +899,12 @@ public class CmsMemberService {
 
                             String corpperclafi = rs.getString("corpperclafi");
                             String memberType;
-                            if ("0".equals(corpperclafi) && StringUtils.hasText(idNumber) && idNumber.length() == 13) {
-                                memberType = "P";  // 개인
-                            } else if ("0".equals(corpperclafi)) {
-                                memberType = "S";  // 개인사업자
+                            if (StringUtils.hasText(saupnum) && !saupnum.trim().isEmpty()) {
+                                memberType = "0".equals(corpperclafi) ? "S" : "C";
+                            } else if ("0".equals(corpperclafi) && StringUtils.hasText(idNumber) && idNumber.replaceAll("[^0-9]", "").length() == 13) {
+                                memberType = "P";
                             } else {
-                                memberType = "C";  // 법인
+                                memberType = "S";
                             }
 
                             MapSqlParameterSource p = new MapSqlParameterSource();

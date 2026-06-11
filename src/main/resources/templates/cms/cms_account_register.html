@@ -210,6 +210,34 @@
         </div>
     </script>
 
+    <!-- EB14 수신 모달 -->
+    <div id="modalEb14" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+     background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:24px 28px; min-width:500px;
+                box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 16px; font-size:15px;">EB14 결과수신</h3>
+            <table style="width:100%; border-collapse:collapse; font-size:13px; margin-bottom:16px;">
+                <thead>
+                <tr style="background:#f5f6fa; color:#555;">
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center; width:36px;"></th>
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">파일명</th>
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">신청일</th>
+                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">처리여부</th>
+                </tr>
+                </thead>
+                <tbody id="eb14FileRows"></tbody>
+            </table>
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" id="btnEb14Confirm"
+                        style="background:#17a2b8; color:#fff; padding:6px 18px; border:none;
+                           border-radius:4px; cursor:pointer; font-size:13px;">수신</button>
+                <button type="button" id="btnEb14Cancel"
+                        style="background:#f5f6fa; color:#333; padding:6px 18px;
+                           border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">취소</button>
+            </div>
+        </div>
+    </div>
+
 </th:block>
 <th:block layout:fragment="scripts">
     <th:block th:replace="common/ax5_uploader :: ax5_uploader"></th:block>
@@ -579,15 +607,76 @@
         }
 
         function receiveEb14() {
-            Alert.confirm('', 'EB14 결과를 수신하시겠습니까?', function() {
-                AjaxUtil.postAsyncData('/api/cms/account-register/receive-eb14', {}, function(result) {
-                    if (result.success) {
-                        Alert.alert('', 'EB14 결과수신이 완료되었습니다.');
-                    } else {
-                        Alert.alert('수신 실패', result.message);
+            $.ajax({
+                url: withCtx('/api/cms/account-register/eb14-file-list'),
+                type: 'GET',
+                success: function(result) {
+                    if (!result.success || !result.data || result.data.length === 0) {
+                        Alert.alert('', '수신 가능한 EB14 파일이 없습니다.');
+                        return;
                     }
-                    searchList();
-                });
+                    var html = '';
+                    result.data.forEach(function(f) {
+                        var processed = f.processed;
+                        var badge = processed
+                            ? '<span style="background:#d4edda; color:#155724; padding:2px 8px; border-radius:8px; font-size:11px;">처리완료</span>'
+                            : '<span style="background:#fff3cd; color:#856404; padding:2px 8px; border-radius:8px; font-size:11px;">미처리</span>';
+                        html += '<tr>'
+                            + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
+                            +   (processed ? '' : '<input type="checkbox" class="eb14-check" data-date="' + f.transactionDate + '" checked>')
+                            + '</td>'
+                            + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + f.fileName + '</td>'
+                            + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + f.transactionDate + '</td>'
+                            + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + badge + '</td>'
+                            + '</tr>';
+                    });
+                    $('#eb14FileRows').html(html);
+                    $('#modalEb14').css('display', 'flex');
+                }
+            });
+        }
+
+        function doReceiveEb14() {
+            var dates = [];
+            $('.eb14-check:checked').each(function() {
+                dates.push($(this).data('date'));
+            });
+            if (dates.length === 0) {
+                Alert.alert('', '수신할 파일을 선택하세요.');
+                return;
+            }
+            $('#modalEb14').hide();
+
+            var promises = dates.map(function(date) {
+                return AjaxUtil.postAsyncData('/api/cms/account-register/receive-eb14',
+                    { target_date: date }, function() {});
+            });
+
+            $.when.apply($, promises).then(function() {
+                Alert.alert('', dates.length + '건 수신 완료');
+                searchList();
+            });
+        }
+
+        function doReceiveEb14() {
+            var dates = [];
+            $('.eb14-check:checked').each(function() {
+                dates.push($(this).data('date'));
+            });
+            if (dates.length === 0) {
+                Alert.alert('', '수신할 파일을 선택하세요.');
+                return;
+            }
+            $('#modalEb14').hide();
+
+            var promises = dates.map(function(date) {
+                return AjaxUtil.postAsyncData('/api/cms/account-register/receive-eb14',
+                    { target_date: date }, function() {});
+            });
+
+            $.when.apply($, promises).then(function() {
+                Alert.alert('', dates.length + '건 수신 완료');
+                searchList();
             });
         }
 
@@ -614,6 +703,8 @@
             $('#btnReRegister').click(reRegister);
             $('#btnReceiveEb14').click(receiveEb14);
             $('#btnCreateFromErp').click(createFromErp);
+            $('#btnEb14Confirm').click(doReceiveEb14);
+            $('#btnEb14Cancel').click(function() { $('#modalEb14').hide(); });
         });
     </script>
 

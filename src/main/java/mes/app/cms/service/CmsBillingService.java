@@ -195,24 +195,24 @@ public class CmsBillingService {
 
         if (id == null) {
             // 중복 청구 체크
-            if (StringUtils.hasText(memberId) && StringUtils.hasText(deductDate)) {
-                List<Map<String, Object>> dup = sqlRunner.getRows(/* skip_tenant_check */
-                        """
-                        SELECT 1 FROM cms_billing
-                        WHERE spjangcd  = :spjangcd
-                          AND member_id = :memberId
-                          AND deduct_date = :deductDate
-                          AND status NOT IN ('CANCEL', 'FAIL', 'ERROR')
-                        """,
-                        new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                                .addValue("spjangcd",   spjangcd)
-                                .addValue("memberId",   Long.parseLong(memberId))
-                                .addValue("deductDate", deductDate));
-                if (!dup.isEmpty()) {
-                    log.warn("[saveBilling] 중복 청구 차단 memberId={} deductDate={}", memberId, deductDate);
-                    throw new IllegalStateException("동일한 출금일에 이미 청구가 존재합니다.");
-                }
-            }
+//            if (StringUtils.hasText(memberId) && StringUtils.hasText(deductDate)) {
+//                List<Map<String, Object>> dup = sqlRunner.getRows(/* skip_tenant_check */
+//                        """
+//                        SELECT 1 FROM cms_billing
+//                        WHERE spjangcd  = :spjangcd
+//                          AND member_id = :memberId
+//                          AND deduct_date = :deductDate
+//                          AND status NOT IN ('CANCEL', 'FAIL', 'ERROR')
+//                        """,
+//                        new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+//                                .addValue("spjangcd",   spjangcd)
+//                                .addValue("memberId",   Long.parseLong(memberId))
+//                                .addValue("deductDate", deductDate));
+//                if (!dup.isEmpty()) {
+//                    log.warn("[saveBilling] 중복 청구 차단 memberId={} deductDate={}", memberId, deductDate);
+//                    throw new IllegalStateException("동일한 출금일에 이미 청구가 존재합니다.");
+//                }
+//            }
 
             // 청구번호 채번
             String billingSeq = generateBillingSeq(spjangcd, billingYm);
@@ -316,24 +316,24 @@ public class CmsBillingService {
 
         if (id == null) {
             // 중복 청구 체크
-            if (StringUtils.hasText(memberId) && StringUtils.hasText(deductDate)) {
-                List<Map<String, Object>> dup = sqlRunner.getRows(/* skip_tenant_check */
-                        """
-                        SELECT 1 FROM cms_billing
-                        WHERE spjangcd  = :spjangcd
-                          AND member_id = :memberId
-                          AND deduct_date = :deductDate
-                          AND status NOT IN ('CANCEL', 'FAIL', 'ERROR')
-                        """,
-                        new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                                .addValue("spjangcd",   spjangcd)
-                                .addValue("memberId",   Long.parseLong(memberId))
-                                .addValue("deductDate", deductDate));
-                if (!dup.isEmpty()) {
-                    log.warn("[saveBillingWithoutPauseCheck] 중복 청구 차단 memberId={} deductDate={}", memberId, deductDate);
-                    throw new IllegalStateException("동일한 출금일에 이미 청구가 존재합니다.");
-                }
-            }
+//            if (StringUtils.hasText(memberId) && StringUtils.hasText(deductDate)) {
+//                List<Map<String, Object>> dup = sqlRunner.getRows(/* skip_tenant_check */
+//                        """
+//                        SELECT 1 FROM cms_billing
+//                        WHERE spjangcd  = :spjangcd
+//                          AND member_id = :memberId
+//                          AND deduct_date = :deductDate
+//                          AND status NOT IN ('CANCEL', 'FAIL', 'ERROR')
+//                        """,
+//                        new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+//                                .addValue("spjangcd",   spjangcd)
+//                                .addValue("memberId",   Long.parseLong(memberId))
+//                                .addValue("deductDate", deductDate));
+//                if (!dup.isEmpty()) {
+//                    log.warn("[saveBillingWithoutPauseCheck] 중복 청구 차단 memberId={} deductDate={}", memberId, deductDate);
+//                    throw new IllegalStateException("동일한 출금일에 이미 청구가 존재합니다.");
+//                }
+//            }
 
             String billingSeq = generateBillingSeq(spjangcd, billingYm);
             param.addValue("billingSeq", billingSeq);

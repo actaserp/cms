@@ -65,19 +65,30 @@ public class CmsAccountRegisterController {
 
     /** EB14 수신 (수동) */
     @PostMapping("/receive-eb14")
-    public AjaxResult receiveEb14() {
+    public AjaxResult receiveEb14(@RequestParam(required = false) String target_date) {
+        AjaxResult result = new AjaxResult();
         try {
             String spjangcd = TenantContext.get();
-            cmsEb14ReceiveService.receive(spjangcd);
-            AjaxResult result = new AjaxResult();
+            cmsEb14ReceiveService.receive(spjangcd, target_date);
             result.message = "EB14 수신 완료";
-            return result;
         } catch (Exception e) {
-            AjaxResult result = new AjaxResult();
             result.success = false;
             result.message = e.getMessage();
-            return result;
         }
+        return result;
+    }
+
+    @GetMapping("/eb14-file-list")
+    public AjaxResult getEb14FileList() {
+        AjaxResult result = new AjaxResult();
+        try {
+            String spjangcd = TenantContext.get();
+            result.data = cmsEb14ReceiveService.getFileList(spjangcd);
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
     }
 
     /** 신규 등록 (납부자 저장 시 자동 생성용) */
@@ -182,4 +193,6 @@ public class CmsAccountRegisterController {
         }
         return result;
     }
+
+
 }
