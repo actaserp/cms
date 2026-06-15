@@ -93,6 +93,8 @@ public class CmsBillingService {
         if (StringUtils.hasText(status)) {
             sql += " AND b.status = :status";
             param.addValue("status", status);
+        } else {
+            sql += " AND b.status IN ('PENDING', 'REQUESTED')";
         }
 
         sql += " ORDER BY b.billing_seq";
@@ -1473,5 +1475,31 @@ public class CmsBillingService {
                 new MapSqlParameterSource()
                         .addValue("sendDate", actualSendDate)
                         .addValue("ids", billingIds.toArray(new Long[0])));
+    }
+
+    public int changeDeductDate(String ids, String deductDate) {
+        String spjangcd = TenantContext.get();
+        List<Long> idList = Arrays.stream(ids.split(","))
+                .map(String::trim).map(Long::parseLong).collect(Collectors.toList());
+
+        String sendDate = cmsHolidayService.getPrevBusinessDay(
+                LocalDate.parse(deductDate, DateTimeFormatter.ofPattern("yyyyMMdd"))
+                        .minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+
+        return sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_billing
+                SET deduct_date = :deductDate,
+                    send_date   = :sendDate,
+                    _modified   = NOW()
+                WHERE id = ANY(:ids::BIGINT[])
+                  AND spjangcd = :spjangcd
+                  AND status = 'PENDING'
+                """,
+                new MapSqlParameterSource()
+                        .addValue("ids", idList.toArray(new Long[0]))
+                        .addValue("deductDate", deductDate)
+                        .addValue("sendDate", sendDate)
+                        .addValue("spjangcd", spjangcd));
     }
 }

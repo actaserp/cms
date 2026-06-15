@@ -40,8 +40,9 @@
             color: #222;
         }
         .summary-card .card-sub {
-            font-size: 12px;
-            color: #aaa;
+            font-size: 18px;
+            color: #333;
+            font-weight: 700;
         }
         .summary-card.success { border-top: 3px solid #28a745; }
         .summary-card.fail    { border-top: 3px solid #dc3545; }
@@ -106,18 +107,24 @@
         <div class="summary-cards">
             <div class="summary-card success">
                 <div class="card-label">성공 건수</div>
-                <div class="card-value" id="cardSuccessCount">0건</div>
-                <div class="card-sub" id="cardSuccessAmt">0원</div>
+                <div style="display:flex; align-items:baseline; gap:10px;">
+                    <div class="card-value" id="cardSuccessCount">0건</div>
+                    <div class="card-sub" id="cardSuccessAmt">0원</div>
+                </div>
             </div>
             <div class="summary-card fail">
                 <div class="card-label">실패 건수</div>
-                <div class="card-value" id="cardFailCount">0건</div>
-                <div class="card-sub" id="cardFailAmt">0원</div>
+                <div style="display:flex; align-items:baseline; gap:10px;">
+                    <div class="card-value" id="cardFailCount">0건</div>
+                    <div class="card-sub" id="cardFailAmt">0원</div>
+                </div>
             </div>
             <div class="summary-card rate">
                 <div class="card-label">수납률</div>
-                <div class="card-value" id="cardRate">0%</div>
-                <div class="card-sub" id="cardRateSub">성공금액 / 전체금액</div>
+                <div style="display:flex; align-items:baseline; gap:10px;">
+                    <div class="card-value" id="cardRate">0%</div>
+                    <div class="card-sub" id="cardRateSub">성공금액 / 전체금액</div>
+                </div>
             </div>
         </div>
 
@@ -182,8 +189,9 @@
             <div class="container-fluid">
                 <div id="theGrid"></div>
                 <div class="grid-summary">
-                    <div>전체 건수: <span id="summaryTotal">0</span>건</div>
-                    <div>전체 합계: <span id="summaryTotalAmt">0</span>원</div>
+                    <div>전체 건수: <span id="summaryTotal">0</span>건 &nbsp; 합계: <span id="summaryTotalAmt">0</span>원</div>
+                    <div>성공: <span id="summarySuccessCount">0</span>건 &nbsp; <span id="summarySuccessAmt">0</span>원</div>
+                    <div id="summaryChecked" style="display:none;">체크: <span id="summaryCheckedCount">0</span>건 &nbsp; <span id="summaryCheckedAmt">0</span>원</div>
                 </div>
             </div>
         </section>
@@ -225,6 +233,14 @@
                 cellTemplate: function(ctx) {
                     return ctx.value != null ? Number(ctx.value).toLocaleString() : '';
                 }},
+            {binding: 'billing_amount', header: '입금금액', width: 110, align: 'right',
+                cellTemplate: function(ctx) {
+                    var item = ctx.row.dataItem;
+                    if (item.status !== 'SUCCESS') return '-';
+                    var billing = Number(item.billing_amount) || 0;
+                    var fee = Number(item.fee_total) || 0;
+                    return (billing - fee).toLocaleString();
+                }},
             {binding: 'deduct_date',  header: '출금일자',  width: 100, align: 'center',
                 cellTemplate: function(ctx) {
                     if (!ctx.value) return '-';
@@ -240,7 +256,14 @@
                 }},
             {binding: 'result_code',  header: '결과코드',  width: 90,  align: 'center'},
             {binding: 'result_msg',   header: '결과메시지', width: 200, align: 'left'},
-            {binding: 'result_date',  header: '처리일자',  width: 100, align: 'center'},
+            {binding: 'result_date',    header: '처리일자',  width: 100, align: 'center',  // ← yyyy-mm-dd 포맷
+                cellTemplate: function(ctx) {
+                    if (!ctx.value) return '-';
+                    var v = String(ctx.value);
+                    return v.length === 8
+                        ? v.substring(0,4) + '-' + v.substring(4,6) + '-' + v.substring(6,8)
+                        : v;
+                }},
             {binding: 'recharged_yn', header: '재청구', width: 80, align: 'center',
                 cellTemplate: function(ctx) {
                     var item = ctx.row.dataItem;
@@ -343,9 +366,19 @@
             var successItems = data.filter(function(i) { return i.status === 'SUCCESS'; });
             var failItems    = data.filter(function(i) { return i.status === 'FAIL'; });
 
-            var successAmt = successItems.reduce(function(s, i) { return s + (Number(i.billing_amount) || 0); }, 0);
-            var failAmt    = failItems.reduce(function(s, i)    { return s + (Number(i.billing_amount) || 0); }, 0);
-            var totalAmt   = data.reduce(function(s, i)         { return s + (Number(i.billing_amount) || 0); }, 0);
+            // 입금금액 = billing_amount - fee_total (성공건만)
+            var successAmt = successItems.reduce(function(s, i) {
+                return s + (Number(i.billing_amount) || 0) - (Number(i.fee_total) || 0);
+            }, 0);
+            var failAmt = failItems.reduce(function(s, i) {
+                return s + (Number(i.billing_amount) || 0);
+            }, 0);
+            var totalAmt = data.reduce(function(s, i) {
+                return s + (Number(i.billing_amount) || 0);
+            }, 0);
+            var totalDeductAmt = successItems.reduce(function(s, i) {
+                return s + (Number(i.billing_amount) || 0) - (Number(i.fee_total) || 0);
+            }, 0);
 
             var rate = totalAmt > 0 ? (successAmt / totalAmt * 100).toFixed(1) : '0.0';
 
@@ -357,7 +390,9 @@
             $('#cardRateSub').text(successAmt.toLocaleString() + '원 / ' + totalAmt.toLocaleString() + '원');
 
             $('#summaryTotal').text(data.length.toLocaleString());
-            $('#summaryTotalAmt').text(totalAmt.toLocaleString());
+            $('#summaryTotalAmt').text(totalDeductAmt.toLocaleString());
+            $('#summarySuccessCount').text(successItems.length.toLocaleString());
+            $('#summarySuccessAmt').text(successAmt.toLocaleString());
         }
 
         /* ── 이벤트 바인딩 ── */

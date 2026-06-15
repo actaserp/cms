@@ -56,8 +56,8 @@ public class ScheduledTaskRunner {
         schedulerExecutor.execute(() -> safeRun(cmsBillingAutoGenerateService::run, "CMS 청구 자동생성"));
     }
 
-    /** D-1 15:00 — PENDING 청구 EB21 생성 + SFTP 전송 */
-    @Scheduled(cron = "0 0 15 * * *", zone = "Asia/Seoul")
+    /** D-1 16:30 — PENDING 청구 EB21 생성 + SFTP 전송 */
+    @Scheduled(cron = "0 30 16 * * *", zone = "Asia/Seoul")
     public void runCmsEbFileGenerate() {
         schedulerExecutor.execute(() -> safeRun(cmsEb21SendService::run, "CMS EB21 생성+전송"));
     }

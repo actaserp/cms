@@ -78,10 +78,6 @@
                                     <option value="">전체</option>
                                     <option value="PENDING">대기</option>
                                     <option value="REQUESTED">출금요청</option>
-                                    <option value="SUCCESS">성공</option>
-                                    <option value="FAIL">실패</option>
-                                    <option value="CANCEL">취소</option>
-                                    <option value="ERROR">오류</option>
                                 </select>
                             </dd>
                         </dl>
@@ -95,16 +91,20 @@
                     </div>
                     <div style="padding: 6px 0; display:flex; gap:4px; width:100%; justify-content: space-between; flex-wrap:wrap;">
                         <div style="padding:10px 10px; background:#e8f4fd; border-left:3px solid #4a90d9; font-size:12px; color:#2c5f8a; flex:1; min-width:200px;">
-                            익일 출금은 오후 3시까지 전송하셔야 출금 신청됩니다. (자동 전송 사용시 당일 대기 건을 오후 3시에 일괄 전송합니다.)
+                            익일 출금은 오후 5시까지 전송하셔야 출금 신청됩니다. <br>(자동 전송 사용시 당일 대기 건을 오후 4시 30분에 일괄 전송합니다.)
                         </div>
                         <div style="display:flex; gap:4px; flex-wrap:wrap;">
                             <button type="button" class="btn-default" id="btnErpImport"
-                                    style="background:#e67e22; color:#fff;width: 120px;display: none;">ERP 가져오기</button>
+                                    style="background:#e67e22; color:#fff; width: 120px;display: none;">ERP 청구생성</button>
                             <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>
                             <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>
                             <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;">재청구</button>
                             <button type="button" class="btn-default" id="btnSendNow"
                                     style="background:#27ae60; color:#fff;">즉시전송</button>
+                            <button type="button" class="btn-default" id="btnExcel"
+                                    style="background:#217346; color:#fff; width: 120px;">엑셀 다운로드</button>
+                            <button type="button" class="btn-default" id="btnChangeDate"
+                                    style="background:#f39c12; color:#fff;">출금일 변경</button>
                         </div>
                     </div>
                 </div>
@@ -356,6 +356,34 @@
         </div>
     </div>
 
+    <div id="modalChangeDate" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+     background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:24px 28px; min-width:320px; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 16px; font-size:15px;">출금일 일괄 변경</h3>
+            <div style="font-size:13px; color:#555; margin-bottom:12px;">
+                체크된 <strong id="changeDateCount">0</strong>건의 출금일자를 변경합니다.
+            </div>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
+                <tr>
+                    <th style="padding:6px 8px; text-align:left; white-space:nowrap; color:#555;">변경 출금일자</th>
+                    <td style="padding:6px 8px;">
+                        <input type="date" id="changeDateInput" class="form-control2" style="width:160px;">
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="padding:4px 8px; font-size:11px; color:#aaa;">
+                        휴일인 경우 다음 영업일로 자동 조정됩니다.
+                    </td>
+                </tr>
+            </table>
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" class="btn-default" id="btnChangeDateConfirm"
+                        style="background:#f39c12; color:#fff;">변경</button>
+                <button type="button" class="btn-default" id="btnChangeDateCancel">취소</button>
+            </div>
+        </div>
+    </div>
+
     <footer style="margin-top: 24px;">
         <p>Copyright&#169; 0000 corp. All rights reserved.</p>
     </footer>
@@ -451,11 +479,11 @@
 
             var now = new Date();
             var ym  = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-            var isAfter15 = now.getHours() >= 15;
+            var isAfter17 = now.getHours() >= 17;
 
-            // 익일출금: 15시 이전→내일부터, 15시 이후→모레부터
+            // 익일출금: 17시 이전→내일부터, 17시 이후→모레부터
             var minDate = new Date(now);
-            minDate.setDate(minDate.getDate() + (isAfter15 ? 2 : 1));
+            minDate.setDate(minDate.getDate() + (isAfter17 ? 2 : 1));
             var minDateStr = minDate.getFullYear() + '-'
                 + String(minDate.getMonth() + 1).padStart(2, '0') + '-'
                 + String(minDate.getDate()).padStart(2, '0');
@@ -513,6 +541,16 @@
                     if (result.success) memberList = result.data;
                 }
             });
+        }
+
+        function exportExcel() {
+            if (!theGrid) { Alert.alert('', '데이터가 없습니다.'); return; }
+            var ymVal = $('#srchBillingYm').val() || '청구목록';
+            wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
+                theGrid,
+                { includeColumnHeaders: true, includeCellStyles: false },
+                '수납청구_' + ymVal.replace('-', '') + '.xlsx'
+            );
         }
 
         var memberHighlightIndex = -1;
@@ -1259,6 +1297,60 @@
             });
         }
 
+        function openChangeDateModal() {
+            var pendingIds = (viewdata ? viewdata.items : [])
+                .filter(function(i) { return i.selected && i.status === 'PENDING'; });
+
+            if (pendingIds.length === 0) {
+                Alert.alert('', '출금일을 변경할 대기 건을 체크하세요.');
+                return;
+            }
+
+            $('#changeDateCount').text(pendingIds.length);
+
+            // 기본값: 내일
+            var tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            var ds = tomorrow.getFullYear() + '-'
+                + String(tomorrow.getMonth() + 1).padStart(2, '0') + '-'
+                + String(tomorrow.getDate()).padStart(2, '0');
+            $('#changeDateInput').val(ds);
+
+            $('#modalChangeDate').css('display', 'flex');
+        }
+
+        function doChangeDate() {
+            var newDate = $('#changeDateInput').val();
+            if (!newDate) { Alert.alert('', '변경할 출금일자를 선택하세요.'); return; }
+
+            var pendingItems = (viewdata ? viewdata.items : [])
+                .filter(function(i) { return i.selected && i.status === 'PENDING'; });
+
+            if (pendingItems.length === 0) { Alert.alert('', '변경할 건이 없습니다.'); return; }
+
+            var ids = pendingItems.map(function(i) { return i.id; }).join(',');
+            var compact = newDate.replace(/-/g, '');
+
+            // 휴일 체크 후 변경
+            checkAndSetBusinessDay(newDate, function(adjustedDate) {
+                var adjustedCompact = adjustedDate.replace(/-/g, '');
+                $('#modalChangeDate').hide();
+
+                Alert.confirm('', pendingItems.length + '건의 출금일을 ' + adjustedDate + '로 변경하시겠습니까?', function() {
+                    AjaxUtil.postAsyncData('/api/cms/billing/change-deduct-date',
+                        { ids: ids, deduct_date: adjustedCompact },
+                        function(result) {
+                            if (result.success) {
+                                Alert.alert('', result.data + '건의 출금일이 변경되었습니다.');
+                                searchList();
+                            } else {
+                                Alert.alert('변경 실패', result.message);
+                            }
+                        });
+                });
+            });
+        }
+
         $(document).ready(function() {
             $('#btnSearch').click(searchList);
             $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
@@ -1277,6 +1369,10 @@
                 var date = $('#rechargeAllDate').val();
                 if (date) $('.recharge-date').val(date);
             });
+            $('#btnExcel').click(exportExcel);
+            $('#btnChangeDate').click(openChangeDateModal);
+            $('#btnChangeDateConfirm').click(doChangeDate);
+            $('#btnChangeDateCancel').click(function() { $('#modalChangeDate').hide(); });
             $('#btnErpImport').click(function() {
                 var ymVal = $('#srchBillingYm').val();
                 if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }

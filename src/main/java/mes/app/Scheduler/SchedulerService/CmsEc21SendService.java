@@ -97,11 +97,10 @@ public class CmsEc21SendService {
     private long generateAndSend(String spjangcd, String targetDate) throws Exception {
         // institutionCode 조회
         Map<String, Object> xa012Row = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT cms_code, ec21_fee_request, ec21_fee_success FROM tb_xa012_cms WHERE spjangcd=:s",
+                "SELECT cms_code FROM tb_xa012_cms WHERE spjangcd=:s",
                 new MapSqlParameterSource("s", spjangcd));
         String institutionCode = xa012Row != null ? str(xa012Row.get("cms_code")) : "";
-        int feeRequest = xa012Row != null && xa012Row.get("ec21_fee_request") != null
-                ? ((Number) xa012Row.get("ec21_fee_request")).intValue() : 0;
+        int feeRequest = 0;
         if (!StringUtils.hasText(institutionCode)) {
             log.error("[CmsEc21] cms_code 없음 spjangcd={}", spjangcd);
             throw new IllegalStateException("cms_code 미설정 spjangcd=" + spjangcd);

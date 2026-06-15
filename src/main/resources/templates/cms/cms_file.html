@@ -90,8 +90,8 @@
                 </div>
 
                 <div style="padding: 6px 0; display:flex; gap:4px; align-items:center;">
-                    <button type="button" class="btn-default" id="btnGenerate"
-                            style="width:130px; background:#4a6cf7; color:#fff;">파일 수동생성</button>
+<!--                    <button type="button" class="btn-default" id="btnGenerate"-->
+<!--                            style="width:130px; background:#4a6cf7; color:#fff;">파일 수동생성</button>-->
                     <button type="button" class="btn-default" id="btnDownload">다운로드</button>
                     <button type="button" class="btn-default" id="btnSendSftp"
                             style="background:#17a2b8; color:#fff;">SFTP전송</button>
@@ -144,6 +144,38 @@
     <footer style="margin-top: 24px;">
         <p>Copyright&#169; 0000 corp. All rights reserved.</p>
     </footer>
+
+    <div id="modalFileDetail" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+     background:rgba(0,0,0,0.4); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:24px 28px; width:700px; max-height:80vh;
+                display:flex; flex-direction:column; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h3 style="font-size:15px; margin:0;" id="modalFileDetailTitle">청구 목록</h3>
+                <button onclick="$('#modalFileDetail').hide();"
+                        style="background:none; border:none; font-size:18px; cursor:pointer; color:#888;">✕</button>
+            </div>
+            <div style="overflow-y:auto; flex:1;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                    <tr style="background:#f5f6fa; color:#555;">
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">순번</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:left;">납부자명</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">은행</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">계좌번호</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">금액</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">상태</th>
+                    </tr>
+                    </thead>
+                    <tbody id="modalFileDetailRows"></tbody>
+                </table>
+            </div>
+            <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+                <button onclick="$('#modalFileDetail').hide();"
+                        class="btn-default">닫기</button>
+            </div>
+        </div>
+    </div>
+
 </th:block>
 
 <th:block layout:fragment="scripts">
@@ -178,7 +210,21 @@
                     var label = FILE_TYPE_MAP[ctx.value] || ctx.value || '';
                     return '<span class="status-badge type-' + ctx.value + '">' + label + '</span>';
                 }},
+            {binding: 'rep_member_name', header: '납부자',   width: 180, align: 'left',   // ← 추가
+                cellTemplate: function(ctx) {
+                    var item = ctx.row.dataItem;
+                    if (!ctx.value) return '-';
+                    var count = Number(item.billing_count) || 0;
+                    return count > 1
+                        ? ctx.value + ' 외 ' + (count - 1) + '건'
+                        : ctx.value;
+                }},
             {binding: 'target_date',   header: '대상일자',   width: 110, align: 'center'},
+            {binding: 'billing_count', header: '건수',       width: 70,  align: 'center'},
+            {binding: 'billing_amount',header: '금액',       width: 110, align: 'right',
+                cellTemplate: function(ctx) {
+                    return ctx.value != null ? Number(ctx.value).toLocaleString() : '';
+                }},
             {binding: 'send_status',   header: '전송상태',   width: 90,  align: 'center',
                 cellTemplate: function(ctx) {
                     var label = SEND_STATUS_MAP[ctx.value] || ctx.value || '';
@@ -231,6 +277,12 @@
                 itemsSource: viewdata
             });
             theGrid.rowHeaders.columns.splice(0, 1);
+
+            theGrid.hostElement.addEventListener('dblclick', function() {
+                var item = theGrid.selectedItems[0];
+                if (!item) return;
+                openFileDetailModal(item);
+            });
         }
 
         function selectedItem() {
@@ -265,6 +317,41 @@
                         Alert.alert('전송 실패', result.message);
                     }
                 });
+            });
+        }
+
+        function openFileDetailModal(file) {
+            $('#modalFileDetailTitle').text(file.file_name + ' 청구 목록');
+            $('#modalFileDetailRows').html('<tr><td colspan="6" style="text-align:center; padding:20px; color:#aaa;">로딩 중...</td></tr>');
+            $('#modalFileDetail').css('display', 'flex');
+
+            $.ajax({
+                url: withCtx('/api/cms/cms-files/' + file.id + '/billings'),
+                type: 'GET',
+                success: function(result) {
+                    if (!result.success || !result.data || result.data.length === 0) {
+                        $('#modalFileDetailRows').html('<tr><td colspan="6" style="text-align:center; padding:20px; color:#aaa;">청구 내역이 없습니다.</td></tr>');
+                        return;
+                    }
+                    var STATUS_MAP = { PENDING:'대기', REQUESTED:'출금요청', SUCCESS:'성공', FAIL:'실패', CANCEL:'취소', ERROR:'오류' };
+                    var html = '';
+                    result.data.forEach(function(b) {
+                        html += '<tr>'
+                            + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">' + (b.line_seq || '') + '</td>'
+                            + '<td style="padding:6px 8px; border:1px solid #dde0ea; min-width:180px;">' + (b.member_name || '') + '</td>'
+                            + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">' + (b.bank_name || '') + '</td>'
+                            + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">' + (b.bank_account || '') + '</td>'
+                            + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:right;">' + Number(b.billing_amount || 0).toLocaleString() + '</td>'
+                            + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">'
+                            +   '<span class="status-badge status-' + b.status + '">' + (STATUS_MAP[b.status] || b.status) + '</span>'
+                            + '</td>'
+                            + '</tr>';
+                    });
+                    $('#modalFileDetailRows').html(html);
+                },
+                error: function() {
+                    $('#modalFileDetailRows').html('<tr><td colspan="6" style="text-align:center; padding:20px; color:#e74c3c;">조회 실패</td></tr>');
+                }
             });
         }
 

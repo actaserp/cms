@@ -38,6 +38,14 @@ public class CmsFileController {
         return result;
     }
 
+    @GetMapping("/cms-files/{fileId}/billings")
+    public AjaxResult getCmsFileBillings(@PathVariable Long fileId) {
+        List<Map<String, Object>> items = cmsFileService.getCmsFileBillings(fileId);
+        AjaxResult result = new AjaxResult();
+        result.data = items;
+        return result;
+    }
+
     /** 수동 생성 */
     @PostMapping("/eb-files/generate")
     public AjaxResult generate(

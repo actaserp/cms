@@ -467,4 +467,14 @@ public class CmsBillingController {
         }
         return result;
     }
+
+    @PostMapping("/change-deduct-date")
+    public AjaxResult changeDeductDate(
+            @RequestParam String ids,
+            @RequestParam String deduct_date) {
+        int count = cmsBillingService.changeDeductDate(ids, deduct_date);
+        AjaxResult result = new AjaxResult();
+        result.data = count;
+        return result;
+    }
 }

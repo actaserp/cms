@@ -155,8 +155,10 @@ public class CmsEc22ReceiveService {
                 new MapSqlParameterSource("fileId", fileId));
 
         Map<String, Object> cmsInfo = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT ec21_fee_success FROM tb_xa012_cms WHERE spjangcd = :spjangcd",
+                "SELECT ec21_fee_request, ec21_fee_success FROM tb_xa012_cms WHERE spjangcd = :spjangcd",
                 new MapSqlParameterSource("spjangcd", spjangcd));
+        int feeRequest = cmsInfo != null && cmsInfo.get("ec21_fee_request") != null
+                ? ((Number) cmsInfo.get("ec21_fee_request")).intValue() : 0;
         int feeSuccess = cmsInfo != null && cmsInfo.get("ec21_fee_success") != null
                 ? ((Number) cmsInfo.get("ec21_fee_success")).intValue() : 0;
 
@@ -174,7 +176,6 @@ public class CmsEc22ReceiveService {
         for (Map<String, Object> b : requestedBillings) {
             long   billingId     = ((Number) b.get("id")).longValue();
             long   billingAmount = b.get("billing_amount") != null ? ((Number) b.get("billing_amount")).longValue() : 0;
-            int    feeRequest    = b.get("fee_request")    != null ? ((Number) b.get("fee_request")).intValue()    : 0;
             String memberNo      = str(b.get("member_no"));
             String memberName    = str(b.get("member_name"));
             String bankAccount   = str(b.get("bank_account"));
@@ -211,12 +212,13 @@ public class CmsEc22ReceiveService {
                     """
                     UPDATE cms_billing SET status='SUCCESS', result_code='0000',
                         result_msg='출금성공', result_date=:resultDate,
-                        fee_success=:feeSuccess, _modified=NOW()
+                        fee_request=:feeRequest, fee_success=:feeSuccess, _modified=NOW()
                     WHERE id = ANY(:ids::BIGINT[]) AND status='REQUESTED'
                     """,
                     new MapSqlParameterSource()
                             .addValue("ids", successIds.toArray(new Long[0]))
                             .addValue("resultDate", resultDate)
+                            .addValue("feeRequest", feeRequest)
                             .addValue("feeSuccess", feeSuccess));
         }
 
@@ -240,12 +242,13 @@ public class CmsEc22ReceiveService {
                 sqlRunner.execute(/* skip_tenant_check */
                         """
                         UPDATE cms_billing SET status='FAIL', result_code=:resultCode,
-                            result_msg=:resultMsg, result_date=NULL, _modified=NOW()
+                            fee_request=:feeRequest, result_msg=:resultMsg, result_date=NULL, _modified=NOW()
                         WHERE id = ANY(:ids::BIGINT[]) AND status='REQUESTED'
                         """,
                         new MapSqlParameterSource()
                                 .addValue("ids", ids.toArray(new Long[0]))
                                 .addValue("resultCode", resultCode)
+                                .addValue("feeRequest", feeRequest)
                                 .addValue("resultMsg", resolveFailMsg(resultCode)));
             }
 
@@ -256,7 +259,6 @@ public class CmsEc22ReceiveService {
                 String bankAccount = (String) fail.get("bankAccount");
                 int lineSeq = (int) fail.get("lineSeq");
                 String resultCode = (String) fail.get("resultCode");
-                int feeRequest = (int) fail.get("feeRequest");
                 String cltcd = (String) fail.get("cltcd");
 
                 syncItems.add(new CmsErpResultSyncService.SyncItem(

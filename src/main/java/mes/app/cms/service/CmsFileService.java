@@ -44,7 +44,30 @@ public class CmsFileService {
                    f.send_status, f.sent_at, f.error_message,
                    f._creater_id,
                    TO_CHAR(f._created AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS _created,
-                   TO_CHAR(f.sent_at  AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS sent_at_kst
+                   TO_CHAR(f.sent_at  AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS sent_at_kst,
+                   COALESCE(
+                       -- 요청 파일: cms_file_billing 직접 조회
+                       (
+                           SELECT b.member_name FROM cms_file_billing fb
+                           JOIN cms_billing b ON b.id = fb.billing_id
+                           WHERE fb.file_id = f.id ORDER BY fb.line_seq LIMIT 1
+                       ),
+                       -- 결과 파일: 같은 target_date의 요청 파일에서 조회
+                       (
+                            SELECT b.member_name FROM cms_file rf
+                            JOIN cms_file_billing fb ON fb.file_id = rf.id
+                            JOIN cms_billing b ON b.id = fb.billing_id
+                            WHERE rf.spjangcd = f.spjangcd
+                              AND rf.target_date = f.target_date
+                              AND rf.file_type = CASE f.file_type
+                                  WHEN 'EB22' THEN 'EB21'
+                                  WHEN 'EC22' THEN 'EC21'
+                                  WHEN 'EB14' THEN 'EB13'
+                                  ELSE NULL
+                              END
+                            ORDER BY rf.id DESC, fb.line_seq LIMIT 1
+                        )
+                   ) AS rep_member_name
             FROM cms_file f
             WHERE f.spjangcd = :spjangcd
             """;
@@ -58,6 +81,50 @@ public class CmsFileService {
         if (StringUtils.hasText(sendStatus)){ sql += " AND f.send_status = :sendStatus";              param.addValue("sendStatus", sendStatus); }
 
         return sqlRunner.getRows(sql + " ORDER BY COALESCE(f._modified, f._created) DESC", param);
+    }
+
+    public List<Map<String, Object>> getCmsFileBillings(Long fileId) {
+        // 직접 매핑 건수 확인
+        Map<String, Object> countRow = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT COUNT(*) AS cnt FROM cms_file_billing WHERE file_id = :fileId",
+                new MapSqlParameterSource("fileId", fileId));
+        long cnt = countRow != null ? ((Number) countRow.get("cnt")).longValue() : 0;
+
+        Long targetFileId = fileId;
+        if (cnt == 0) {
+            // 결과 파일이면 연결된 요청 파일 찾기
+            Map<String, Object> reqFile = sqlRunner.getRow(/* skip_tenant_check */
+                    """
+                    SELECT req.id FROM cms_file f
+                    JOIN cms_file req ON req.spjangcd = f.spjangcd
+                        AND req.target_date = f.target_date
+                        AND req.file_type = CASE f.file_type
+                            WHEN 'EB22' THEN 'EB21'
+                            WHEN 'EC22' THEN 'EC21'
+                            WHEN 'EB14' THEN 'EB13'
+                            ELSE NULL
+                        END
+                    WHERE f.id = :fileId
+                    ORDER BY req.id DESC
+                    LIMIT 1
+                    """,
+                    new MapSqlParameterSource("fileId", fileId));
+            if (reqFile != null && reqFile.get("id") != null) {
+                targetFileId = ((Number) reqFile.get("id")).longValue();
+            }
+        }
+
+        return sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT fb.line_seq, b.member_name, bc.bank_name, b.bank_account,
+                       b.billing_amount, b.status
+                FROM cms_file_billing fb
+                JOIN cms_billing b ON b.id = fb.billing_id
+                LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
+                WHERE fb.file_id = :fileId
+                ORDER BY fb.line_seq
+                """,
+                new MapSqlParameterSource("fileId", targetFileId));
     }
 
     // ── 수동 생성 (화면) — GenerateService 위임 ───────────────────────────────
