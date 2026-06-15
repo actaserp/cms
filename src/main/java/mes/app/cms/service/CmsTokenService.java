@@ -124,8 +124,17 @@ public class CmsTokenService {
                 .build();
 
         HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() == 409) {
+            JsonNode errNode = objectMapper.readTree(resp.body());
+            String respCode = errNode.path("response_code").asText("");
+            String respMsg  = errNode.path("response_message").asText("");
+            if ("B0007".equals(respCode)) {
+                throw new IllegalStateException("금결원에 오늘 날짜 " + fileType + " 파일이 이미 존재합니다. (" + respMsg + ")");
+            }
+            throw new IllegalStateException("금결원 API 오류(409): " + resp.body());
+        }
         if (resp.statusCode() != 200) {
-            throw new IllegalStateException("SFTP 송신 권한 요청 실패: HTTP " + resp.statusCode() + " " + resp.body());
+            throw new IllegalStateException("금결원 API 오류: HTTP " + resp.statusCode() + " " + resp.body());
         }
 
         JsonNode node = objectMapper.readTree(resp.body());
