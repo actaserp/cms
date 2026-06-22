@@ -108,6 +108,8 @@
         var dailyGrid;
         var dailyViewdata;
         var currentYm;
+        var selectedDate = null;
+        var selectedDateStr = null;
 
         var STATUS_MAP = {
             PENDING:   '대기',
@@ -127,6 +129,16 @@
             initDailyGrid();
             initCalendar();
         }
+
+        function refreshDashboard() {
+            if (!currentYm) return;
+            loadSummary(currentYm);
+            loadCalendarEvents(currentYm);
+            loadHolidays(currentYm);
+            if (selectedDate) loadDailyList(selectedDate, selectedDateStr);  // 우측 상세도 함께
+        }
+
+        window.onTabActivated = refreshDashboard;
 
         // ── 통계 카드 ────────────────────────────────────────────────────────────
         function loadSummary(ym) {
@@ -256,6 +268,8 @@
 
         // ── 날짜별 상세 목록 ──────────────────────────────────────────────────────
         function loadDailyList(date, dateStr) {
+            selectedDate = date;          // 추가
+            selectedDateStr = dateStr;    // 추가
             $('#dailyTitle').text(dateStr + ' 청구 목록');
             $.ajax({
                 url: withCtx('/api/cms/dashboard/daily'),

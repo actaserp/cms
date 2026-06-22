@@ -542,6 +542,17 @@
 
         nthTabs = $('#main-tabs').nthTabs();
 
+        // 탭 전환 시, 활성화된 iframe이 새로고침 훅을 정의해뒀으면 호출
+        nthTabs.tabToggleHandler(function (info) {
+            try {
+                var iframe = document.querySelector('#' + info.active.tabId + ' iframe');
+                var win = iframe && iframe.contentWindow;
+                if (win && typeof win.onTabActivated === 'function') {
+                    win.onTabActivated();
+                }
+            } catch (e) { /* 무시 */ }
+        });
+
         function renderMenuByFrontFolder(menus, FrontFolderId, $FrontFolderElement) {
 
             // 메뉴리스트 초기화 (⚠️ 전체 기준, 1회만)
