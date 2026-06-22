@@ -334,4 +334,17 @@ public class CmsFileService {
                         .addValue("isEb13", "EB13".equals(fileType)));
         sqlRunner.execute("DELETE FROM cms_file_register WHERE file_id=:fileId", param);
     }
+
+    /** 센터오류 상세에 납부자명 매핑 (payer_no = cms_member.member_no) */
+    public void attachMemberNames(String spjangcd, List<Map<String, Object>> details) {
+        if (details == null) return;
+        for (Map<String, Object> d : details) {
+            Object payerNo = d.get("payerNo");
+            if (payerNo == null || !StringUtils.hasText(payerNo.toString())) continue;
+            Map<String, Object> mem = sqlRunner.getRow(/* skip_tenant_check */
+                    "SELECT member_name FROM cms_member WHERE spjangcd = :spjangcd AND member_no = :memberNo",
+                    new MapSqlParameterSource("spjangcd", spjangcd).addValue("memberNo", payerNo.toString()));
+            d.put("memberName", mem != null ? mem.get("member_name") : "");
+        }
+    }
 }

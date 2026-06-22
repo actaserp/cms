@@ -414,7 +414,7 @@ public class CmsEb21SendService {
             r.write(anBytes(str(b.get("bank_code")) + "0000",            7));  // 출금은행점코드 (은행코드3+0000)
             r.write(anBytes(str(b.get("bank_account")).replaceAll("-",""), 16)); // 출금계좌번호
             r.write(nBytes(String.valueOf(amount),                       13));  // 출금의뢰금액
-            r.write(anBytes(str(b.get("id_number")),                     13));  // 생년월일/사업자번호
+            r.write(anBytes(resolvePayerNo(str(b.get("id_number"))),     13));  // 생년월일/사업자번호
             r.write(anBytes(" ",                                          1));  // 출금여부 (Space)
             r.write(anBytes("    ",                                       4));  // 불능코드 (Space)
             r.write(descBytes(spjang != null ? str(spjang.get("cms_description")) : "")); // 통장기재내용 (16bytes)
@@ -443,6 +443,12 @@ public class CmsEb21SendService {
         baos.write(ensure150(t.toByteArray()));
 
         return baos.toByteArray();
+    }
+
+    /** 13자리(주민번호)면 생년월일 6자리만, 그 외(사업자 10자리 등)는 그대로 */
+    private String resolvePayerNo(String idNumber) {
+        String digits = (idNumber == null ? "" : idNumber).replaceAll("[^0-9]", "");
+        return digits.length() == 13 ? digits.substring(0, 6) : digits;
     }
 
     /** AN 타입: 우측 공백 패딩, 지정 바이트 수로 자름 */

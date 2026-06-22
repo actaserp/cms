@@ -163,15 +163,20 @@ public class CmsFileController {
         AjaxResult result = new AjaxResult();
         try {
             Map<String, Object> file = cmsFileService.getFile(id);
-            if (file == null) {
-                result.success = false; result.message = "파일을 찾을 수 없습니다."; return result;
-            }
+            if (file == null) { result.success = false; result.message = "파일을 찾을 수 없습니다."; return result; }
+
             String spjangcd   = String.valueOf(file.get("spjangcd"));
             String fileName   = String.valueOf(file.get("file_name"));
-            String fileType   = fileName.substring(0, 4);
+            String fileType   = fileName.substring(0, 4);                       // EB21 / EC21
             String targetDate = String.valueOf(file.get("target_date")).replace("-", "");
-            com.fasterxml.jackson.databind.JsonNode errorData = cmsTokenService.getCenterError(spjangcd, fileType, targetDate);
-            result.data = errorData.path("data");
+
+            Map<String, Object> data = cmsTokenService.checkCenterError(spjangcd, fileType, targetDate);
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> details = (List<Map<String, Object>>) data.get("details");
+            cmsFileService.attachMemberNames(spjangcd, details);                // 납부자명 매핑
+
+            result.data = data;
         } catch (Exception e) {
             result.success = false; result.message = e.getMessage();
         }

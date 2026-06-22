@@ -240,6 +240,17 @@ public class CmsBillingService {
             return ((Number) row.get("id")).longValue();
         } else {
             param.addValue("id", id);
+
+            // 수정 시: 기존 청구신청일이 있으면 그대로 유지 (자동 재계산 금지)
+            Map<String, Object> cur = sqlRunner.getRow(
+                    "SELECT send_date FROM cms_billing WHERE id = :id AND spjangcd = :spjangcd",
+                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                            .addValue("id", id).addValue("spjangcd", spjangcd));
+            if (cur != null && cur.get("send_date") != null
+                    && StringUtils.hasText(cur.get("send_date").toString())) {
+                param.addValue("sendDate", cur.get("send_date").toString());
+            }
+
             String sql = """
                 UPDATE cms_billing SET
                     member_name    = :memberName,
@@ -360,6 +371,17 @@ public class CmsBillingService {
             return ((Number) row.get("id")).longValue();
         } else {
             param.addValue("id", id);
+
+            // 수정 시: 기존 청구신청일이 있으면 그대로 유지 (자동 재계산 금지)
+            Map<String, Object> cur = sqlRunner.getRow(
+                    "SELECT send_date FROM cms_billing WHERE id = :id AND spjangcd = :spjangcd",
+                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                            .addValue("id", id).addValue("spjangcd", spjangcd));
+            if (cur != null && cur.get("send_date") != null
+                    && StringUtils.hasText(cur.get("send_date").toString())) {
+                param.addValue("sendDate", cur.get("send_date").toString());
+            }
+
             String sql = """
                 UPDATE cms_billing SET
                     member_name    = :memberName,
@@ -597,7 +619,7 @@ public class CmsBillingService {
                 String deadlineDay = cmsHolidayService.getPrevBusinessDay(
                         LocalDate.parse(deductDate, DateTimeFormatter.ofPattern("yyyyMMdd"))
                                 .minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
-                if (deadlineDay.equals(todayStr) && nowHour >= 15) { skippedCount++; continue; }
+                if (deadlineDay.equals(todayStr) && nowHour >= 17) { skippedCount++; continue; }
             }
             if ("EC".equals(effectiveDeductType) && deductDate.equals(todayStr) && nowHour >= 11) { skippedCount++; continue; }
 
@@ -1309,7 +1331,7 @@ public class CmsBillingService {
                 if (deadlineDay.compareTo(todayStr) < 0) {
                     available = false;
                     reason = "신청마감 경과";
-                } else if (deadlineDay.equals(todayStr) && nowHour >= 15) {
+                } else if (deadlineDay.equals(todayStr) && nowHour >= 17) {
                     available = false;
                     reason = "오늘 15시 마감 초과";
                 }
@@ -1415,7 +1437,7 @@ public class CmsBillingService {
                         LocalDate.parse(deductDate, DateTimeFormatter.ofPattern("yyyyMMdd"))
                                 .minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
                 if (deadlineDay.compareTo(todayStr) < 0) { skippedCount++; continue; }
-                if (deadlineDay.equals(todayStr) && nowHour >= 15) { skippedCount++; continue; }
+                if (deadlineDay.equals(todayStr) && nowHour >= 17) { skippedCount++; continue; }
             }
             if ("EC".equals(effectiveDeductType) && deductDate.equals(todayStr) && nowHour >= 11) {
                 skippedCount++; continue;
@@ -1502,4 +1524,6 @@ public class CmsBillingService {
                         .addValue("sendDate", sendDate)
                         .addValue("spjangcd", spjangcd));
     }
+
+
 }

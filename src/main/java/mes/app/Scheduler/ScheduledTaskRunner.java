@@ -68,8 +68,8 @@ public class ScheduledTaskRunner {
         schedulerExecutor.execute(() -> safeRun(cmsEb22ReceiveService::run, "CMS EB22 결과수신"));
     }
 
-    /** D 11:00 — PENDING 당일청구 EC21 생성 + SFTP 전송 (마감 D 12:00) */
-    @Scheduled(cron = "0 0 11 * * *", zone = "Asia/Seoul")
+    /** D 12:00 — PENDING 당일청구 EC21 생성 + SFTP 전송 (마감 D 12:00) */
+    @Scheduled(cron = "0 0 12 * * *", zone = "Asia/Seoul")
     public void runCmsEc21FileGenerate() {
         schedulerExecutor.execute(() -> safeRun(cmsEc21SendService::run, "CMS EC21 생성+전송"));
     }

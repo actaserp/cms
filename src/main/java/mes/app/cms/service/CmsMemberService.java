@@ -706,13 +706,17 @@ public class CmsMemberService {
 
         // 2. CMS 승인 여부 확인
         Map<String, Object> cms = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT is_normal_status FROM tb_xa012_cms WHERE spjangcd = :spjangcd AND ms_spjangcd IS NOT DISTINCT FROM :msSpjangcd",
+                "SELECT is_normal_status, amount_round_unit FROM tb_xa012_cms WHERE spjangcd = :spjangcd AND ms_spjangcd IS NOT DISTINCT FROM :msSpjangcd",
                 new MapSqlParameterSource("spjangcd", spjangcd)
                         .addValue("msSpjangcd", msSpjangcd.isEmpty() ? null : msSpjangcd));
 
         if (cms == null || !Boolean.TRUE.equals(cms.get("is_normal_status"))) {
             throw new IllegalStateException("CMS 서비스 상태가 승인이 아닙니다.");
         }
+
+        // 업체별 금액 반올림 단위 (없으면 1=원단위)
+        int roundUnit = (cms.get("amount_round_unit") != null)
+                ? ((Number) cms.get("amount_round_unit")).intValue() : 1;
 
         // 2-1. 동기화 예외 목록 로드
         Set<String> excludeSet = sqlRunner.getRows(/* skip_tenant_check */
@@ -773,13 +777,13 @@ public class CmsMemberService {
                             + " C.zipcd AS zipcd,"
                             + " CASE"
                             + "     WHEN E1.contyul IS NOT NULL AND E1.contyul > 0 AND E1.addyn = 0"
-                            + "          THEN ROUND(E1.amt * (E1.contyul / 100.0) * 1.1, 0)"
+                            + "          THEN E1.amt * (E1.contyul / 100.0) * 1.1"
                             + "     WHEN E1.contyul IS NOT NULL AND E1.contyul > 0"
-                            + "          THEN ROUND(E1.amt * (E1.contyul / 100.0), 0)"
+                            + "          THEN E1.amt * (E1.contyul / 100.0)"
                             + "     WHEN E1.addyn = 0"
-                            + "          THEN ROUND(E1.amt * 1.1, 0)"
+                            + "          THEN E1.amt * 1.1"
                             + "     ELSE E1.amt"
-                            + " END AS deduct_amount,"
+                            + " END AS deduct_amount_raw,"
                             + " CASE"
                             + "     WHEN (SELECT COUNT(*) FROM TB_E101 WITH(NOLOCK) WHERE actcd = E6.actcd AND custcd = E6.custcd) > 1"
                             + "          THEN NULLIF(LTRIM(RTRIM(E1.autodate)), '')"
@@ -858,7 +862,8 @@ public class CmsMemberService {
                             String email        = rs.getString("email");
                             String adresa       = rs.getString("adresa");
                             String zipcd2       = rs.getString("zipcd");
-                            Long   deductAmount = rs.getLong("deduct_amount");
+                            double rawAmt       = rs.getDouble("deduct_amount_raw");
+                            Long   deductAmount = roundAmount(rawAmt, roundUnit);
                             String startDate    = cleanDate(rs.getString("start_date"));
                             String endDate      = cleanDate(rs.getString("end_date"));
                             String accyn        = rs.getString("accyn");
@@ -1073,6 +1078,12 @@ public class CmsMemberService {
 
         log.info("[ERP동기화] 완료 spjangcd={} 신규={} 수정={} 스킵={} 실패={}", spjangcd, inserted, updated, skipped, failed);
         return Map.of("inserted", inserted, "updated", updated, "skipped", skipped, "failed", failed);
+    }
+
+    /** unit 단위 반올림 (1=원단위, 10=십원단위). 0.5는 올림. */
+    private long roundAmount(double v, int unit) {
+        if (unit <= 1) return Math.round(v);
+        return Math.round(v / unit) * (long) unit;
     }
 
     private String cleanDate(String date) {

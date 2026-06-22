@@ -17,6 +17,7 @@ import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -215,6 +216,38 @@ public class CmsTokenService {
         HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
         log.info("[CmsCenterError] fileType={} date={} 응답={}", fileType, transactionDate, resp.body());
         return objectMapper.readTree(resp.body());
+    }
+
+    public Map<String, Object> checkCenterError(String spjangcd, String fileType, String transactionDate) throws Exception {
+        JsonNode root = getCenterError(spjangcd, fileType, transactionDate);
+        JsonNode data = root.path("data");
+
+        String vmsg   = data.path("validation_message").asText("");
+        int requested = data.path("requested_total_record_count").asInt(0);
+        int valid     = data.path("valid_count").asInt(0);
+
+        List<Map<String, Object>> details = new java.util.ArrayList<>();
+        JsonNode arr = data.path("center_error_details");
+        if (arr.isArray()) {
+            for (JsonNode e : arr) {
+                Map<String, Object> d = new java.util.HashMap<>();
+                d.put("recordNo",     e.path("record_no").asText(""));
+                d.put("payerNo",      e.path("payer_no").asText(""));
+                d.put("errorCode",    e.path("error_code").asText(""));
+                d.put("errorMessage", e.path("error_message").asText(""));
+                details.add(d);
+            }
+        }
+
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("validationMessage", vmsg);   // Y: 상세조회 가능 / N: 전체정상 / R: 결과파일(EB22) 단계
+        result.put("requestedCount",    requested);
+        result.put("validCount",        valid);
+        result.put("errorCount",        details.isEmpty() ? Math.max(requested - valid, 0) : details.size());
+        result.put("details",           details);
+        result.put("responseCode",      root.path("response_code").asText(""));
+        result.put("responseMessage",   root.path("response_message").asText(""));
+        return result;
     }
 
     // ── 파일 전송 취소 ────────────────────────────────────────
