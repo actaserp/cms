@@ -732,7 +732,7 @@ public class CmsMemberService {
         Map<String, String> bnkCodeMap = new java.util.HashMap<>();
         bnkCodeMap.put("002", "002"); bnkCodeMap.put("003", "003");
         bnkCodeMap.put("007", "007"); bnkCodeMap.put("008", "008");
-        bnkCodeMap.put("012", "011"); bnkCodeMap.put("019", "004");
+        bnkCodeMap.put("012", "012"); bnkCodeMap.put("019", "004");
         bnkCodeMap.put("020", "020"); bnkCodeMap.put("023", "023");
         bnkCodeMap.put("027", "027"); bnkCodeMap.put("032", "032");
         bnkCodeMap.put("034", "034"); bnkCodeMap.put("035", "035");
@@ -784,16 +784,8 @@ public class CmsMemberService {
                             + "          THEN E1.amt * 1.1"
                             + "     ELSE E1.amt"
                             + " END AS deduct_amount_raw,"
-                            + " CASE"
-                            + "     WHEN (SELECT COUNT(*) FROM TB_E101 WITH(NOLOCK) WHERE actcd = E6.actcd AND custcd = E6.custcd) > 1"
-                            + "          THEN NULLIF(LTRIM(RTRIM(E1.autodate)), '')"
-                            + "     ELSE COALESCE(NULLIF(LTRIM(RTRIM(E1.autodate)), ''), NULLIF(LTRIM(RTRIM(C.autodate)), ''))"
-                            + " END AS deduct_day,"
-                            + " CASE"
-                            + "     WHEN (SELECT COUNT(*) FROM TB_E101 WITH(NOLOCK) WHERE actcd = E6.actcd AND custcd = E6.custcd) > 1"
-                            + "          THEN E1.autoflag"
-                            + "     ELSE COALESCE(E1.autoflag, C.autoflag)"
-                            + " END AS auto_flag,"
+                            + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autodate)), ''), NULLIF(LTRIM(RTRIM(C.autodate)), '')) AS deduct_day,"
+                            + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autoflag)), ''), NULLIF(LTRIM(RTRIM(C.autoflag)), '')) AS auto_flag,"
                             + " E1.stdate AS start_date,"
                             + " E1.enddate AS end_date,"
                             + " E1.accyn AS accyn,"
