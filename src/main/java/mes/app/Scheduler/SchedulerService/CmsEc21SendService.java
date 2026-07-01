@@ -179,7 +179,7 @@ public class CmsEc21SendService {
                     target_date, billing_count, billing_amount,
                     send_status, _creater_id, _created, _modifier_id, _modified
                 ) VALUES (
-                    :spjangcd, :fileName, 'EC_REQUEST', :filePath,
+                    :spjangcd, :fileName, 'EC21', :filePath,
                     CAST(:targetDate AS DATE), :billingCount, :billingAmount,
                     'PENDING', 'SYSTEM', NOW(), 'SYSTEM', NOW()
                 ) RETURNING id

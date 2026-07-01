@@ -56,7 +56,7 @@ public class CmsEc22ReceiveService {
                 """
                 SELECT f.spjangcd, TO_CHAR(f.target_date, 'YYYYMMDD') AS target_date, f.id AS file_id
                 FROM cms_file f
-                WHERE f.file_type = 'EC_REQUEST'
+                WHERE f.file_type = 'EC21'
                   AND f.send_status = 'SENT'
                   AND NOT EXISTS (
                       SELECT 1 FROM cms_file r
@@ -528,7 +528,7 @@ public class CmsEc22ReceiveService {
                     """
                     SELECT id FROM cms_file
                     WHERE spjangcd = :spjangcd
-                      AND file_type = 'EC_REQUEST'
+                      AND file_type = 'EC21'
                       AND target_date = CAST(:targetDate AS DATE)
                       AND send_status = 'SENT'
                     """,
