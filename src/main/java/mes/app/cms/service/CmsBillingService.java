@@ -70,7 +70,6 @@ public class CmsBillingService {
         LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
         LEFT JOIN cms_member m ON m.id = b.member_id
         WHERE b.spjangcd    = :spjangcd
-          AND b.billing_ym  = :billingYm
           AND b.deduct_type = :deductType
         """;
 
@@ -94,7 +93,7 @@ public class CmsBillingService {
             sql += " AND b.status = :status";
             param.addValue("status", status);
         } else {
-            sql += " AND b.status IN ('PENDING', 'REQUESTED')";
+            sql += " AND b.status IN ('PENDING', 'REQUESTED', 'CANCEL')";
         }
 
         sql += " ORDER BY b.billing_seq";
