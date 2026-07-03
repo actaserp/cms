@@ -149,6 +149,66 @@ public class CmsMemberController {
         return result;
     }
 
+    /** ERP 동기화 미리보기 (읽기 전용) */
+    @GetMapping("/erp-sync-preview")
+    public AjaxResult erpSyncPreview(Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        try {
+            result.data = cmsMemberService.previewSync(user.getSpjangcd());
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    /** ERP 동기화 선택 반영 */
+    @PostMapping("/erp-sync-apply")
+    public AjaxResult erpSyncApply(
+            @RequestBody(required = false) List<String> selectedCltcds,
+            Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        try {
+            result.data = cmsMemberService.applySync(user.getSpjangcd(), selectedCltcds, user.getUsername());
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    /** ERP 동기화 오염 진단 (읽기 전용) */
+    @GetMapping("/erp-sync-diagnose")
+    public AjaxResult erpSyncDiagnose(Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        try {
+            result.data = cmsMemberService.diagnoseSync(user.getSpjangcd());
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    /** 해지 신청 — EB13 apply_type='3' 송신 후 PENDING_CANCEL */
+    @PostMapping("/cancel")
+    @ResponseBody
+    public AjaxResult cancelMember(@RequestParam Long member_id, Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        AjaxResult result = new AjaxResult();
+        try {
+            result.data = cmsMemberService.cancelMember(member_id, user.getUsername());
+            result.success = true;
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
     @PostMapping("/manual-agree")
     @ResponseBody
     public AjaxResult manualAgree(@RequestParam Long member_id, Authentication auth) {

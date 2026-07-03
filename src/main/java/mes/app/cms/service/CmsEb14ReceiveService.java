@@ -158,43 +158,44 @@ public class CmsEb14ReceiveService {
     }
 
     private void parseAndUpdate(String spjangcd, byte[] fileBytes, String targetDate, long fileId) {
-        // 120 bytes 단위로 파싱
-        int recordSize = 120;
+        int recordSize   = 120;
         int totalRecords = fileBytes.length / recordSize;
 
-        List<String> failMemberNos = new java.util.ArrayList<>();
-        List<String> failCodes     = new java.util.ArrayList<>();
+        // memberNo → failCode / applyType (EB14 불능 레코드만 존재)
+        Map<String, String> failCodeMap = new LinkedHashMap<>();
+        Map<String, String> failTypeMap = new LinkedHashMap<>();
 
         for (int i = 0; i < totalRecords; i++) {
             byte[] record = Arrays.copyOfRange(fileBytes, i * recordSize, (i + 1) * recordSize);
             String line = new String(record, EUC_KR);
+            if (!"R".equals(line.substring(0, 1))) continue;
 
-            String recordType = line.substring(0, 1);
-            if (!"R".equals(recordType)) continue;
-
-            // Data Record 파싱
-            // 신청구분(6번, pos=25, len=1) 납부자번호(6번, pos=26, len=20)
-            // 처리결과코드(12번 결과코드, pos=89, len=1) 불능코드(pos=90, len=4)
+            // 신청구분(pos=25,len=1) 납부자번호(pos=26,len=20)
+            // 처리결과코드(pos=91,len=1) 불능코드(pos=92,len=4)
+            String applyType = line.substring(25, 26).trim();
             String memberNo  = line.substring(26, 46).trim();
-            String resultCd  = line.substring(91, 92).trim();  // 89 → 91
-            String failCode  = line.substring(92, 96).trim();  // 90 → 92
+            String resultCd  = line.substring(91, 92).trim();
+            String failCode  = line.substring(92, 96).trim();
 
             if ("N".equals(resultCd)) {
-                failMemberNos.add(memberNo);
-                failCodes.add(failCode);
-                log.info("[CmsEb14] 불능 memberNo={} code={}", memberNo, failCode);
+                failCodeMap.put(memberNo, failCode);
+                failTypeMap.put(memberNo, applyType);
+                log.info("[CmsEb14] 불능 memberNo={} code={} applyType={}", memberNo, failCode, applyType);
             }
         }
 
-        // 불능 건 업데이트
-        for (int i = 0; i < failMemberNos.size(); i++) {
-            String memberNo = failMemberNos.get(i);
-            String failCode = failCodes.get(i);
-            var param = new MapSqlParameterSource();
-            param.addValue("spjangcd", spjangcd);
-            param.addValue("memberNo", memberNo);
-            param.addValue("failCode", failCode);
-            param.addValue("targetDate", targetDate);
+        List<String> failMemberNos = new ArrayList<>(failCodeMap.keySet());
+
+        // ── 불능 건 처리 ────────────────────────────────────────────────────
+        for (String memberNo : failMemberNos) {
+            String failCode  = failCodeMap.get(memberNo);
+            String applyType = failTypeMap.get(memberNo);
+            var p = new MapSqlParameterSource();
+            p.addValue("spjangcd",   spjangcd);
+            p.addValue("memberNo",   memberNo);
+            p.addValue("failCode",   failCode);
+            p.addValue("targetDate", targetDate);
+
             sqlRunner.execute(/* skip_tenant_check */
                     """
                     UPDATE cms_account_register
@@ -202,53 +203,85 @@ public class CmsEb14ReceiveService {
                         eb14_received_at=NOW(), status='REJECTED', _modified=NOW()
                     WHERE spjangcd=:spjangcd AND member_no=:memberNo
                       AND apply_date=:targetDate
-                    """, param);
+                    """, p);
+
+            // 해지 불능 → cms_member 원복 (PENDING_CANCEL → ACTIVE)
+            if ("3".equals(applyType)) {
+                sqlRunner.execute(/* skip_tenant_check */
+                        """
+                        UPDATE cms_member m
+                        SET status='ACTIVE', _modified=NOW()
+                        FROM cms_account_register r
+                        WHERE r.member_id = m.id
+                          AND r.spjangcd   = :spjangcd
+                          AND r.member_no  = :memberNo
+                          AND r.apply_date = :targetDate
+                        """, p);
+                log.info("[CmsEb14] 해지불능 → cms_member ACTIVE 원복 memberNo={} code={}", memberNo, failCode);
+            }
         }
 
-        // 불능 아닌 건 → APPROVED + agree_yn = 'Y'
-        var param = new MapSqlParameterSource();
-        param.addValue("spjangcd", spjangcd);
-        param.addValue("targetDate", targetDate);
-        if (!failMemberNos.isEmpty()) {
-            param.addValue("failNos", failMemberNos);
-            sqlRunner.execute(/* skip_tenant_check */
-                    """
-                    UPDATE cms_account_register
-                    SET eb14_received_at=NOW(), eb14_result='Y', status='APPROVED', _modified=NOW()
-                    WHERE spjangcd=:spjangcd AND apply_date=:targetDate
-                      AND member_no NOT IN (:failNos)
-                      AND eb13_status='SENT' AND status='PENDING'
-                    """, param);
-        } else {
-            sqlRunner.execute(/* skip_tenant_check */
-                    """
-                    UPDATE cms_account_register
-                    SET eb14_received_at=NOW(), eb14_result='Y', status='APPROVED', _modified=NOW()
-                    WHERE spjangcd=:spjangcd AND apply_date=:targetDate
-                      AND eb13_status='SENT' AND status='PENDING'
-                    """, param);
-        }
+        // ── 정상(파일에 없는 건) 처리 ────────────────────────────────────────
+        var base = new MapSqlParameterSource();
+        base.addValue("spjangcd",   spjangcd);
+        base.addValue("targetDate", targetDate);
+        if (!failMemberNos.isEmpty()) base.addValue("failNos", failMemberNos);
 
-        // cms_member.agree_yn = 'Y' 업데이트
+        String notInClause = failMemberNos.isEmpty() ? "" : "AND member_no NOT IN (:failNos)";
+
+        // 신규(apply_type='1') 정상 → APPROVED
+        sqlRunner.execute(/* skip_tenant_check */
+                "UPDATE cms_account_register " +
+                "SET eb14_received_at=NOW(), eb14_result='Y', status='APPROVED', _modified=NOW() " +
+                "WHERE spjangcd=:spjangcd AND apply_date=:targetDate " +
+                "  AND COALESCE(apply_type,'1') = '1' " +
+                notInClause +
+                "  AND eb13_status='SENT' AND status='PENDING'",
+                base);
+
+        // 해지(apply_type='3') 정상 → CANCELLED
+        sqlRunner.execute(/* skip_tenant_check */
+                "UPDATE cms_account_register " +
+                "SET eb14_received_at=NOW(), eb14_result='Y', status='CANCELLED', _modified=NOW() " +
+                "WHERE spjangcd=:spjangcd AND apply_date=:targetDate " +
+                "  AND apply_type='3' " +
+                notInClause +
+                "  AND eb13_status='SENT' AND status='PENDING'",
+                base);
+
+        // ── cms_member 상태 반영 ─────────────────────────────────────────────
+        // 신규 승인 → agree_yn='Y'
         sqlRunner.execute(/* skip_tenant_check */
                 """
                 UPDATE cms_member m
                 SET agree_yn='Y', agree_date=NOW(), _modified=NOW()
                 FROM cms_account_register r
-                WHERE r.member_id = m.id
-                  AND r.spjangcd = :spjangcd
-                  AND r.apply_date = :targetDate
-                  AND r.status = 'APPROVED'
-                """, param);
+                WHERE r.member_id   = m.id
+                  AND r.spjangcd    = :spjangcd
+                  AND r.apply_date  = :targetDate
+                  AND r.status      = 'APPROVED'
+                """, base);
 
+        // 해지 완료 → INACTIVE 확정
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_member m
+                SET status='INACTIVE', _modified=NOW()
+                FROM cms_account_register r
+                WHERE r.member_id   = m.id
+                  AND r.spjangcd    = :spjangcd
+                  AND r.apply_date  = :targetDate
+                  AND r.status      = 'CANCELLED'
+                """, base);
+
+        // ── cms_file_register 연결 ──────────────────────────────────────────
         List<Map<String, Object>> registers = sqlRunner.getRows(/* skip_tenant_check */
                 """
                 SELECT id FROM cms_account_register
                 WHERE spjangcd=:spjangcd AND apply_date=:targetDate
                   AND eb13_status='SENT'
                 """,
-                new MapSqlParameterSource("spjangcd", spjangcd)
-                        .addValue("targetDate", targetDate));
+                new MapSqlParameterSource("spjangcd", spjangcd).addValue("targetDate", targetDate));
 
         int seq = 1;
         for (Map<String, Object> r : registers) {

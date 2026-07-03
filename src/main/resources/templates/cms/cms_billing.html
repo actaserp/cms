@@ -110,9 +110,16 @@
                 </div>
                 <div class="container-fluid">
                     <div id="theGrid"></div>
+                    <div id="paginationBar" style="display:flex; align-items:center; gap:6px; margin:6px 0;">
+                        <button onclick="searchList(0)"             style="padding:2px 8px;">◀◀</button>
+                        <button onclick="searchList(currentPage-1)" style="padding:2px 8px;" id="btnPrevPage">◀</button>
+                        <span id="pageInfo" style="font-size:13px;"></span>
+                        <button onclick="searchList(currentPage+1)" style="padding:2px 8px;" id="btnNextPage">▶</button>
+                        <button onclick="searchList(totalPages-1)"  style="padding:2px 8px;" id="btnLastPage">▶▶</button>
+                    </div>
                     <div class="grid-summary">
-                        <div>전체 건수: <span id="summaryTotal">0</span>건</div>
-                        <div>전체 합계: <span id="summaryTotalAmt">0</span>원</div>
+                        <div>전체: <span id="summaryTotal">0</span>건 &nbsp; 전체 합계: <span id="summaryTotalAmt">0</span>원</div>
+                        <div>페이지: <span id="summaryPageCount">0</span>건 &nbsp; <span id="summaryPageAmt">0</span>원</div>
                     </div>
                 </div>
             </section>
@@ -395,6 +402,7 @@
         var viewdata;
         var memberList = [];
         let pendingBillingData = null;
+        var currentPage = 0, totalPages = 1;
 
         var STATUS_MAP = {
             PENDING:   '대기',
@@ -513,7 +521,7 @@
             $('#srchSendDateTo').val(todayStr);
             $('#billing_ym_input').val(ym);
 
-            searchList();
+            searchList(0);
 
             $.ajax({
                 url: withCtx('/api/workplace/detail/'),
@@ -706,7 +714,9 @@
             });
         }
 
-        function searchList() {
+        function searchList(page) {
+            if (page < 0 || page >= totalPages) return;
+            currentPage = page;
             var ymVal = $('#srchBillingYm').val();
             if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
             $.ajax({
@@ -717,16 +727,28 @@
                     send_date_from: ($('#srchSendDateFrom').val() || '').replace(/-/g, ''),
                     send_date_to:   ($('#srchSendDateTo').val()   || '').replace(/-/g, ''),
                     member_name: $('#srchMemberName').val(),
-                    status:      $('#srchStatus').val()
+                    status:      $('#srchStatus').val(),
+                    page: currentPage,
+                    size: 10
                 },
                 success: function(result) {
                     if (result.success) {
+                        var d = result.data;
                         if (theGrid) theGrid.dispose();
-                        bindGrid(result.data || []);
-                        updateSummary(result.data || []);
+                        bindGrid(d.data || []);
+                        updatePagination(d.totalCount || 0);
+                        updateSummary(d);
                     }
                 }
             });
+        }
+
+        function updatePagination(totalCount) {
+            totalPages = Math.max(1, Math.ceil(totalCount / 10));
+            $('#pageInfo').text((currentPage + 1) + ' / ' + totalPages);
+            $('#btnPrevPage').prop('disabled', currentPage <= 0);
+            $('#btnNextPage').prop('disabled', currentPage >= totalPages - 1);
+            $('#btnLastPage').prop('disabled', currentPage >= totalPages - 1);
         }
 
         function bindGrid(data) {
@@ -797,10 +819,13 @@
             });
         }
 
-        function updateSummary(data) {
-            var totalAmt = data.reduce(function(s, i) { return s + (Number(i.billing_amount) || 0); }, 0);
-            $('#summaryTotal').text(data.length.toLocaleString());
-            $('#summaryTotalAmt').text(totalAmt.toLocaleString());
+        function updateSummary(d) {
+            var data = d.data || [];
+            var pageAmt = data.reduce(function(s, i) { return s + (Number(i.billing_amount) || 0); }, 0);
+            $('#summaryTotal').text((d.totalCount || 0).toLocaleString());
+            $('#summaryTotalAmt').text((d.totalAmount || 0).toLocaleString());
+            $('#summaryPageCount').text(data.length.toLocaleString());
+            $('#summaryPageAmt').text(pageAmt.toLocaleString());
         }
 
         function fillForm(item) {
@@ -879,7 +904,7 @@
                 AjaxUtil.postAsyncData('/api/cms/billing/save', data, function(result) {
                     if (result.success) {
                         Alert.alert('', '저장되었습니다.');
-                        searchList();
+                        searchList(0);
                     } else {
                         // ⭐ 수정: 중지 기간 경고 메시지 처리 추가
                         if (result.message && result.message.includes('중지 기간')) {
@@ -898,7 +923,7 @@
             AjaxUtil.postAsyncData('/api/cms/billing/save-force', data, function(result) {
                 if (result.success) {
                     Alert.alert('', '청구가 등록되었습니다.');
-                    searchList();
+                    searchList(0);
                     clearForm();
                 } else {
                     Alert.alert('저장 실패', result.message || '청구 강제 저장에 실패했습니다.');
@@ -927,10 +952,10 @@
                 $.when.apply($, promises).then(function() {
                     Alert.alert('', pendingIds.length + '건이 삭제되었습니다.');
                     clearForm();
-                    searchList();
+                    searchList(0);
                 }).fail(function() {
                     Alert.alert('삭제 실패', '일부 항목 삭제 중 오류가 발생했습니다.');
-                    searchList();
+                    searchList(0);
                 });
             });
         }
@@ -947,7 +972,7 @@
                             var cnt = d.count || 0;
                             var msg = cnt + '건이 생성되었습니다.';
                             Alert.alert('', msg);
-                            searchList();
+                            searchList(0);
                         } else {
                             Alert.alert('생성 실패', result.message);
                         }
@@ -1048,11 +1073,11 @@
                 });
                 AjaxUtil.hideLoading();
                 Alert.alert('', '전송 완료: 성공 ' + totalSent + '건, 실패 ' + totalFailed + '건');
-                searchList();
+                searchList(0);
             }).fail(function() {
                 AjaxUtil.hideLoading();
                 Alert.alert('전송 실패', '전송 중 오류가 발생했습니다.');
-                searchList();
+                searchList(0);
             });
         }
 
@@ -1136,7 +1161,7 @@
                     function(result) {
                         if (result.success) {
                             Alert.alert('', (result.data ? result.data.count : 0) + '건 재청구 생성되었습니다.');
-                            searchList();
+                            searchList(0);
                         } else {
                             Alert.alert('재청구 실패', result.message);
                         }
@@ -1157,7 +1182,7 @@
                     function(result) {
                         if (result.success) {
                             Alert.alert('', result.data + '건이 취소되었습니다.');
-                            searchList();
+                            searchList(0);
                         } else {
                             Alert.alert('취소 실패', result.message);
                         }
@@ -1289,7 +1314,7 @@
                             var msg = (d.count || 0) + '건이 생성되었습니다.';
                             if (d.skippedCount > 0) msg += ' (' + d.skippedCount + '건 스킵)';
                             Alert.alert('', msg);
-                            searchList();
+                            searchList(0);
                         } else {
                             Alert.alert('생성 실패', result.message);
                         }
@@ -1342,7 +1367,7 @@
                         function(result) {
                             if (result.success) {
                                 Alert.alert('', result.data + '건의 출금일이 변경되었습니다.');
-                                searchList();
+                                searchList(0);
                             } else {
                                 Alert.alert('변경 실패', result.message);
                             }
@@ -1352,8 +1377,8 @@
         }
 
         $(document).ready(function() {
-            $('#btnSearch').click(searchList);
-            $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
+            $('#btnSearch').click(function() { searchList(0); });
+            $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(0); });
             $('#btnGenerate').click(openGenerateModal);
             $('#btnCancel').click(cancelBilling);
             $('#btnResend').click(openRechargeModal);
@@ -1392,7 +1417,7 @@
                                 }
 
                                 Alert.alert('', msg);
-                                searchList();
+                                searchList(0);
                             } else {
                                 Alert.alert('실패', result.message);
                             }

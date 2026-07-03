@@ -52,11 +52,12 @@ public class CmsBillingController {
             @RequestParam(value = "member_name",    required = false) String memberName,
             @RequestParam(value = "status",         required = false) String status,
             @RequestParam(value = "deduct_type",    required = false) String deductType,
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "10") int size,
             HttpServletRequest request) {
 
-        List<Map<String, Object>> items = cmsBillingService.getBillingList(billingYm, sendDateFrom, sendDateTo, memberName, status, deductType);
         AjaxResult result = new AjaxResult();
-        result.data = items;
+        result.data = cmsBillingService.getBillingList(billingYm, sendDateFrom, sendDateTo, memberName, status, deductType, page, size);
         return result;
     }
 
@@ -187,11 +188,12 @@ public class CmsBillingController {
             @RequestParam(value = "status",      required = false) String status,
             @RequestParam(value = "member_name", required = false) String memberName,
             @RequestParam(value = "deduct_type", required = false) String deductType,
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "10") int size,
             HttpServletRequest request) {
 
-        List<Map<String, Object>> items = cmsBillingService.getBillingResultList(billingYm, resultDate, status, memberName, deductType);
         AjaxResult result = new AjaxResult();
-        result.data = items;
+        result.data = cmsBillingService.getBillingResultList(billingYm, resultDate, status, memberName, deductType, page, size);
         return result;
     }
 
@@ -314,18 +316,18 @@ public class CmsBillingController {
             @RequestParam(value = "status",       required = false) String status,
             @RequestParam(value = "member_name",  required = false) String memberName,
             @RequestParam(value = "recharge_filter", required = false, defaultValue = "false") boolean rechargeFilter,
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "10") int size,
             HttpServletRequest request) {
 
-        List<Map<String, Object>> items;
-        if (rechargeFilter) {
-            items = cmsBillingService.getBillingHistoryForRecharge(
-                    startDate, endDate, billingType);
-        } else {
-            items = cmsBillingService.getBillingHistoryList(
-                    startDate, endDate, billingType, status, memberName);
-        }
         AjaxResult result = new AjaxResult();
-        result.data = items;
+        if (rechargeFilter) {
+            // 재청구용: 페이징 없이 전체 목록 (기존 동작 유지)
+            result.data = cmsBillingService.getBillingHistoryForRecharge(startDate, endDate, billingType);
+        } else {
+            result.data = cmsBillingService.getBillingHistoryList(
+                    startDate, endDate, billingType, status, memberName, page, size);
+        }
         return result;
     }
 

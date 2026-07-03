@@ -67,13 +67,14 @@ public class CmsEb13SendService {
                 FROM cms_account_register r
                 WHERE r.id IN (:ids)
                   AND r.spjangcd = :spjangcd
-                  AND r.ei13_status = 'SENT'
+                  AND ( r.apply_type = '3'
+                        OR (COALESCE(r.apply_type,'1') = '1' AND r.ei13_status = 'SENT') )
                   AND r.eb13_status IN ('PENDING', 'FAILED')
                 """,
                 new MapSqlParameterSource("ids", registerIds).addValue("spjangcd", spjangcd));
 
         if (targets.isEmpty()) {
-            return Map.of("sent", 0, "failed", 0, "message", "전송 대상 없음 (EI13 미송신 건 제외)");
+            return Map.of("sent", 0, "failed", 0, "message", "전송 대상 없음 (신규: EI13 미송신, 해지: 대상 없음)");
         }
 
         String applyDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
@@ -170,7 +171,8 @@ public class CmsEb13SendService {
         String yymmdd = applyDate.substring(2, 8);
         String fileName = "EB13" + mmdd + "_" + applyDate.substring(0, 4);
 
-        int newCount = 0;
+        int newCount    = 0;
+        int cancelCount = 0;
         long totalCount = targets.size();
         var baos = new ByteArrayOutputStream();
 
@@ -192,7 +194,8 @@ public class CmsEb13SendService {
         for (Map<String, Object> t : targets) {
             String applyType = str(t.get("apply_type"));
             if (!StringUtils.hasText(applyType)) applyType = "1";
-            if ("1".equals(applyType)) newCount++;
+            if ("1".equals(applyType))      newCount++;
+            else if ("3".equals(applyType)) cancelCount++;
 
             String bankCode  = padLeft(str(t.get("bank_code")), 3, '0');
             String idNum     = padRight(str(t.get("id_number")), 16);
@@ -228,9 +231,9 @@ public class CmsEb13SendService {
         tr.append(padRight(fileName, 8));
         tr.append(padLeft(String.valueOf(totalCount), 8, '0')); // 총 Data 수
         tr.append(padLeft(String.valueOf(newCount), 8, '0'));    // 신규
-        tr.append("00000000");                                   // 변경
-        tr.append("00000000");                                   // 해지
-        tr.append("00000000");                                   // 임의해지
+        tr.append("00000000");                                                    // 변경
+        tr.append(padLeft(String.valueOf(cancelCount), 8, '0'));               // 해지
+        tr.append("00000000");                                                    // 임의해지
         tr.append(spaces(43));                                   // FILLER
         tr.append(spaces(10));                                   // MAC (미사용 시 Space)
         baos.write(toFixed(tr.toString(), 120));

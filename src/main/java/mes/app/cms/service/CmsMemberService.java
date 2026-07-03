@@ -34,6 +34,9 @@ public class CmsMemberService {
     @Autowired
     private NcpObjectStorageService storageService;
 
+    @Autowired
+    private CmsEb13SendService cmsEb13SendService;
+
     private String str(Object v) {
         return v != null ? v.toString() : "";
     }
@@ -742,6 +745,7 @@ public class CmsMemberService {
         bnkCodeMap.put("071", "071"); bnkCodeMap.put("081", "081");
         bnkCodeMap.put("088", "088"); bnkCodeMap.put("089", "089");
         bnkCodeMap.put("090", "090"); bnkCodeMap.put("092", "092");
+        bnkCodeMap.put("006", "004");   // 국민은행 (TB_XBANK 006 → PG 004)
 
         // 3. MS DB 연결
         String url = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
@@ -761,16 +765,27 @@ public class CmsMemberService {
                             + " C.corpperclafi AS corpperclafi,"
                             + " C.saupnum AS saupnum,"
                             + " CASE"
-                            + "     WHEN C.saupnum IS NOT NULL AND LTRIM(RTRIM(C.saupnum)) != ''"
+                            + "     WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.cmsrnum)), '-', ''), '') IS NOT NULL"
+                            + "          THEN REPLACE(LTRIM(RTRIM(C.cmsrnum)), '-', '')"
+                            + "     WHEN NULLIF(REPLACE(LTRIM(RTRIM(E1.cmsrnum)), '-', ''), '') IS NOT NULL"
+                            + "          THEN REPLACE(LTRIM(RTRIM(E1.cmsrnum)), '-', '')"
+                            + "     WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)), '-', ''), '') IS NOT NULL"
                             + "          THEN REPLACE(LTRIM(RTRIM(C.saupnum)), '-', '')"
-                            + "     WHEN C.prenum IS NOT NULL AND LTRIM(RTRIM(C.prenum)) != '' AND LEN(LTRIM(RTRIM(C.prenum))) = 13"
-                            + "          THEN C.prenum"
-                            + "     WHEN C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum)) != ''"
-                            + "          THEN C.cmsrnum"
-                            + "     ELSE NULLIF(LTRIM(RTRIM(E1.cmsrnum)), '')"
+                            + "     WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum))) = 13"
+                            + "          AND NULLIF(LTRIM(RTRIM(C.prenum)), '') IS NOT NULL"
+                            + "          THEN LTRIM(RTRIM(C.prenum))"
+                            + "     ELSE NULL"
                             + " END AS id_number,"
-                            + " COALESCE(NULLIF(LTRIM(RTRIM((SELECT bnkcode FROM TB_XBANK WITH(NOLOCK) WHERE bankcd = E1.bankcd))),''), NULLIF(LTRIM(RTRIM(B.bnkcode)),'')) AS bank_code,"
-                            + " COALESCE(NULLIF(LTRIM(RTRIM(E1.accnum)),''), NULLIF(LTRIM(RTRIM(C.accnum)),'')) AS bank_account,"
+                            + " CASE"
+                            + "     WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum))) = 13"
+                            + "          AND NULLIF(LTRIM(RTRIM(C.prenum)), '') IS NOT NULL"
+                            + "          THEN LTRIM(RTRIM(C.prenum))"
+                            + "     WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)), '-', ''), '') IS NOT NULL"
+                            + "          THEN REPLACE(LTRIM(RTRIM(C.saupnum)), '-', '')"
+                            + "     ELSE NULL"
+                            + " END AS resident_no,"
+                            + " LTRIM(RTRIM(COALESCE(XB.bnkcode, ''))) AS bank_code,"
+                            + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM, ''))), '-', ''), ' ', '') AS bank_account,"
                             + " C.hptelnum AS phone,"
                             + " C.agneremail AS email,"
                             + " C.cltadres AS adresa,"
@@ -798,19 +813,25 @@ public class CmsMemberService {
                             + " INNER JOIN TB_E601 E6 WITH(NOLOCK) ON C.cltcd = E6.cltcd AND C.custcd = E6.custcd"
                             + " INNER JOIN TB_E101 E1 WITH(NOLOCK) ON E6.actcd = E1.actcd AND E6.custcd = E1.custcd"
                             + " INNER JOIN TB_CMSEB13 EB WITH(NOLOCK)"
-                            + "     ON (EB.CLTCD = C.cltcd OR EB.CLTCD = E6.actcd)"
-                            + "     AND EB.CUSTCD = C.custcd AND EB.ENDFLAG = 'Y'"
-                            + "     AND EB.BANKCLTCD = ("
-                            + "         SELECT TOP 1 BANKCLTCD FROM TB_CMSEB13 WITH(NOLOCK)"
-                            + "         WHERE (CLTCD = C.cltcd OR CLTCD = E6.actcd)"
-                            + "         AND CUSTCD = C.custcd AND ENDFLAG = 'Y'"
-                            + "         ORDER BY BANKCLTCD DESC)"
+                            + "     ON EB.CLTCD = E6.actcd"
+                            + "     AND EB.CUSTCD = C.custcd"
+                            + "     AND EB.ENDFLAG = 'Y'"
+                            + "     AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(EB.BANKCLTCD))) = 0"
+                            + "     AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
+                            + "     AND EB.SPDATE = ("
+                            + "         SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
+                            + "         WHERE CLTCD = E6.actcd"
+                            + "         AND CUSTCD = C.custcd"
+                            + "         AND ENDFLAG = 'Y'"
+                            + "         AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(BANKCLTCD))) = 0"
+                            + "         AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
+                            + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD = XB.bankcd"
                             + " WHERE C.custcd = ?"
                             + " AND ("
                             + "     (C.allchk = 1 AND (SELECT COUNT(*) FROM TB_E601 WITH(NOLOCK) WHERE cltcd = C.cltcd AND custcd = C.custcd) = 1)"
                             + "     OR E1.cmsflag = 1"
                             + " )"
-                            + " AND (NULLIF(LTRIM(RTRIM(C.accnum)),'') IS NOT NULL OR NULLIF(LTRIM(RTRIM(E1.accnum)),'') IS NOT NULL)"
+                            + " AND NULLIF(LTRIM(RTRIM(EB.CMSACCNUM)), '') IS NOT NULL"
                             + " AND ("
                             + "     (C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum)) != '')"
                             + "     OR (C.saupnum IS NOT NULL AND LTRIM(RTRIM(C.saupnum)) != '')"
@@ -850,6 +871,7 @@ public class CmsMemberService {
                             String bnkCode      = rs.getString("bank_code");
                             String bankCode     = bnkCodeMap.getOrDefault(bnkCode, bnkCode);
                             String bankAccount  = rs.getString("bank_account");
+                            String residentNo   = rs.getString("resident_no");
                             String phone        = rs.getString("phone");
                             String email        = rs.getString("email");
                             String adresa       = rs.getString("adresa");
@@ -946,6 +968,7 @@ public class CmsMemberService {
                             p.addValue("memberName",   memberName);
                             p.addValue("memberType",   memberType);
                             p.addValue("idNumber",     idNumber);
+                            p.addValue("residentNo",   residentNo);
                             p.addValue("bankCode",     bankCode);
                             p.addValue("bankAccount",  bankAccount);
                             p.addValue("phone",        phone);
@@ -965,7 +988,7 @@ public class CmsMemberService {
                                         """
                                         INSERT INTO cms_member (
                                             spjangcd, member_no, member_type, member_name,
-                                            id_number, bank_code, bank_account,
+                                            id_number, resident_no, bank_code, bank_account,
                                             phone, email, adresa, zipcd,
                                             deduct_amount, deduct_day,
                                             start_date, end_date,
@@ -974,7 +997,7 @@ public class CmsMemberService {
                                             _creater_id, _created, _modifier_id, _modified
                                         ) VALUES (
                                             :spjangcd, :memberNo, :memberType, :memberName,
-                                            :idNumber, :bankCode, :bankAccount,
+                                            :idNumber, :residentNo, :bankCode, :bankAccount,
                                             :phone, :email, :adresa, :zipcd,
                                             :deductAmount, :deductDay,
                                             :startDate, :endDate,
@@ -994,6 +1017,7 @@ public class CmsMemberService {
                                          member_type    = :memberType,
                                          member_no      = COALESCE(:memberNo, member_no),
                                          id_number      = :idNumber,
+                                         resident_no    = :residentNo,
                                          bank_code      = :bankCode,
                                          bank_account   = :bankAccount,
                                          phone          = :phone,
@@ -1011,6 +1035,7 @@ public class CmsMemberService {
                                              COALESCE(member_type, '') != COALESCE(:memberType, '') OR
                                              COALESCE(member_name, '')  != COALESCE(:memberName, '')  OR
                                              COALESCE(id_number, '')    != COALESCE(:idNumber, '')    OR
+                                             COALESCE(resident_no, '')  != COALESCE(:residentNo, '')  OR
                                              COALESCE(bank_code, '')    != COALESCE(:bankCode, '')    OR
                                              COALESCE(bank_account, '') != COALESCE(:bankAccount, '') OR
                                              COALESCE(phone, '')        != COALESCE(:phone, '')       OR
@@ -1028,6 +1053,7 @@ public class CmsMemberService {
                                              COALESCE(member_type, '') != COALESCE(:memberType, '') OR
                                              COALESCE(member_name, '')  != COALESCE(:memberName, '')  OR
                                              COALESCE(id_number, '')    != COALESCE(:idNumber, '')    OR
+                                             COALESCE(resident_no, '')  != COALESCE(:residentNo, '')  OR
                                              COALESCE(bank_code, '')    != COALESCE(:bankCode, '')    OR
                                              COALESCE(bank_account, '') != COALESCE(:bankAccount, '') OR
                                              COALESCE(phone, '')        != COALESCE(:phone, '')       OR
@@ -1072,6 +1098,897 @@ public class CmsMemberService {
         return Map.of("inserted", inserted, "updated", updated, "skipped", skipped, "failed", failed);
     }
 
+    /**
+     * ERP에서 동기화 대상 행을 계산해 반환 — DB 쓰기 없음.
+     * previewSync / applySync 공용 헬퍼.
+     */
+    private List<Map<String, Object>> fetchErpSyncRows(
+            java.sql.Connection conn, String custcd, int roundUnit,
+            Set<String> excludeSet) throws Exception {
+
+        Map<String, String> bnkCodeMap = new java.util.HashMap<>();
+        bnkCodeMap.put("002","002"); bnkCodeMap.put("003","003"); bnkCodeMap.put("007","007");
+        bnkCodeMap.put("008","008"); bnkCodeMap.put("012","012"); bnkCodeMap.put("019","004");
+        bnkCodeMap.put("020","020"); bnkCodeMap.put("023","023"); bnkCodeMap.put("027","027");
+        bnkCodeMap.put("032","032"); bnkCodeMap.put("034","034"); bnkCodeMap.put("035","035");
+        bnkCodeMap.put("037","037"); bnkCodeMap.put("039","039"); bnkCodeMap.put("045","045");
+        bnkCodeMap.put("047","048"); bnkCodeMap.put("050","050"); bnkCodeMap.put("064","064");
+        bnkCodeMap.put("071","071"); bnkCodeMap.put("081","081"); bnkCodeMap.put("088","088");
+        bnkCodeMap.put("089","089"); bnkCodeMap.put("090","090"); bnkCodeMap.put("092","092");
+
+        String sql =
+                "SELECT C.cltcd AS cltcd, E6.actcd AS actcd, E6.actnm AS member_name,"
+                + " C.corpperclafi AS corpperclafi, C.saupnum AS saupnum,"
+                + " LTRIM(RTRIM(COALESCE(EB.SAUPNUM,''))) AS id_number,"
+                + " CASE"
+                + "     WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum)))=13"
+                + "          AND NULLIF(LTRIM(RTRIM(C.prenum)),'') IS NOT NULL"
+                + "          THEN LTRIM(RTRIM(C.prenum))"
+                + "     WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),'') IS NOT NULL"
+                + "          THEN REPLACE(LTRIM(RTRIM(C.saupnum)),'-','')"
+                + "     ELSE NULL"
+                + " END AS resident_no,"
+                + " LTRIM(RTRIM(COALESCE(XB.bnkcode,''))) AS bank_code,"
+                + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS bank_account,"
+                + " C.hptelnum AS phone, C.agneremail AS email,"
+                + " C.cltadres AS adresa, C.zipcd AS zipcd,"
+                + " CASE"
+                + "     WHEN E1.contyul IS NOT NULL AND E1.contyul>0 AND E1.addyn=0"
+                + "          THEN E1.amt*(E1.contyul/100.0)*1.1"
+                + "     WHEN E1.contyul IS NOT NULL AND E1.contyul>0"
+                + "          THEN E1.amt*(E1.contyul/100.0)"
+                + "     WHEN E1.addyn=0 THEN E1.amt*1.1"
+                + "     ELSE E1.amt"
+                + " END AS deduct_amount_raw,"
+                + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autodate)),''),NULLIF(LTRIM(RTRIM(C.autodate)),'')) AS deduct_day,"
+                + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autoflag)),''),NULLIF(LTRIM(RTRIM(C.autoflag)),'')) AS auto_flag,"
+                + " E1.stdate AS start_date, E1.enddate AS end_date,"
+                + " EB.BANKCLTCD AS member_no,"
+                + " E1.delmon1,E1.delmon2,E1.delmon3,E1.delmon4,"
+                + " E1.delmon5,E1.delmon6,E1.delmon7,E1.delmon8,"
+                + " E1.delmon9,E1.delmon10,E1.delmon11,E1.delmon12"
+                + " FROM TB_XCLIENT C WITH(NOLOCK)"
+                + " LEFT JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd=B.bankcd"
+                + " INNER JOIN TB_E601 E6 WITH(NOLOCK) ON C.cltcd=E6.cltcd AND C.custcd=E6.custcd"
+                + " INNER JOIN TB_E101 E1 WITH(NOLOCK) ON E6.actcd=E1.actcd AND E6.custcd=E1.custcd"
+                + " INNER JOIN TB_CMSEB13 EB WITH(NOLOCK)"
+                + "     ON EB.CLTCD=E6.actcd AND EB.CUSTCD=C.custcd AND EB.ENDFLAG='Y'"
+                + "     AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(EB.BANKCLTCD)))=0"
+                + "     AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
+                + "     AND EB.SPDATE=("
+                + "         SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
+                + "         WHERE CLTCD=E6.actcd AND CUSTCD=C.custcd AND ENDFLAG='Y'"
+                + "         AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(BANKCLTCD)))=0"
+                + "         AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
+                + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD=XB.bankcd"
+                + " WHERE C.custcd=?"
+                + " AND ((C.allchk=1 AND (SELECT COUNT(*) FROM TB_E601 WITH(NOLOCK)"
+                + "       WHERE cltcd=C.cltcd AND custcd=C.custcd)=1) OR E1.cmsflag=1)"
+                + " AND NULLIF(LTRIM(RTRIM(EB.CMSACCNUM)),'') IS NOT NULL"
+                + " AND ((C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum))!='')"
+                + "   OR (C.saupnum IS NOT NULL AND LTRIM(RTRIM(C.saupnum))!='')"
+                + "   OR (C.prenum IS NOT NULL AND LTRIM(RTRIM(C.prenum))!='' AND LEN(LTRIM(RTRIM(C.prenum)))=13)"
+                + "   OR (E1.cmsrnum IS NOT NULL AND LTRIM(RTRIM(E1.cmsrnum))!=''))"
+                + " AND E1.enddate>=CONVERT(varchar(8),GETDATE(),112)"
+                + " AND E1.stdate<=CONVERT(varchar(8),GETDATE(),112)"
+                + " AND E1.stdate=(SELECT MAX(stdate) FROM TB_E101"
+                + "     WHERE actcd=E6.actcd AND custcd=?"
+                + "     AND enddate>=CONVERT(varchar(8),GETDATE(),112)"
+                + "     AND stdate<=CONVERT(varchar(8),GETDATE(),112))"
+                + " AND E1.amt=(SELECT MAX(amt) FROM TB_E101"
+                + "     WHERE actcd=E6.actcd AND custcd=? AND stdate=E1.stdate"
+                + "     AND enddate>=CONVERT(varchar(8),GETDATE(),112)"
+                + "     AND stdate<=CONVERT(varchar(8),GETDATE(),112))"
+                + " AND E1.enddate=(SELECT MAX(enddate) FROM TB_E101"
+                + "     WHERE actcd=E6.actcd AND custcd=? AND stdate=E1.stdate"
+                + "     AND enddate>=CONVERT(varchar(8),GETDATE(),112)"
+                + "     AND stdate<=CONVERT(varchar(8),GETDATE(),112))";
+
+        List<Map<String, Object>> result = new java.util.ArrayList<>();
+        try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, custcd); ps.setString(2, custcd);
+            ps.setString(3, custcd); ps.setString(4, custcd);
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String actcd = rs.getString("actcd");
+                    if (excludeSet.contains(actcd)) continue;
+
+                    String autoFlag  = rs.getString("auto_flag");
+                    String deductDay = rs.getString("deduct_day");
+                    if ("1".equals(autoFlag)) {
+                        deductDay = "99";
+                    } else if (deductDay == null || deductDay.trim().isEmpty()) {
+                        log.warn("[ERP동기화] deduct_day 없음 - 스킵: actcd={}", actcd);
+                        continue;
+                    } else {
+                        try { deductDay = String.format("%02d", Integer.parseInt(deductDay.trim())); }
+                        catch (NumberFormatException e) {
+                            log.warn("[ERP동기화] deduct_day 파싱 실패 - 스킵: actcd={}", actcd);
+                            continue;
+                        }
+                    }
+
+                    String startDate = cleanDate(rs.getString("start_date"));
+                    String endDate   = cleanDate(rs.getString("end_date"));
+                    if (endDate == null || endDate.isEmpty()) endDate = "99991231";
+
+                    String bnkCode     = rs.getString("bank_code");
+                    String bankCode    = bnkCodeMap.getOrDefault(bnkCode, bnkCode);
+                    String bankAccount = rs.getString("bank_account");
+                    Long   deductAmt   = roundAmount(rs.getDouble("deduct_amount_raw"), roundUnit);
+
+                    List<String> months = new java.util.ArrayList<>();
+                    for (int i = 1; i <= 12; i++) {
+                        String mon = rs.getString("delmon" + i);
+                        if (mon != null && !mon.trim().isEmpty())
+                            months.add(String.valueOf(Integer.parseInt(mon.trim())));
+                    }
+                    String cycleMonths = months.isEmpty() ? null : String.join(",", months);
+                    String cycleType   = (months.size() == 12) ? "REGULAR" : "IRREGULAR";
+                    if ("REGULAR".equals(cycleType)) cycleMonths = null;
+
+                    String saupnum      = rs.getString("saupnum");
+                    String corpperclafi = rs.getString("corpperclafi");
+                    String idNumber     = rs.getString("id_number");
+                    String erpMemberNo  = rs.getString("member_no");
+                    if ("null".equalsIgnoreCase(erpMemberNo)) erpMemberNo = null;
+                    String agreeYn = StringUtils.hasText(erpMemberNo) ? "Y" : "N";
+
+                    String memberType;
+                    if (StringUtils.hasText(saupnum)) {
+                        memberType = "0".equals(corpperclafi) ? "S" : "C";
+                    } else if ("0".equals(corpperclafi) && StringUtils.hasText(idNumber)
+                               && idNumber.replaceAll("[^0-9]","").length() == 13) {
+                        memberType = "P";
+                    } else {
+                        memberType = "S";
+                    }
+
+                    Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    row.put("cltcd",         actcd);
+                    row.put("member_name",   rs.getString("member_name"));
+                    row.put("member_type",   memberType);
+                    row.put("id_number",     idNumber);
+                    row.put("resident_no",   rs.getString("resident_no"));
+                    row.put("bank_code",     bankCode);
+                    row.put("bank_account",  bankAccount);
+                    row.put("erp_member_no", erpMemberNo);
+                    row.put("agree_yn",      agreeYn);
+                    row.put("phone",         rs.getString("phone"));
+                    row.put("email",         rs.getString("email"));
+                    row.put("adresa",        rs.getString("adresa"));
+                    row.put("zipcd",         rs.getString("zipcd"));
+                    row.put("deduct_amount", deductAmt);
+                    row.put("deduct_day",    deductDay);
+                    row.put("start_date",    startDate);
+                    row.put("end_date",      endDate);
+                    row.put("cycle_type",    cycleType);
+                    row.put("cycle_months",  cycleMonths);
+                    result.add(row);
+                }
+            }
+        }
+        return result;
+    }
+
+    /** ERP 동기화 미리보기 — 읽기 전용, UPDATE 없음 */
+    public Map<String, Object> previewSync(String spjangcd) {
+        log.info("[ERP미리보기] 시작 spjangcd={}", spjangcd);
+
+        Map<String, Object> erp = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT host, port, db_name, username, password, custcd, ms_spjangcd FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd));
+        if (erp == null) throw new IllegalStateException("ERP 접속정보가 없습니다.");
+        String custcd     = str(erp.get("custcd"));
+        String msSpjangcd = str(erp.get("ms_spjangcd"));
+
+        Map<String, Object> cms = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT is_normal_status, amount_round_unit FROM tb_xa012_cms WHERE spjangcd = :spjangcd AND ms_spjangcd IS NOT DISTINCT FROM :msSpjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd)
+                        .addValue("msSpjangcd", msSpjangcd.isEmpty() ? null : msSpjangcd));
+        if (cms == null || !Boolean.TRUE.equals(cms.get("is_normal_status")))
+            throw new IllegalStateException("CMS 서비스 상태가 승인이 아닙니다.");
+        int roundUnit = cms.get("amount_round_unit") != null ? ((Number) cms.get("amount_round_unit")).intValue() : 1;
+
+        Set<String> excludeSet = sqlRunner.getRows(/* skip_tenant_check */
+                        "SELECT cltcd FROM cms_member_sync_exclude WHERE spjangcd = :spjangcd",
+                        new MapSqlParameterSource("spjangcd", spjangcd))
+                .stream().map(r -> str(r.get("cltcd"))).collect(java.util.stream.Collectors.toSet());
+
+        // cms_member 현재값
+        List<Map<String, Object>> members = sqlRunner.getRows(/* skip_tenant_check */
+                "SELECT id, cltcd, member_no, member_name, member_type, id_number, resident_no, bank_code, bank_account, deduct_amount, deduct_day FROM cms_member WHERE spjangcd = :spjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd));
+        Map<String, Map<String, Object>> memberMap = new java.util.HashMap<>();
+        for (Map<String, Object> m : members) memberMap.put(str(m.get("cltcd")), m);
+
+        // 최근 billing result_code
+        List<Map<String, Object>> billingRows = sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT DISTINCT ON (b.member_id) b.member_id, b.result_code
+                FROM cms_billing b
+                WHERE b.spjangcd = :spjangcd
+                ORDER BY b.member_id, b.deduct_date DESC NULLS LAST, b._created DESC NULLS LAST
+                """,
+                new MapSqlParameterSource("spjangcd", spjangcd));
+        Map<Long, String> billingMap = new java.util.HashMap<>();
+        for (Map<String, Object> br : billingRows) {
+            Object mid = br.get("member_id");
+            if (mid != null) billingMap.put(((Number) mid).longValue(), str(br.get("result_code")));
+        }
+        java.util.Set<String> successCodes = java.util.Set.of("0000", "0021");
+
+        String url = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
+                str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
+        try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
+        catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
+
+        List<Map<String, Object>> newRows        = new java.util.ArrayList<>();
+        List<Map<String, Object>> changedRows    = new java.util.ArrayList<>();
+        List<Map<String, Object>> unverifiedRows = new java.util.ArrayList<>();
+        int sameCount = 0; // 청구 성공 중 → 보호
+
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
+                url, str(erp.get("username")), str(erp.get("password")))) {
+
+            // EB13 행 → cltcd 키 맵 구성 (제안값 참조용)
+            Map<String, Map<String, Object>> erpRowMap = new java.util.LinkedHashMap<>();
+            for (Map<String, Object> erpRow : fetchErpSyncRows(conn, custcd, roundUnit, excludeSet)) {
+                erpRowMap.put(str(erpRow.get("cltcd")), erpRow);
+            }
+
+            // [1] 신규: ERP 활성이지만 cms_member에 없는 계정
+            for (Map.Entry<String, Map<String, Object>> e : erpRowMap.entrySet()) {
+                if (!memberMap.containsKey(e.getKey())) newRows.add(e.getValue());
+            }
+
+            // [2] 기존 cms_member 분류 — 최근 청구 결과가 진실의 기준
+            for (Map.Entry<String, Map<String, Object>> e : memberMap.entrySet()) {
+                String cltcd              = e.getKey();
+                Map<String, Object> existing = e.getValue();
+
+                Object midObj         = existing.get("id");
+                Long   memberId       = midObj != null ? ((Number) midObj).longValue() : null;
+                String lastResultCode = memberId != null ? billingMap.get(memberId) : null;
+
+                // [2-1] 청구 성공 중 → 현재값이 실제 작동값, 보호
+                if (lastResultCode != null && successCodes.contains(lastResultCode)) {
+                    sameCount++;
+                    continue;
+                }
+
+                // [2-2] 청구 이력 없음 → 수동 검증 대상
+                if (lastResultCode == null) {
+                    Map<String, Object> uRow = new java.util.LinkedHashMap<>();
+                    uRow.put("cltcd",       cltcd);
+                    uRow.put("member_name", existing.get("member_name"));
+                    uRow.put("has_eb13",    erpRowMap.containsKey(cltcd));
+                    unverifiedRows.add(uRow);
+                    continue;
+                }
+
+                // [2-3] 값문제 실패(0017/0012/0013/0014 등) → 교정 대상
+                Map<String, Object> erpRow = erpRowMap.get(cltcd);
+
+                String curMemberNo = str(existing.get("member_no"));
+                String newMemberNo = (erpRow != null && !StringUtils.hasText(curMemberNo))
+                        ? str(erpRow.get("erp_member_no")) : curMemberNo;
+
+                String curAmt = existing.get("deduct_amount") != null
+                        ? Long.toString(((Number) existing.get("deduct_amount")).longValue()) : "";
+                String newAmt = (erpRow != null && erpRow.get("deduct_amount") != null)
+                        ? erpRow.get("deduct_amount").toString() : "";
+
+                List<Map<String, Object>> keyChanges  = new java.util.ArrayList<>();
+                List<Map<String, Object>> infoChanges = new java.util.ArrayList<>();
+                if (erpRow != null) {
+                    syncCheckField(keyChanges, "bank_code",    str(existing.get("bank_code")),    str(erpRow.get("bank_code")));
+                    syncCheckField(keyChanges, "bank_account", str(existing.get("bank_account")), str(erpRow.get("bank_account")));
+                    syncCheckField(keyChanges, "member_no",    curMemberNo,                       newMemberNo);
+                    syncCheckField(keyChanges, "id_number",    str(existing.get("id_number")),    str(erpRow.get("id_number")));
+                    syncCheckField(infoChanges, "member_name",   str(existing.get("member_name")), str(erpRow.get("member_name")));
+                    syncCheckField(infoChanges, "deduct_amount", curAmt,                           newAmt);
+                    syncCheckField(infoChanges, "deduct_day",    str(existing.get("deduct_day")),  str(erpRow.get("deduct_day")));
+                }
+
+                Map<String, Object> item = new java.util.LinkedHashMap<>();
+                item.put("cltcd",            cltcd);
+                item.put("member_name",      existing.get("member_name"));
+                item.put("last_result_code", lastResultCode);
+                item.put("no_eb13",          erpRow == null);
+                item.put("key_changes",      keyChanges);
+                item.put("info_changes",     infoChanges);
+                if (erpRow != null) item.put("new_values", erpRow);
+                changedRows.add(item);
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("MSSQL 접속 실패: " + e.getMessage());
+        }
+
+        log.info("[ERP미리보기] 완료 spjangcd={} 신규={} 교정대상={} 성공중보호={} 이력없음={}",
+                spjangcd, newRows.size(), changedRows.size(), sameCount, unverifiedRows.size());
+
+        // 교정 대상 필드별 집계
+        java.util.Set<String> verifyTargets = java.util.Set.of("114631", "161305", "130437");
+        List<String> bankAccCltcds    = new java.util.ArrayList<>();
+        List<String> bankCodeCltcds   = new java.util.ArrayList<>();
+        List<String> idNumCltcds      = new java.util.ArrayList<>();
+        List<String> idNumOnlyCltcds  = new java.util.ArrayList<>();
+        List<String> payerCltcds      = new java.util.ArrayList<>();
+        Map<String, String> verifyInChanged = new java.util.LinkedHashMap<>();
+
+        for (Map<String, Object> item : changedRows) {
+            String itemCltcd = str(item.get("cltcd"));
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> kc = (List<Map<String, Object>>) item.get("key_changes");
+            if (kc == null) kc = java.util.Collections.emptyList();
+            java.util.Set<String> cf = kc.stream()
+                    .map(c -> str(c.get("field")))
+                    .collect(java.util.stream.Collectors.toSet());
+
+            if (cf.contains("bank_account")) bankAccCltcds.add(itemCltcd);
+            if (cf.contains("bank_code"))    bankCodeCltcds.add(itemCltcd);
+            if (cf.contains("id_number"))    idNumCltcds.add(itemCltcd);
+            if (cf.contains("member_no"))    payerCltcds.add(itemCltcd);
+            if (cf.contains("id_number") && !cf.contains("bank_account")
+                    && !cf.contains("bank_code") && !cf.contains("member_no"))
+                idNumOnlyCltcds.add(itemCltcd);
+            if (verifyTargets.contains(itemCltcd))
+                verifyInChanged.put(itemCltcd, str(item.get("last_result_code")));
+        }
+        // 검증 3건 미포함 표시
+        for (String vc : verifyTargets) {
+            if (!verifyInChanged.containsKey(vc)) verifyInChanged.put(vc, "미포함(보호또는이력없음)");
+        }
+
+        // ── 교정대상 필드별 로그 ──────────────────────────────────────────
+        log.info("[ERP미리보기][집계] ========= 교정대상 {}건 필드별 분석 =========",
+                changedRows.size());
+        log.info("[ERP미리보기][집계] ★위험★ 계좌(bank_account) 변경: {}건 → {}",
+                bankAccCltcds.size(), bankAccCltcds);
+        log.info("[ERP미리보기][집계] ★위험★ 은행코드(bank_code) 변경: {}건 → {}",
+                bankCodeCltcds.size(), bankCodeCltcds);
+        log.info("[ERP미리보기][집계]         payer(member_no) 변경: {}건 → {}",
+                payerCltcds.size(), payerCltcds);
+        log.info("[ERP미리보기][집계]         식별번호(id_number) 변경: {}건 (이 중 id_number만 바뀌는 건: {}건 → {})",
+                idNumCltcds.size(), idNumOnlyCltcds.size(), idNumOnlyCltcds);
+        log.info("[ERP미리보기][집계] 검증 3건 포함여부: {}", verifyInChanged);
+        log.info("[ERP미리보기][집계] ==============================================");
+        // ────────────────────────────────────────────────────────────────
+
+        Map<String, Object> fieldStats = new java.util.LinkedHashMap<>();
+        fieldStats.put("bank_account_changed_count",  bankAccCltcds.size());
+        fieldStats.put("bank_account_changed_cltcds", bankAccCltcds);
+        fieldStats.put("bank_code_changed_count",     bankCodeCltcds.size());
+        fieldStats.put("bank_code_changed_cltcds",    bankCodeCltcds);
+        fieldStats.put("id_number_changed_count",     idNumCltcds.size());
+        fieldStats.put("id_number_only_count",        idNumOnlyCltcds.size());
+        fieldStats.put("id_number_only_cltcds",       idNumOnlyCltcds);
+        fieldStats.put("member_no_changed_count",     payerCltcds.size());
+        fieldStats.put("member_no_changed_cltcds",    payerCltcds);
+        fieldStats.put("verify_records",              verifyInChanged);
+
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("spjangcd",         spjangcd);
+        result.put("new_count",        newRows.size());
+        result.put("same_count",       sameCount);             // 청구 성공 중, 보호
+        result.put("changed_count",    changedRows.size());    // 값문제 실패 → 교정
+        result.put("unverified_count", unverifiedRows.size()); // 이력 없음 → 수동검증
+        result.put("field_stats",      fieldStats);
+        result.put("new",              newRows);
+        result.put("changed",          changedRows);
+        result.put("unverified",       unverifiedRows);
+        return result;
+    }
+
+    private void syncCheckField(List<Map<String, Object>> changes, String field, String current, String newVal) {
+        if (newVal == null) newVal = "";
+        if (!current.equals(newVal)) {
+            Map<String, Object> c = new java.util.LinkedHashMap<>();
+            c.put("field", field); c.put("current", current); c.put("new", newVal);
+            changes.add(c);
+        }
+    }
+
+    /** ERP 동기화 선택 반영 — 선택된 cltcd만 INSERT/UPDATE */
+    public Map<String, Object> applySync(String spjangcd, List<String> selectedCltcds, String userId) {
+        Set<String> selected = (selectedCltcds != null && !selectedCltcds.isEmpty())
+                ? new java.util.HashSet<>(selectedCltcds) : null;
+        log.info("[ERP반영] 시작 spjangcd={} 선택={}", spjangcd, selected == null ? "전체" : selected.size() + "건");
+
+        Map<String, Object> erp = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT host, port, db_name, username, password, custcd, ms_spjangcd FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd));
+        if (erp == null) throw new IllegalStateException("ERP 접속정보가 없습니다.");
+        String custcd     = str(erp.get("custcd"));
+        String msSpjangcd = str(erp.get("ms_spjangcd"));
+
+        Map<String, Object> cms = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT is_normal_status, amount_round_unit FROM tb_xa012_cms WHERE spjangcd = :spjangcd AND ms_spjangcd IS NOT DISTINCT FROM :msSpjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd)
+                        .addValue("msSpjangcd", msSpjangcd.isEmpty() ? null : msSpjangcd));
+        if (cms == null || !Boolean.TRUE.equals(cms.get("is_normal_status")))
+            throw new IllegalStateException("CMS 서비스 상태가 승인이 아닙니다.");
+        int roundUnit = cms.get("amount_round_unit") != null ? ((Number) cms.get("amount_round_unit")).intValue() : 1;
+
+        Set<String> excludeSet = sqlRunner.getRows(/* skip_tenant_check */
+                        "SELECT cltcd FROM cms_member_sync_exclude WHERE spjangcd = :spjangcd",
+                        new MapSqlParameterSource("spjangcd", spjangcd))
+                .stream().map(r -> str(r.get("cltcd"))).collect(java.util.stream.Collectors.toSet());
+
+        String url = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
+                str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
+        try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
+        catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
+
+        int inserted = 0, updated = 0, skipped = 0, failed = 0;
+
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
+                url, str(erp.get("username")), str(erp.get("password")))) {
+
+            for (Map<String, Object> erpRow : fetchErpSyncRows(conn, custcd, roundUnit, excludeSet)) {
+                String actcd = str(erpRow.get("cltcd"));
+                if (selected != null && !selected.contains(actcd)) { skipped++; continue; }
+
+                try {
+                    Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
+                            "SELECT id, member_no, _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :actcd",
+                            new MapSqlParameterSource("spjangcd", spjangcd).addValue("actcd", actcd));
+
+                    String erpMemberNo = (String) erpRow.get("erp_member_no");
+                    String memberNo = (existing != null && StringUtils.hasText(str(existing.get("member_no"))))
+                            ? str(existing.get("member_no")) : erpMemberNo;
+
+                    MapSqlParameterSource p = new MapSqlParameterSource();
+                    p.addValue("spjangcd",     spjangcd);
+                    p.addValue("memberNo",     memberNo);
+                    p.addValue("cltcd",        actcd);
+                    p.addValue("agreeYn",      erpRow.get("agree_yn"));
+                    p.addValue("memberName",   erpRow.get("member_name"));
+                    p.addValue("memberType",   erpRow.get("member_type"));
+                    p.addValue("idNumber",     erpRow.get("id_number"));
+                    p.addValue("residentNo",   erpRow.get("resident_no"));
+                    p.addValue("bankCode",     erpRow.get("bank_code"));
+                    p.addValue("bankAccount",  erpRow.get("bank_account"));
+                    p.addValue("phone",        erpRow.get("phone"));
+                    p.addValue("email",        erpRow.get("email"));
+                    p.addValue("adresa",       erpRow.get("adresa"));
+                    p.addValue("zipcd",        erpRow.get("zipcd"));
+                    p.addValue("deductAmount", erpRow.get("deduct_amount"));
+                    p.addValue("deductDay",    erpRow.get("deduct_day"));
+                    p.addValue("startDate",    erpRow.get("start_date"));
+                    p.addValue("endDate",      erpRow.get("end_date"));
+                    p.addValue("cycleType",    erpRow.get("cycle_type"));
+                    p.addValue("cycleMonths",  erpRow.get("cycle_months"));
+                    p.addValue("userId",       userId);
+
+                    if (existing == null) {
+                        sqlRunner.execute(/* skip_tenant_check */
+                                """
+                                INSERT INTO cms_member (
+                                    spjangcd, member_no, member_type, member_name,
+                                    id_number, resident_no, bank_code, bank_account,
+                                    phone, email, adresa, zipcd,
+                                    deduct_amount, deduct_day, start_date, end_date,
+                                    cycle_type, cycle_months, agree_yn, cltcd, status,
+                                    _creater_id, _created, _modifier_id, _modified
+                                ) VALUES (
+                                    :spjangcd, :memberNo, :memberType, :memberName,
+                                    :idNumber, :residentNo, :bankCode, :bankAccount,
+                                    :phone, :email, :adresa, :zipcd,
+                                    :deductAmount, :deductDay, :startDate, :endDate,
+                                    :cycleType, :cycleMonths, :agreeYn, :cltcd, 'ACTIVE',
+                                    :userId, NOW(), :userId, NOW()
+                                )
+                                """, p);
+                        inserted++;
+                    } else {
+                        String before = str(existing.get("_modified"));
+                        sqlRunner.execute(/* skip_tenant_check */
+                                """
+                                UPDATE cms_member SET
+                                 member_name    = :memberName,    member_type    = :memberType,
+                                 member_no      = COALESCE(:memberNo, member_no),
+                                 id_number      = :idNumber,      resident_no    = :residentNo,
+                                 bank_code      = :bankCode,      bank_account   = :bankAccount,
+                                 phone          = :phone,         email          = :email,
+                                 adresa         = :adresa,        zipcd          = :zipcd,
+                                 deduct_amount  = :deductAmount,  deduct_day     = :deductDay,
+                                 start_date     = :startDate,     end_date       = :endDate,
+                                 cycle_type     = :cycleType,     cycle_months   = :cycleMonths,
+                                 agree_yn       = CASE WHEN :agreeYn='Y' THEN 'Y' ELSE agree_yn END,
+                                 _modifier_id   = CASE WHEN (
+                                     COALESCE(member_type,'')   != COALESCE(:memberType,'')   OR
+                                     COALESCE(member_name,'')   != COALESCE(:memberName,'')   OR
+                                     COALESCE(id_number,'')     != COALESCE(:idNumber,'')     OR
+                                     COALESCE(resident_no,'')   != COALESCE(:residentNo,'')   OR
+                                     COALESCE(bank_code,'')     != COALESCE(:bankCode,'')     OR
+                                     COALESCE(bank_account,'')  != COALESCE(:bankAccount,'')  OR
+                                     COALESCE(phone,'')         != COALESCE(:phone,'')        OR
+                                     COALESCE(email,'')         != COALESCE(:email,'')        OR
+                                     COALESCE(adresa,'')        != COALESCE(:adresa,'')       OR
+                                     COALESCE(zipcd,'')         != COALESCE(:zipcd,'')        OR
+                                     COALESCE(deduct_amount,0)  != COALESCE(:deductAmount,0)  OR
+                                     COALESCE(deduct_day,'')    != COALESCE(:deductDay,'')    OR
+                                     COALESCE(start_date,'')    != COALESCE(:startDate,'')    OR
+                                     COALESCE(end_date,'')      != COALESCE(:endDate,'')      OR
+                                     COALESCE(cycle_type,'')    != COALESCE(:cycleType,'')    OR
+                                     COALESCE(cycle_months,'')  != COALESCE(:cycleMonths,'')
+                                 ) THEN :userId ELSE _modifier_id END,
+                                 _modified      = CASE WHEN (
+                                     COALESCE(member_type,'')   != COALESCE(:memberType,'')   OR
+                                     COALESCE(member_name,'')   != COALESCE(:memberName,'')   OR
+                                     COALESCE(id_number,'')     != COALESCE(:idNumber,'')     OR
+                                     COALESCE(resident_no,'')   != COALESCE(:residentNo,'')   OR
+                                     COALESCE(bank_code,'')     != COALESCE(:bankCode,'')     OR
+                                     COALESCE(bank_account,'')  != COALESCE(:bankAccount,'')  OR
+                                     COALESCE(phone,'')         != COALESCE(:phone,'')        OR
+                                     COALESCE(email,'')         != COALESCE(:email,'')        OR
+                                     COALESCE(adresa,'')        != COALESCE(:adresa,'')       OR
+                                     COALESCE(zipcd,'')         != COALESCE(:zipcd,'')        OR
+                                     COALESCE(deduct_amount,0)  != COALESCE(:deductAmount,0)  OR
+                                     COALESCE(deduct_day,'')    != COALESCE(:deductDay,'')    OR
+                                     COALESCE(start_date,'')    != COALESCE(:startDate,'')    OR
+                                     COALESCE(end_date,'')      != COALESCE(:endDate,'')      OR
+                                     COALESCE(cycle_type,'')    != COALESCE(:cycleType,'')    OR
+                                     COALESCE(cycle_months,'')  != COALESCE(:cycleMonths,'')
+                                 ) THEN NOW() ELSE _modified END
+                                WHERE spjangcd = :spjangcd AND cltcd = :cltcd
+                                """, p);
+
+                        Map<String, Object> after = sqlRunner.getRow(/* skip_tenant_check */
+                                "SELECT _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :cltcd",
+                                new MapSqlParameterSource("spjangcd", spjangcd).addValue("cltcd", actcd));
+                        if (!before.equals(after != null ? str(after.get("_modified")) : "")) updated++;
+                        else skipped++;
+                    }
+                } catch (Exception e) {
+                    log.warn("[ERP반영] 행 처리 실패: actcd={} {}", actcd, e.getMessage());
+                    failed++;
+                }
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("MSSQL 접속 실패: " + e.getMessage());
+        }
+
+        log.info("[ERP반영] 완료 spjangcd={} 신규={} 수정={} 스킵={} 실패={}", spjangcd, inserted, updated, skipped, failed);
+        return Map.of("inserted", inserted, "updated", updated, "skipped", skipped, "failed", failed);
+    }
+
+    /**
+     * ERP ↔ cms_member 동기화 오염 진단 (읽기 전용 — UPDATE 없음)
+     *
+     * EB13 대조 후 cms_billing 최근 결과코드로 교차검증:
+     *  - 성공계열 (0000/0021)            → "성공중(오염아님)"
+     *  - 값문제실패 (0017/0012/0013/0014) → "진짜오염"
+     *  - 청구이력 없음                    → "검증불가(미청구)"
+     *
+     * STEP 1 검증 3건(114631·161305·130437)은 반드시 일치로 나와야 한다.
+     */
+    public Map<String, Object> diagnoseSync(String spjangcd) {
+        log.info("[ERP진단] 시작 spjangcd={}", spjangcd);
+
+        // 1. ERP 접속정보
+        Map<String, Object> erp = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT host, port, db_name, username, password, custcd FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd));
+        if (erp == null) throw new IllegalStateException("ERP 접속정보가 없습니다.");
+        String custcd = str(erp.get("custcd"));
+        if (custcd.isEmpty()) throw new IllegalStateException("업체코드(custcd)가 없습니다.");
+
+        // 2. cms_member 현재값 로드 (id 포함)
+        List<Map<String, Object>> members = sqlRunner.getRows(/* skip_tenant_check */
+                "SELECT id, cltcd, member_no, member_name, id_number, bank_code, bank_account, agree_yn FROM cms_member WHERE spjangcd = :spjangcd ORDER BY cltcd",
+                new MapSqlParameterSource("spjangcd", spjangcd));
+
+        Map<String, Map<String, Object>> memberMap = new java.util.LinkedHashMap<>();
+        for (Map<String, Object> m : members) memberMap.put(str(m.get("cltcd")), m);
+
+        // 3. 최근 billing result_code per member_id (DISTINCT ON: PostgreSQL)
+        List<Map<String, Object>> billingRows = sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT DISTINCT ON (b.member_id) b.member_id, b.result_code
+                FROM cms_billing b
+                WHERE b.spjangcd = :spjangcd
+                ORDER BY b.member_id,
+                    b.deduct_date DESC NULLS LAST,
+                    b._created DESC NULLS LAST
+                """,
+                new MapSqlParameterSource("spjangcd", spjangcd));
+
+        Map<Long, String> billingMap = new java.util.HashMap<>();
+        for (Map<String, Object> br : billingRows) {
+            Object mid = br.get("member_id");
+            if (mid != null) billingMap.put(((Number) mid).longValue(), str(br.get("result_code")));
+        }
+
+        java.util.Set<String> successCodes = java.util.Set.of("0000", "0021");
+        java.util.Set<String> failureCodes = java.util.Set.of("0017", "0012", "0013", "0014");
+
+        // 4. MSSQL 연결
+        String url = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
+                str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
+        try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
+        catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
+
+        List<Map<String, Object>> bankCodeMismatch    = new java.util.ArrayList<>();
+        List<Map<String, Object>> bankAccountMismatch = new java.util.ArrayList<>();
+        List<Map<String, Object>> payerMismatch       = new java.util.ArrayList<>();
+        List<Map<String, Object>> idNumberMismatch    = new java.util.ArrayList<>();
+        List<Map<String, Object>> noEb13              = new java.util.ArrayList<>();
+        List<Map<String, Object>> abnormalPayer       = new java.util.ArrayList<>();
+        List<Map<String, Object>> realContamination   = new java.util.ArrayList<>();
+
+        // per-category 집계: [0]진짜오염 [1]성공중 [2]검증불가 [3]기타실패
+        int[] bankCodeCounts    = {0, 0, 0, 0};
+        int[] bankAccountCounts = {0, 0, 0, 0};
+        int[] payerCounts       = {0, 0, 0, 0};
+        int[] idNumberCounts    = {0, 0, 0, 0};
+
+        Map<String, Map<String, Object>> eb13Map = new java.util.LinkedHashMap<>();
+
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
+                url, str(erp.get("username")), str(erp.get("password")))) {
+
+            // 4a. 이상 등록건: ENDFLAG='Y' 이지만 BANKCLTCD가 납부자번호 형태 아님
+            String abnSql =
+                    "SELECT DISTINCT CLTCD, BANKCLTCD FROM TB_CMSEB13 WITH(NOLOCK)" +
+                    " WHERE CUSTCD = ? AND ENDFLAG = 'Y'" +
+                    " AND (PATINDEX('%[^0-9]%', LTRIM(RTRIM(BANKCLTCD))) > 0" +
+                    "   OR LEN(LTRIM(RTRIM(BANKCLTCD))) NOT BETWEEN 10 AND 13)";
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(abnSql)) {
+                ps.setString(1, custcd);
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String cltcd = rs.getString("CLTCD");
+                        if (!memberMap.containsKey(cltcd)) continue;
+                        Map<String, Object> row = new java.util.LinkedHashMap<>();
+                        row.put("cltcd", cltcd);
+                        row.put("member_name", str(memberMap.get(cltcd).get("member_name")));
+                        row.put("raw_bankcltcd", rs.getString("BANKCLTCD"));
+                        abnormalPayer.add(row);
+                    }
+                }
+            }
+
+            // 4b. 유효 최신 등록건: CLTCD 단일매칭, ENDFLAG='Y', 정상 BANKCLTCD, SPDATE 최신
+            String eb13Sql =
+                    "SELECT EB.CLTCD," +
+                    " LTRIM(RTRIM(EB.BANKCLTCD)) AS payer_no," +
+                    " EB.BANKCD AS erp_bank_code," +
+                    " LTRIM(RTRIM(COALESCE(XB.bnkcode, ''))) AS cms_bank_code," +
+                    " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM, ''))), '-', ''), ' ', '') AS bank_account," +
+                    " LTRIM(RTRIM(COALESCE(EB.SAUPNUM, ''))) AS id_number," +
+                    " EB.SPDATE" +
+                    " FROM TB_CMSEB13 EB WITH(NOLOCK)" +
+                    " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD = XB.bankcd" +
+                    " WHERE EB.CUSTCD = ?" +
+                    " AND EB.ENDFLAG = 'Y'" +
+                    " AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(EB.BANKCLTCD))) = 0" +
+                    " AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13" +
+                    " AND EB.SPDATE = (" +
+                    "   SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)" +
+                    "   WHERE CLTCD = EB.CLTCD AND CUSTCD = EB.CUSTCD AND ENDFLAG = 'Y'" +
+                    "   AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(BANKCLTCD))) = 0" +
+                    "   AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13" +
+                    " )";
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(eb13Sql)) {
+                ps.setString(1, custcd);
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String cltcd = rs.getString("CLTCD");
+                        if (eb13Map.containsKey(cltcd)) continue; // SPDATE 동일 중복은 첫 번째
+                        Map<String, Object> row = new java.util.LinkedHashMap<>();
+                        row.put("cltcd", cltcd);
+                        row.put("payer_no",      str(rs.getString("payer_no")));
+                        row.put("erp_bank_code", str(rs.getString("erp_bank_code")));
+                        row.put("cms_bank_code", str(rs.getString("cms_bank_code")));
+                        row.put("bank_account",  str(rs.getString("bank_account")));
+                        row.put("id_number",     str(rs.getString("id_number")));
+                        row.put("spdate",        str(rs.getString("SPDATE")));
+                        eb13Map.put(cltcd, row);
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            throw new IllegalStateException("MSSQL 접속 실패: " + e.getMessage());
+        }
+
+        // 5. 대조 및 분류
+        int matchCount     = 0;
+        int protectedCount = 0; // 청구 성공 중 → EB13 비교 생략
+        java.util.Set<String> verifySet = java.util.Set.of("114631", "161305", "130437");
+        Map<String, Map<String, Object>> verifyRecords = new java.util.LinkedHashMap<>();
+
+        for (Map.Entry<String, Map<String, Object>> entry : memberMap.entrySet()) {
+            String cltcd  = entry.getKey();
+            Map<String, Object> member = entry.getValue();
+
+            String memberNo   = str(member.get("member_no")).trim();
+            String memberName = str(member.get("member_name"));
+            String idNumber   = str(member.get("id_number")).replaceAll("[-\\s]", "").trim();
+            String bankCode   = str(member.get("bank_code")).trim();
+            String bankAcc    = str(member.get("bank_account")).replaceAll("[-\\s]", "").trim();
+
+            Object midObj = member.get("id");
+            Long memberId = midObj != null ? ((Number) midObj).longValue() : null;
+            String lastResultCode = memberId != null ? billingMap.get(memberId) : null;
+
+            // 청구 성공 중 → 현재값이 실제 작동값, EB13 비교 생략
+            if (lastResultCode != null && successCodes.contains(lastResultCode)) {
+                protectedCount++;
+                if (verifySet.contains(cltcd))
+                    verifyRecords.put(cltcd, diagVerifyRow(cltcd, memberName, "성공중(보호)", lastResultCode));
+                continue;
+            }
+
+            String billingClass;
+            if (lastResultCode == null)                    billingClass = "검증불가(미청구)";
+            else if (failureCodes.contains(lastResultCode)) billingClass = "진짜오염";
+            else                                            billingClass = "기타실패(" + lastResultCode + ")";
+
+            Map<String, Object> eb13 = eb13Map.get(cltcd);
+            if (eb13 == null) {
+                Map<String, Object> row = new java.util.LinkedHashMap<>();
+                row.put("cltcd", cltcd);
+                row.put("member_name", memberName);
+                row.put("member_no", memberNo);
+                row.put("agree_yn", str(member.get("agree_yn")));
+                row.put("last_result_code", lastResultCode);
+                noEb13.add(row);
+                if (verifySet.contains(cltcd))
+                    verifyRecords.put(cltcd, diagVerifyRow(cltcd, memberName, "EB13없음", lastResultCode));
+                continue;
+            }
+
+            String eb13Payer    = str(eb13.get("payer_no"));
+            String eb13BankCode = str(eb13.get("cms_bank_code"));
+            String eb13BankAcc  = str(eb13.get("bank_account"));
+            String eb13IdNum    = str(eb13.get("id_number")).replaceAll("[-\\s]", "");
+            String spdate       = str(eb13.get("spdate"));
+
+            boolean allMatch = true;
+
+            if (!bankCode.equals(eb13BankCode)) {
+                Map<String, Object> row = new java.util.LinkedHashMap<>();
+                row.put("cltcd", cltcd);                      row.put("member_name", memberName);
+                row.put("current_bank_code", bankCode);       row.put("eb13_bank_code", eb13BankCode);
+                row.put("erp_bank_code", str(eb13.get("erp_bank_code")));
+                row.put("spdate", spdate);
+                row.put("last_result_code", lastResultCode);  row.put("billing_classification", billingClass);
+                bankCodeMismatch.add(row);
+                diagCountUp(bankCodeCounts, billingClass);
+                if ("진짜오염".equals(billingClass))
+                    realContamination.add(diagRealRow(cltcd, memberName, "bank_code", bankCode, eb13BankCode, lastResultCode));
+                allMatch = false;
+            }
+            if (!bankAcc.equals(eb13BankAcc)) {
+                Map<String, Object> row = new java.util.LinkedHashMap<>();
+                row.put("cltcd", cltcd);                      row.put("member_name", memberName);
+                row.put("current_bank_account", bankAcc);     row.put("eb13_bank_account", eb13BankAcc);
+                row.put("current_bank_code", bankCode);       row.put("eb13_bank_code", eb13BankCode);
+                row.put("spdate", spdate);
+                row.put("last_result_code", lastResultCode);  row.put("billing_classification", billingClass);
+                bankAccountMismatch.add(row);
+                diagCountUp(bankAccountCounts, billingClass);
+                if ("진짜오염".equals(billingClass))
+                    realContamination.add(diagRealRow(cltcd, memberName, "bank_account", bankAcc, eb13BankAcc, lastResultCode));
+                allMatch = false;
+            }
+            if (!memberNo.equals(eb13Payer)) {
+                Map<String, Object> row = new java.util.LinkedHashMap<>();
+                row.put("cltcd", cltcd);                      row.put("member_name", memberName);
+                row.put("current_payer", memberNo);           row.put("eb13_payer", eb13Payer);
+                row.put("spdate", spdate);
+                row.put("last_result_code", lastResultCode);  row.put("billing_classification", billingClass);
+                payerMismatch.add(row);
+                diagCountUp(payerCounts, billingClass);
+                if ("진짜오염".equals(billingClass))
+                    realContamination.add(diagRealRow(cltcd, memberName, "payer", memberNo, eb13Payer, lastResultCode));
+                allMatch = false;
+            }
+            if (!idNumber.equals(eb13IdNum)) {
+                Map<String, Object> row = new java.util.LinkedHashMap<>();
+                row.put("cltcd", cltcd);                      row.put("member_name", memberName);
+                row.put("current_id_number", idNumber);       row.put("eb13_id_number", eb13IdNum);
+                row.put("spdate", spdate);
+                row.put("last_result_code", lastResultCode);  row.put("billing_classification", billingClass);
+                idNumberMismatch.add(row);
+                diagCountUp(idNumberCounts, billingClass);
+                if ("진짜오염".equals(billingClass))
+                    realContamination.add(diagRealRow(cltcd, memberName, "id_number", idNumber, eb13IdNum, lastResultCode));
+                allMatch = false;
+            }
+
+            if (allMatch) {
+                matchCount++;
+                if (verifySet.contains(cltcd))
+                    verifyRecords.put(cltcd, diagVerifyRow(cltcd, memberName, "정상(일치)", lastResultCode));
+            } else {
+                if (verifySet.contains(cltcd))
+                    verifyRecords.put(cltcd, diagVerifyRow(cltcd, memberName, "불일치-" + billingClass, lastResultCode));
+            }
+        }
+
+        log.info("[ERP진단] 완료 spjangcd={} 전체={} EB13유효={} 성공중보호={} EB13일치={} 진짜오염={}",
+                spjangcd, members.size(), eb13Map.size(), protectedCount, matchCount, realContamination.size());
+        for (String vc : java.util.List.of("114631", "161305", "130437")) {
+            Map<String, Object> vr = verifyRecords.get(vc);
+            if (vr != null) log.info("[ERP진단][검증] cltcd={} classification={} last_result_code={}",
+                    vc, vr.get("classification"), vr.get("last_result_code"));
+            else            log.info("[ERP진단][검증] cltcd={} → cms_member에 없음", vc);
+        }
+
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("spjangcd",          spjangcd);
+        result.put("total_members",     members.size());
+        result.put("total_eb13_valid",  eb13Map.size());
+        result.put("protected_count",   protectedCount); // 청구 성공 중 → EB13 비교 생략
+        result.put("match_count",       matchCount);     // EB13 기준 일치
+        // per-category 요약 (전체 = 진짜오염 + 성공중 + 검증불가 + 기타실패)
+        result.put("bank_code_mismatch_count",       bankCodeMismatch.size());
+        result.put("bank_code_진짜오염",             bankCodeCounts[0]);
+        result.put("bank_code_성공중",               bankCodeCounts[1]);
+        result.put("bank_code_검증불가",             bankCodeCounts[2]);
+        result.put("bank_account_mismatch_count",    bankAccountMismatch.size());
+        result.put("bank_account_진짜오염",          bankAccountCounts[0]);
+        result.put("bank_account_성공중",            bankAccountCounts[1]);
+        result.put("bank_account_검증불가",          bankAccountCounts[2]);
+        result.put("payer_mismatch_count",           payerMismatch.size());
+        result.put("payer_진짜오염",                 payerCounts[0]);
+        result.put("payer_성공중",                   payerCounts[1]);
+        result.put("payer_검증불가",                 payerCounts[2]);
+        result.put("id_number_mismatch_count",       idNumberMismatch.size());
+        result.put("id_number_진짜오염",             idNumberCounts[0]);
+        result.put("id_number_성공중",               idNumberCounts[1]);
+        result.put("id_number_검증불가",             idNumberCounts[2]);
+        result.put("no_eb13_count",               noEb13.size());
+        result.put("abnormal_payer_count",        abnormalPayer.size());
+        // 진짜오염 통합 (cltcd, member_name, field, current_value, eb13_value, last_result_code)
+        result.put("real_contamination_count",    realContamination.size());
+        result.put("real_contamination",          realContamination);
+        // 검증 3건 상태
+        result.put("verification_records",        verifyRecords);
+        // 전체 상세 목록 (billing 분류 포함)
+        result.put("bank_code_mismatch",          bankCodeMismatch);
+        result.put("bank_account_mismatch",       bankAccountMismatch);
+        result.put("payer_mismatch",              payerMismatch);
+        result.put("id_number_mismatch",          idNumberMismatch);
+        result.put("no_eb13",                     noEb13);
+        result.put("abnormal_payer",              abnormalPayer);
+        return result;
+    }
+
+    private void diagCountUp(int[] counts, String billingClass) {
+        if ("진짜오염".equals(billingClass))              counts[0]++;
+        else if ("성공중(오염아님)".equals(billingClass))  counts[1]++;
+        else if ("검증불가(미청구)".equals(billingClass))  counts[2]++;
+        else                                              counts[3]++;
+    }
+
+    private Map<String, Object> diagRealRow(String cltcd, String memberName, String field,
+                                             String currentValue, String eb13Value, String lastResultCode) {
+        Map<String, Object> row = new java.util.LinkedHashMap<>();
+        row.put("cltcd", cltcd);
+        row.put("member_name", memberName);
+        row.put("field", field);
+        row.put("current_value", currentValue);
+        row.put("eb13_value", eb13Value);
+        row.put("last_result_code", lastResultCode);
+        return row;
+    }
+
+    private Map<String, Object> diagVerifyRow(String cltcd, String memberName,
+                                               String classification, String lastResultCode) {
+        Map<String, Object> row = new java.util.LinkedHashMap<>();
+        row.put("cltcd", cltcd);
+        row.put("member_name", memberName);
+        row.put("classification", classification);
+        row.put("last_result_code", lastResultCode);
+        return row;
+    }
+
     /** unit 단위 반올림 (1=원단위, 10=십원단위). 0.5는 올림. */
     private long roundAmount(double v, int unit) {
         if (unit <= 1) return Math.round(v);
@@ -1084,6 +2001,71 @@ public class CmsMemberService {
         // 6자리면 20XX로 변환
         if (cleaned.length() == 6) cleaned = "20" + cleaned;
         return cleaned.length() >= 8 ? cleaned.substring(0, 8) : cleaned;
+    }
+
+    public Map<String, Object> cancelMember(Long memberId, String userId) {
+        String spjangcd = TenantContext.get();
+
+        Map<String, Object> member = sqlRunner.getRow(/* skip_tenant_check */
+                """
+                SELECT id, member_no, bank_code, bank_account, id_number, member_type,
+                       member_name, status
+                FROM cms_member
+                WHERE id = :memberId AND spjangcd = :spjangcd
+                """,
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+
+        if (member == null) throw new IllegalArgumentException("회원을 찾을 수 없습니다.");
+        if (!"ACTIVE".equals(str(member.get("status"))))
+            throw new IllegalStateException("ACTIVE 상태 회원만 해지 가능. 현재: " + str(member.get("status")));
+
+        // 해지 신청 행 INSERT (신규 이력은 그대로 두고 별도 행)
+        Map<String, Object> regRow = sqlRunner.getRow(/* skip_tenant_check */
+                """
+                INSERT INTO cms_account_register (
+                    spjangcd, member_id, member_name, member_no,
+                    bank_code, bank_account, id_number, member_type,
+                    apply_type, apply_date, ei13_status, eb13_status, status,
+                    _creater_id, _created, _modifier_id, _modified
+                ) VALUES (
+                    :spjangcd, :memberId, :memberName, :memberNo,
+                    :bankCode, :bankAccount, :idNumber, :memberType,
+                    '3', TO_CHAR(NOW(),'YYYYMMDD'), 'SENT', 'PENDING', 'PENDING',
+                    :userId, NOW(), :userId, NOW()
+                ) RETURNING id
+                """,
+                new MapSqlParameterSource()
+                        .addValue("spjangcd",    spjangcd)
+                        .addValue("memberId",    memberId)
+                        .addValue("memberName",  str(member.get("member_name")))
+                        .addValue("memberNo",    str(member.get("member_no")))
+                        .addValue("bankCode",    str(member.get("bank_code")))
+                        .addValue("bankAccount", str(member.get("bank_account")))
+                        .addValue("idNumber",    str(member.get("id_number")))
+                        .addValue("memberType",  str(member.get("member_type")))
+                        .addValue("userId",      userId));
+
+        long registerId = ((Number) regRow.get("id")).longValue();
+
+        Map<String, Object> result = cmsEb13SendService.send(List.of(registerId));
+        int sent = ((Number) result.getOrDefault("sent", 0)).intValue();
+
+        if (sent > 0) {
+            sqlRunner.execute(/* skip_tenant_check */
+                    """
+                    UPDATE cms_member SET status='PENDING_CANCEL',
+                        _modifier_id=:userId, _modified=NOW()
+                    WHERE id=:memberId AND spjangcd=:spjangcd
+                    """,
+                    new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd).addValue("userId", userId));
+            return Map.of("success", true, "message", "해지 신청이 완료되었습니다.");
+        } else {
+            // 발송 실패 시 방금 만든 해지행 정리 (원복)
+            sqlRunner.execute(/* skip_tenant_check */
+                    "UPDATE cms_account_register SET status='FAILED', eb13_status='FAILED' WHERE id=:registerId",
+                    new MapSqlParameterSource("registerId", registerId));
+            throw new RuntimeException("EB13 해지 파일 송신 실패 register_id=" + registerId);
+        }
     }
 
     public void manualAgree(Long memberId, String userId) {

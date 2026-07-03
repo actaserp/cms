@@ -275,18 +275,25 @@
                     </dl>
                 </div>
                 <div style="padding: 6px 0;">
-<!--                    <button type="button" class="btn-default" id="btnRecharge"-->
-<!--                            style="background:#dc3545; color:#fff;">재청구</button>-->
+                    <!--                    <button type="button" class="btn-default" id="btnRecharge"-->
+                    <!--                            style="background:#dc3545; color:#fff;">재청구</button>-->
                     <button type="button" class="btn-default" id="btnReceiveNow"
                             style="background:#4a6cf7; color:#fff;">결과 수신</button>
                 </div>
             </div>
             <div class="container-fluid">
                 <div id="theGrid"></div>
+                <div id="paginationBar" style="display:flex; align-items:center; gap:6px; margin:6px 0;">
+                    <button onclick="searchList(0)"             style="padding:2px 8px;">◀◀</button>
+                    <button onclick="searchList(currentPage-1)" style="padding:2px 8px;" id="btnPrevPage">◀</button>
+                    <span id="pageInfo" style="font-size:13px;"></span>
+                    <button onclick="searchList(currentPage+1)" style="padding:2px 8px;" id="btnNextPage">▶</button>
+                    <button onclick="searchList(totalPages-1)"  style="padding:2px 8px;" id="btnLastPage">▶▶</button>
+                </div>
                 <div class="grid-summary">
-                    <div>전체 건수: <span id="summaryTotal">0</span>건</div>
-                    <div>전체 합계: <span id="summaryTotalAmt">0</span>원</div>
-                    <div id="summaryChecked" style="display:none;">체크 건수: <span id="summaryCheckedCount">0</span>건 &nbsp; 합계: <span id="summaryCheckedAmt">0</span>원</div>
+                    <div>전체: <span id="summaryTotal">0</span>건 &nbsp; 페이지 합계: <span id="summaryPageAmt">0</span>원</div>
+                    <div>페이지 성공: <span id="summarySuccessCount">0</span>건 &nbsp; <span id="summarySuccessAmt">0</span>원</div>
+                    <div>페이지 실패: <span id="summaryFailCount">0</span>건 &nbsp; <span id="summaryFailAmt">0</span>원</div>
                 </div>
             </div>
         </section>
@@ -340,15 +347,6 @@
         };
 
         var columns = [
-            {
-                binding: 'selected',
-                header: '',
-                width: 40,
-                align: 'center',
-                allowSorting: false,
-                isReadOnly: false,
-                dataType: 'Boolean'
-            },
             {binding: 'billing_seq',  header: '청구번호',  width: 130, align: 'center'},
             {binding: 'member_name',  header: '납부자명',  width: 140, align: 'left'},
             {binding: 'bank_name',    header: '은행',      width: 80,  align: 'center'},
@@ -389,14 +387,18 @@
 
         document.readyState === 'complete' ? init() : window.onload = init;
 
+        var currentPage = 0, totalPages = 1;
+
         function init() {
             var now = new Date();
             var ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
             $('#srchBillingYm').val(ym);
-            searchList();
+            searchList(0);
         }
 
-        function searchList() {
+        function searchList(page) {
+            if (page < 0 || page >= totalPages) return;
+            currentPage = page;
             var ymVal = $('#srchBillingYm').val();
             if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
             $.ajax({
@@ -407,20 +409,29 @@
                     result_date: ($('#srchResultDate').val() || '').replace(/-/g, ''),
                     status:      $('#srchStatus').val(),
                     member_name: $('#srchMemberName').val(),
-                    deduct_type: 'EC'
+                    deduct_type: 'EC',
+                    page: currentPage,
+                    size: 10
                 },
                 success: function(result) {
                     if (result.success) {
-                        bindGrid(result.data || []);
-                        updateSummary(result.data || []);
+                        var d = result.data;
+                        bindGrid(d.data || []);
+                        updateSummary(d);
+                        updatePagination(d.totalCount);
                     }
                 }
             });
         }
 
-        function bindGrid(data) {
-            data.forEach(function(item) { item.selected = false; });
+        function updatePagination(totalCount) {
+            totalPages = Math.max(1, Math.ceil(totalCount / 10));
+            $('#pageInfo').text((currentPage + 1) + ' / ' + totalPages + ' 페이지');
+            $('#btnPrevPage').prop('disabled', currentPage === 0);
+            $('#btnNextPage, #btnLastPage').prop('disabled', currentPage >= totalPages - 1);
+        }
 
+        function bindGrid(data) {
             if (theGrid) theGrid.dispose();
             viewdata = new wijmo.collections.CollectionView(data);
             theGrid = new wijmo.grid.FlexGrid('#theGrid', {
@@ -431,43 +442,6 @@
                 itemsSource: viewdata
             });
             theGrid.rowHeaders.columns.splice(0, 1);
-
-            // 헤더 전체선택 체크박스 (FAIL 건만)
-            theGrid.formatItem.addHandler(function(s, e) {
-                var col = s.columns[e.col];
-
-                // 헤더 전체선택 체크박스
-                if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader && col.binding === 'selected') {
-                    e.cell.innerHTML = '<input type="checkbox" id="chkAll">';
-                    var chkAll = e.cell.querySelector('#chkAll');
-                    if (chkAll) {
-                        chkAll.checked = viewdata.items.length > 0
-                            && viewdata.items.every(function(r) { return r.selected; });
-                        chkAll.onclick = function(ev) {
-                            var checked = ev.target.checked;
-                            viewdata.items.forEach(function(r) { r.selected = checked; });
-                            theGrid.refresh();
-                            updateCheckedSummary();
-                        };
-                    }
-                }
-
-                // 셀 체크박스 - 모든 행에 표시
-                if (e.panel.cellType === wijmo.grid.CellType.Cell && col.binding === 'selected') {
-                    var item = s.rows[e.row].dataItem;
-                    e.cell.innerHTML = '<input type="checkbox" class="row-check"'
-                        + (item && item.selected ? ' checked' : '') + '>';
-                }
-            });
-
-            $('#theGrid').on('change', '.row-check', function() {
-                var row = theGrid.hitTest(this).row;
-                if (row >= 0) {
-                    var item = viewdata.items[row];
-                    if (item) item.selected = $(this).is(':checked');
-                }
-                updateCheckedSummary();
-            });
         }
 
         function openRechargeModal() {
@@ -549,7 +523,7 @@
                     function(result) {
                         if (result.success) {
                             Alert.alert('', (result.data ? result.data.count : 0) + '건 재청구 생성되었습니다.');
-                            searchList();
+                            searchList(0);
                         } else {
                             Alert.alert('재청구 실패', result.message);
                         }
@@ -557,37 +531,37 @@
             });
         }
 
-        function updateSummary(data) {
+        function updateSummary(d) {
+            var data = d.data || [];
             var successItems = data.filter(function(i) { return i.status === 'SUCCESS'; });
             var failItems    = data.filter(function(i) { return i.status === 'FAIL'; });
 
             var successAmt = successItems.reduce(function(s, i) { return s + (Number(i.billing_amount) || 0); }, 0);
             var failAmt    = failItems.reduce(function(s, i)    { return s + (Number(i.billing_amount) || 0); }, 0);
-            var totalAmt   = data.reduce(function(s, i)         { return s + (Number(i.billing_amount) || 0); }, 0);
-
-            var rate = totalAmt > 0 ? (successAmt / totalAmt * 100).toFixed(1) : '0.0';
+            var pageAmt    = data.reduce(function(s, i)         { return s + (Number(i.billing_amount) || 0); }, 0);
+            var rate = pageAmt > 0 ? (successAmt / pageAmt * 100).toFixed(1) : '0.0';
 
             $('#cardSuccessCount').text(successItems.length.toLocaleString() + '건');
             $('#cardSuccessAmt').text(successAmt.toLocaleString() + '원');
             $('#cardFailCount').text(failItems.length.toLocaleString() + '건');
             $('#cardFailAmt').text(failAmt.toLocaleString() + '원');
             $('#cardRate').text(rate + '%');
-            $('#cardRateSub').text(successAmt.toLocaleString() + '원 / ' + totalAmt.toLocaleString() + '원');
+            $('#cardRateSub').text(successAmt.toLocaleString() + '원 / ' + pageAmt.toLocaleString() + '원');
 
-            $('#summaryTotal').text(data.length.toLocaleString());
-            $('#summaryTotalAmt').text(totalAmt.toLocaleString());
-        }
+            // ── 하단 grid-summary: 전체 합계 + 현재 페이지 기준 성공/실패 ──
+            var pageSuccessAmt = successItems.reduce(function(s, i) {
+                return s + (Number(i.billing_amount) || 0);
+            }, 0);
+            var pageFailAmt = failItems.reduce(function(s, i) {
+                return s + (Number(i.billing_amount) || 0);
+            }, 0);
 
-        function updateCheckedSummary() {
-            var checked = viewdata ? viewdata.items.filter(function(i) { return i.selected; }) : [];
-            if (checked.length === 0) {
-                $('#summaryChecked').hide();
-            } else {
-                var amt = checked.reduce(function(s, i) { return s + (Number(i.billing_amount) || 0); }, 0);
-                $('#summaryCheckedCount').text(checked.length.toLocaleString());
-                $('#summaryCheckedAmt').text(amt.toLocaleString());
-                $('#summaryChecked').show();
-            }
+            $('#summaryTotal').text((d.totalCount || 0).toLocaleString());
+            $('#summaryPageAmt').text(pageAmt.toLocaleString());
+            $('#summarySuccessCount').text(successItems.length.toLocaleString());
+            $('#summarySuccessAmt').text(pageSuccessAmt.toLocaleString());
+            $('#summaryFailCount').text(failItems.length.toLocaleString());
+            $('#summaryFailAmt').text(pageFailAmt.toLocaleString());
         }
 
         function openEc22FilesModal() {
@@ -696,7 +670,7 @@
                         if (response.success) {
                             Alert.alert('', response.data.message || '처리가 완료되었습니다.');
                             $('#modalEc22Files').removeClass('show');
-                            searchList();
+                            searchList(0);
                         } else {
                             Alert.alert('처리 실패', response.message);
                         }
@@ -706,19 +680,23 @@
         }
 
         $(document).ready(function() {
-            $('#btnSearch').click(searchList);
-            $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
+            $('#btnSearch').click(function () {
+                searchList(0);
+            });
+            $('#srchMemberName').keypress(function (e) {
+                if (e.which === 13) searchList(0);
+            });
             $('#btnResend').click(openRechargeModal);
             $('#btnRechargeConfirm').click(doRecharge);
             // 결과 수신 버튼 클릭
             $('#btnReceiveNow').click(openEc22FilesModal);
 
             // 모달 닫기
-            $('#btnEc22Cancel').click(function() {
+            $('#btnEc22Cancel').click(function () {
                 $('#modalEc22Files').removeClass('show');
             });
             // 모달 외부 클릭으로 닫기
-            $('#modalEc22Files').click(function(e) {
+            $('#modalEc22Files').click(function (e) {
                 if ($(e.target).is('#modalEc22Files')) {
                     $('#modalEc22Files').removeClass('show');
                 }

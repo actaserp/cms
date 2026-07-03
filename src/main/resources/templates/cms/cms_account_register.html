@@ -174,6 +174,13 @@
 
             <div class="container-fluid">
                 <div id="theGrid"></div>
+                <div id="paginationBar" style="display:flex; align-items:center; gap:6px; margin:6px 0;">
+                    <button id="btnFirstPage" onclick="searchList(0)" style="padding:2px 8px;">◀◀</button>
+                    <button id="btnPrevPage"  onclick="searchList(currentPage-1)" style="padding:2px 8px;">◀</button>
+                    <span id="pageInfo" style="font-size:13px;"></span>
+                    <button id="btnNextPage"  onclick="searchList(currentPage+1)" style="padding:2px 8px;">▶</button>
+                    <button id="btnLastPage"  onclick="searchList(totalPages-1)"  style="padding:2px 8px;">▶▶</button>
+                </div>
                 <div class="grid-summary">
                     <div>전체: <span id="summaryTotal">0</span>건</div>
                     <div>승인: <span id="summaryApproved">0</span>건</div>
@@ -320,28 +327,36 @@
                 + (map[status] || status || '-') + '</span>';
         }
 
+        var currentPage = 0, totalPages = 1;
+
         document.readyState === 'complete' ? init() : window.onload = init;
 
         function init() {
-            searchList();
+            searchList(0);
         }
 
-        function searchList() {
+        function searchList(page) {
+            if (page < 0 || page >= totalPages) return;
+            currentPage = page;
             $.ajax({
                 url: withCtx('/api/cms/account-register/list'),
                 type: 'GET',
                 data: {
                     memberName: $('#srchMemberName').val(),
-                    status: $('#srchStatus').val()
+                    status: $('#srchStatus').val(),
+                    page: currentPage,
+                    size: 10
                 },
                 success: function(result) {
                     if (result.success) {
-                        bindGrid(result.data);
-                        updateSummary(result.data);
+                        var d = result.data;
+                        bindGrid(d.data);
+                        updateSummary(d);
+                        updatePagination(d.totalCount);
                         updateButtons();
 
                         // EB14 버튼 — 선택 무관, EB13 SENT 건 존재 여부
-                        var hasEb13Sent = result.data.some(function(i) {
+                        var hasEb13Sent = d.data.some(function(i) {
                             return i.eb13_status === 'SENT' && !i.eb14_received_at;
                         });
                         $('#btnReceiveEb14')
@@ -353,6 +368,13 @@
                     }
                 }
             });
+        }
+
+        function updatePagination(totalCount) {
+            totalPages = Math.max(1, Math.ceil(totalCount / 10));
+            $('#pageInfo').text((currentPage + 1) + ' / ' + totalPages + ' 페이지');
+            $('#btnFirstPage, #btnPrevPage').prop('disabled', currentPage === 0);
+            $('#btnNextPage, #btnLastPage').prop('disabled', currentPage >= totalPages - 1);
         }
 
         function bindGrid(data) {
@@ -414,20 +436,13 @@
             });
         }
 
-        function updateSummary(data) {
-            $('#summaryTotal').text(data.length.toLocaleString());
-            $('#summaryApproved').text(data.filter(function (i) {
-                return i.status === 'APPROVED';
-            }).length.toLocaleString());
-            $('#summaryPending').text(data.filter(function (i) {
-                return i.status === 'PENDING';
-            }).length.toLocaleString());
-            $('#summaryRejected').text(data.filter(function (i) {
-                return i.status === 'REJECTED';
-            }).length.toLocaleString());
-            $('#summaryFailed').text(data.filter(function (i) {
-                return i.status === 'FAILED';
-            }).length.toLocaleString());
+        function updateSummary(d) {
+            var data = d.data;
+            $('#summaryTotal').text((d.totalCount || 0).toLocaleString());
+            $('#summaryApproved').text(data.filter(function (i) { return i.status === 'APPROVED'; }).length);
+            $('#summaryPending').text(data.filter(function (i) { return i.status === 'PENDING'; }).length);
+            $('#summaryRejected').text(data.filter(function (i) { return i.status === 'REJECTED'; }).length);
+            $('#summaryFailed').text(data.filter(function (i) { return i.status === 'FAILED'; }).length);
         }
 
         function updateButtons() {
@@ -494,7 +509,7 @@
                         } else {
                             Alert.alert('신청 실패', result.message);
                         }
-                        searchList();
+                        searchList(0);
                     });
             });
         }
@@ -525,7 +540,7 @@
                         } else {
                             Alert.alert('재신청 실패', result.message);
                         }
-                        searchList();
+                        searchList(0);
                     });
             });
         }
@@ -575,7 +590,7 @@
                             type: 'POST',
                             headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
                             data: { id: item.id, member_id: item.member_id },
-                            success: function() { modal.close(); searchList(); }
+                            success: function() { modal.close(); searchList(0); }
                         });
                     },
                     can_write: item.status === 'PENDING' || item.ei13_status === 'FAILED'
@@ -591,7 +606,7 @@
                             type: 'POST',
                             headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
                             data: { id: item.id },
-                            success: function() { searchList(); }
+                            success: function() { searchList(0); }
                         });
                     }
                     return result;
@@ -655,7 +670,7 @@
                         done++;
                         if (done === dates.length) {
                             Alert.alert('', dates.length + '건 수신 완료');
-                            searchList();
+                            searchList(0);
                         }
                     }
                 );
@@ -671,7 +686,7 @@
                     } else {
                         Alert.alert('실패', result.message);
                     }
-                    searchList();
+                    searchList(0);
                 });
             });
         }
@@ -679,7 +694,7 @@
         $(document).ready(function () {
             $('#btnSearch').click(searchList);
             $('#srchMemberName').keypress(function (e) {
-                if (e.which === 13) searchList();
+                if (e.which === 13) searchList(0);
             });
             $('#btnRegister').click(register);
             $('#btnReRegister').click(reRegister);

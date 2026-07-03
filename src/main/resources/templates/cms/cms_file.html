@@ -107,6 +107,18 @@
 
             <div class="container-fluid">
                 <div id="theGrid"></div>
+                <div id="paginationBar" style="display:flex; align-items:center; gap:6px; margin:6px 0;">
+                    <button onclick="searchList(0)"            style="padding:2px 8px;">◀◀</button>
+                    <button onclick="searchList(currentPage-1)" style="padding:2px 8px;" id="btnPrevPage">◀</button>
+                    <span id="pageInfo" style="font-size:13px;"></span>
+                    <button onclick="searchList(currentPage+1)" style="padding:2px 8px;" id="btnNextPage">▶</button>
+                    <button onclick="searchList(totalPages-1)"  style="padding:2px 8px;" id="btnLastPage">▶▶</button>
+                </div>
+                <div class="grid-summary" style="display:flex; gap:20px; font-size:13px; margin:4px 0; color:#555;">
+                    <div>전체: <span id="summaryTotal">0</span>건</div>
+                    <div>전체 청구금액: <span id="summaryTotalAmount">0</span>원</div>
+                    <div>페이지 청구금액: <span id="summaryPageAmount">0</span>원</div>
+                </div>
             </div>
         </section>
     </div>
@@ -237,6 +249,8 @@
 
         document.readyState === 'complete' ? init() : window.onload = init;
 
+        var currentPage = 0, totalPages = 1;
+
         function init() {
             var now = new Date();
             var y = now.getFullYear(), m = now.getMonth() + 1;
@@ -245,10 +259,12 @@
             var lastStr  = y + '-' + String(m).padStart(2,'0') + '-' + String(lastDay.getDate()).padStart(2,'0');
             $('#srchDateFrom').val(firstDay);
             $('#srchDateTo').val(lastStr);
-            searchList();
+            searchList(0);
         }
 
-        function searchList() {
+        function searchList(page) {
+            if (page < 0 || page >= totalPages) return;
+            currentPage = page;
             $.ajax({
                 url: withCtx('/api/cms/cms-files'),
                 type: 'GET',
@@ -256,15 +272,34 @@
                     date_from:   $('#srchDateFrom').val(),
                     date_to:     $('#srchDateTo').val(),
                     file_type:   $('#srchFileType').val(),
-                    send_status: $('#srchSendStatus').val()
+                    send_status: $('#srchSendStatus').val(),
+                    page: currentPage,
+                    size: 10
                 },
                 success: function(result) {
                     if (result.success) {
+                        var d = result.data;
                         if (theGrid) theGrid.dispose();
-                        bindGrid(result.data);
+                        bindGrid(d.data);
+                        updatePagination(d.totalCount);
+                        updateAmountSummary(d);
                     }
                 }
             });
+        }
+
+        function updatePagination(totalCount) {
+            totalPages = Math.max(1, Math.ceil(totalCount / 10));
+            $('#pageInfo').text((currentPage + 1) + ' / ' + totalPages + ' 페이지');
+            $('#btnPrevPage').prop('disabled', currentPage === 0);
+            $('#btnNextPage, #btnLastPage').prop('disabled', currentPage >= totalPages - 1);
+        }
+
+        function updateAmountSummary(d) {
+            $('#summaryTotal').text((d.totalCount || 0).toLocaleString());
+            $('#summaryTotalAmount').text((d.totalAmount || 0).toLocaleString());
+            var pageAmt = (d.data || []).reduce(function(s, r) { return s + (r.billing_amount || 0); }, 0);
+            $('#summaryPageAmount').text(pageAmt.toLocaleString());
         }
 
         function bindGrid(data) {
@@ -312,7 +347,7 @@
                 AjaxUtil.postAsyncData('/api/cms/' + apiPrefix(item.file_type) + '/' + item.id + '/send-sftp', {}, function(result) {
                     if (result.success) {
                         Alert.alert('', 'SFTP 전송이 완료되었습니다.');
-                        searchList();
+                        searchList(0);
                     } else {
                         Alert.alert('전송 실패', result.message);
                     }
@@ -369,7 +404,7 @@
                     success: function(result) {
                         if (result.success) {
                             Alert.alert('', '삭제되었습니다.');
-                            searchList();
+                            searchList(0);
                         } else {
                             Alert.alert('삭제 실패', result.message);
                         }
@@ -404,7 +439,7 @@
                         Alert.alert('', fileType + ' 파일이 생성되었습니다.\n파일명: ' + d.file_name
                             + '\n청구건수: ' + d.billing_count
                             + '\n청구금액: ' + Number(d.billing_amount).toLocaleString() + '원');
-                        searchList();
+                        searchList(0);
                     } else {
                         Alert.alert('생성 실패', result.message || '알 수 없는 오류');
                     }
@@ -440,7 +475,7 @@
                 AjaxUtil.postAsyncData('/api/cms/cms-files/' + item.id + '/cancel', {}, function(result) {
                     if (result.success) {
                         Alert.alert('', '전송이 취소되었습니다.');
-                        searchList();
+                        searchList(0);
                     } else {
                         Alert.alert('취소 실패', result.message);
                     }
@@ -491,7 +526,7 @@
         }
 
         $(document).ready(function() {
-            $('#btnSearch').click(searchList);
+            $('#btnSearch').click(function() { searchList(0); });
             $('#btnGenerate').click(openGenerateModal);
             $('#btnDownload').click(downloadFile);
             $('#btnSendSftp').click(sendSftp);

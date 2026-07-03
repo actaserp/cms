@@ -15,15 +15,11 @@ public class CmsBankCodeService {
     @Autowired
     SqlRunner sqlRunner;
 
-    /** CMS 은행코드 전체 목록 */
+    /** CMS 은행코드 전체 목록 (참조용 — 페이징 없음) */
     public List<Map<String, Object>> getBankCodeList(String bankName) {
         MapSqlParameterSource param = new MapSqlParameterSource();
 
-        String sql = """
-                SELECT id, bank_code, bank_name, use_yn
-                FROM cms_bank_code
-                WHERE 1 = 1
-                """;
+        String sql = "SELECT id, bank_code, bank_name, use_yn FROM cms_bank_code WHERE 1 = 1";
 
         if (StringUtils.hasText(bankName)) {
             sql += " AND bank_name LIKE '%' || :bankName || '%'";
@@ -31,7 +27,7 @@ public class CmsBankCodeService {
         }
 
         sql += " ORDER BY bank_code";
-        return sqlRunner.getRows(sql, param);
+        return sqlRunner.getRows(/* skip_tenant_check */ sql, param);
     }
 
     /** 저장 (신규/수정) */

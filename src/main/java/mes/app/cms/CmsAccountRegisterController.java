@@ -27,9 +27,11 @@ public class CmsAccountRegisterController {
     public AjaxResult getList(
             @RequestParam(required = false) String memberName,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) Long memberId) {
+            @RequestParam(required = false) Long memberId,
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "10") int size) {
         AjaxResult result = new AjaxResult();
-        result.data = cmsAccountRegisterService.getList(memberName, status, memberId);
+        result.data = cmsAccountRegisterService.getList(memberName, status, memberId, page, size);
         return result;
     }
 

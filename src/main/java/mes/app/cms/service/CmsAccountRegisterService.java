@@ -31,54 +31,47 @@ public class CmsAccountRegisterService {
 
     private String str(Object v) { return v != null ? v.toString() : ""; }
 
-    public List<Map<String, Object>> getList(String memberName, String status, Long memberId) {
+    public Map<String, Object> getList(String memberName, String status, Long memberId, int page, int size) {
         String spjangcd = TenantContext.get();
-        var param = new MapSqlParameterSource();
-        param.addValue("spjangcd", spjangcd);
+        var param = new MapSqlParameterSource("spjangcd", spjangcd);
 
-        String sql = """
-        SELECT DISTINCT ON (r.member_id) 
-               r.id,
-               r.member_id,
-               m.member_name,
-               m.member_no,
-               bc.bank_name,
-               r.bank_account,
-               r.apply_date,
-               r.apply_type,
-               r.ei13_status,
-               r.ei13_sent_at,
-               r.eb13_status,
-               r.eb13_sent_at,
-               r.eb14_result,
-               r.eb14_fail_code,
-               r.eb14_received_at,
-               r.status,
-               r.memo,
-               r._created,
-               r.agree_file_path
-        FROM cms_account_register r
-        JOIN cms_member m ON m.id = r.member_id
-        LEFT JOIN cms_bank_code bc ON bc.bank_code = r.bank_code
-        WHERE r.spjangcd = :spjangcd
-        """;
-
+        String filters = "";
         if (StringUtils.hasText(memberName)) {
-            sql += " AND m.member_name LIKE '%' || :memberName || '%'";
+            filters += " AND m.member_name LIKE '%' || :memberName || '%'";
             param.addValue("memberName", memberName);
         }
         if (StringUtils.hasText(status)) {
-            sql += " AND r.status = :status";
+            filters += " AND r.status = :status";
             param.addValue("status", status);
         }
-
         if (memberId != null) {
-            sql += " AND r.member_id = :memberId";
+            filters += " AND r.member_id = :memberId";
             param.addValue("memberId", memberId);
         }
 
-        sql += " ORDER BY r.member_id, r._created DESC";
-        return sqlRunner.getRows(sql, param);
+        String innerSql =
+            "SELECT DISTINCT ON (r.member_id)" +
+            "       r.id, r.member_id, m.member_name, m.member_no, bc.bank_name," +
+            "       r.bank_account, r.apply_date, r.apply_type," +
+            "       r.ei13_status, r.ei13_sent_at, r.eb13_status, r.eb13_sent_at," +
+            "       r.eb14_result, r.eb14_fail_code, r.eb14_received_at," +
+            "       r.status, r.memo, r._created, r.agree_file_path" +
+            "  FROM cms_account_register r" +
+            "  JOIN cms_member m ON m.id = r.member_id" +
+            "  LEFT JOIN cms_bank_code bc ON bc.bank_code = r.bank_code" +
+            "  WHERE r.spjangcd = :spjangcd" + filters +
+            "  ORDER BY r.member_id, r._created DESC";
+
+        Map<String, Object> countRow = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT COUNT(*) AS cnt FROM (" + innerSql + ") sub", param);
+        long totalCount = countRow != null ? ((Number) countRow.get("cnt")).longValue() : 0L;
+
+        param.addValue("pgSize",   size);
+        param.addValue("pgOffset", (long) page * size);
+        List<Map<String, Object>> rows = sqlRunner.getRows(
+                innerSql + " LIMIT :pgSize OFFSET :pgOffset", param);
+
+        return Map.of("data", rows, "totalCount", totalCount, "totalAmount", 0L);
     }
 
     public Long save(Long memberId, String agreeType, String agreeExt,

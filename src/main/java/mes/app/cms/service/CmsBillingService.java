@@ -28,76 +28,75 @@ public class CmsBillingService {
     @Autowired
     private CmsMemberService cmsMemberService;
 
-    /** 청구 목록 조회 */
-    public List<Map<String, Object>> getBillingList(String billingYm, String sendDateFrom, String sendDateTo, String memberName, String status, String deductType) {
+    /** 청구 목록 조회 (페이징) */
+    public Map<String, Object> getBillingList(String billingYm, String sendDateFrom, String sendDateTo,
+                                              String memberName, String status, String deductType,
+                                              int page, int size) {
         String spjangcd = TenantContext.get();
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
-        param.addValue("billingYm", billingYm);
         param.addValue("deductType", deductType != null ? deductType : "EB");
 
-        String sql = """
-        SELECT b.id
-             , b.billing_ym
-             , b.billing_seq
-             , b.member_id
-             , b.member_name
-             , m.member_no
-             , m.id_number
-             , b.bank_code
-             , bc.bank_name
-             , b.bank_account
-             , b.account_holder
-             , b.billing_amount
-             , b.deduct_day
-             , b.deduct_date
-             , b.send_date
-             , b.status
-             , b.result_code
-             , b.result_msg
-             , b.result_date
-             , b.memo
-             , b._created
-             , b._modified
-             , CASE WHEN EXISTS (
-                SELECT 1 FROM cms_billing rb
-                WHERE rb.spjangcd = b.spjangcd
-                  AND rb.member_id = b.member_id
-                  AND rb.memo LIKE '%불능 / 재청구%'
-                  AND rb.status NOT IN ('CANCEL', 'FAIL', 'ERROR')
-            ) THEN 'Y' ELSE 'N' END AS recharged_yn
-        FROM cms_billing b
-        LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
-        LEFT JOIN cms_member m ON m.id = b.member_id
-        WHERE b.spjangcd    = :spjangcd
-          AND b.deduct_type = :deductType
-        """;
+        String baseWhere =
+                "  FROM cms_billing b" +
+                        "  LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code" +
+                        "  LEFT JOIN cms_member m ON m.id = b.member_id" +
+                        "  WHERE b.spjangcd    = :spjangcd" +
+                        "    AND b.deduct_type = :deductType";
 
+        String filters = "";
         if (StringUtils.hasText(sendDateFrom) && StringUtils.hasText(sendDateTo)) {
-            sql += " AND b.send_date BETWEEN :sendDateFrom AND :sendDateTo";
+            filters += " AND b.send_date BETWEEN :sendDateFrom AND :sendDateTo";
             param.addValue("sendDateFrom", sendDateFrom);
             param.addValue("sendDateTo",   sendDateTo);
         } else if (StringUtils.hasText(sendDateFrom)) {
-            sql += " AND b.send_date >= :sendDateFrom";
+            filters += " AND b.send_date >= :sendDateFrom";
             param.addValue("sendDateFrom", sendDateFrom);
         } else if (StringUtils.hasText(sendDateTo)) {
-            sql += " AND b.send_date <= :sendDateTo";
+            filters += " AND b.send_date <= :sendDateTo";
             param.addValue("sendDateTo", sendDateTo);
         }
-
         if (StringUtils.hasText(memberName)) {
-            sql += " AND b.member_name LIKE '%' || :memberName || '%'";
+            filters += " AND b.member_name LIKE '%' || :memberName || '%'";
             param.addValue("memberName", memberName);
         }
         if (StringUtils.hasText(status)) {
-            sql += " AND b.status = :status";
+            filters += " AND b.status = :status";
             param.addValue("status", status);
         } else {
-            sql += " AND b.status IN ('PENDING', 'REQUESTED', 'CANCEL')";
+            filters += " AND b.status IN ('PENDING', 'REQUESTED', 'CANCEL')";
         }
 
-        sql += " ORDER BY b.billing_seq";
-        return sqlRunner.getRows(sql, param);
+        Map<String, Object> aggRow = sqlRunner.getRow(
+                "SELECT COUNT(*) AS cnt, COALESCE(SUM(b.billing_amount),0) AS total_amount" +
+                        baseWhere + filters, param);
+        long totalCount  = aggRow != null ? ((Number) aggRow.get("cnt")).longValue()          : 0L;
+        long totalAmount = aggRow != null ? ((Number) aggRow.get("total_amount")).longValue() : 0L;
+
+        String dataSql =
+                "SELECT b.id, b.billing_ym, b.billing_seq, b.member_id, b.member_name," +
+                        "       m.member_no, m.id_number, b.bank_code, bc.bank_name, b.bank_account," +
+                        "       b.account_holder, b.billing_amount, b.deduct_day, b.deduct_date," +
+                        "       b.send_date, b.status, b.result_code, b.result_msg, b.result_date," +
+                        "       b.memo, b._created, b._modified," +
+                        "       CASE WHEN EXISTS (" +
+                        "           SELECT 1 FROM cms_billing rb" +
+                        "           WHERE rb.spjangcd = b.spjangcd AND rb.member_id = b.member_id" +
+                        "             AND rb.memo LIKE '%불능 / 재청구%'" +
+                        "             AND rb.status NOT IN ('CANCEL', 'FAIL', 'ERROR')" +
+                        "       ) THEN 'Y' ELSE 'N' END AS recharged_yn" +
+                        baseWhere + filters +
+                        " ORDER BY b.billing_seq LIMIT :pgSize OFFSET :pgOffset";
+
+        param.addValue("pgSize",   size);
+        param.addValue("pgOffset", (long) page * size);
+        List<Map<String, Object>> rows = sqlRunner.getRows(dataSql, param);
+
+        var result = new java.util.HashMap<String, Object>();
+        result.put("data", rows);
+        result.put("totalCount",  totalCount);
+        result.put("totalAmount", totalAmount);
+        return result;
     }
 
     /** 청구 단건 조회 */
@@ -691,66 +690,87 @@ public class CmsBillingService {
     }
 
     /** 수납결과 조회 (billing_ym 필수, result_date/status/member_name/deduct_type 선택) */
-    public List<Map<String, Object>> getBillingResultList(String billingYm, String resultDate, String status, String memberName, String deductType) {
+    public Map<String, Object> getBillingResultList(String billingYm, String resultDate, String status,
+                                                    String memberName, String deductType, int page, int size) {
         String spjangcd = TenantContext.get();
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
         param.addValue("billingYm", billingYm);
         param.addValue("deductType", deductType != null ? deductType : "EB");
 
-        String sql = """
-            SELECT b.id
-                 , b.billing_seq
-                 , b.member_name
-                 , m.id_number
-                 , b.bank_code
-                 , bc.bank_name
-                 , b.bank_account
-                 , b.billing_amount
-                 , b.deduct_date
-                 , b.status
-                 , b.result_code
-                 , b.result_msg
-                 , b.result_date
-                 , b.fee_request
-                 , b.fee_success
-                 , CASE
-                     WHEN b.status = 'SUCCESS' THEN b.fee_request + b.fee_success
-                     WHEN b.status = 'FAIL'    THEN b.fee_request
-                     ELSE 0
-                   END AS fee_total
-                 , CASE WHEN EXISTS (
-                        SELECT 1 FROM cms_billing rb
-                        WHERE rb.spjangcd = b.spjangcd
-                          AND rb.member_id = b.member_id
-                          AND rb.memo LIKE '%불능 / 재청구%'
-                          AND rb.status NOT IN ('CANCEL', 'FAIL', 'ERROR')
-                    ) THEN 'Y' ELSE 'N' END AS recharged_yn
-            FROM cms_billing b
-            LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
-            LEFT JOIN cms_member m ON m.id = b.member_id
-            WHERE b.spjangcd    = :spjangcd
-              AND b.billing_ym  = :billingYm
-              AND b.deduct_type = :deductType
-            """;
+        String baseWhere =
+                "  FROM cms_billing b" +
+                        "  LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code" +
+                        "  LEFT JOIN cms_member m ON m.id = b.member_id" +
+                        "  WHERE b.spjangcd = :spjangcd" +
+                        "    AND LEFT(COALESCE(b.deduct_date), 6) = :billingYm" +
+                        "    AND b.deduct_type = :deductType";
 
+        String filters = "";
         if (StringUtils.hasText(resultDate)) {
-            sql += " AND (b.result_date = :resultDate OR (b.status = 'FAIL' AND b.deduct_date = :resultDate))";
+            filters += " AND (b.result_date = :resultDate OR (b.status = 'FAIL' AND b.deduct_date = :resultDate))";
             param.addValue("resultDate", resultDate);
         }
         if (StringUtils.hasText(status)) {
-            sql += " AND b.status = :status";
+            filters += " AND b.status = :status";
             param.addValue("status", status);
         } else {
-            sql += " AND b.status IN ('SUCCESS', 'FAIL')";
+            filters += " AND b.status IN ('SUCCESS', 'FAIL')";
         }
         if (StringUtils.hasText(memberName)) {
-            sql += " AND b.member_name LIKE '%' || :memberName || '%'";
+            filters += " AND b.member_name LIKE '%' || :memberName || '%'";
             param.addValue("memberName", memberName);
         }
 
-        sql += " ORDER BY b.billing_seq";
-        return sqlRunner.getRows(sql, param);
+        Map<String, Object> aggRow = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT COUNT(*) AS cnt," +
+                        "       COALESCE(SUM(b.billing_amount),0) AS total_amount," +
+                        "       COALESCE(SUM(CASE WHEN b.status='SUCCESS' THEN b.fee_request+b.fee_success" +
+                        "                         WHEN b.status='FAIL'    THEN b.fee_request ELSE 0 END),0) AS total_fee," +
+                        "       COUNT(CASE WHEN b.status='SUCCESS' THEN 1 END) AS success_count," +
+                        "       COUNT(CASE WHEN b.status='FAIL'    THEN 1 END) AS fail_count," +
+                        "       COALESCE(SUM(CASE WHEN b.status='SUCCESS' THEN b.billing_amount ELSE 0 END),0) AS success_billing_amount," +
+                        "       COALESCE(SUM(CASE WHEN b.status='FAIL'    THEN b.billing_amount ELSE 0 END),0) AS fail_amount," +
+                        "       COALESCE(SUM(CASE WHEN b.status='SUCCESS'" +
+                        "                         THEN b.billing_amount-(b.fee_request+b.fee_success) ELSE 0 END),0) AS success_deposit_amount" +
+                        baseWhere + filters, param);
+        long totalCount  = aggRow != null ? ((Number) aggRow.get("cnt")).longValue()          : 0L;
+        long totalAmount = aggRow != null ? ((Number) aggRow.get("total_amount")).longValue() : 0L;
+        long totalFee    = aggRow != null ? ((Number) aggRow.get("total_fee")).longValue()    : 0L;
+        long successCount          = aggRow != null ? ((Number) aggRow.get("success_count")).longValue()          : 0L;
+        long failCount             = aggRow != null ? ((Number) aggRow.get("fail_count")).longValue()             : 0L;
+        long successBillingAmount  = aggRow != null ? ((Number) aggRow.get("success_billing_amount")).longValue() : 0L;
+        long failAmount            = aggRow != null ? ((Number) aggRow.get("fail_amount")).longValue()            : 0L;
+        long successDepositAmount  = aggRow != null ? ((Number) aggRow.get("success_deposit_amount")).longValue() : 0L;
+
+        String dataSql =
+                "SELECT b.id, b.billing_seq, b.member_name, m.id_number," +
+                        "       b.bank_code, bc.bank_name, b.bank_account, b.billing_amount," +
+                        "       b.deduct_date, b.status, b.result_code, b.result_msg, b.result_date," +
+                        "       b.fee_request, b.fee_success," +
+                        "       CASE WHEN b.status='SUCCESS' THEN b.fee_request+b.fee_success" +
+                        "            WHEN b.status='FAIL'    THEN b.fee_request ELSE 0 END AS fee_total," +
+                        "       CASE WHEN EXISTS (SELECT 1 FROM cms_billing rb WHERE rb.spjangcd=b.spjangcd" +
+                        "              AND rb.member_id=b.member_id AND rb.memo LIKE '%불능 / 재청구%'" +
+                        "              AND rb.status NOT IN ('CANCEL','FAIL','ERROR')) THEN 'Y' ELSE 'N' END AS recharged_yn" +
+                        baseWhere + filters + " ORDER BY b.billing_seq LIMIT :pgSize OFFSET :pgOffset";
+
+        param.addValue("pgSize",   size);
+        param.addValue("pgOffset", (long) page * size);
+        List<Map<String, Object>> rows = sqlRunner.getRows(dataSql, param);
+
+        var result = new java.util.HashMap<String, Object>();
+        result.put("data", rows);
+        result.put("totalCount",  totalCount);
+        result.put("totalAmount", totalAmount);
+        result.put("totalFee",    totalFee);
+        // ⭐ 전체(검색조건 전체) 기준 성공/실패 집계 — 상단 요약 카드용
+        result.put("successCount",        successCount);
+        result.put("failCount",           failCount);
+        result.put("successAmount",       successDepositAmount);   // 성공 입금금액(수수료 차감)
+        result.put("failAmount",          failAmount);             // 실패 청구금액
+        result.put("successBillingAmount", successBillingAmount);  // 수납률 분자용(성공 청구금액)
+        return result;
     }
 
     /** 불능 건 재청구 — FAIL 상태 건을 납부자 현재 정보 기준으로 새 PENDING 생성 */
@@ -900,16 +920,90 @@ public class CmsBillingService {
         return row != null ? ((Number) row.get("max_seq")).intValue() + 1 : 1;
     }
 
-    /** 수납내역 조회 (기간별, EB+EC 통합) */
-    // 1️⃣ 일반 수납내역 조회 (SUCCESS, FAIL만)
-    public List<Map<String, Object>> getBillingHistoryList(
+    /** 수납내역 조회 (페이징, 화면용) */
+    public Map<String, Object> getBillingHistoryList(
             String startDate, String endDate, String billingType,
-            String status, String memberName) {
+            String status, String memberName, int page, int size) {
 
-        return getBillingHistoryListInternal(
-                startDate, endDate, billingType, status, memberName,
-                false, "SUCCESS,FAIL"  // ✅ 기본적으로 SUCCESS, FAIL만
-        );
+        String spjangcd = TenantContext.get();
+        var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
+        param.addValue("spjangcd", spjangcd);
+        param.addValue("startDate", startDate);
+        param.addValue("endDate",   endDate);
+
+        String baseWhere =
+                "  FROM cms_billing b" +
+                        "  LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code" +
+                        "  WHERE b.spjangcd = :spjangcd" +
+                        "    AND b.deduct_date BETWEEN :startDate AND :endDate";
+
+        String filters = "";
+        String effectiveStatus = StringUtils.hasText(status) ? status : "SUCCESS,FAIL";
+        if (effectiveStatus.contains(",")) {
+            param.addValue("statusList", Arrays.asList(effectiveStatus.split(",")));
+            filters += " AND b.status IN (:statusList)";
+        } else {
+            param.addValue("status", effectiveStatus);
+            filters += " AND b.status = :status";
+        }
+        if (StringUtils.hasText(billingType)) {
+            filters += " AND b.deduct_type = :billingType";
+            param.addValue("billingType", billingType);
+        }
+        if (StringUtils.hasText(memberName)) {
+            filters += " AND b.member_name LIKE '%' || :memberName || '%'";
+            param.addValue("memberName", memberName);
+        }
+
+        Map<String, Object> aggRow = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT COUNT(*) AS cnt," +
+                        "       COALESCE(SUM(b.billing_amount),0) AS total_amount," +
+                        "       COALESCE(SUM(CASE WHEN b.status='SUCCESS' THEN b.fee_request+b.fee_success" +
+                        "                         WHEN b.status='FAIL'    THEN b.fee_request ELSE 0 END),0) AS total_fee," +
+                        "       COUNT(CASE WHEN b.status='SUCCESS' THEN 1 END) AS success_count," +
+                        "       COUNT(CASE WHEN b.status='FAIL'    THEN 1 END) AS fail_count," +
+                        "       COALESCE(SUM(CASE WHEN b.status='SUCCESS' THEN b.billing_amount ELSE 0 END),0) AS success_billing_amount," +
+                        "       COALESCE(SUM(CASE WHEN b.status='FAIL'    THEN b.billing_amount ELSE 0 END),0) AS fail_amount," +
+                        "       COALESCE(SUM(CASE WHEN b.status='SUCCESS'" +
+                        "                         THEN b.billing_amount-(b.fee_request+b.fee_success) ELSE 0 END),0) AS success_deposit_amount" +
+                        baseWhere + filters, param);
+        long totalCount  = aggRow != null ? ((Number) aggRow.get("cnt")).longValue()          : 0L;
+        long totalAmount = aggRow != null ? ((Number) aggRow.get("total_amount")).longValue() : 0L;
+        long totalFee    = aggRow != null ? ((Number) aggRow.get("total_fee")).longValue()    : 0L;
+        long successCount          = aggRow != null ? ((Number) aggRow.get("success_count")).longValue()          : 0L;
+        long failCount             = aggRow != null ? ((Number) aggRow.get("fail_count")).longValue()             : 0L;
+        long successBillingAmount  = aggRow != null ? ((Number) aggRow.get("success_billing_amount")).longValue() : 0L;
+        long failAmount            = aggRow != null ? ((Number) aggRow.get("fail_amount")).longValue()            : 0L;
+        long successDepositAmount  = aggRow != null ? ((Number) aggRow.get("success_deposit_amount")).longValue() : 0L;
+
+        String dataSql =
+                "SELECT b.id, b.billing_seq, b.deduct_type AS billing_type, b.member_name," +
+                        "       b.bank_code, bc.bank_name, b.bank_account, b.billing_amount, b.deduct_date," +
+                        "       b.status, b.result_code, b.result_msg, b.result_date," +
+                        "       CASE WHEN EXISTS (SELECT 1 FROM cms_billing rb WHERE rb.spjangcd=b.spjangcd" +
+                        "              AND rb.member_id=b.member_id AND rb.memo LIKE '%불능 / 재청구%'" +
+                        "              AND rb.status NOT IN ('CANCEL','FAIL','ERROR')) THEN 'Y' ELSE 'N' END AS recharged_yn," +
+                        "       CASE WHEN b.status='SUCCESS' THEN b.fee_request+b.fee_success" +
+                        "            WHEN b.status='FAIL'    THEN b.fee_request ELSE 0 END AS fee_total" +
+                        baseWhere + filters +
+                        " ORDER BY b.deduct_date DESC, b.billing_seq LIMIT :pgSize OFFSET :pgOffset";
+
+        param.addValue("pgSize",   size);
+        param.addValue("pgOffset", (long) page * size);
+        List<Map<String, Object>> rows = sqlRunner.getRows(dataSql, param);
+
+        var result = new java.util.HashMap<String, Object>();
+        result.put("data", rows);
+        result.put("totalCount",  totalCount);
+        result.put("totalAmount", totalAmount);
+        result.put("totalFee",    totalFee);
+        // ⭐ 전체(검색조건 전체) 기준 성공/실패 집계 — 상단 요약 카드용
+        result.put("successCount",        successCount);
+        result.put("failCount",           failCount);
+        result.put("successAmount",       successDepositAmount);   // 성공 입금금액(수수료 차감)
+        result.put("failAmount",          failAmount);             // 실패 청구금액
+        result.put("successBillingAmount", successBillingAmount);  // 수납률 분자용(성공 청구금액)
+        return result;
     }
 
     // 2️⃣ 재청구용 조회 (FAIL, ERROR 포함)

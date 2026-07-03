@@ -30,11 +30,12 @@ public class CmsFileController {
             @RequestParam(value = "date_from",   required = false) String dateFrom,
             @RequestParam(value = "date_to",     required = false) String dateTo,
             @RequestParam(value = "file_type",   required = false) String fileType,
-            @RequestParam(value = "send_status", required = false) String sendStatus) {
+            @RequestParam(value = "send_status", required = false) String sendStatus,
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "10") int size) {
 
-        List<Map<String, Object>> items = cmsFileService.getCmsFileList(dateFrom, dateTo, fileType, sendStatus);
         AjaxResult result = new AjaxResult();
-        result.data = items;
+        result.data = cmsFileService.getCmsFileList(dateFrom, dateTo, fileType, sendStatus, page, size);
         return result;
     }
 

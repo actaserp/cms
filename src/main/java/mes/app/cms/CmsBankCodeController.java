@@ -5,7 +5,6 @@ import mes.domain.model.AjaxResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -15,13 +14,12 @@ public class CmsBankCodeController {
     @Autowired
     private CmsBankCodeService cmsBankCodeService;
 
-    /** 목록 조회 */
+    /** 목록 조회 (참조용 — 전체 반환) */
     @GetMapping("/list")
     public AjaxResult getList(
             @RequestParam(value = "bank_name", required = false) String bankName) {
-        List<Map<String, Object>> items = cmsBankCodeService.getBankCodeList(bankName);
         AjaxResult result = new AjaxResult();
-        result.data = items;
+        result.data = cmsBankCodeService.getBankCodeList(bankName);
         return result;
     }
 

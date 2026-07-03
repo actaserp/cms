@@ -33,54 +33,53 @@ public class CmsFileService {
 
     // ── 목록 조회 ──────────────────────────────────────────────────────────────
 
-    public List<Map<String, Object>> getCmsFileList(String dateFrom, String dateTo,
-                                                    String fileType, String sendStatus) {
+    public Map<String, Object> getCmsFileList(String dateFrom, String dateTo,
+                                               String fileType, String sendStatus,
+                                               int page, int size) {
         String spjangcd = TenantContext.get();
         var param = new MapSqlParameterSource("spjangcd", spjangcd);
 
-        String sql = """
-            SELECT f.id, f.spjangcd, f.file_name, f.file_type, f.target_date,
-                   f.billing_count, f.billing_amount, f.send_type,
-                   f.send_status, f.sent_at, f.error_message,
-                   f._creater_id,
-                   TO_CHAR(f._created AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS _created,
-                   TO_CHAR(f.sent_at  AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS sent_at_kst,
-                   COALESCE(
-                       -- 요청 파일: cms_file_billing 직접 조회
-                       (
-                           SELECT b.member_name FROM cms_file_billing fb
-                           JOIN cms_billing b ON b.id = fb.billing_id
-                           WHERE fb.file_id = f.id ORDER BY fb.line_seq LIMIT 1
-                       ),
-                       -- 결과 파일: 같은 target_date의 요청 파일에서 조회
-                       (
-                            SELECT b.member_name FROM cms_file rf
-                            JOIN cms_file_billing fb ON fb.file_id = rf.id
-                            JOIN cms_billing b ON b.id = fb.billing_id
-                            WHERE rf.spjangcd = f.spjangcd
-                              AND rf.target_date = f.target_date
-                              AND rf.file_type = CASE f.file_type
-                                  WHEN 'EB22' THEN 'EB21'
-                                  WHEN 'EC22' THEN 'EC21'
-                                  WHEN 'EB14' THEN 'EB13'
-                                  ELSE NULL
-                              END
-                            ORDER BY rf.id DESC, fb.line_seq LIMIT 1
-                        )
-                   ) AS rep_member_name
-            FROM cms_file f
-            WHERE f.spjangcd = :spjangcd
-            """;
+        String baseSelect =
+            "SELECT f.id, f.spjangcd, f.file_name, f.file_type, f.target_date," +
+            "       f.billing_count, f.billing_amount, f.send_type," +
+            "       f.send_status, f.sent_at, f.error_message, f._creater_id," +
+            "       TO_CHAR(f._created AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS _created," +
+            "       TO_CHAR(f.sent_at  AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS sent_at_kst," +
+            "       COALESCE(" +
+            "           (SELECT b.member_name FROM cms_file_billing fb" +
+            "            JOIN cms_billing b ON b.id = fb.billing_id" +
+            "            WHERE fb.file_id = f.id ORDER BY fb.line_seq LIMIT 1)," +
+            "           (SELECT b.member_name FROM cms_file rf" +
+            "            JOIN cms_file_billing fb ON fb.file_id = rf.id" +
+            "            JOIN cms_billing b ON b.id = fb.billing_id" +
+            "            WHERE rf.spjangcd = f.spjangcd AND rf.target_date = f.target_date" +
+            "              AND rf.file_type = CASE f.file_type" +
+            "                  WHEN 'EB22' THEN 'EB21' WHEN 'EC22' THEN 'EC21'" +
+            "                  WHEN 'EB14' THEN 'EB13' ELSE NULL END" +
+            "            ORDER BY rf.id DESC, fb.line_seq LIMIT 1)" +
+            "       ) AS rep_member_name" +
+            "  FROM cms_file f" +
+            "  WHERE f.spjangcd = :spjangcd";
 
-        if (StringUtils.hasText(dateFrom))  { sql += " AND f.target_date >= CAST(:dateFrom AS DATE)"; param.addValue("dateFrom", dateFrom); }
-        if (StringUtils.hasText(dateTo))    { sql += " AND f.target_date <= CAST(:dateTo AS DATE)";   param.addValue("dateTo", dateTo); }
-        if (StringUtils.hasText(fileType)) {
-            sql += " AND f.file_type = :fileType";
-            param.addValue("fileType", fileType);
-        }
-        if (StringUtils.hasText(sendStatus)){ sql += " AND f.send_status = :sendStatus";              param.addValue("sendStatus", sendStatus); }
+        String filters = "";
+        if (StringUtils.hasText(dateFrom))  { filters += " AND f.target_date >= CAST(:dateFrom AS DATE)"; param.addValue("dateFrom", dateFrom); }
+        if (StringUtils.hasText(dateTo))    { filters += " AND f.target_date <= CAST(:dateTo AS DATE)";   param.addValue("dateTo", dateTo); }
+        if (StringUtils.hasText(fileType))  { filters += " AND f.file_type = :fileType";                  param.addValue("fileType", fileType); }
+        if (StringUtils.hasText(sendStatus)){ filters += " AND f.send_status = :sendStatus";              param.addValue("sendStatus", sendStatus); }
 
-        return sqlRunner.getRows(sql + " ORDER BY COALESCE(f._modified, f._created) DESC", param);
+        // 전체 건수 + 청구금액 합계
+        Map<String, Object> aggRow = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT COUNT(*) AS cnt, COALESCE(SUM(f.billing_amount),0) AS total_amount" +
+                "  FROM cms_file f WHERE f.spjangcd = :spjangcd" + filters, param);
+        long totalCount  = aggRow != null ? ((Number) aggRow.get("cnt")).longValue()          : 0L;
+        long totalAmount = aggRow != null ? ((Number) aggRow.get("total_amount")).longValue() : 0L;
+
+        param.addValue("pgSize",   size);
+        param.addValue("pgOffset", (long) page * size);
+        List<Map<String, Object>> rows = sqlRunner.getRows(
+                baseSelect + filters + " ORDER BY COALESCE(f._modified, f._created) DESC LIMIT :pgSize OFFSET :pgOffset", param);
+
+        return Map.of("data", rows, "totalCount", totalCount, "totalAmount", totalAmount);
     }
 
     public List<Map<String, Object>> getCmsFileBillings(Long fileId) {

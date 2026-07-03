@@ -188,10 +188,17 @@
             </div>
             <div class="container-fluid">
                 <div id="theGrid"></div>
+                <div id="paginationBar" style="display:flex; align-items:center; gap:6px; margin:6px 0;">
+                    <button onclick="searchList(0)"             style="padding:2px 8px;">◀◀</button>
+                    <button onclick="searchList(currentPage-1)" style="padding:2px 8px;" id="btnPrevPage">◀</button>
+                    <span id="pageInfo" style="font-size:13px;"></span>
+                    <button onclick="searchList(currentPage+1)" style="padding:2px 8px;" id="btnNextPage">▶</button>
+                    <button onclick="searchList(totalPages-1)"  style="padding:2px 8px;" id="btnLastPage">▶▶</button>
+                </div>
                 <div class="grid-summary">
-                    <div>전체 건수: <span id="summaryTotal">0</span>건 &nbsp; 합계: <span id="summaryTotalAmt">0</span>원</div>
-                    <div>성공: <span id="summarySuccessCount">0</span>건 &nbsp; <span id="summarySuccessAmt">0</span>원</div>
-                    <div id="summaryChecked" style="display:none;">체크: <span id="summaryCheckedCount">0</span>건 &nbsp; <span id="summaryCheckedAmt">0</span>원</div>
+                    <div>전체: <span id="summaryTotal">0</span>건 &nbsp; 페이지 합계: <span id="summaryPageAmt">0</span>원</div>
+                    <div>페이지 성공: <span id="summarySuccessCount">0</span>건 &nbsp; <span id="summarySuccessAmt">0</span>원</div>
+                    <div>페이지 실패: <span id="summaryFailCount">0</span>건 &nbsp; <span id="summaryFailAmt">0</span>원</div>
                 </div>
             </div>
         </section>
@@ -206,6 +213,7 @@
     <script type="text/javascript">
         var theGrid;
         var viewdata;
+        var currentPage = 0, totalPages = 1;
 
         var STATUS_MAP = {
             PENDING:   '대기',
@@ -278,7 +286,7 @@
 
         function init() {
             setThisMonth();
-            searchList();
+            searchList(0);
         }
 
         /* ── 날짜 유틸 ── */
@@ -314,7 +322,10 @@
         }
 
         /* ── 검색 ── */
-        function searchList() {
+        function searchList(page) {
+            if (page < 0 || page >= totalPages) return;
+            currentPage = page;
+
             var startDate = $('#srchStartDate').val();
             var endDate   = $('#srchEndDate').val();
 
@@ -337,14 +348,26 @@
                     recharge_filter: false,
                     status:       $('#srchStatus').val() || 'SUCCESS,FAIL',
                     member_name:  $('#srchMemberName').val(),
+                    page: currentPage,
+                    size: 10
                 },
                 success: function(result) {
                     if (result.success) {
-                        bindGrid(result.data || []);
-                        updateSummary(result.data || []);
+                        var d = result.data;
+                        bindGrid(d.data || []);
+                        updatePagination(d.totalCount || 0);
+                        updateSummary(d);
                     }
                 }
             });
+        }
+
+        function updatePagination(totalCount) {
+            totalPages = Math.max(1, Math.ceil(totalCount / 10));
+            $('#pageInfo').text((currentPage + 1) + ' / ' + totalPages);
+            $('#btnPrevPage').prop('disabled', currentPage <= 0);
+            $('#btnNextPage').prop('disabled', currentPage >= totalPages - 1);
+            $('#btnLastPage').prop('disabled', currentPage >= totalPages - 1);
         }
 
         /* ── 그리드 ── */
@@ -362,47 +385,57 @@
         }
 
         /* ── 요약 ── */
-        function updateSummary(data) {
-            var successItems = data.filter(function(i) { return i.status === 'SUCCESS'; });
-            var failItems    = data.filter(function(i) { return i.status === 'FAIL'; });
+        function updateSummary(d) {
+            var data = d.data || [];
 
-            // 입금금액 = billing_amount - fee_total (성공건만)
-            var successAmt = successItems.reduce(function(s, i) {
-                return s + (Number(i.billing_amount) || 0) - (Number(i.fee_total) || 0);
-            }, 0);
-            var failAmt = failItems.reduce(function(s, i) {
-                return s + (Number(i.billing_amount) || 0);
-            }, 0);
-            var totalAmt = data.reduce(function(s, i) {
-                return s + (Number(i.billing_amount) || 0);
-            }, 0);
-            var totalDeductAmt = successItems.reduce(function(s, i) {
-                return s + (Number(i.billing_amount) || 0) - (Number(i.fee_total) || 0);
-            }, 0);
+            // ── 상단 요약 카드: 검색조건 전체 기준 (서버 집계값, 페이지 넘겨도 안 바뀜) ──
+            var totalSuccessCount   = Number(d.successCount) || 0;
+            var totalFailCount      = Number(d.failCount) || 0;
+            var totalSuccessAmt     = Number(d.successAmount) || 0;          // 성공 입금금액(수수료 차감)
+            var totalFailAmt        = Number(d.failAmount) || 0;            // 실패 청구금액
+            var totalSuccessBilling = Number(d.successBillingAmount) || 0;   // 수납률 분자(성공 청구금액)
+            var totalBillingAmt     = Number(d.totalAmount) || 0;           // 전체 청구금액
+            var rate = totalBillingAmt > 0 ? (totalSuccessBilling / totalBillingAmt * 100).toFixed(1) : '0.0';
 
-            var rate = totalAmt > 0 ? (successAmt / totalAmt * 100).toFixed(1) : '0.0';
-
-            $('#cardSuccessCount').text(successItems.length.toLocaleString() + '건');
-            $('#cardSuccessAmt').text(successAmt.toLocaleString() + '원');
-            $('#cardFailCount').text(failItems.length.toLocaleString() + '건');
-            $('#cardFailAmt').text(failAmt.toLocaleString() + '원');
+            $('#cardSuccessCount').text(totalSuccessCount.toLocaleString() + '건');
+            $('#cardSuccessAmt').text(totalSuccessAmt.toLocaleString() + '원');
+            $('#cardFailCount').text(totalFailCount.toLocaleString() + '건');
+            $('#cardFailAmt').text(totalFailAmt.toLocaleString() + '원');
             $('#cardRate').text(rate + '%');
-            $('#cardRateSub').text(successAmt.toLocaleString() + '원 / ' + totalAmt.toLocaleString() + '원');
+            $('#cardRateSub').text(totalSuccessBilling.toLocaleString() + '원 / ' + totalBillingAmt.toLocaleString() + '원');
 
-            $('#summaryTotal').text(data.length.toLocaleString());
-            $('#summaryTotalAmt').text(totalDeductAmt.toLocaleString());
-            $('#summarySuccessCount').text(successItems.length.toLocaleString());
-            $('#summarySuccessAmt').text(successAmt.toLocaleString());
+            // ── 하단 grid-summary: 전체 합계 + 현재 페이지 기준 성공/실패 ──
+            var pageSuccessItems = data.filter(function(i) { return i.status === 'SUCCESS'; });
+            var pageFailItems    = data.filter(function(i) { return i.status === 'FAIL'; });
+            var pageSuccessAmt = pageSuccessItems.reduce(function(s, i) {
+                return s + (Number(i.billing_amount) || 0);
+            }, 0);
+            var pageFailAmt = pageFailItems.reduce(function(s, i) {
+                return s + (Number(i.billing_amount) || 0);
+            }, 0);
+            var pageTotalAmt = data.reduce(function(s, i) {
+                return s + (Number(i.billing_amount) || 0);
+            }, 0);
+
+            $('#summaryTotal').text((d.totalCount || 0).toLocaleString());
+            $('#summaryPageAmt').text(pageTotalAmt.toLocaleString());
+            $('#summarySuccessCount').text(pageSuccessItems.length.toLocaleString());
+            $('#summarySuccessAmt').text(pageSuccessAmt.toLocaleString());
+            $('#summaryFailCount').text(pageFailItems.length.toLocaleString());
+            $('#summaryFailAmt').text(pageFailAmt.toLocaleString());
         }
 
         /* ── 이벤트 바인딩 ── */
         $(document).ready(function() {
-            $('#btnSearch').click(searchList);
-            $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
+            $('#btnSearch').click(function() { searchList(0); });
+            $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(0); });
 
-            $('#btnThisMonth').click(function() { setThisMonth(); searchList(); });
-            $('#btnLastMonth').click(function() { setLastMonth(); searchList(); });
-            $('#btn3Month').click(function()    { set3Month();    searchList(); });
+            $('#btnThisMonth').click(function() { setThisMonth(); searchList(0); });
+            $('#btnLastMonth').click(function() { setLastMonth(); searchList(0); });
+            $('#btn3Month').click(function() {
+                set3Month();
+                searchList(0);
+            });
         });
     </script>
 </th:block>
