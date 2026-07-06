@@ -50,17 +50,17 @@ public class CmsAccountRegisterService {
         }
 
         String innerSql =
-            "SELECT DISTINCT ON (r.member_id)" +
-            "       r.id, r.member_id, m.member_name, m.member_no, bc.bank_name," +
-            "       r.bank_account, r.apply_date, r.apply_type," +
-            "       r.ei13_status, r.ei13_sent_at, r.eb13_status, r.eb13_sent_at," +
-            "       r.eb14_result, r.eb14_fail_code, r.eb14_received_at," +
-            "       r.status, r.memo, r._created, r.agree_file_path" +
-            "  FROM cms_account_register r" +
-            "  JOIN cms_member m ON m.id = r.member_id" +
-            "  LEFT JOIN cms_bank_code bc ON bc.bank_code = r.bank_code" +
-            "  WHERE r.spjangcd = :spjangcd" + filters +
-            "  ORDER BY r.member_id, r._created DESC";
+                "SELECT DISTINCT ON (r.member_id)" +
+                        "       r.id, r.member_id, m.member_name, m.member_no, bc.bank_name," +
+                        "       r.bank_account, r.apply_date, r.apply_type," +
+                        "       r.ei13_status, r.ei13_sent_at, r.eb13_status, r.eb13_sent_at," +
+                        "       r.eb14_result, r.eb14_fail_code, r.eb14_received_at," +
+                        "       r.status, r.memo, r._created, r.agree_file_path" +
+                        "  FROM cms_account_register r" +
+                        "  JOIN cms_member m ON m.id = r.member_id" +
+                        "  LEFT JOIN cms_bank_code bc ON bc.bank_code = r.bank_code" +
+                        "  WHERE r.spjangcd = :spjangcd" + filters +
+                        "  ORDER BY r.member_id, r._created DESC";
 
         Map<String, Object> countRow = sqlRunner.getRow(/* skip_tenant_check */
                 "SELECT COUNT(*) AS cnt FROM (" + innerSql + ") sub", param);
@@ -221,7 +221,7 @@ public class CmsAccountRegisterService {
                 """
                 SELECT id, member_id, member_name, member_no, bank_code, bank_account,
                        account_holder, id_number, member_type, agree_type, agree_ext,
-                       agree_file_path, ei13_sent_at, ei13_status, eb13_status, status
+                       agree_file_path, ei13_sent_at, ei13_status, eb13_status, status, apply_type
                 FROM cms_account_register
                 WHERE id IN (:ids) AND spjangcd = :spjangcd
                 """,
@@ -233,6 +233,21 @@ public class CmsAccountRegisterService {
             Long existingId = ((Number) t.get("id")).longValue();
             String ei13Status = str(t.get("ei13_status"));
             String eb13Status = str(t.get("eb13_status"));
+            String applyType  = str(t.get("apply_type"));
+
+            // 해지건(apply_type='3')은 EI13 불필요 → eb13/status만 리셋, ei13은 SENT로 유지해 EB13 대상이 되게 함
+            if ("3".equals(applyType)) {
+                sqlRunner.execute(/* skip_tenant_check */
+                        """
+                        UPDATE cms_account_register
+                        SET eb13_status='PENDING', status='PENDING',
+                            eb13_sent_at=NULL, memo=NULL, _modified=NOW()
+                        WHERE id = :id
+                        """,
+                        new MapSqlParameterSource("id", existingId));
+                registerIds.add(existingId);
+                continue;
+            }
 
             if ("FAILED".equals(ei13Status) || "REJECTED".equals(str(t.get("status")))) {
                 // EI13 실패 or REJECTED → 전체 리셋

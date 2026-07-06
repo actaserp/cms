@@ -320,6 +320,7 @@
                         <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:left;">납부자명</th>
                         <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">금액</th>
                         <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">실패사유</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center; width:88px;">구분</th>
                         <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">원출금일</th>
                         <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">재청구 출금일</th>
                     </tr>
@@ -332,6 +333,44 @@
                         style="background:#8e44ad; color:#fff; padding:6px 18px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">재청구</button>
                 <button type="button" id="btnRechargeCancel"
                         style="background:#f5f6fa; color:#333; padding:6px 18px; border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ERP 청구생성 모달 -->
+    <div id="modalErpImport" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+     background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:24px 28px; min-width:760px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 8px; font-size:15px;">ERP 청구생성</h3>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; padding:8px 10px; background:#f5f6fa; border-radius:4px; font-size:13px;">
+                <label style="white-space:nowrap; color:#555;">출금신청일</label>
+                <input type="date" id="erpSendDate" style="border:1px solid #dde0ea; border-radius:4px; padding:3px 7px; font-size:13px;">
+                <span style="color:#888; font-size:12px;">출금일(약정일)은 납부자별 설정값으로 자동 지정됩니다.</span>
+            </div>
+            <div style="overflow-y:auto; flex:1;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                    <tr style="background:#f5f6fa; color:#555;">
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center; width:36px;">
+                            <input type="checkbox" id="erpChkAll">
+                        </th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:left;">납부자명</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">금액</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">출금일</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">상태</th>
+                    </tr>
+                    </thead>
+                    <tbody id="erpRows"></tbody>
+                </table>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
+                <span id="erpSummary" style="font-size:12px; color:#888;"></span>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" id="btnErpConfirm"
+                            style="background:#e67e22; color:#fff; padding:6px 18px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">청구생성</button>
+                    <button type="button" id="btnErpCancel"
+                            style="background:#f5f6fa; color:#333; padding:6px 18px; border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">취소</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1014,22 +1053,22 @@
             var html = '';
             rows.forEach(function(row) {
                 var deductDate = String(row.deduct_date);
-                var sendDate   = String(row.send_date || '');
-                var isToday    = sendDate === todayCompact;
-                var checked    = isToday ? ' checked' : '';
-                var highlight  = isToday ? 'background:#f0f7ff;' : '';
-                var deductFmt  = deductDate.length === 8
-                    ? deductDate.substring(0,4) + '-' + deductDate.substring(4,6) + '-' + deductDate.substring(6,8)
+                var sendDate = String(row.send_date || '');
+                var isToday = sendDate === todayCompact;
+                var checked = isToday ? ' checked' : '';
+                var highlight = isToday ? 'background:#f0f7ff;' : '';
+                var deductFmt = deductDate.length === 8
+                    ? deductDate.substring(0, 4) + '-' + deductDate.substring(4, 6) + '-' + deductDate.substring(6, 8)
                     : deductDate;
-                var sendFmt    = sendDate.length === 8
-                    ? sendDate.substring(0,4) + '-' + sendDate.substring(4,6) + '-' + sendDate.substring(6,8)
+                var sendFmt = sendDate.length === 8
+                    ? sendDate.substring(0, 4) + '-' + sendDate.substring(4, 6) + '-' + sendDate.substring(6, 8)
                     : sendDate;
                 var todayBadge = isToday
                     ? '<span style="margin-left:4px; font-size:10px; background:#4a6cf7; color:#fff; padding:1px 5px; border-radius:8px;">오늘</span>'
                     : '';
                 html += '<tr style="' + highlight + '">'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
-                    +   '<input type="checkbox" class="sendnow-check"' + checked + ' data-deduct-date="' + deductDate + '">'
+                    + '<input type="checkbox" class="sendnow-check"' + checked + ' data-deduct-date="' + deductDate + '">'
                     + '</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + deductFmt + '</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + Number(row.count).toLocaleString() + '건</td>'
@@ -1042,14 +1081,17 @@
 
         function doSendNow() {
             var deductDates = [];
-            $('.sendnow-check:checked').each(function() {
+            $('.sendnow-check:checked').each(function () {
                 deductDates.push($(this).data('deduct-date'));
             });
-            if (deductDates.length === 0) { Alert.alert('', '전송할 출금일을 선택하세요.'); return; }
+            if (deductDates.length === 0) {
+                Alert.alert('', '전송할 출금일을 선택하세요.');
+                return;
+            }
 
             $('#modalSendNow').hide();
 
-            var promises = deductDates.map(function(deductDate) {
+            var promises = deductDates.map(function (deductDate) {
                 return $.ajax({
                     url: withCtx('/api/cms/billing/send-now'),
                     type: 'POST',
@@ -1063,18 +1105,18 @@
             });
 
             AjaxUtil.showLoading();
-            $.when.apply($, promises).then(function() {
+            $.when.apply($, promises).then(function () {
                 var results = promises.length === 1 ? [arguments] : Array.from(arguments);
                 var totalSent = 0, totalFailed = 0;
-                results.forEach(function(r) {
+                results.forEach(function (r) {
                     var d = (r[0] || {}).data || {};
-                    totalSent   += (d.sent   || 0);
+                    totalSent += (d.sent || 0);
                     totalFailed += (d.failed || 0);
                 });
                 AjaxUtil.hideLoading();
                 Alert.alert('', '전송 완료: 성공 ' + totalSent + '건, 실패 ' + totalFailed + '건');
                 searchList(0);
-            }).fail(function() {
+            }).fail(function () {
                 AjaxUtil.hideLoading();
                 Alert.alert('전송 실패', '전송 중 오류가 발생했습니다.');
                 searchList(0);
@@ -1083,18 +1125,27 @@
 
         function openRechargeModal() {
             var ymVal = $('#srchBillingYm').val();
-            if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
+            if (!ymVal) {
+                Alert.alert('', '청구년월을 선택하세요.');
+                return;
+            }
 
             var ym = ymVal.split('-');
             var lastDay = new Date(ym[0], ym[1], 0).getDate(); // 해당 월 말일
             var startStr = ymVal.replace('-', '') + '01';
-            var endStr   = ymVal.replace('-', '') + String(lastDay).padStart(2, '0');
+            var endStr = ymVal.replace('-', '') + String(lastDay).padStart(2, '0');
 
             $.ajax({
                 url: withCtx('/api/cms/billing/history/list'),
                 type: 'GET',
-                data: { start_date: startStr, end_date: endStr, status: 'FAIL,ERROR', billing_type: 'EB', recharge_filter: true },
-                success: function(result) {
+                data: {
+                    start_date: startStr,
+                    end_date: endStr,
+                    status: 'FAIL,ERROR',
+                    billing_type: 'EB',
+                    recharge_filter: true
+                },
+                success: function (result) {
                     if (!result.success || !result.data || result.data.length === 0) {
                         Alert.alert('', '재청구할 실패 건이 없습니다.');
                         return;
@@ -1115,50 +1166,80 @@
             $('#rechargeAllDate').val(tomorrowStr);
 
             var html = '';
-            rows.forEach(function(row) {
+            rows.forEach(function (row) {
                 var deductFmt = '';
                 var v = String(row.deduct_date || '');
-                if (v.length === 8) deductFmt = v.substring(0,4) + '-' + v.substring(4,6) + '-' + v.substring(6,8);
+                if (v.length === 8) deductFmt = v.substring(0, 4) + '-' + v.substring(4, 6) + '-' + v.substring(6, 8);
                 html += '<tr>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
-                    +   '<input type="checkbox" class="recharge-check" checked data-id="' + row.id + '">'
+                    + '<input type="checkbox" class="recharge-check" checked data-id="' + row.id + '">'
                     + '</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea;">' + (row.member_name || '') + '</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">' + Number(row.billing_amount || 0).toLocaleString() + '원</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + (row.result_msg || '-') + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
+                    + '<select class="recharge-type" style="border:1px solid #dde0ea; border-radius:3px; font-size:12px; padding:2px 4px;">'
+                    + '<option value="EB" selected>EB(익일)</option>'
+                    + '<option value="EC">EC(당일)</option>'
+                    + '</select>'
+                    + '</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + deductFmt + '</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
-                    +   '<input type="date" class="recharge-date" style="border:1px solid #dde0ea; border-radius:3px; font-size:12px;" value="' + tomorrowStr + '">'
+                    + '<input type="date" class="recharge-date" style="border:1px solid #dde0ea; border-radius:3px; font-size:12px;" value="' + tomorrowStr + '">'
                     + '</td>'
                     + '</tr>';
             });
             $('#rechargeRows').html(html);
 
+            // 오늘 날짜(당일=EC용) 문자열
+            var today = new Date();
+            var todayStr = today.getFullYear() + '-'
+                + String(today.getMonth() + 1).padStart(2, '0') + '-'
+                + String(today.getDate()).padStart(2, '0');
+
             // 전체선택 체크박스
-            $('#rechargeChkAll').off('change').on('change', function() {
+            $('#rechargeChkAll').off('change').on('change', function () {
                 $('.recharge-check').prop('checked', $(this).is(':checked'));
+            });
+
+            // 구분(EB/EC) 변경 시 재청구 출금일 기본값 조정 (EC=당일, EB=익일)
+            $('#rechargeRows').off('change', '.recharge-type').on('change', '.recharge-type', function () {
+                var $row  = $(this).closest('tr');
+                var $date = $row.find('.recharge-date');
+                $date.val($(this).val() === 'EC' ? todayStr : tomorrowStr);
             });
         }
 
         function doRecharge() {
             var items = [];
-            $('#rechargeRows tr').each(function() {
-                var chk  = $(this).find('.recharge-check');
+            $('#rechargeRows tr').each(function () {
+                var chk = $(this).find('.recharge-check');
                 var date = $(this).find('.recharge-date').val();
+                var type = $(this).find('.recharge-type').val() || 'EB';
                 if (chk.is(':checked') && date) {
-                    items.push({ id: chk.data('id'), deduct_date: date.replace(/-/g, '') });
+                    items.push({id: chk.data('id'), deduct_date: date.replace(/-/g, ''), deduct_type: type});
                 }
             });
-            if (items.length === 0) { Alert.alert('', '재청구할 건을 선택하세요.'); return; }
+            if (items.length === 0) {
+                Alert.alert('', '재청구할 건을 선택하세요.');
+                return;
+            }
 
-            Alert.confirm('', items.length + '건을 재청구하시겠습니까?', function() {
+            Alert.confirm('', items.length + '건을 재청구하시겠습니까?', function () {
                 $('#modalRecharge').hide();
                 // 건별로 순차 처리
-                var ids = items.map(function(i) { return i.id; }).join(',');
-                var dates = items.map(function(i) { return i.deduct_date; }).join(',');
+                var ids = items.map(function (i) {
+                    return i.id;
+                }).join(',');
+                var dates = items.map(function (i) {
+                    return i.deduct_date;
+                }).join(',');
+                var types = items.map(function (i) {
+                    return i.deduct_type;
+                }).join(',');
                 AjaxUtil.postAsyncData('/api/cms/billing/recharge',
-                    { ids: ids, deduct_dates: dates },
-                    function(result) {
+                    {ids: ids, deduct_dates: dates, deduct_types: types},
+                    function (result) {
                         if (result.success) {
                             Alert.alert('', (result.data ? result.data.count : 0) + '건 재청구 생성되었습니다.');
                             searchList(0);
@@ -1171,15 +1252,22 @@
 
         function cancelBilling() {
             var pendingIds = (viewdata ? viewdata.items : [])
-                .filter(function(i) { return i.selected && i.status === 'PENDING'; })
-                .map(function(i) { return i.id; });
+                .filter(function (i) {
+                    return i.selected && i.status === 'PENDING';
+                })
+                .map(function (i) {
+                    return i.id;
+                });
 
-            if (pendingIds.length === 0) { Alert.alert('', '취소할 대기 건을 체크하세요.'); return; }
+            if (pendingIds.length === 0) {
+                Alert.alert('', '취소할 대기 건을 체크하세요.');
+                return;
+            }
 
-            Alert.confirm('', pendingIds.length + '건을 취소하시겠습니까?', function() {
+            Alert.confirm('', pendingIds.length + '건을 취소하시겠습니까?', function () {
                 AjaxUtil.postAsyncData('/api/cms/billing/cancel',
-                    { ids: pendingIds.join(',') },
-                    function(result) {
+                    {ids: pendingIds.join(',')},
+                    function (result) {
                         if (result.success) {
                             Alert.alert('', result.data + '건이 취소되었습니다.');
                             searchList(0);
@@ -1196,11 +1284,11 @@
             $.ajax({
                 url: '/api/cms/holiday/next-business-day',
                 type: 'GET',
-                data: { date: compact },
-                success: function(result) {
+                data: {date: compact},
+                success: function (result) {
                     if (result.success && result.data) {
                         var next = String(result.data);
-                        var nextFmt = next.substring(0,4) + '-' + next.substring(4,6) + '-' + next.substring(6,8);
+                        var nextFmt = next.substring(0, 4) + '-' + next.substring(4, 6) + '-' + next.substring(6, 8);
                         if (next !== compact && !silent) {
                             Notify.info('선택하신 날짜는 휴일입니다.\n출금일이 ' + nextFmt + '(으)로 자동 변경됩니다.');
                         }
@@ -1209,14 +1297,19 @@
                         if (callback) callback(dateStr);
                     }
                 },
-                error: function() { if (callback) callback(dateStr); }
+                error: function () {
+                    if (callback) callback(dateStr);
+                }
             });
         }
 
         // 청구생성 버튼 클릭 → 모달 오픈
         function openGenerateModal() {
             var ymVal = $('#srchBillingYm').val();
-            if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
+            if (!ymVal) {
+                Alert.alert('', '청구년월을 선택하세요.');
+                return;
+            }
 
             $('#generateDayList').html('<div style="text-align:center; color:#aaa; padding:20px;">로딩 중...</div>');
             $('#modalGenerateBilling').css('display', 'flex');
@@ -1225,17 +1318,17 @@
                 url: '/api/cms/billing/deduct-day-summary',
                 type: 'GET',
                 data: {
-                    billing_ym:   ymVal.replace('-', ''),
-                    deduct_type:  'EB'
+                    billing_ym: ymVal.replace('-', ''),
+                    deduct_type: 'EB'
                 },
-                success: function(result) {
+                success: function (result) {
                     if (!result.success) {
                         $('#generateDayList').html('<div style="color:#e74c3c; padding:10px;">' + result.message + '</div>');
                         return;
                     }
                     renderGenerateDayList(result.data || []);
                 },
-                error: function() {
+                error: function () {
                     $('#generateDayList').html('<div style="color:#e74c3c; padding:10px;">조회 실패</div>');
                 }
             });
@@ -1255,14 +1348,14 @@
             html += '<th style="padding:8px; border:1px solid #dde0ea; text-align:center;">상태</th>';
             html += '</tr></thead><tbody>';
 
-            rows.forEach(function(row) {
-                var available  = row.available;
-                var reason     = row.reason || '';
-                var rowStyle   = available ? '' : 'color:#aaa; background:#fafafa;';
+            rows.forEach(function (row) {
+                var available = row.available;
+                var reason = row.reason || '';
+                var rowStyle = available ? '' : 'color:#aaa; background:#fafafa;';
                 var badgeStyle = available
                     ? 'background:#d4edda; color:#155724;'
                     : 'background:#f8d7da; color:#721c24;';
-                var badgeText  = available ? '가능' : reason || '불가';
+                var badgeText = available ? '가능' : reason || '불가';
 
                 html += '<tr style="' + rowStyle + '">';
                 html += '<td style="padding:8px; border:1px solid #dde0ea; text-align:center;">';
@@ -1289,7 +1382,7 @@
 
             // 체크된 약정일 수집
             var selectedDays = [];
-            $('.chk-deduct-day:checked').each(function() {
+            $('.chk-deduct-day:checked').each(function () {
                 selectedDays.push($(this).val());
             });
 
@@ -1300,15 +1393,15 @@
 
             $('#modalGenerateBilling').hide();
 
-            Alert.confirm('', '[' + ymVal + '] ' + selectedDays.join(', ') + ' 약정일 청구를 생성하시겠습니까?\n청구 신청일 = 오늘로 생성됩니다.', function() {
+            Alert.confirm('', '[' + ymVal + '] ' + selectedDays.join(', ') + ' 약정일 청구를 생성하시겠습니까?\n청구 신청일 = 오늘로 생성됩니다.', function () {
 
                 AjaxUtil.postAsyncData('/api/cms/billing/generate-manual',
                     {
-                        billing_ym:   ymVal.replace('-', ''),
-                        deduct_days:  selectedDays.join(','),
-                        deduct_type:  'EB'
+                        billing_ym: ymVal.replace('-', ''),
+                        deduct_days: selectedDays.join(','),
+                        deduct_type: 'EB'
                     },
-                    function(result) {
+                    function (result) {
                         if (result.success) {
                             var d = result.data || {};
                             var msg = (d.count || 0) + '건이 생성되었습니다.';
@@ -1324,7 +1417,9 @@
 
         function openChangeDateModal() {
             var pendingIds = (viewdata ? viewdata.items : [])
-                .filter(function(i) { return i.selected && i.status === 'PENDING'; });
+                .filter(function (i) {
+                    return i.selected && i.status === 'PENDING';
+                });
 
             if (pendingIds.length === 0) {
                 Alert.alert('', '출금일을 변경할 대기 건을 체크하세요.');
@@ -1346,25 +1441,35 @@
 
         function doChangeDate() {
             var newDate = $('#changeDateInput').val();
-            if (!newDate) { Alert.alert('', '변경할 출금일자를 선택하세요.'); return; }
+            if (!newDate) {
+                Alert.alert('', '변경할 출금일자를 선택하세요.');
+                return;
+            }
 
             var pendingItems = (viewdata ? viewdata.items : [])
-                .filter(function(i) { return i.selected && i.status === 'PENDING'; });
+                .filter(function (i) {
+                    return i.selected && i.status === 'PENDING';
+                });
 
-            if (pendingItems.length === 0) { Alert.alert('', '변경할 건이 없습니다.'); return; }
+            if (pendingItems.length === 0) {
+                Alert.alert('', '변경할 건이 없습니다.');
+                return;
+            }
 
-            var ids = pendingItems.map(function(i) { return i.id; }).join(',');
+            var ids = pendingItems.map(function (i) {
+                return i.id;
+            }).join(',');
             var compact = newDate.replace(/-/g, '');
 
             // 휴일 체크 후 변경
-            checkAndSetBusinessDay(newDate, function(adjustedDate) {
+            checkAndSetBusinessDay(newDate, function (adjustedDate) {
                 var adjustedCompact = adjustedDate.replace(/-/g, '');
                 $('#modalChangeDate').hide();
 
-                Alert.confirm('', pendingItems.length + '건의 출금일을 ' + adjustedDate + '로 변경하시겠습니까?', function() {
+                Alert.confirm('', pendingItems.length + '건의 출금일을 ' + adjustedDate + '로 변경하시겠습니까?', function () {
                     AjaxUtil.postAsyncData('/api/cms/billing/change-deduct-date',
-                        { ids: ids, deduct_date: adjustedCompact },
-                        function(result) {
+                        {ids: ids, deduct_date: adjustedCompact},
+                        function (result) {
                             if (result.success) {
                                 Alert.alert('', result.data + '건의 출금일이 변경되었습니다.');
                                 searchList(0);
@@ -1376,9 +1481,13 @@
             });
         }
 
-        $(document).ready(function() {
-            $('#btnSearch').click(function() { searchList(0); });
-            $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(0); });
+        $(document).ready(function () {
+            $('#btnSearch').click(function () {
+                searchList(0);
+            });
+            $('#srchMemberName').keypress(function (e) {
+                if (e.which === 13) searchList(0);
+            });
             $('#btnGenerate').click(openGenerateModal);
             $('#btnCancel').click(cancelBilling);
             $('#btnResend').click(openRechargeModal);
@@ -1387,44 +1496,152 @@
             $('#btnDel').click(deleteBilling);
             $('#btnSendNow').click(sendNow);
             $('#btnSendNowConfirm').click(doSendNow);
-            $('#btnSendNowCancel').click(function() { $('#modalSendNow').hide(); });
+            $('#btnSendNowCancel').click(function () {
+                $('#modalSendNow').hide();
+            });
             $('#btnRechargeConfirm').click(doRecharge);
-            $('#btnRechargeCancel').click(function() { $('#modalRecharge').hide(); });
-            $('#btnRechargeApplyAll').click(function() {
+            $('#btnRechargeCancel').click(function () {
+                $('#modalRecharge').hide();
+            });
+            $('#btnRechargeApplyAll').click(function () {
                 var date = $('#rechargeAllDate').val();
                 if (date) $('.recharge-date').val(date);
             });
             $('#btnExcel').click(exportExcel);
             $('#btnChangeDate').click(openChangeDateModal);
             $('#btnChangeDateConfirm').click(doChangeDate);
-            $('#btnChangeDateCancel').click(function() { $('#modalChangeDate').hide(); });
-            $('#btnErpImport').click(function() {
-                var ymVal = $('#srchBillingYm').val();
-                if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
-                Alert.confirm('', '[' + ymVal + '] ERP 청구를 가져오시겠습니까?\n이미 가져온 건은 건너뜁니다.', function() {
-                    AjaxUtil.postAsyncData('/api/cms/billing/import-from-erp',
-                        { billing_ym: ymVal.replace('-', '') },
-                        function(result) {
-                            if (result.success) {
-                                var d = result.data || {};
-                                var msg = '완료: 신규 ' + (d.inserted||0) + '건, 건너뜀 ' + (d.skipped||0) + '건';
-
-                                if (d.notFound && d.notFound.length > 0) {
-                                    msg += '\n\n[납부자 미등록 ' + d.notFound.length + '건]';
-                                    d.notFound.forEach(function(m) {
-                                        msg += '\n· ' + m.member_name + ' (' + m.cltcd + ')';
-                                    });
-                                }
-
-                                Alert.alert('', msg);
-                                searchList(0);
-                            } else {
-                                Alert.alert('실패', result.message);
-                            }
-                        });
-                });
+            $('#btnChangeDateCancel').click(function () {
+                $('#modalChangeDate').hide();
+            });
+            $('#btnErpImport').click(openErpImportModal);
+            $('#btnErpCancel').click(function () {
+                $('#modalErpImport').hide();
+            });
+            $('#btnErpConfirm').click(confirmErpImport);
+            $('#erpChkAll').on('change', function () {
+                var checked = $(this).is(':checked');
+                $('#erpRows input.erp-check:not(:disabled)').prop('checked', checked);
             });
         });
+
+        var erpBillingYm = '';
+
+        // 상태 라벨/색상
+        var ERP_STATUS = {
+            OK: {label: '생성가능', color: '#155724', bg: '#d4edda'},
+            DUP: {label: '이미청구됨', color: '#721c24', bg: '#f8d7da'},
+            NO_MEMBER: {label: '납부자없음', color: '#856404', bg: '#fff3cd'},
+            NOT_AGREED: {label: '미인증', color: '#6a0dad', bg: '#f0d0ff'}
+        };
+
+        function openErpImportModal() {
+            var ymVal = $('#srchBillingYm').val();
+            if (!ymVal) {
+                Alert.alert('', '청구년월을 선택하세요.');
+                return;
+            }
+            erpBillingYm = ymVal.replace('-', '');
+
+            // 출금신청일 기본값 = 오늘
+            var t = new Date();
+            var todayStr = t.getFullYear() + '-' +
+                String(t.getMonth() + 1).padStart(2, '0') + '-' +
+                String(t.getDate()).padStart(2, '0');
+            $('#erpSendDate').val(todayStr);
+
+            $('#erpRows').html('<tr><td colspan="5" style="padding:20px; text-align:center; color:#888;">불러오는 중...</td></tr>');
+            $('#erpSummary').text('');
+            $('#erpChkAll').prop('checked', false);
+            $('#modalErpImport').css('display', 'flex');
+
+            AjaxUtil.getAsyncData('/api/cms/billing/erp-preview',
+                {billing_ym: erpBillingYm},
+                function (result) {
+                    if (result.success) {
+                        renderErpModal(result.data || []);
+                    } else {
+                        $('#erpRows').html('<tr><td colspan="5" style="padding:20px; text-align:center; color:#c00;">'
+                            + (result.message || '조회 실패') + '</td></tr>');
+                    }
+                });
+        }
+
+        function renderErpModal(rows) {
+            if (!rows.length) {
+                $('#erpRows').html('<tr><td colspan="5" style="padding:20px; text-align:center; color:#888;">가져올 미수금이 없습니다.</td></tr>');
+                $('#erpSummary').text('');
+                return;
+            }
+
+            var html = '';
+            var okCount = 0;
+            rows.forEach(function (r) {
+                var st = ERP_STATUS[r.row_status] || {label: r.row_status, color: '#555', bg: '#eee'};
+                var canSelect = (r.row_status === 'OK');
+                if (canSelect) okCount++;
+
+                var dd = r.deduct_date || '';
+                var ddDisp = dd.length === 8 ? dd.substring(0, 4) + '-' + dd.substring(4, 6) + '-' + dd.substring(6, 8) : '-';
+
+                html += '<tr>'
+                    + '<td style="padding:6px 8px; border:1px solid #eee; text-align:center;">'
+                    + '<input type="checkbox" class="erp-check" value="' + r.erp_mis_key + '"'
+                    + (canSelect ? ' checked' : ' disabled') + '>'
+                    + '</td>'
+                    + '<td style="padding:6px 8px; border:1px solid #eee; text-align:left;">' + (r.member_name || '') + '</td>'
+                    + '<td style="padding:6px 8px; border:1px solid #eee; text-align:right;">' + Number(r.billing_amount || 0).toLocaleString() + '</td>'
+                    + '<td style="padding:6px 8px; border:1px solid #eee; text-align:center;">' + ddDisp + '</td>'
+                    + '<td style="padding:6px 8px; border:1px solid #eee; text-align:center;">'
+                    + '<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; color:' + st.color + '; background:' + st.bg + ';">' + st.label + '</span>'
+                    + '</td>'
+                    + '</tr>';
+            });
+
+            $('#erpRows').html(html);
+            $('#erpChkAll').prop('checked', okCount > 0);
+            $('#erpSummary').text('생성가능 ' + okCount + '건 / 전체 ' + rows.length + '건');
+        }
+
+        function confirmErpImport() {
+            var sendDate = $('#erpSendDate').val();
+            if (!sendDate) {
+                Alert.alert('', '출금신청일을 지정하세요.');
+                return;
+            }
+
+            var keys = $('#erpRows input.erp-check:checked').map(function () {
+                return $(this).val();
+            }).get();
+
+            if (!keys.length) {
+                Alert.alert('', '생성할 건을 선택하세요.');
+                return;
+            }
+
+            AjaxUtil.postAsyncData('/api/cms/billing/erp-create',
+                {
+                    billing_ym: erpBillingYm,
+                    send_date: sendDate.replace(/-/g, ''),
+                    keys: keys.join(',')
+                },
+                function (result) {
+                    if (result.success) {
+                        var d = result.data || {};
+                        var msg = '완료: 신규 ' + (d.inserted || 0) + '건, 건너뜀 ' + (d.skipped || 0) + '건';
+                        if (d.notFound && d.notFound.length > 0) {
+                            msg += '\n\n[제외 ' + d.notFound.length + '건]';
+                            d.notFound.forEach(function (m) {
+                                msg += '\n· ' + m.member_name;
+                            });
+                        }
+                        Alert.alert('', msg);
+                        $('#modalErpImport').hide();
+                        searchList(0);
+                    } else {
+                        Alert.alert('실패', result.message);
+                    }
+                });
+        }
     </script>
 </th:block>
 

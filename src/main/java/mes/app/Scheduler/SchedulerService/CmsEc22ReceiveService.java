@@ -61,7 +61,7 @@ public class CmsEc22ReceiveService {
                   AND NOT EXISTS (
                       SELECT 1 FROM cms_file r
                       WHERE r.spjangcd = f.spjangcd
-                        AND r.file_type = 'EC_RESULT'
+                        AND r.file_type = 'EC22'
                         AND r.target_date = f.target_date
                   )
                 """,
@@ -122,7 +122,7 @@ public class CmsEc22ReceiveService {
                     target_date, billing_count, billing_amount,
                     send_status, _creater_id, _created, _modifier_id, _modified, send_type
                 ) VALUES (
-                    :spjangcd, :fileName, 'EC_RESULT', :filePath,
+                    :spjangcd, :fileName, 'EC22', :filePath,
                     CAST(:targetDate AS DATE), 0, 0,
                     'RECEIVED', 'SYSTEM', NOW(), 'SYSTEM', NOW(), 'SFTP'
                 ) RETURNING id
@@ -477,7 +477,7 @@ public class CmsEc22ReceiveService {
                     SELECT COUNT(*) as cnt FROM cms_file
                     WHERE spjangcd = :spjangcd
                       AND file_name = :fileName
-                      AND file_type = 'EC_RESULT'
+                      AND file_type = 'EC22'
                       AND target_date = CAST(:targetDate AS DATE)
                     """,
                     new MapSqlParameterSource()

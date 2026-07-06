@@ -306,6 +306,7 @@
                         <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:left;">납부자명</th>
                         <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">금액</th>
                         <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">실패사유</th>
+                        <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center; width:88px;">구분</th>
                         <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">원출금일</th>
                         <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">재청구 출금일</th>
                     </tr>
@@ -984,6 +985,12 @@
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea;">' + (row.member_name || '') + '</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">' + Number(row.billing_amount || 0).toLocaleString() + '원</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + (row.result_msg || '-') + '</td>'
+                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
+                    +   '<select class="recharge-type" style="border:1px solid #dde0ea; border-radius:3px; font-size:12px; padding:2px 4px;">'
+                    +     '<option value="EB">EB(익일)</option>'
+                    +     '<option value="EC" selected>EC(당일)</option>'
+                    +   '</select>'
+                    + '</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + deductFmt + '</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
                     +   '<input type="date" class="recharge-date" style="border:1px solid #dde0ea; border-radius:3px; font-size:12px;" value="' + todayStr + '">'
@@ -992,8 +999,22 @@
             });
             $('#rechargeRows').html(html);
 
+            // 익일(EB용) 날짜 계산
+            var tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            var tomorrowStr = tomorrow.getFullYear() + '-'
+                + String(tomorrow.getMonth() + 1).padStart(2, '0') + '-'
+                + String(tomorrow.getDate()).padStart(2, '0');
+
             $('#rechargeChkAll').off('change').on('change', function() {
                 $('.recharge-check').prop('checked', $(this).is(':checked'));
+            });
+
+            // 구분(EB/EC) 변경 시 재청구 출금일 기본값 조정 (EC=당일, EB=익일)
+            $('#rechargeRows').off('change', '.recharge-type').on('change', '.recharge-type', function() {
+                var $row  = $(this).closest('tr');
+                var $date = $row.find('.recharge-date');
+                $date.val($(this).val() === 'EC' ? todayStr : tomorrowStr);
             });
         }
 
@@ -1002,8 +1023,9 @@
             $('#rechargeRows tr').each(function() {
                 var chk  = $(this).find('.recharge-check');
                 var date = $(this).find('.recharge-date').val();
+                var type = $(this).find('.recharge-type').val() || 'EC';
                 if (chk.is(':checked') && date) {
-                    items.push({ id: chk.data('id'), deduct_date: date.replace(/-/g, '') });
+                    items.push({ id: chk.data('id'), deduct_date: date.replace(/-/g, ''), deduct_type: type });
                 }
             });
             if (items.length === 0) { Alert.alert('', '재청구할 건을 선택하세요.'); return; }
@@ -1012,8 +1034,9 @@
                 $('#modalRecharge').hide();
                 var ids   = items.map(function(i) { return i.id; }).join(',');
                 var dates = items.map(function(i) { return i.deduct_date; }).join(',');
+                var types = items.map(function(i) { return i.deduct_type; }).join(',');
                 AjaxUtil.postAsyncData('/api/cms/billing/recharge',
-                    { ids: ids, deduct_dates: dates },
+                    { ids: ids, deduct_dates: dates, deduct_types: types },
                     function(result) {
                         if (result.success) {
                             Alert.alert('', (result.data ? result.data.count : 0) + '건 재청구 생성되었습니다.');
@@ -1050,7 +1073,9 @@
 
         $(document).ready(function() {
             $('#btnSearch').click(searchList);
-            $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(); });
+            $('#srchMemberName').keypress(function (e) {
+                if (e.which === 13) searchList();
+            });
             $('#btnResend').click(openRechargeModal);
             $('#btnNew').click(clearForm);
             $('#btnSave').click(saveBilling);
@@ -1058,13 +1083,17 @@
             $('#btnSendNow').click(sendNow);
             $('#btnSendNowConfirm').click(doSendNow);
             $('#btnRechargeConfirm').click(doRecharge);
-            $('#btnRechargeCancel').click(function() { $('#modalRecharge').hide(); });
-            $('#btnRechargeApplyAll').click(function() {
+            $('#btnRechargeCancel').click(function () {
+                $('#modalRecharge').hide();
+            });
+            $('#btnRechargeApplyAll').click(function () {
                 var date = $('#rechargeAllDate').val();
                 if (date) $('.recharge-date').val(date);
             });
-            $('#btnSendNowCancel').click(function() { $('#modalSendNow').hide(); });
-            $('#btnRechargeApplyAll').click(function() {
+            $('#btnSendNowCancel').click(function () {
+                $('#modalSendNow').hide();
+            });
+            $('#btnRechargeApplyAll').click(function () {
                 var date = $('#rechargeAllDate').val();
                 if (date) $('.recharge-date').val(date);
             });

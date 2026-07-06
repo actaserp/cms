@@ -38,9 +38,9 @@
             color: #6a0dad;
         }
 
-        .status-FAILED {
-            background: #f8d7da;
-            color: #721c24;
+        .status-CANCELLED {
+            background: #e2e3e5;
+            color: #41464b;
         }
 
         .flow-step {
@@ -147,6 +147,7 @@
                                 <option value="APPROVED">승인</option>
                                 <option value="REJECTED">거절</option>
                                 <option value="FAILED">실패</option>
+                                <option value="CANCELLED">해지완료</option>
                             </select>
                         </dd>
                     </dl>
@@ -305,8 +306,8 @@
                     if (ctx.value === 'PENDING' && item.eb13_status === 'SENT') {
                         return '<span class="status-badge status-SENT">승인대기</span>';
                     }
-                    var map = {PENDING: '대기', APPROVED: '승인완료', REJECTED: '거절', FAILED: '실패'};
-                    var cls = {PENDING: 'status-PENDING', APPROVED: 'status-APPROVED', REJECTED: 'status-REJECTED', FAILED: 'status-FAILED'};
+                    var map = {PENDING: '대기', APPROVED: '승인완료', REJECTED: '거절', FAILED: '실패', CANCELLED: '해지완료'};
+                    var cls = {PENDING: 'status-PENDING', APPROVED: 'status-APPROVED', REJECTED: 'status-REJECTED', FAILED: 'status-FAILED', CANCELLED: 'status-CANCELLED'};
                     return '<span class="status-badge ' + (cls[ctx.value] || '') + '">'
                         + (map[ctx.value] || ctx.value || '') + '</span>';
                 }
@@ -406,6 +407,8 @@
                     if (chk) {
                         chk.onclick = function (ev) {
                             viewdata.items.forEach(function (r) {
+                                // 종료 상태(승인완료/해지완료)는 전체선택에서 제외
+                                if (r.status === 'APPROVED' || r.status === 'CANCELLED') return;
                                 r.selected = ev.target.checked;
                             });
                             theGrid.refresh();
@@ -416,8 +419,13 @@
                 if (e.panel.cellType === wijmo.grid.CellType.Cell
                     && col.binding === 'selected') {
                     var item = s.rows[e.row].dataItem;
-                    e.cell.innerHTML = '<input type="checkbox" class="row-check"'
-                        + (item && item.selected ? ' checked' : '') + '>';
+                    // 최종상태가 끝까지 간 건(승인완료/해지완료)은 선택 불가 → '-'
+                    if (item && (item.status === 'APPROVED' || item.status === 'CANCELLED')) {
+                        e.cell.innerHTML = '<span style="color:#bbb;">-</span>';
+                    } else {
+                        e.cell.innerHTML = '<input type="checkbox" class="row-check"'
+                            + (item && item.selected ? ' checked' : '') + '>';
+                    }
                 }
             });
 
@@ -449,9 +457,16 @@
             var selected = (viewdata ? viewdata.items : []).filter(function(i) { return i.selected; });
 
             var canRegister = selected.some(function(i) {
-                return i.status === 'PENDING'
+                // 신규: EI13부터 (PENDING/PENDING/PENDING)
+                var isNew = i.status === 'PENDING'
                     && i.ei13_status === 'PENDING'
                     && i.eb13_status === 'PENDING';
+                // 해지: EI13 불필요 (apply_type=3, ei13 SENT, eb13 PENDING)
+                var isCancel = i.apply_type === '3'
+                    && i.status === 'PENDING'
+                    && i.ei13_status === 'SENT'
+                    && i.eb13_status === 'PENDING';
+                return isNew || isCancel;
             });
 
             var canReRegister = selected.some(function(i) {
@@ -459,8 +474,7 @@
                     || i.status === 'FAILED'
                     || i.ei13_status === 'FAILED'
                     || i.eb13_status === 'FAILED'
-                    || (i.ei13_status === 'PENDING' && i.eb13_status !== 'PENDING')
-                    || (i.eb13_status === 'PENDING' && i.ei13_status === 'SENT');
+                    || (i.ei13_status === 'PENDING' && i.eb13_status !== 'PENDING');
             });
 
             $('#btnRegister')
@@ -678,8 +692,8 @@
         }
 
         function createFromErp() {
-            Alert.confirm('', '미인증 납부자의 계좌등록 신청을 생성하시겠습니까?', function() {
-                AjaxUtil.postAsyncData('/api/cms/account-register/create-from-erp', {}, function(result) {
+            Alert.confirm('', '미인증 납부자의 계좌등록 신청을 생성하시겠습니까?', function () {
+                AjaxUtil.postAsyncData('/api/cms/account-register/create-from-erp', {}, function (result) {
                     if (result.success) {
                         var d = result.data || {};
                         Alert.alert('', '생성 완료: ' + (d.created || 0) + '건');
@@ -692,7 +706,9 @@
         }
 
         $(document).ready(function () {
-            $('#btnSearch').click(searchList);
+            $('#btnSearch').click(function () {
+                searchList(0);
+            });
             $('#srchMemberName').keypress(function (e) {
                 if (e.which === 13) searchList(0);
             });
@@ -701,7 +717,9 @@
             $('#btnReceiveEb14').click(receiveEb14);
             $('#btnCreateFromErp').click(createFromErp);
             $('#btnEb14Confirm').click(doReceiveEb14);
-            $('#btnEb14Cancel').click(function() { $('#modalEb14').hide(); });
+            $('#btnEb14Cancel').click(function () {
+                $('#modalEb14').hide();
+            });
         });
     </script>
 

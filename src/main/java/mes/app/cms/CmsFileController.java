@@ -32,7 +32,7 @@ public class CmsFileController {
             @RequestParam(value = "file_type",   required = false) String fileType,
             @RequestParam(value = "send_status", required = false) String sendStatus,
             @RequestParam(defaultValue = "0")  int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "12") int size) {
 
         AjaxResult result = new AjaxResult();
         result.data = cmsFileService.getCmsFileList(dateFrom, dateTo, fileType, sendStatus, page, size);

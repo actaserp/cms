@@ -69,7 +69,7 @@
         #modalErpSync {
             position: fixed;
             inset: 0;
-            z-index: 9000;
+            z-index: 100;
             background: rgba(0, 0, 0, .48);
             display: none;
         }
@@ -152,6 +152,10 @@
             background: #fff5f5;
         }
 
+        .erp-row-new {
+            background: #f0fbf3;
+        }
+
         .erp-change-danger {
             color: #c0392b;
             font-weight: 700;
@@ -225,12 +229,58 @@
                     </div>
                 </div>
                 <div class="container-fluid">
+                    <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-bottom:6px;">
+                        <span style="font-size:12px; color:#555;">선택 <b id="cancelSelCount">0</b>건</span>
+                        <button type="button" class="btn-default" id="btnCancelSelected"
+                                style="background:#e74c3c; color:#fff; opacity:0.5;width:110px;" disabled>선택 해지신청</button>
+                    </div>
                     <div id="theGrid"></div>
                     <div id="gridCount" style="font-size:12px; color:#888; margin-top:4px; text-align:right;"></div>
                 </div>
             </section>
 
-            <!-- 폼 섹션 -->
+            <!-- 다건 해지 확인 모달 -->
+            <div id="modalCancelConfirm" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+                 background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+                <div style="background:#fff; border-radius:8px; padding:22px 26px; min-width:520px; max-height:80vh;
+                     display:flex; flex-direction:column; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin:0 0 4px;">
+                        <h3 style="margin:0; font-size:15px;">해지 신청 확인</h3>
+                        <button type="button" id="btnCancelConfirmX"
+                                style="background:none; border:none; font-size:20px; line-height:1; color:#888; cursor:pointer; padding:0 2px;">&times;</button>
+                    </div>
+                    <div style="font-size:13px; color:#555; margin-bottom:10px;">
+                        아래 <b id="cancelConfirmCount">0</b>건에 대해 금결원 해지 신청(EB13) 파일을 전송합니다.
+                    </div>
+                    <div style="overflow-y:auto; flex:1; min-height:300px;">
+                        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                            <thead>
+                            <tr style="background:#f5f6fa; color:#555;">
+                                <th style="padding:6px 8px; border:1px solid #eee; text-align:left;">납부자명</th>
+                                <th style="padding:6px 8px; border:1px solid #eee; text-align:center;">납부자번호</th>
+                                <th style="padding:6px 8px; border:1px solid #eee; text-align:center;">은행</th>
+                                <th style="padding:6px 8px; border:1px solid #eee; text-align:center; width:36px;"></th>
+                            </tr>
+                            </thead>
+                            <tbody id="cancelConfirmList"></tbody>
+                        </table>
+                        <div id="cancelConfirmWarn"></div>
+                    </div>
+                    <div id="cancelConfirmPaging" style="display:flex; align-items:center; justify-content:center; gap:10px; margin-top:10px; font-size:13px;">
+                        <button type="button" id="ccPrev"
+                                style="background:#f5f6fa; border:1px solid #dde0ea; border-radius:4px; padding:3px 10px; cursor:pointer;">이전</button>
+                        <span id="ccPageInfo" style="color:#555;">1 / 1</span>
+                        <button type="button" id="ccNext"
+                                style="background:#f5f6fa; border:1px solid #dde0ea; border-radius:4px; padding:3px 10px; cursor:pointer;">다음</button>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+                        <button type="button" id="btnCancelConfirmDo"
+                                style="background:#e74c3c; color:#fff; padding:6px 18px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">해지 신청</button>
+                        <button type="button" id="btnCancelConfirmClose"
+                                style="background:#f5f6fa; color:#333; padding:6px 18px; border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">취소</button>
+                    </div>
+                </div>
+            </div>
             <section style="width: 50%;">
                 <div class="section-top">
                     <div class="search-wrap" style="width:100%; justify-content: flex-end;">
@@ -626,9 +676,17 @@
     <script type="text/javascript">
         var theGrid;
         var viewdata;
+        // 해지 선택 저장소: id → member 객체. 검색으로 목록이 바뀌어도 선택 유지.
+        var selectedMembers = {};
         var agreeUploader = null;
 
         var columns = [
+            {
+                binding: 'id', header: ' ', width: 40, align: 'center', cssClass: 'chk-col',
+                cellTemplate: function (ctx) {
+                    return '<input type="checkbox" class="row-check"' + (selectedMembers[ctx.item.id] ? ' checked' : '') + '>';
+                }
+            },
             {binding: 'id', header: 'ID', width: 60, align: 'center', visible: false},
             {binding: 'member_type_name', header: '구분', width: 55, align: 'center'},
             {binding: 'member_no', header: '납부자번호', width: 120, align: 'center'},
@@ -868,11 +926,47 @@
 
             $('#gridCount').text('총 ' + (data ? data.length : 0) + '건');
 
+            // 체크박스 클릭 → 저장소에 추가/제거 (검색과 무관하게 유지)
+            theGrid.hostElement.addEventListener('click', function (e) {
+                if (!e.target.classList.contains('row-check')) return;
+                var ht = theGrid.hitTest(e);
+                if (ht.row < 0) return;
+                var item = theGrid.rows[ht.row].dataItem;
+                if (e.target.checked) {
+                    selectedMembers[item.id] = item;
+                } else {
+                    delete selectedMembers[item.id];
+                }
+                updateCancelSelection();
+            });
+
             theGrid.hostElement.addEventListener('dblclick', function () {
                 var item = theGrid.selectedItems[0];
                 if (!item) return;
                 fillForm(item);
             });
+
+            // 이미 선택된 회원이 이번 목록에도 있으면 최신 객체로 갱신(상태 변화 반영)
+            if (data) {
+                data.forEach(function (it) {
+                    if (selectedMembers[it.id]) selectedMembers[it.id] = it;
+                });
+            }
+
+            updateCancelSelection();
+        }
+
+        // 선택(체크)된 회원 목록 반환 — 저장소 기준(검색과 무관)
+        function getCheckedMembers() {
+            return Object.keys(selectedMembers).map(function (k) { return selectedMembers[k]; });
+        }
+
+        // 상단 일괄해지 버튼/카운트 갱신
+        function updateCancelSelection() {
+            var checked = getCheckedMembers();
+            $('#cancelSelCount').text(checked.length);
+            $('#btnCancelSelected').prop('disabled', checked.length === 0)
+                .css('opacity', checked.length === 0 ? 0.5 : 1);
         }
 
         function fillForm(item) {
@@ -1277,9 +1371,109 @@
                         });
                 });
             });
+            $('#btnCancelSelected').click(function () {
+                var checked = getCheckedMembers();
+                if (checked.length === 0) { Alert.alert('', '해지할 대상을 선택하세요.'); return; }
+
+                // ACTIVE 아닌 건 미리 걸러 안내
+                var active   = checked.filter(function (m) { return m.status === 'ACTIVE'; });
+                var inactive = checked.filter(function (m) { return m.status !== 'ACTIVE'; });
+
+                if (active.length === 0) {
+                    Alert.alert('', '선택한 건 중 해지 가능한(활성) 회원이 없습니다.');
+                    return;
+                }
+
+                var warn = inactive.length > 0
+                    ? '<div style="color:#c0392b; font-size:12px; margin-top:8px;">※ 활성 아님 ' + inactive.length + '건은 제외됩니다.</div>'
+                    : '';
+
+                ccActive  = active;   // 페이징 대상 저장
+                ccPage    = 0;
+                renderCancelConfirmPage();
+                $('#cancelConfirmCount').text(active.length);
+                $('#cancelConfirmWarn').html(warn);
+                $('#modalCancelConfirm').css('display', 'flex');
+            });
+
+            // 확인 모달 - 실행
+            $('#btnCancelConfirmDo').click(function () {
+                var active = getCheckedMembers().filter(function (m) { return m.status === 'ACTIVE'; });
+                var ids = active.map(function (m) { return m.id; }).join(',');
+                $('#modalCancelConfirm').hide();
+
+                AjaxUtil.postAsyncData('/api/cms/member/cancel-multi',
+                    {member_ids: ids},
+                    function (result) {
+                        if (result.success) {
+                            selectedMembers = {};   // 선택 초기화
+                            Alert.alert('', (result.message || '해지 신청 완료') + '\n익일 EB14 수신 후 최종 처리됩니다.');
+                            searchList();
+                        } else {
+                            Alert.alert('', result.message || '해지 신청에 실패했습니다.');
+                        }
+                    });
+            });
+
+            $('#btnCancelConfirmClose').click(function () { $('#modalCancelConfirm').hide(); });
+            $('#btnCancelConfirmX').click(function () { $('#modalCancelConfirm').hide(); });
+
+            $('#ccPrev').click(function () {
+                if (ccPage > 0) { ccPage--; renderCancelConfirmPage(); }
+            });
+            $('#ccNext').click(function () {
+                var maxPage = Math.ceil(ccActive.length / CC_PAGE_SIZE) - 1;
+                if (ccPage < maxPage) { ccPage++; renderCancelConfirmPage(); }
+            });
         });
 
-        /* ── ERP 동기화 미리보기 모달 ──────────────────── */
+        // ── 확인 모달 페이징 ──────────────────────────────
+        var CC_PAGE_SIZE = 8;
+        var ccActive = [];
+        var ccPage = 0;
+
+        function renderCancelConfirmPage() {
+            var total   = ccActive.length;
+            var maxPage = Math.max(0, Math.ceil(total / CC_PAGE_SIZE) - 1);
+            if (ccPage > maxPage) ccPage = maxPage;
+
+            var start = ccPage * CC_PAGE_SIZE;
+            var pageItems = ccActive.slice(start, start + CC_PAGE_SIZE);
+
+            var listHtml = pageItems.map(function (m) {
+                return '<tr>'
+                    + '<td style="padding:5px 8px; border:1px solid #eee;">' + (m.member_name || '') + '</td>'
+                    + '<td style="padding:5px 8px; border:1px solid #eee; text-align:center;">' + (m.member_no || '') + '</td>'
+                    + '<td style="padding:5px 8px; border:1px solid #eee; text-align:center;">' + (m.bank_name || '') + '</td>'
+                    + '<td style="padding:5px 8px; border:1px solid #eee; text-align:center;">'
+                    +   '<button type="button" class="cc-remove" data-id="' + m.id + '" title="선택 취소"'
+                    +           ' style="background:none; border:none; color:#c0392b; font-size:15px; line-height:1; cursor:pointer;">&times;</button>'
+                    + '</td>'
+                    + '</tr>';
+            }).join('');
+
+            $('#cancelConfirmList').html(listHtml);
+            $('#cancelConfirmCount').text(total);
+            $('#ccPageInfo').text((total === 0 ? 0 : ccPage + 1) + ' / ' + (maxPage + 1));
+            $('#ccPrev').prop('disabled', ccPage === 0).css('opacity', ccPage === 0 ? 0.5 : 1);
+            $('#ccNext').prop('disabled', ccPage >= maxPage).css('opacity', ccPage >= maxPage ? 0.5 : 1);
+            // 8건 이하면 페이징 바 숨김
+            $('#cancelConfirmPaging').toggle(total > CC_PAGE_SIZE);
+        }
+
+        // 모달 내 행별 X 클릭 → 선택 취소
+        $(document).on('click', '.cc-remove', function () {
+            var id = $(this).data('id');
+            delete selectedMembers[id];                 // 저장소에서 제거
+            ccActive = ccActive.filter(function (m) { return String(m.id) !== String(id); });
+            updateCancelSelection();                    // 상단 카운트/버튼 갱신
+            if (theGrid) theGrid.invalidate();          // 그리드 체크 표시 갱신
+            if (ccActive.length === 0) {                // 다 지우면 모달 닫기
+                $('#modalCancelConfirm').hide();
+                return;
+            }
+            renderCancelConfirmPage();
+        });
         var RESULT_LABEL = {
             '0017': ['미신청', '#fde8d8', '#c0392b'],
             '0012': ['계좌오류', '#fde8d8', '#c0392b'],
@@ -1337,12 +1531,31 @@
                 '<span>이력없음 <span class="badge" style="background:#f5f6fa;color:#555;">' + unverified.length + '건</span></span>'
             );
 
-            if (!changed.length) {
+            if (!changed.length && !newItems.length) {
                 $('#erpSyncEmpty').show();
+                $('#erpSyncChangedWrap').hide();
                 return;
             }
+            $('#erpSyncEmpty').hide();
 
             var tbody = '';
+
+            // [신규] 항목 먼저 표시 — cms_member에 없는 대상, 기본 체크
+            newItems.forEach(function (item) {
+                tbody += '<tr class="erp-row-new">'
+                    + '<td style="text-align:center;">'
+                    + '<input type="checkbox" data-cltcd="' + escHtml(item.cltcd) + '" checked>'
+                    + '</td>'
+                    + '<td>' + escHtml(item.member_name || '') + '</td>'
+                    + '<td style="text-align:center;">' + escHtml(item.cltcd || '') + '</td>'
+                    + '<td style="text-align:center;">'
+                    + '<span class="result-badge" style="background:#d4edda;color:#155724;">신규</span>'
+                    + '</td>'
+                    + '<td><span style="color:#155724;">신규 등록 — 계좌 '
+                    + escHtml(item.bank_account || '') + ' / 납부자번호 ' + escHtml(item.member_no || item.erp_member_no || '') + '</span></td>'
+                    + '</tr>';
+            });
+
             changed.forEach(function (item) {
                 var kc = item.key_changes || [];
                 var isDanger = kc.some(function (c) {

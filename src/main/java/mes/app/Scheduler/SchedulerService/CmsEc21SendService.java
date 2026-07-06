@@ -221,7 +221,9 @@ public class CmsEc21SendService {
             mp.addValue("billingId", billingId);
             mp.addValue("lineSeq", seq++);
             sqlRunner.execute(/* skip_tenant_check */
-                    "INSERT INTO cms_file_billing(file_id,billing_id,line_seq,_created) VALUES(:fileId,:billingId,:lineSeq,NOW()) ON CONFLICT(billing_id) DO UPDATE SET file_id=EXCLUDED.file_id,line_seq=EXCLUDED.line_seq",
+                    "INSERT INTO cms_file_billing(file_id,billing_id,line_seq,_created) " +
+                            "VALUES(:fileId,:billingId,:lineSeq,NOW()) " +
+                            "ON CONFLICT(file_id,billing_id) DO UPDATE SET line_seq=EXCLUDED.line_seq",
                     mp);
         }
 

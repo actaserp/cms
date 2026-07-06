@@ -202,6 +202,7 @@ public class CmsBillingController {
     public AjaxResult recharge(
             @RequestParam("ids") String idsStr,
             @RequestParam("deduct_dates") String datesStr,
+            @RequestParam(value = "deduct_types", required = false) String typesStr,
             Authentication auth) {
 
         List<Long> ids = Arrays.stream(idsStr.split(","))
@@ -209,6 +210,12 @@ public class CmsBillingController {
                 .map(Long::parseLong).collect(Collectors.toList());
 
         List<String> dates = Arrays.stream(datesStr.split(","))
+                .map(String::trim).collect(Collectors.toList());
+
+        // 건별 EB/EC 구분 (비어있으면 서비스에서 원본 타입 상속)
+        List<String> types = (typesStr == null || typesStr.isBlank())
+                ? java.util.Collections.emptyList()
+                : Arrays.stream(typesStr.split(",", -1))
                 .map(String::trim).collect(Collectors.toList());
 
         if (ids.isEmpty()) {
@@ -219,7 +226,7 @@ public class CmsBillingController {
         }
 
         User user = (User) auth.getPrincipal();
-        Map<String, Object> res = cmsBillingService.rechargeBilling(ids, dates, user.getUsername());
+        Map<String, Object> res = cmsBillingService.rechargeBilling(ids, dates, types, user.getUsername());
 
         AjaxResult result = new AjaxResult();
         result.data = res;
@@ -427,6 +434,45 @@ public class CmsBillingController {
         User user = (User) auth.getPrincipal();
         try {
             result.data = cmsBillingService.importFromErp(billingYm, user.getUsername());
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    /** ERP 미수금 후보 조회 (모달 목록) — INSERT 안 함 */
+    @GetMapping("/erp-preview")
+    public AjaxResult erpPreview(
+            @RequestParam("billing_ym") String billingYm,
+            Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        try {
+            result.data = cmsBillingService.previewErpBilling(billingYm);
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    /** ERP 미수금 선택분으로 청구 생성 — 출금신청일(send_date) 사용자 지정 */
+    @PostMapping("/erp-create")
+    public AjaxResult erpCreate(
+            @RequestParam("billing_ym") String billingYm,
+            @RequestParam("send_date")  String sendDate,
+            @RequestParam("keys")       String keysStr,
+            Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+
+        List<String> selectedKeys = java.util.Arrays.stream(keysStr.split(","))
+                .map(String::trim).filter(s -> !s.isEmpty())
+                .collect(java.util.stream.Collectors.toList());
+
+        try {
+            result.data = cmsBillingService.createErpBilling(
+                    billingYm, sendDate, selectedKeys, user.getUsername());
         } catch (Exception e) {
             result.success = false;
             result.message = e.getMessage();

@@ -17,6 +17,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -853,13 +854,70 @@ public class CmsMemberService {
                             + "     WHERE actcd = E6.actcd AND custcd = ?"
                             + "     AND stdate = E1.stdate"
                             + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
-                            + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))";
+                            + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))"
+
+                            // ─────────────────────────────────────────────────────────────
+                            // ② EB13 주도 경로 (allchk/XCLIENT 기반 회사: 예) KYOUNG)
+                            //    E101 계약이 없어도 EB13(유효 출금동의)만 있으면 납부자로 동기화.
+                            //    계좌·납부자번호·은행·예금주는 EB13에서, autoflag/약정일은 XCLIENT 보조.
+                            //    금액(deduct_amount)은 청구 시 미수(DA023)에서 잡으므로 NULL.
+                            //    ①에서 이미 잡힌 actcd(=EB13.CLTCD)는 제외해 중복 방지.
+                            + " UNION"
+                            + " SELECT"
+                            + "   EB.CLTCD AS cltcd,"
+                            + "   EB.CLTCD AS actcd,"
+                            + "   X.cltnm AS member_name,"
+                            + "   X.corpperclafi AS corpperclafi,"
+                            + "   X.saupnum AS saupnum,"
+                            + "   REPLACE(LTRIM(RTRIM(EB.SAUPNUM)), '-', '') AS id_number,"
+                            + "   CASE WHEN X.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(X.prenum)))=13"
+                            + "        THEN LTRIM(RTRIM(X.prenum))"
+                            + "        WHEN NULLIF(REPLACE(LTRIM(RTRIM(X.saupnum)),'-',''),'') IS NOT NULL"
+                            + "        THEN REPLACE(LTRIM(RTRIM(X.saupnum)),'-','')"
+                            + "        ELSE NULL END AS resident_no,"
+                            + "   LTRIM(RTRIM(COALESCE(XB.bnkcode, ''))) AS bank_code,"
+                            + "   REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS bank_account,"
+                            + "   X.hptelnum AS phone,"
+                            + "   X.agneremail AS email,"
+                            + "   X.cltadres AS adresa,"
+                            + "   X.zipcd AS zipcd,"
+                            + "   NULL AS deduct_amount_raw,"
+                            + "   NULLIF(LTRIM(RTRIM(X.autodate)), '') AS deduct_day,"
+                            + "   NULLIF(LTRIM(RTRIM(X.autoflag)), '') AS auto_flag,"
+                            + "   NULL AS start_date,"
+                            + "   NULL AS end_date,"
+                            + "   NULL AS accyn,"
+                            + "   EB.BANKCLTCD AS member_no,"
+                            + "   NULL AS delmon1, NULL AS delmon2, NULL AS delmon3, NULL AS delmon4,"
+                            + "   NULL AS delmon5, NULL AS delmon6, NULL AS delmon7, NULL AS delmon8,"
+                            + "   NULL AS delmon9, NULL AS delmon10, NULL AS delmon11, NULL AS delmon12"
+                            + " FROM TB_CMSEB13 EB WITH(NOLOCK)"
+                            + " INNER JOIN TB_XCLIENT X WITH(NOLOCK)"
+                            + "     ON X.custcd = EB.CUSTCD AND X.cltcd = EB.CLTCD"
+                            + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD = XB.bankcd"
+                            + " WHERE EB.CUSTCD = ?"
+                            + "   AND EB.SPFLAG = '1' AND EB.ENDFLAG = 'Y'"
+                            + "   AND LEN(ISNULL(EB.ACTCD, '')) = 0"
+                            + "   AND NULLIF(LTRIM(RTRIM(EB.CMSACCNUM)), '') IS NOT NULL"
+                            + "   AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(EB.BANKCLTCD))) = 0"
+                            + "   AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
+                            + "   AND EB.SPDATE = ("
+                            + "       SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
+                            + "       WHERE CLTCD = EB.CLTCD AND CUSTCD = EB.CUSTCD AND ENDFLAG = 'Y'"
+                            + "       AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(BANKCLTCD))) = 0"
+                            + "       AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
+                            + "   AND EB.CLTCD NOT IN ("
+                            + "       SELECT E6b.actcd FROM TB_E601 E6b WITH(NOLOCK)"
+                            + "       INNER JOIN TB_E101 E1b WITH(NOLOCK)"
+                            + "           ON E6b.actcd = E1b.actcd AND E6b.custcd = E1b.custcd"
+                            + "       WHERE E6b.custcd = EB.CUSTCD AND E1b.cmsflag = 1)";
 
             try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, custcd);
                 ps.setString(2, custcd);
                 ps.setString(3, custcd);
                 ps.setString(4, custcd);
+                ps.setString(5, custcd);  // EB13 주도 경로 EB.CUSTCD
 
                 try (java.sql.ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
@@ -877,7 +935,7 @@ public class CmsMemberService {
                             String adresa       = rs.getString("adresa");
                             String zipcd2       = rs.getString("zipcd");
                             double rawAmt       = rs.getDouble("deduct_amount_raw");
-                            Long   deductAmount = roundAmount(rawAmt, roundUnit);
+                            Long   deductAmount = rs.wasNull() ? null : roundAmount(rawAmt, roundUnit);
                             String startDate    = cleanDate(rs.getString("start_date"));
                             String endDate      = cleanDate(rs.getString("end_date"));
                             String accyn        = rs.getString("accyn");
@@ -1118,76 +1176,115 @@ public class CmsMemberService {
 
         String sql =
                 "SELECT C.cltcd AS cltcd, E6.actcd AS actcd, E6.actnm AS member_name,"
-                + " C.corpperclafi AS corpperclafi, C.saupnum AS saupnum,"
-                + " LTRIM(RTRIM(COALESCE(EB.SAUPNUM,''))) AS id_number,"
-                + " CASE"
-                + "     WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum)))=13"
-                + "          AND NULLIF(LTRIM(RTRIM(C.prenum)),'') IS NOT NULL"
-                + "          THEN LTRIM(RTRIM(C.prenum))"
-                + "     WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),'') IS NOT NULL"
-                + "          THEN REPLACE(LTRIM(RTRIM(C.saupnum)),'-','')"
-                + "     ELSE NULL"
-                + " END AS resident_no,"
-                + " LTRIM(RTRIM(COALESCE(XB.bnkcode,''))) AS bank_code,"
-                + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS bank_account,"
-                + " C.hptelnum AS phone, C.agneremail AS email,"
-                + " C.cltadres AS adresa, C.zipcd AS zipcd,"
-                + " CASE"
-                + "     WHEN E1.contyul IS NOT NULL AND E1.contyul>0 AND E1.addyn=0"
-                + "          THEN E1.amt*(E1.contyul/100.0)*1.1"
-                + "     WHEN E1.contyul IS NOT NULL AND E1.contyul>0"
-                + "          THEN E1.amt*(E1.contyul/100.0)"
-                + "     WHEN E1.addyn=0 THEN E1.amt*1.1"
-                + "     ELSE E1.amt"
-                + " END AS deduct_amount_raw,"
-                + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autodate)),''),NULLIF(LTRIM(RTRIM(C.autodate)),'')) AS deduct_day,"
-                + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autoflag)),''),NULLIF(LTRIM(RTRIM(C.autoflag)),'')) AS auto_flag,"
-                + " E1.stdate AS start_date, E1.enddate AS end_date,"
-                + " EB.BANKCLTCD AS member_no,"
-                + " E1.delmon1,E1.delmon2,E1.delmon3,E1.delmon4,"
-                + " E1.delmon5,E1.delmon6,E1.delmon7,E1.delmon8,"
-                + " E1.delmon9,E1.delmon10,E1.delmon11,E1.delmon12"
-                + " FROM TB_XCLIENT C WITH(NOLOCK)"
-                + " LEFT JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd=B.bankcd"
-                + " INNER JOIN TB_E601 E6 WITH(NOLOCK) ON C.cltcd=E6.cltcd AND C.custcd=E6.custcd"
-                + " INNER JOIN TB_E101 E1 WITH(NOLOCK) ON E6.actcd=E1.actcd AND E6.custcd=E1.custcd"
-                + " INNER JOIN TB_CMSEB13 EB WITH(NOLOCK)"
-                + "     ON EB.CLTCD=E6.actcd AND EB.CUSTCD=C.custcd AND EB.ENDFLAG='Y'"
-                + "     AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(EB.BANKCLTCD)))=0"
-                + "     AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
-                + "     AND EB.SPDATE=("
-                + "         SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
-                + "         WHERE CLTCD=E6.actcd AND CUSTCD=C.custcd AND ENDFLAG='Y'"
-                + "         AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(BANKCLTCD)))=0"
-                + "         AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
-                + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD=XB.bankcd"
-                + " WHERE C.custcd=?"
-                + " AND ((C.allchk=1 AND (SELECT COUNT(*) FROM TB_E601 WITH(NOLOCK)"
-                + "       WHERE cltcd=C.cltcd AND custcd=C.custcd)=1) OR E1.cmsflag=1)"
-                + " AND NULLIF(LTRIM(RTRIM(EB.CMSACCNUM)),'') IS NOT NULL"
-                + " AND ((C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum))!='')"
-                + "   OR (C.saupnum IS NOT NULL AND LTRIM(RTRIM(C.saupnum))!='')"
-                + "   OR (C.prenum IS NOT NULL AND LTRIM(RTRIM(C.prenum))!='' AND LEN(LTRIM(RTRIM(C.prenum)))=13)"
-                + "   OR (E1.cmsrnum IS NOT NULL AND LTRIM(RTRIM(E1.cmsrnum))!=''))"
-                + " AND E1.enddate>=CONVERT(varchar(8),GETDATE(),112)"
-                + " AND E1.stdate<=CONVERT(varchar(8),GETDATE(),112)"
-                + " AND E1.stdate=(SELECT MAX(stdate) FROM TB_E101"
-                + "     WHERE actcd=E6.actcd AND custcd=?"
-                + "     AND enddate>=CONVERT(varchar(8),GETDATE(),112)"
-                + "     AND stdate<=CONVERT(varchar(8),GETDATE(),112))"
-                + " AND E1.amt=(SELECT MAX(amt) FROM TB_E101"
-                + "     WHERE actcd=E6.actcd AND custcd=? AND stdate=E1.stdate"
-                + "     AND enddate>=CONVERT(varchar(8),GETDATE(),112)"
-                + "     AND stdate<=CONVERT(varchar(8),GETDATE(),112))"
-                + " AND E1.enddate=(SELECT MAX(enddate) FROM TB_E101"
-                + "     WHERE actcd=E6.actcd AND custcd=? AND stdate=E1.stdate"
-                + "     AND enddate>=CONVERT(varchar(8),GETDATE(),112)"
-                + "     AND stdate<=CONVERT(varchar(8),GETDATE(),112))";
+                        + " C.corpperclafi AS corpperclafi, C.saupnum AS saupnum,"
+                        + " LTRIM(RTRIM(COALESCE(EB.SAUPNUM,''))) AS id_number,"
+                        + " CASE"
+                        + "     WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum)))=13"
+                        + "          AND NULLIF(LTRIM(RTRIM(C.prenum)),'') IS NOT NULL"
+                        + "          THEN LTRIM(RTRIM(C.prenum))"
+                        + "     WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),'') IS NOT NULL"
+                        + "          THEN REPLACE(LTRIM(RTRIM(C.saupnum)),'-','')"
+                        + "     ELSE NULL"
+                        + " END AS resident_no,"
+                        + " LTRIM(RTRIM(COALESCE(XB.bnkcode,''))) AS bank_code,"
+                        + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS bank_account,"
+                        + " C.hptelnum AS phone, C.agneremail AS email,"
+                        + " C.cltadres AS adresa, C.zipcd AS zipcd,"
+                        + " CASE"
+                        + "     WHEN E1.contyul IS NOT NULL AND E1.contyul>0 AND E1.addyn=0"
+                        + "          THEN E1.amt*(E1.contyul/100.0)*1.1"
+                        + "     WHEN E1.contyul IS NOT NULL AND E1.contyul>0"
+                        + "          THEN E1.amt*(E1.contyul/100.0)"
+                        + "     WHEN E1.addyn=0 THEN E1.amt*1.1"
+                        + "     ELSE E1.amt"
+                        + " END AS deduct_amount_raw,"
+                        + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autodate)),''),NULLIF(LTRIM(RTRIM(C.autodate)),'')) AS deduct_day,"
+                        + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autoflag)),''),NULLIF(LTRIM(RTRIM(C.autoflag)),'')) AS auto_flag,"
+                        + " E1.stdate AS start_date, E1.enddate AS end_date,"
+                        + " EB.BANKCLTCD AS member_no,"
+                        + " E1.delmon1,E1.delmon2,E1.delmon3,E1.delmon4,"
+                        + " E1.delmon5,E1.delmon6,E1.delmon7,E1.delmon8,"
+                        + " E1.delmon9,E1.delmon10,E1.delmon11,E1.delmon12"
+                        + " FROM TB_XCLIENT C WITH(NOLOCK)"
+                        + " LEFT JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd=B.bankcd"
+                        + " INNER JOIN TB_E601 E6 WITH(NOLOCK) ON C.cltcd=E6.cltcd AND C.custcd=E6.custcd"
+                        + " INNER JOIN TB_E101 E1 WITH(NOLOCK) ON E6.actcd=E1.actcd AND E6.custcd=E1.custcd"
+                        + " INNER JOIN TB_CMSEB13 EB WITH(NOLOCK)"
+                        + "     ON EB.CLTCD=E6.actcd AND EB.CUSTCD=C.custcd AND EB.ENDFLAG='Y'"
+                        + "     AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(EB.BANKCLTCD)))=0"
+                        + "     AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
+                        + "     AND EB.SPDATE=("
+                        + "         SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
+                        + "         WHERE CLTCD=E6.actcd AND CUSTCD=C.custcd AND ENDFLAG='Y'"
+                        + "         AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(BANKCLTCD)))=0"
+                        + "         AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
+                        + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD=XB.bankcd"
+                        + " WHERE C.custcd=?"
+                        + " AND ((C.allchk=1 AND (SELECT COUNT(*) FROM TB_E601 WITH(NOLOCK)"
+                        + "       WHERE cltcd=C.cltcd AND custcd=C.custcd)=1) OR E1.cmsflag=1)"
+                        + " AND NULLIF(LTRIM(RTRIM(EB.CMSACCNUM)),'') IS NOT NULL"
+                        + " AND ((C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum))!='')"
+                        + "   OR (C.saupnum IS NOT NULL AND LTRIM(RTRIM(C.saupnum))!='')"
+                        + "   OR (C.prenum IS NOT NULL AND LTRIM(RTRIM(C.prenum))!='' AND LEN(LTRIM(RTRIM(C.prenum)))=13)"
+                        + "   OR (E1.cmsrnum IS NOT NULL AND LTRIM(RTRIM(E1.cmsrnum))!=''))"
+                        + " AND E1.enddate>=CONVERT(varchar(8),GETDATE(),112)"
+                        + " AND E1.stdate<=CONVERT(varchar(8),GETDATE(),112)"
+                        + " AND E1.stdate=(SELECT MAX(stdate) FROM TB_E101"
+                        + "     WHERE actcd=E6.actcd AND custcd=?"
+                        + "     AND enddate>=CONVERT(varchar(8),GETDATE(),112)"
+                        + "     AND stdate<=CONVERT(varchar(8),GETDATE(),112))"
+                        + " AND E1.amt=(SELECT MAX(amt) FROM TB_E101"
+                        + "     WHERE actcd=E6.actcd AND custcd=? AND stdate=E1.stdate"
+                        + "     AND enddate>=CONVERT(varchar(8),GETDATE(),112)"
+                        + "     AND stdate<=CONVERT(varchar(8),GETDATE(),112))"
+                        + " AND E1.enddate=(SELECT MAX(enddate) FROM TB_E101"
+                        + "     WHERE actcd=E6.actcd AND custcd=? AND stdate=E1.stdate"
+                        + "     AND enddate>=CONVERT(varchar(8),GETDATE(),112)"
+                        + "     AND stdate<=CONVERT(varchar(8),GETDATE(),112))"
+                        // ② EB13 주도 경로 (allchk/XCLIENT 기반 회사)
+                        + " UNION"
+                        + " SELECT EB.CLTCD AS cltcd, EB.CLTCD AS actcd, X.cltnm AS member_name,"
+                        + " X.corpperclafi AS corpperclafi, X.saupnum AS saupnum,"
+                        + " REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-','') AS id_number,"
+                        + " CASE WHEN X.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(X.prenum)))=13"
+                        + "      THEN LTRIM(RTRIM(X.prenum))"
+                        + "      WHEN NULLIF(REPLACE(LTRIM(RTRIM(X.saupnum)),'-',''),'') IS NOT NULL"
+                        + "      THEN REPLACE(LTRIM(RTRIM(X.saupnum)),'-','')"
+                        + "      ELSE NULL END AS resident_no,"
+                        + " LTRIM(RTRIM(COALESCE(XB.bnkcode,''))) AS bank_code,"
+                        + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS bank_account,"
+                        + " X.hptelnum AS phone, X.agneremail AS email,"
+                        + " X.cltadres AS adresa, X.zipcd AS zipcd,"
+                        + " NULL AS deduct_amount_raw,"
+                        + " NULLIF(LTRIM(RTRIM(X.autodate)),'') AS deduct_day,"
+                        + " NULLIF(LTRIM(RTRIM(X.autoflag)),'') AS auto_flag,"
+                        + " NULL AS start_date, NULL AS end_date,"
+                        + " EB.BANKCLTCD AS member_no,"
+                        + " NULL AS delmon1,NULL AS delmon2,NULL AS delmon3,NULL AS delmon4,"
+                        + " NULL AS delmon5,NULL AS delmon6,NULL AS delmon7,NULL AS delmon8,"
+                        + " NULL AS delmon9,NULL AS delmon10,NULL AS delmon11,NULL AS delmon12"
+                        + " FROM TB_CMSEB13 EB WITH(NOLOCK)"
+                        + " INNER JOIN TB_XCLIENT X WITH(NOLOCK) ON X.custcd=EB.CUSTCD AND X.cltcd=EB.CLTCD"
+                        + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD=XB.bankcd"
+                        + " WHERE EB.CUSTCD=?"
+                        + "   AND EB.SPFLAG='1' AND EB.ENDFLAG='Y'"
+                        + "   AND LEN(ISNULL(EB.ACTCD,''))=0"
+                        + "   AND NULLIF(LTRIM(RTRIM(EB.CMSACCNUM)),'') IS NOT NULL"
+                        + "   AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(EB.BANKCLTCD)))=0"
+                        + "   AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
+                        + "   AND EB.SPDATE=(SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
+                        + "       WHERE CLTCD=EB.CLTCD AND CUSTCD=EB.CUSTCD AND ENDFLAG='Y'"
+                        + "       AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(BANKCLTCD)))=0"
+                        + "       AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
+                        + "   AND EB.CLTCD NOT IN (SELECT E6b.actcd FROM TB_E601 E6b WITH(NOLOCK)"
+                        + "       INNER JOIN TB_E101 E1b WITH(NOLOCK) ON E6b.actcd=E1b.actcd AND E6b.custcd=E1b.custcd"
+                        + "       WHERE E6b.custcd=EB.CUSTCD AND E1b.cmsflag=1)";
 
         List<Map<String, Object>> result = new java.util.ArrayList<>();
         try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, custcd); ps.setString(2, custcd);
             ps.setString(3, custcd); ps.setString(4, custcd);
+            ps.setString(5, custcd);
             try (java.sql.ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String actcd = rs.getString("actcd");
@@ -1215,7 +1312,8 @@ public class CmsMemberService {
                     String bnkCode     = rs.getString("bank_code");
                     String bankCode    = bnkCodeMap.getOrDefault(bnkCode, bnkCode);
                     String bankAccount = rs.getString("bank_account");
-                    Long   deductAmt   = roundAmount(rs.getDouble("deduct_amount_raw"), roundUnit);
+                    double rawAmt2     = rs.getDouble("deduct_amount_raw");
+                    Long   deductAmt   = rs.wasNull() ? null : roundAmount(rawAmt2, roundUnit);
 
                     List<String> months = new java.util.ArrayList<>();
                     for (int i = 1; i <= 12; i++) {
@@ -1238,7 +1336,7 @@ public class CmsMemberService {
                     if (StringUtils.hasText(saupnum)) {
                         memberType = "0".equals(corpperclafi) ? "S" : "C";
                     } else if ("0".equals(corpperclafi) && StringUtils.hasText(idNumber)
-                               && idNumber.replaceAll("[^0-9]","").length() == 13) {
+                            && idNumber.replaceAll("[^0-9]","").length() == 13) {
                         memberType = "P";
                     } else {
                         memberType = "S";
@@ -1733,9 +1831,9 @@ public class CmsMemberService {
             // 4a. 이상 등록건: ENDFLAG='Y' 이지만 BANKCLTCD가 납부자번호 형태 아님
             String abnSql =
                     "SELECT DISTINCT CLTCD, BANKCLTCD FROM TB_CMSEB13 WITH(NOLOCK)" +
-                    " WHERE CUSTCD = ? AND ENDFLAG = 'Y'" +
-                    " AND (PATINDEX('%[^0-9]%', LTRIM(RTRIM(BANKCLTCD))) > 0" +
-                    "   OR LEN(LTRIM(RTRIM(BANKCLTCD))) NOT BETWEEN 10 AND 13)";
+                            " WHERE CUSTCD = ? AND ENDFLAG = 'Y'" +
+                            " AND (PATINDEX('%[^0-9]%', LTRIM(RTRIM(BANKCLTCD))) > 0" +
+                            "   OR LEN(LTRIM(RTRIM(BANKCLTCD))) NOT BETWEEN 10 AND 13)";
             try (java.sql.PreparedStatement ps = conn.prepareStatement(abnSql)) {
                 ps.setString(1, custcd);
                 try (java.sql.ResultSet rs = ps.executeQuery()) {
@@ -1754,24 +1852,24 @@ public class CmsMemberService {
             // 4b. 유효 최신 등록건: CLTCD 단일매칭, ENDFLAG='Y', 정상 BANKCLTCD, SPDATE 최신
             String eb13Sql =
                     "SELECT EB.CLTCD," +
-                    " LTRIM(RTRIM(EB.BANKCLTCD)) AS payer_no," +
-                    " EB.BANKCD AS erp_bank_code," +
-                    " LTRIM(RTRIM(COALESCE(XB.bnkcode, ''))) AS cms_bank_code," +
-                    " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM, ''))), '-', ''), ' ', '') AS bank_account," +
-                    " LTRIM(RTRIM(COALESCE(EB.SAUPNUM, ''))) AS id_number," +
-                    " EB.SPDATE" +
-                    " FROM TB_CMSEB13 EB WITH(NOLOCK)" +
-                    " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD = XB.bankcd" +
-                    " WHERE EB.CUSTCD = ?" +
-                    " AND EB.ENDFLAG = 'Y'" +
-                    " AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(EB.BANKCLTCD))) = 0" +
-                    " AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13" +
-                    " AND EB.SPDATE = (" +
-                    "   SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)" +
-                    "   WHERE CLTCD = EB.CLTCD AND CUSTCD = EB.CUSTCD AND ENDFLAG = 'Y'" +
-                    "   AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(BANKCLTCD))) = 0" +
-                    "   AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13" +
-                    " )";
+                            " LTRIM(RTRIM(EB.BANKCLTCD)) AS payer_no," +
+                            " EB.BANKCD AS erp_bank_code," +
+                            " LTRIM(RTRIM(COALESCE(XB.bnkcode, ''))) AS cms_bank_code," +
+                            " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM, ''))), '-', ''), ' ', '') AS bank_account," +
+                            " LTRIM(RTRIM(COALESCE(EB.SAUPNUM, ''))) AS id_number," +
+                            " EB.SPDATE" +
+                            " FROM TB_CMSEB13 EB WITH(NOLOCK)" +
+                            " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD = XB.bankcd" +
+                            " WHERE EB.CUSTCD = ?" +
+                            " AND EB.ENDFLAG = 'Y'" +
+                            " AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(EB.BANKCLTCD))) = 0" +
+                            " AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13" +
+                            " AND EB.SPDATE = (" +
+                            "   SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)" +
+                            "   WHERE CLTCD = EB.CLTCD AND CUSTCD = EB.CUSTCD AND ENDFLAG = 'Y'" +
+                            "   AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(BANKCLTCD))) = 0" +
+                            "   AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13" +
+                            " )";
             try (java.sql.PreparedStatement ps = conn.prepareStatement(eb13Sql)) {
                 ps.setString(1, custcd);
                 try (java.sql.ResultSet rs = ps.executeQuery()) {
@@ -1968,7 +2066,7 @@ public class CmsMemberService {
     }
 
     private Map<String, Object> diagRealRow(String cltcd, String memberName, String field,
-                                             String currentValue, String eb13Value, String lastResultCode) {
+                                            String currentValue, String eb13Value, String lastResultCode) {
         Map<String, Object> row = new java.util.LinkedHashMap<>();
         row.put("cltcd", cltcd);
         row.put("member_name", memberName);
@@ -1980,7 +2078,7 @@ public class CmsMemberService {
     }
 
     private Map<String, Object> diagVerifyRow(String cltcd, String memberName,
-                                               String classification, String lastResultCode) {
+                                              String classification, String lastResultCode) {
         Map<String, Object> row = new java.util.LinkedHashMap<>();
         row.put("cltcd", cltcd);
         row.put("member_name", memberName);
@@ -2047,25 +2145,108 @@ public class CmsMemberService {
 
         long registerId = ((Number) regRow.get("id")).longValue();
 
-        Map<String, Object> result = cmsEb13SendService.send(List.of(registerId));
-        int sent = ((Number) result.getOrDefault("sent", 0)).intValue();
+        // 해지행은 PENDING 상태로만 생성. 실제 EB13 전송은 '출금이체 인증 관리'의
+        // "인증 등록 신청"에서 신규 건과 함께 하루 1파일로 묶어 보낸다.
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_member SET status='PENDING_CANCEL',
+                    _modifier_id=:userId, _modified=NOW()
+                WHERE id=:memberId AND spjangcd=:spjangcd
+                """,
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd).addValue("userId", userId));
+        return Map.of("success", true,
+                "message", "해지 신청이 접수되었습니다. '출금이체 인증 관리'에서 인증 등록 신청으로 전송하세요.");
+    }
 
-        if (sent > 0) {
-            sqlRunner.execute(/* skip_tenant_check */
+    /**
+     * 다건 해지 — 여러 회원을 한 번에 해지 신청.
+     * 각 회원마다 해지 레지스터 행(apply_type='3')을 만들고,
+     * 유효한 건들을 하나의 EB13 파일로 묶어 전송한 뒤 PENDING_CANCEL로 일괄 반영.
+     */
+    public Map<String, Object> cancelMembers(List<Long> memberIds, String userId) {
+        String spjangcd = TenantContext.get();
+
+        List<Map<String, Object>> skipped = new ArrayList<>();   // 해지 불가(상태 등)
+        List<Long> okMemberIds  = new ArrayList<>();             // 전송 성공 대상
+        List<Long> okRegisterIds = new ArrayList<>();            // 생성된 해지행
+
+        for (Long memberId : memberIds) {
+            Map<String, Object> member = sqlRunner.getRow(/* skip_tenant_check */
                     """
-                    UPDATE cms_member SET status='PENDING_CANCEL',
-                        _modifier_id=:userId, _modified=NOW()
-                    WHERE id=:memberId AND spjangcd=:spjangcd
+                    SELECT id, member_no, bank_code, bank_account, id_number, member_type,
+                           member_name, status
+                    FROM cms_member
+                    WHERE id = :memberId AND spjangcd = :spjangcd
                     """,
-                    new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd).addValue("userId", userId));
-            return Map.of("success", true, "message", "해지 신청이 완료되었습니다.");
-        } else {
-            // 발송 실패 시 방금 만든 해지행 정리 (원복)
-            sqlRunner.execute(/* skip_tenant_check */
-                    "UPDATE cms_account_register SET status='FAILED', eb13_status='FAILED' WHERE id=:registerId",
-                    new MapSqlParameterSource("registerId", registerId));
-            throw new RuntimeException("EB13 해지 파일 송신 실패 register_id=" + registerId);
+                    new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+
+            if (member == null) {
+                skipped.add(Map.of("member_id", memberId, "reason", "회원 없음"));
+                continue;
+            }
+            if (!"ACTIVE".equals(str(member.get("status")))) {
+                skipped.add(Map.of(
+                        "member_id", memberId,
+                        "member_name", str(member.get("member_name")),
+                        "reason", "ACTIVE 아님(" + str(member.get("status")) + ")"));
+                continue;
+            }
+
+            Map<String, Object> regRow = sqlRunner.getRow(/* skip_tenant_check */
+                    """
+                    INSERT INTO cms_account_register (
+                        spjangcd, member_id, member_name, member_no,
+                        bank_code, bank_account, id_number, member_type,
+                        apply_type, apply_date, ei13_status, eb13_status, status,
+                        _creater_id, _created, _modifier_id, _modified
+                    ) VALUES (
+                        :spjangcd, :memberId, :memberName, :memberNo,
+                        :bankCode, :bankAccount, :idNumber, :memberType,
+                        '3', TO_CHAR(NOW(),'YYYYMMDD'), 'SENT', 'PENDING', 'PENDING',
+                        :userId, NOW(), :userId, NOW()
+                    ) RETURNING id
+                    """,
+                    new MapSqlParameterSource()
+                            .addValue("spjangcd",    spjangcd)
+                            .addValue("memberId",    memberId)
+                            .addValue("memberName",  str(member.get("member_name")))
+                            .addValue("memberNo",    str(member.get("member_no")))
+                            .addValue("bankCode",    str(member.get("bank_code")))
+                            .addValue("bankAccount", str(member.get("bank_account")))
+                            .addValue("idNumber",    str(member.get("id_number")))
+                            .addValue("memberType",  str(member.get("member_type")))
+                            .addValue("userId",      userId));
+
+            long registerId = ((Number) regRow.get("id")).longValue();
+            okMemberIds.add(memberId);
+            okRegisterIds.add(registerId);
         }
+
+        if (okRegisterIds.isEmpty()) {
+            return Map.of("sent", 0, "failed", 0, "skipped", skipped,
+                    "message", "해지 가능한 대상이 없습니다.");
+        }
+
+        // 해지행은 PENDING 상태로만 생성. 실제 EB13 전송은 '출금이체 인증 관리'의
+        // "인증 등록 신청"에서 신규 건과 함께 하루 1파일로 묶어 보낸다(EB13 1일 1파일 제약).
+        // 회원 상태는 해지 신청 접수 표시로 PENDING_CANCEL 처리.
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_member SET status='PENDING_CANCEL',
+                    _modifier_id=:userId, _modified=NOW()
+                WHERE id IN (:memberIds) AND spjangcd=:spjangcd
+                """,
+                new MapSqlParameterSource("memberIds", okMemberIds)
+                        .addValue("spjangcd", spjangcd)
+                        .addValue("userId", userId));
+
+        return Map.of(
+                "sent", okMemberIds.size(),
+                "failed", 0,
+                "skipped", skipped,
+                "message", okMemberIds.size() + "건 해지 신청이 접수되었습니다. "
+                        + "'출금이체 인증 관리'에서 인증 등록 신청으로 전송하세요."
+                        + (skipped.isEmpty() ? "" : " (제외 " + skipped.size() + "건)"));
     }
 
     public void manualAgree(Long memberId, String userId) {

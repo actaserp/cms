@@ -209,6 +209,40 @@ public class CmsMemberController {
         return result;
     }
 
+    /** 다건 해지 신청 — 체크된 회원 일괄 해지 (EB13 한 파일로 묶어 전송) */
+    @PostMapping("/cancel-multi")
+    @ResponseBody
+    public AjaxResult cancelMembers(@RequestParam("member_ids") String memberIdsStr, Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        AjaxResult result = new AjaxResult();
+
+        List<Long> memberIds = java.util.Arrays.stream(memberIdsStr.split(","))
+                .map(String::trim).filter(s -> !s.isEmpty())
+                .map(Long::parseLong).collect(java.util.stream.Collectors.toList());
+
+        if (memberIds.isEmpty()) {
+            result.success = false;
+            result.message = "해지할 대상을 선택하세요.";
+            return result;
+        }
+
+        try {
+            Map<String, Object> res = cmsMemberService.cancelMembers(memberIds, user.getUsername());
+            int sent = res.get("sent") != null ? ((Number) res.get("sent")).intValue() : 0;
+            result.data = res;
+            if (sent == 0) {
+                result.success = false;
+                result.message = res.get("message") != null ? (String) res.get("message") : "해지 실패";
+            } else {
+                result.message = (String) res.get("message");
+            }
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
     @PostMapping("/manual-agree")
     @ResponseBody
     public AjaxResult manualAgree(@RequestParam Long member_id, Authentication auth) {
