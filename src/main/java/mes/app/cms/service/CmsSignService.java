@@ -95,6 +95,17 @@ public class CmsSignService {
             return result;
         }
 
+        // 계좌변경 신규행이 있으면 그 새 계좌를 서명 대상으로 사용(cms_member는 아직 구계좌)
+        Map<String, Object> changeNew = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT r.bank_code, r.bank_account, r.account_holder, bc.bank_name " +
+                        "FROM cms_account_register r " +
+                        "LEFT JOIN cms_bank_code bc ON bc.bank_code = r.bank_code " +
+                        "WHERE r.member_id = :memberId AND r.spjangcd = :spjangcd " +
+                        "  AND r.apply_type = '1' AND r.change_flag = 'Y' " +
+                        "  AND r.status = 'PENDING' AND r.eb13_status = 'PENDING' " +
+                        "ORDER BY r._created DESC LIMIT 1",
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+
         // 기관명 조회
         Map<String, Object> workplace = getWorkplace(spjangcd);
 
@@ -102,15 +113,23 @@ public class CmsSignService {
         result.put("member_id", memberId);
         result.put("spjangcd", spjangcd);
         result.put("company_name", workplace != null ? workplace.get("spjangnm") : "");
-        result.put("account_holder", member.get("account_holder") != null ? member.get("account_holder") : member.get("member_name"));
         result.put("id_number", member.get("id_number"));
-        result.put("bank_name", member.get("bank_name"));
-        result.put("bank_account", member.get("bank_account"));
         result.put("phone", member.get("phone"));
         result.put("member_name", member.get("member_name"));
         result.put("charge_type", workplace != null ? workplace.get("cms_description") : "CMS 자동이체");
         result.put("token", token);
 
+        if (changeNew != null) {
+            // 계좌변경: 새 계좌 표시
+            result.put("account_holder", changeNew.get("account_holder") != null ? changeNew.get("account_holder") : member.get("member_name"));
+            result.put("bank_name",    changeNew.get("bank_name"));
+            result.put("bank_account", changeNew.get("bank_account"));
+        } else {
+            // 일반 신규: cms_member 계좌 표시
+            result.put("account_holder", member.get("account_holder") != null ? member.get("account_holder") : member.get("member_name"));
+            result.put("bank_name",    member.get("bank_name"));
+            result.put("bank_account", member.get("bank_account"));
+        }
 
         return result;
     }
@@ -154,8 +173,17 @@ public class CmsSignService {
         // 은행코드 조회 (bank_name → bank_code)
         String bankCode = getBankCodeByName(bankName);
 
-        // 1. cms_member 업데이트
-        updateMember(memberId, spjangcd, accountHolder, idNumber, bankCode, bankAccount, phone);
+        // 계좌변경 신규행이 있으면 계좌변경 흐름 → cms_member 계좌는 여기서 바꾸지 않고 EB14 승인 후 반영.
+        Map<String, Object> changeNew = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT id FROM cms_account_register WHERE member_id = :memberId AND spjangcd = :spjangcd " +
+                        "  AND apply_type = '1' AND change_flag = 'Y' AND status = 'PENDING' AND eb13_status = 'PENDING' LIMIT 1",
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+        boolean isChange = (changeNew != null);
+
+        // 1. cms_member 업데이트 (일반 신규만; 계좌변경은 승인 후 반영하므로 스킵)
+        if (!isChange) {
+            updateMember(memberId, spjangcd, accountHolder, idNumber, bankCode, bankAccount, phone);
+        }
 
         // 2. PDF 생성
         Map<String, Object> workplace = getWorkplace(spjangcd);
@@ -165,10 +193,19 @@ public class CmsSignService {
                 ? String.valueOf(workplace.get("cms_description")) : "CMS 자동이체";
         byte[] pdfBytes = generatePdf(companyName, accountHolder, idNumber, bankName, bankAccount, phone, signImage, memberName, chargeType);
 
+        // 동의서를 붙일 register행 결정.
+        // 계좌변경(change_flag='Y')이면 반드시 신규행('1')에 붙여야 EI13이 참조함.
         Map<String, Object> register = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT id FROM cms_account_register WHERE member_id = :memberId AND spjangcd = :spjangcd ORDER BY _created DESC LIMIT 1",
-                new MapSqlParameterSource("memberId", memberId)
-                        .addValue("spjangcd", spjangcd));
+                "SELECT id FROM cms_account_register WHERE member_id = :memberId AND spjangcd = :spjangcd " +
+                        "  AND apply_type = '1' AND change_flag = 'Y' AND status = 'PENDING' AND eb13_status = 'PENDING' " +
+                        "ORDER BY _created DESC LIMIT 1",
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+        if (register == null) {
+            // 일반 신규: 최근 행
+            register = sqlRunner.getRow(/* skip_tenant_check */
+                    "SELECT id FROM cms_account_register WHERE member_id = :memberId AND spjangcd = :spjangcd ORDER BY _created DESC LIMIT 1",
+                    new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+        }
         Long registerId = register != null ? ((Number) register.get("id")).longValue() : memberId;
 
 

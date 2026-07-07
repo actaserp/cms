@@ -850,6 +850,13 @@ public class CmsBillingService {
                 deductDate = cmsHolidayService.getNextBusinessDay(rawDate);
             }
 
+            // 재청구 청구년월 = 실제 출금월(deduct_date 기준). CMS는 회계귀속이 아니라
+            // 출금 실행월로 관리하므로, 원본 미수월이 아닌 출금월로 잡아 해당 월 화면·전송에 노출되게 함.
+            // 원본 미수와의 연결은 erp_mis_key로 유지됨.
+            if (deductDate != null && deductDate.length() >= 6) {
+                billingYm = deductDate.substring(0, 6);
+            }
+
             String memo = origDeductDate + " 불능 / 재청구";
             String billingSeq = generateBillingSeq(spjangcd, billingYm);
 

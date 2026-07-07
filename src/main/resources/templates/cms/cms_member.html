@@ -561,6 +561,12 @@
                                                font-size:12px; cursor:pointer; height: 28px;">
                                             해지 신청
                                         </button>
+                                        <button type="button" id="btnChangeAccount"
+                                                style="display:none; margin-left:8px; padding:3px 10px;
+                                               background:#0d6efd; color:#fff; border:none; border-radius:4px;
+                                               font-size:12px; cursor:pointer; height: 28px;">
+                                            계좌변경
+                                        </button>
                                     </td>
                                 </tr>
                                 <tr>
@@ -613,6 +619,57 @@
                     </div>
                 </div>
             </section>
+        </div>
+    </div>
+
+    <!-- 계좌변경 모달 -->
+    <div id="modalChangeAccount" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+         background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:22px 26px; min-width:440px;
+             box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <h3 style="margin:0; font-size:15px;">계좌변경 신청</h3>
+                <button type="button" id="btnChgClose"
+                        style="background:none; border:none; font-size:20px; color:#888; cursor:pointer;">&times;</button>
+            </div>
+            <div style="font-size:12px; color:#e67e22; margin-bottom:12px;">
+                기존 계좌 해지와 새 계좌 신규 신청이 함께 접수됩니다. 새 계좌 정보를 정확히 입력하세요.
+            </div>
+            <input type="hidden" id="chgMemberId">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                <tr>
+                    <th style="padding:7px; text-align:left; width:90px; color:#555;">납부자</th>
+                    <td style="padding:7px;"><span id="chgMemberName"></span></td>
+                </tr>
+                <tr>
+                    <th style="padding:7px; text-align:left; color:#555;">새 은행</th>
+                    <td style="padding:7px;">
+                        <select id="chgBankCode" style="width:100%; padding:5px; border:1px solid #dde0ea; border-radius:4px;">
+                            <option value="">선택</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th style="padding:7px; text-align:left; color:#555;">새 계좌번호</th>
+                    <td style="padding:7px;">
+                        <input type="text" id="chgBankAccount" placeholder="숫자만 입력"
+                               style="width:100%; padding:5px; border:1px solid #dde0ea; border-radius:4px;">
+                    </td>
+                </tr>
+                <tr>
+                    <th style="padding:7px; text-align:left; color:#555;">예금주</th>
+                    <td style="padding:7px;">
+                        <input type="text" id="chgAccountHolder"
+                               style="width:100%; padding:5px; border:1px solid #dde0ea; border-radius:4px;">
+                    </td>
+                </tr>
+            </table>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+                <button type="button" id="btnChgSubmit"
+                        style="background:#0d6efd; color:#fff; padding:6px 18px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">변경 신청</button>
+                <button type="button" id="btnChgCancel"
+                        style="background:#f5f6fa; color:#333; padding:6px 18px; border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">취소</button>
+            </div>
         </div>
     </div>
 
@@ -876,18 +933,21 @@
         }
 
         // 은행 드롭다운 로드 (cms_bank_code 테이블 기준)
+        var bankCodeList = [];
         function loadBankCodes() {
             $.ajax({
                 url: '/api/cms/bank_code/list',
                 type: 'GET',
                 success: function (result) {
                     if (result.success && result.data) {
+                        bankCodeList = result.data;
                         var options = '<option value="">선택</option>';
                         result.data.forEach(function (item) {
                             options += '<option value="' + item.bank_code + '">'
                                 + item.bank_name + '</option>';
                         });
                         $('#bank_code').html(options);
+                        $('#chgBankCode').html(options);
                     }
                 }
             });
@@ -1041,6 +1101,14 @@
                 $('#btnCancelMember').show().data('memberId', item.id);
             } else {
                 $('#btnCancelMember').hide();
+            }
+            // 계좌변경: 이미 CMS에 등록(인증완료)된 활성 회원만
+            if (item.status === 'ACTIVE' && item.agree_status === '인증완료') {
+                $('#btnChangeAccount').show()
+                    .data('memberId', item.id)
+                    .data('memberName', item.member_name);
+            } else {
+                $('#btnChangeAccount').hide();
             }
 
             // 동의방식 라디오 복원
@@ -1371,6 +1439,51 @@
                         });
                 });
             });
+
+            // 계좌변경 - 모달 열기
+            $('#btnChangeAccount').click(function () {
+                var memberId = $(this).data('memberId');
+                if (!memberId) return;
+                $('#chgMemberId').val(memberId);
+                $('#chgMemberName').text($(this).data('memberName') || '');
+                $('#chgBankCode').val('');
+                $('#chgBankAccount').val('');
+                $('#chgAccountHolder').val($('#account_holder').val() || $(this).data('memberName') || '');
+                $('#modalChangeAccount').css('display', 'flex');
+            });
+            $('#btnChgClose').click(function () { $('#modalChangeAccount').hide(); });
+            $('#btnChgCancel').click(function () { $('#modalChangeAccount').hide(); });
+
+            // 계좌변경 - 신청
+            $('#btnChgSubmit').click(function () {
+                var memberId = $('#chgMemberId').val();
+                var bankCode = $('#chgBankCode').val();
+                var bankAccount = ($('#chgBankAccount').val() || '').replace(/[^0-9]/g, '');
+                var accountHolder = $('#chgAccountHolder').val();
+
+                if (!bankCode) { Alert.alert('', '새 은행을 선택하세요.'); return; }
+                if (!bankAccount) { Alert.alert('', '새 계좌번호를 입력하세요.'); return; }
+
+                Alert.confirm('', '기존 계좌 해지 + 새 계좌 신규 신청이 함께 접수됩니다.\n계속하시겠습니까?', function () {
+                    AjaxUtil.postAsyncData('/api/cms/member/change-account',
+                        {
+                            member_id: memberId,
+                            bank_code: bankCode,
+                            bank_account: bankAccount,
+                            account_holder: accountHolder
+                        },
+                        function (result) {
+                            if (result.success) {
+                                $('#modalChangeAccount').hide();
+                                Alert.alert('', result.message || '계좌변경 신청이 접수되었습니다.');
+                                searchList();
+                            } else {
+                                Alert.alert('', result.message || '계좌변경 신청에 실패했습니다.');
+                            }
+                        });
+                });
+            });
+
             $('#btnCancelSelected').click(function () {
                 var checked = getCheckedMembers();
                 if (checked.length === 0) { Alert.alert('', '해지할 대상을 선택하세요.'); return; }

@@ -232,21 +232,21 @@ public class CmsEb14ReceiveService {
         // 신규(apply_type='1') 정상 → APPROVED
         sqlRunner.execute(/* skip_tenant_check */
                 "UPDATE cms_account_register " +
-                "SET eb14_received_at=NOW(), eb14_result='Y', status='APPROVED', _modified=NOW() " +
-                "WHERE spjangcd=:spjangcd AND apply_date=:targetDate " +
-                "  AND COALESCE(apply_type,'1') = '1' " +
-                notInClause +
-                "  AND eb13_status='SENT' AND status='PENDING'",
+                        "SET eb14_received_at=NOW(), eb14_result='Y', status='APPROVED', _modified=NOW() " +
+                        "WHERE spjangcd=:spjangcd AND apply_date=:targetDate " +
+                        "  AND COALESCE(apply_type,'1') = '1' " +
+                        notInClause +
+                        "  AND eb13_status='SENT' AND status='PENDING'",
                 base);
 
         // 해지(apply_type='3') 정상 → CANCELLED
         sqlRunner.execute(/* skip_tenant_check */
                 "UPDATE cms_account_register " +
-                "SET eb14_received_at=NOW(), eb14_result='Y', status='CANCELLED', _modified=NOW() " +
-                "WHERE spjangcd=:spjangcd AND apply_date=:targetDate " +
-                "  AND apply_type='3' " +
-                notInClause +
-                "  AND eb13_status='SENT' AND status='PENDING'",
+                        "SET eb14_received_at=NOW(), eb14_result='Y', status='CANCELLED', _modified=NOW() " +
+                        "WHERE spjangcd=:spjangcd AND apply_date=:targetDate " +
+                        "  AND apply_type='3' " +
+                        notInClause +
+                        "  AND eb13_status='SENT' AND status='PENDING'",
                 base);
 
         // ── cms_member 상태 반영 ─────────────────────────────────────────────
@@ -262,7 +262,7 @@ public class CmsEb14ReceiveService {
                   AND r.status      = 'APPROVED'
                 """, base);
 
-        // 해지 완료 → INACTIVE 확정
+        // 해지 완료 → INACTIVE 확정 (단, 계좌변경 해지건은 제외 — 회원은 살아있어야 함)
         sqlRunner.execute(/* skip_tenant_check */
                 """
                 UPDATE cms_member m
@@ -272,6 +272,27 @@ public class CmsEb14ReceiveService {
                   AND r.spjangcd    = :spjangcd
                   AND r.apply_date  = :targetDate
                   AND r.status      = 'CANCELLED'
+                  AND COALESCE(r.change_flag,'N') <> 'Y'
+                """, base);
+
+        // ── 계좌변경 신규건 승인 → cms_member 계좌를 새 값으로 갱신(활성 유지) ──
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_member m
+                SET bank_code      = r.bank_code,
+                    bank_account   = r.bank_account,
+                    account_holder = COALESCE(r.account_holder, m.account_holder),
+                    status         = 'ACTIVE',
+                    agree_yn       = 'Y',
+                    agree_date     = NOW(),
+                    _modified      = NOW()
+                FROM cms_account_register r
+                WHERE r.member_id   = m.id
+                  AND r.spjangcd    = :spjangcd
+                  AND r.apply_date  = :targetDate
+                  AND r.status      = 'APPROVED'
+                  AND r.apply_type  = '1'
+                  AND r.change_flag = 'Y'
                 """, base);
 
         // ── cms_file_register 연결 ──────────────────────────────────────────

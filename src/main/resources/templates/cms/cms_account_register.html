@@ -43,6 +43,29 @@
             color: #41464b;
         }
 
+        .apply-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .apply-new {
+            background: #e7f0ff;
+            color: #1c5fd6;
+        }
+
+        .apply-cancel {
+            background: #f3e2e2;
+            color: #b04242;
+        }
+
+        .apply-change {
+            background: #fff3cd;
+            color: #a06a00;
+        }
+
         .flow-step {
             display: inline-flex;
             align-items: center;
@@ -253,12 +276,28 @@
         var theGrid, viewdata;
         var agreeUploader = null;
         var currentItem = null;
+        // 선택 저장소: id → item. 서버 페이징으로 목록이 바뀌어도 선택 유지.
+        var selectedRows = {};
 
         var columns = [
             {binding: 'id', header: 'ID', width: 60, align: 'center', visible: false},
             {
                 binding: 'selected', header: '', width: 40, align: 'center',
                 isReadOnly: false, dataType: 'Boolean'
+            },
+            {
+                binding: 'apply_type', header: '구분', width: 72, align: 'center',
+                cellTemplate: function (ctx) {
+                    var isChange = ctx.item.change_flag === 'Y';
+                    if (ctx.item.apply_type === '3') {
+                        return isChange
+                            ? '<span class="apply-badge apply-change">변경(해지)</span>'
+                            : '<span class="apply-badge apply-cancel">해지</span>';
+                    }
+                    return isChange
+                        ? '<span class="apply-badge apply-change">변경(신규)</span>'
+                        : '<span class="apply-badge apply-new">신규</span>';
+                }
             },
             {binding: 'member_name', header: '납부자명', width: 110, align: 'left'},
             {binding: 'member_no', header: '납부자번호', width: 120, align: 'center'},
@@ -380,7 +419,8 @@
 
         function bindGrid(data) {
             data.forEach(function (item) {
-                item.selected = false;
+                item.selected = !!selectedRows[item.id];
+                if (item.selected) selectedRows[item.id] = item;
             });
             viewdata = new wijmo.collections.CollectionView(data);
 
@@ -407,9 +447,13 @@
                     if (chk) {
                         chk.onclick = function (ev) {
                             viewdata.items.forEach(function (r) {
-                                // 종료 상태(승인완료/해지완료)는 전체선택에서 제외
                                 if (r.status === 'APPROVED' || r.status === 'CANCELLED') return;
                                 r.selected = ev.target.checked;
+                                if (ev.target.checked) {
+                                    selectedRows[r.id] = r;
+                                } else {
+                                    delete selectedRows[r.id];
+                                }
                             });
                             theGrid.refresh();
                             updateButtons();
@@ -438,7 +482,13 @@
             $('#theGrid').on('change', '.row-check', function () {
                 var row = theGrid.hitTest(this).row;
                 if (row >= 0 && viewdata.items[row]) {
-                    viewdata.items[row].selected = $(this).is(':checked');
+                    var item = viewdata.items[row];
+                    item.selected = $(this).is(':checked');
+                    if (item.selected) {
+                        selectedRows[item.id] = item;
+                    } else {
+                        delete selectedRows[item.id];
+                    }
                 }
                 updateButtons();
             });
@@ -454,14 +504,14 @@
         }
 
         function updateButtons() {
-            var selected = (viewdata ? viewdata.items : []).filter(function(i) { return i.selected; });
+            var selected = Object.keys(selectedRows).map(function (k) { return selectedRows[k]; });
 
             var canRegister = selected.some(function(i) {
-                // 신규: EI13부터 (PENDING/PENDING/PENDING)
+                // 신규(일반/계좌변경 공통): EI13부터 (ei13 PENDING)
                 var isNew = i.status === 'PENDING'
                     && i.ei13_status === 'PENDING'
                     && i.eb13_status === 'PENDING';
-                // 해지: EI13 불필요 (apply_type=3, ei13 SENT, eb13 PENDING)
+                // 해지(일반/계좌변경 공통): EI13 불필요 (apply_type=3, ei13 SENT, eb13 PENDING)
                 var isCancel = i.apply_type === '3'
                     && i.status === 'PENDING'
                     && i.ei13_status === 'SENT'
@@ -503,11 +553,11 @@
                 return;
             }
 
-            // 파일 없는 건 체크
-            var noFileItems = (viewdata ? viewdata.items : [])
-                .filter(function(i) { return i.selected && i.status === 'PENDING'; })
+            // 파일 없는 건 체크 (전체 선택분 대상)
+            var noFileItems = getSelectedItems()
+                .filter(function(i) { return i.status === 'PENDING'; })
                 .filter(function(i) {
-                    return !i.agree_file_path && i.ei13_status === 'PENDING'; // EI13 미시도 건만 체크
+                    return !i.agree_file_path && i.ei13_status === 'PENDING';
                 });
 
             if (noFileItems.length > 0) {
@@ -523,6 +573,7 @@
                         } else {
                             Alert.alert('신청 실패', result.message);
                         }
+                        selectedRows = {};
                         searchList(0);
                     });
             });
@@ -530,17 +581,15 @@
 
         // 재신청 — REJECTED 건 새 PENDING 생성
         function reRegister() {
-            var ids = getSelectedIds().filter(function(id) {
-                var item = viewdata.items.find(function(i) { return i.id === id; });
+            var ids = getSelectedItems().filter(function(item) {
                 return item && (
                     item.status === 'REJECTED' ||
                     item.status === 'FAILED' ||
                     item.ei13_status === 'FAILED' ||
                     item.eb13_status === 'FAILED' ||
-                    (item.ei13_status === 'PENDING' && item.eb13_status !== 'PENDING') ||
-                    (item.eb13_status === 'PENDING' && item.ei13_status === 'SENT')
+                    (item.ei13_status === 'PENDING' && item.eb13_status !== 'PENDING')
                 );
-            });
+            }).map(function(item) { return item.id; });
             if (!ids.length) {
                 Alert.alert('', '재신청할 항목을 선택하세요.');
                 return;
@@ -554,19 +603,20 @@
                         } else {
                             Alert.alert('재신청 실패', result.message);
                         }
+                        selectedRows = {};
                         searchList(0);
                     });
             });
         }
 
         function getSelectedIds() {
-            return (viewdata ? viewdata.items : [])
-                .filter(function (i) {
-                    return i.selected;
-                })
-                .map(function (i) {
-                    return i.id;
-                });
+            return Object.keys(selectedRows).map(function (k) {
+                return selectedRows[k].id;
+            });
+        }
+
+        function getSelectedItems() {
+            return Object.keys(selectedRows).map(function (k) { return selectedRows[k]; });
         }
 
         // 파일 모달

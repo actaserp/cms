@@ -50,9 +50,9 @@ public class CmsAccountRegisterService {
         }
 
         String innerSql =
-                "SELECT DISTINCT ON (r.member_id)" +
+                "SELECT DISTINCT ON (r.member_id, r.apply_type)" +
                         "       r.id, r.member_id, m.member_name, m.member_no, bc.bank_name," +
-                        "       r.bank_account, r.apply_date, r.apply_type," +
+                        "       r.bank_account, r.apply_date, r.apply_type, r.change_flag," +
                         "       r.ei13_status, r.ei13_sent_at, r.eb13_status, r.eb13_sent_at," +
                         "       r.eb14_result, r.eb14_fail_code, r.eb14_received_at," +
                         "       r.status, r.memo, r._created, r.agree_file_path" +
@@ -60,7 +60,7 @@ public class CmsAccountRegisterService {
                         "  JOIN cms_member m ON m.id = r.member_id" +
                         "  LEFT JOIN cms_bank_code bc ON bc.bank_code = r.bank_code" +
                         "  WHERE r.spjangcd = :spjangcd" + filters +
-                        "  ORDER BY r.member_id, r._created DESC";
+                        "  ORDER BY r.member_id, r.apply_type, r._created DESC";
 
         Map<String, Object> countRow = sqlRunner.getRow(/* skip_tenant_check */
                 "SELECT COUNT(*) AS cnt FROM (" + innerSql + ") sub", param);

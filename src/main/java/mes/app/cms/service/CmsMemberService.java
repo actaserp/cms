@@ -2266,4 +2266,120 @@ public class CmsMemberService {
                         .addValue("spjangcd", spjangcd)
                         .addValue("userId", userId));
     }
+
+    /**
+     * 계좌변경 신청.
+     * 구계좌(cms_member 현재 계좌)로 해지행('3'), 신계좌(입력값)로 신규행('1')을
+     * 같은 납부자번호로 생성한다. 두 행 모두 change_flag='Y'로 표시하여
+     * EB13 전송 시 한 파일에 함께 담기고, 신규행은 EI13을 스킵하고 바로 EB13 대상이 된다.
+     * cms_member의 계좌는 여기서 바로 바꾸지 않고, 신규행이 EB14 정상 승인된 뒤 갱신한다.
+     * 동의상태는 미신청으로 되돌려 재인증 흐름을 태운다.
+     */
+    public Map<String, Object> changeAccount(Long memberId, String newBankCode,
+                                             String newBankAccount, String newAccountHolder,
+                                             String userId) {
+        String spjangcd = TenantContext.get();
+
+        Map<String, Object> member = sqlRunner.getRow(/* skip_tenant_check */
+                """
+                SELECT id, member_no, bank_code, bank_account, account_holder,
+                       id_number, member_type, member_name, status
+                FROM cms_member
+                WHERE id = :memberId AND spjangcd = :spjangcd
+                """,
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+
+        if (member == null) {
+            return Map.of("success", false, "message", "회원을 찾을 수 없습니다.");
+        }
+        if (!"ACTIVE".equals(str(member.get("status")))) {
+            return Map.of("success", false,
+                    "message", "활성(ACTIVE) 회원만 계좌변경이 가능합니다. 현재: " + str(member.get("status")));
+        }
+        if (!StringUtils.hasText(newBankCode) || !StringUtils.hasText(newBankAccount)) {
+            return Map.of("success", false, "message", "새 계좌 정보(은행/계좌번호)를 입력하세요.");
+        }
+
+        String memberNo   = str(member.get("member_no"));
+        String oldBankCode    = str(member.get("bank_code"));
+        String oldBankAccount = str(member.get("bank_account"));
+        String idNumber   = str(member.get("id_number"));
+        String memberType = str(member.get("member_type"));
+        String memberName = str(member.get("member_name"));
+
+        // 구계좌가 없으면 계좌변경이 아니라 신규 등록 대상 → 막는다.
+        if (!StringUtils.hasText(oldBankAccount)) {
+            return Map.of("success", false,
+                    "message", "기존 계좌가 없어 계좌변경 대상이 아닙니다. 신규 등록을 이용하세요.");
+        }
+
+        // 1) 해지행('3') - 구계좌
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                INSERT INTO cms_account_register (
+                    spjangcd, member_id, member_name, member_no,
+                    bank_code, bank_account, id_number, member_type,
+                    apply_type, change_flag, apply_date, ei13_status, eb13_status, status,
+                    _creater_id, _created, _modifier_id, _modified
+                ) VALUES (
+                    :spjangcd, :memberId, :memberName, :memberNo,
+                    :bankCode, :bankAccount, :idNumber, :memberType,
+                    '3', 'Y', TO_CHAR(NOW(),'YYYYMMDD'), 'SENT', 'PENDING', 'PENDING',
+                    :userId, NOW(), :userId, NOW()
+                )
+                """,
+                new MapSqlParameterSource()
+                        .addValue("spjangcd",    spjangcd)
+                        .addValue("memberId",    memberId)
+                        .addValue("memberName",  memberName)
+                        .addValue("memberNo",    memberNo)
+                        .addValue("bankCode",    oldBankCode)
+                        .addValue("bankAccount", oldBankAccount)
+                        .addValue("idNumber",    idNumber)
+                        .addValue("memberType",  memberType)
+                        .addValue("userId",      userId));
+
+        // 2) 신규행('1') - 신계좌. EI13(동의자료)을 타야 하므로 ei13_status=PENDING.
+        //    동의서(agree_file_path)는 이후 '출금이체 인증 관리'에서 첨부 → EI13 전송.
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                INSERT INTO cms_account_register (
+                    spjangcd, member_id, member_name, member_no,
+                    bank_code, bank_account, account_holder, id_number, member_type,
+                    apply_type, change_flag, agree_type, apply_date, ei13_status, eb13_status, status,
+                    _creater_id, _created, _modifier_id, _modified
+                ) VALUES (
+                    :spjangcd, :memberId, :memberName, :memberNo,
+                    :bankCode, :bankAccount, :accountHolder, :idNumber, :memberType,
+                    '1', 'Y', '1', TO_CHAR(NOW(),'YYYYMMDD'), 'PENDING', 'PENDING', 'PENDING',
+                    :userId, NOW(), :userId, NOW()
+                )
+                """,
+                new MapSqlParameterSource()
+                        .addValue("spjangcd",      spjangcd)
+                        .addValue("memberId",      memberId)
+                        .addValue("memberName",    memberName)
+                        .addValue("memberNo",      memberNo)
+                        .addValue("bankCode",      newBankCode)
+                        .addValue("bankAccount",   newBankAccount)
+                        .addValue("accountHolder", StringUtils.hasText(newAccountHolder) ? newAccountHolder : memberName)
+                        .addValue("idNumber",      idNumber)
+                        .addValue("memberType",    memberType)
+                        .addValue("userId",        userId));
+
+        // 3) 회원 정보: 계좌는 아직 바꾸지 않고(승인 후 반영), 동의상태만 미신청으로 되돌림
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_member SET
+                    agree_yn     = 'N',
+                    agree_method = NULL,
+                    _modifier_id = :userId,
+                    _modified    = NOW()
+                WHERE id = :memberId AND spjangcd = :spjangcd
+                """,
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd).addValue("userId", userId));
+
+        return Map.of("success", true,
+                "message", "계좌변경 신청이 접수되었습니다. '출금이체 인증 관리'에서 인증 등록 신청으로 전송하세요.");
+    }
 }
