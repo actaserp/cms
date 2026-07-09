@@ -105,6 +105,7 @@
                 </div>
                 <div class="container-fluid">
                     <div id="theGrid"></div>
+                    <div style="padding:6px 0;"><button type="button" class="btn-default" id="btnExcel" style="background:#217346; color:#fff; width:120px;">엑셀 다운로드</button></div>
                     <div id="paginationBar" style="display:flex; align-items:center; gap:6px; margin:6px 0;">
                         <button onclick="searchList(0)"             style="padding:2px 8px;">◀◀</button>
                         <button onclick="searchList(currentPage-1)" style="padding:2px 8px;" id="btnPrevPage">◀</button>
@@ -1071,8 +1072,47 @@
             });
         }
 
+        function exportExcel() {
+            var ymVal = $('#srchBillingYm').val() || '';
+            var params = {
+                billing_ym: ymVal.replace('-', ''),
+                send_date: ($('#srchSendDate').val() || '').replace(/-/g, ''),
+                member_name: $('#srchMemberName').val(),
+                status: $('#srchStatus').val(),
+                deduct_type: 'EC'
+            };
+            params.page = 0;
+            params.size = 1000000;
+            $.ajax({
+                url: withCtx('/api/cms/billing/list'),
+                type: 'GET',
+                data: params,
+                success: function (result) {
+                    if (!result || result.success === false) { Alert.alert('', '엑셀 조회 실패: ' + ((result && result.message) || '')); return; }
+                    var rows = (result.data && result.data.data) ? result.data.data : (result.data || []);
+                    if (!rows.length) { Alert.alert('', '다운로드할 데이터가 없습니다.'); return; }
+                    var host = document.createElement('div');
+                    host.style.position = 'absolute'; host.style.left = '-99999px'; host.style.top = '0';
+                    host.style.width = '1200px'; host.style.height = '400px';
+                    document.body.appendChild(host);
+                    var tmp = new wijmo.grid.FlexGrid(host, {
+                        autoGenerateColumns: false, columns: columns, isReadOnly: true,
+                        itemsSource: new wijmo.collections.CollectionView(rows)
+                    });
+                    var cleanup = function () { try { tmp.dispose(); } catch (e) {} if (host.parentNode) host.parentNode.removeChild(host); };
+                    wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
+                        tmp, {includeColumnHeaders: true, includeCellStyles: false}, '당일청구_' + (ymVal.replace('-', '') || '전체') + '.xlsx',
+                        function () { cleanup(); },
+                        function () { cleanup(); Alert.alert('', '엑셀 생성 실패'); }
+                    );
+                },
+                error: function () { Alert.alert('오류', '엑셀 다운로드 조회 실패'); }
+            });
+        }
+
         $(document).ready(function() {
             $('#btnSearch').click(searchList);
+            $('#btnExcel').click(exportExcel);
             $('#srchMemberName').keypress(function (e) {
                 if (e.which === 13) searchList();
             });

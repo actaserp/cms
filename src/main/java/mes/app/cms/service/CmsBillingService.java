@@ -1190,6 +1190,17 @@ public class CmsBillingService {
         String dbUrl = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
                 str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
 
+        // 기관별 기본 표시명(SITE=현장명 / REP=대표거래처명). 컬럼 없거나 미설정이면 REP.
+        String nameType = "REP";
+        try {
+            Map<String, Object> nt = sqlRunner.getRow(/* skip_tenant_check */
+                    "SELECT name_type FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
+                    new MapSqlParameterSource("spjangcd", spjangcd));
+            if (nt != null && StringUtils.hasText(str(nt.get("name_type")))) {
+                nameType = str(nt.get("name_type")).toUpperCase();
+            }
+        } catch (Exception ignore) { /* name_type 컬럼 미존재 시 REP 유지 */ }
+
         try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
         catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
 
@@ -1218,7 +1229,9 @@ public class CmsBillingService {
                 D.actcd,
                 D.misdate,
                 D.misnum,
-                C.cltnm                           AS member_name,
+                C.cltnm                           AS member_name_rep,
+                F.actnm                           AS member_name_site,
+                C.autoflag                        AS autoflag,
                 SUM(D.samt + ISNULL(D.addamt, 0)) AS billing_amount
             FROM TB_DA024 D WITH(NOLOCK)
             INNER JOIN TB_XCLIENT C WITH(NOLOCK)
@@ -1228,17 +1241,22 @@ public class CmsBillingService {
                 AND LTRIM(RTRIM(C.accnum)) != ''
                 AND C.cmsrnum IS NOT NULL
                 AND LTRIM(RTRIM(C.cmsrnum)) != ''
+            LEFT JOIN TB_E601 F WITH(NOLOCK)
+                ON F.custcd = D.custcd
+                AND F.actcd = D.actcd
             WHERE D.custcd = ?
-            AND LEFT(D.misdate, 6) = ?
+            AND LEFT(D.misdate, 6) IN (?, ?)
             AND D.samt > 0
-            GROUP BY D.cltcd, D.actcd, D.misdate, D.misnum, C.cltnm
+            GROUP BY D.cltcd, D.actcd, D.misdate, D.misnum, C.cltnm, F.actnm, C.autoflag
             ORDER BY D.cltcd, D.misdate
             """;
 
+            String prevYm = prevYyyymm(billingYm);
             try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, custcd);
                 ps.setString(2, custcd);
                 ps.setString(3, billingYm);
+                ps.setString(4, prevYm);
 
                 try (java.sql.ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
@@ -1248,7 +1266,14 @@ public class CmsBillingService {
                         String misnum        = rs.getString("misnum");
                         String misKey        = misdate + misnum;
                         double billingAmount = rs.getDouble("billing_amount");
-                        String memberName    = rs.getString("member_name");
+                        String autoflag      = str(rs.getString("autoflag"));
+                        String misYm         = (misdate != null && misdate.length() >= 6) ? misdate.substring(0, 6) : "";
+                        String nameRep       = rs.getString("member_name_rep");   // 대표거래처명(XCLIENT.cltnm)
+                        String nameSite      = rs.getString("member_name_site");  // 현장명(E601.actnm)
+                        if (!StringUtils.hasText(nameSite)) nameSite = nameRep;    // 현장명 없으면 대표명
+                        if (!StringUtils.hasText(nameRep))  nameRep  = nameSite;
+                        // 기관 기본값(SITE/REP)에 따른 기본 표시명. 화면 토글이 site/rep로 전환.
+                        String memberName    = "SITE".equalsIgnoreCase(nameType) ? nameSite : nameRep;
 
                         if (!StringUtils.hasText(actcd)) actcd = cltcd;
                         if (billingAmount <= 0) continue;
@@ -1256,12 +1281,20 @@ public class CmsBillingService {
                         Map<String, Object> member = sqlRunner.getRow(/* skip_tenant_check */
                                 """
                                 SELECT id, member_name, member_no, bank_code, bank_account,
-                                       account_holder, deduct_day, agree_yn
+                                       account_holder, deduct_day, agree_yn, deduct_month_type
                                 FROM cms_member
                                 WHERE spjangcd = :spjangcd AND cltcd = :actcd
                                 """,
                                 new MapSqlParameterSource("spjangcd", spjangcd)
                                         .addValue("actcd", actcd));
+
+                        // 당월/익월 판단: cms_member.deduct_month_type 우선, 없으면 ERP XCLIENT.autoflag 폴백
+                        //  익월(NEXT / autoflag=2) → 전월 발생 미수를 이번 달 청구, 그 외 → 당월 미수
+                        String monthType = (member != null && StringUtils.hasText(str(member.get("deduct_month_type"))))
+                                ? str(member.get("deduct_month_type"))
+                                : ("2".equals(autoflag) ? "NEXT" : "CURRENT");
+                        String expectYm  = "NEXT".equalsIgnoreCase(monthType) ? prevYm : billingYm;
+                        if (!expectYm.equals(misYm)) continue;
 
                         String rowStatus;
                         Object memberId = null;
@@ -1276,11 +1309,9 @@ public class CmsBillingService {
                         } else if (!"Y".equals(str(member.get("agree_yn")))) {
                             rowStatus = "NOT_AGREED";
                             memberId  = member.get("id");
-                            dispName  = str(member.get("member_name"));
                         } else {
                             rowStatus     = "OK";
                             memberId      = member.get("id");
-                            dispName      = str(member.get("member_name"));
                             deductDay     = str(member.get("deduct_day"));
                             deductDate    = calcDeductDate(billingYm, deductDay);
                             bankCode      = str(member.get("bank_code"));
@@ -1293,7 +1324,9 @@ public class CmsBillingService {
                         row.put("cltcd",          cltcd);
                         row.put("actcd",          actcd);
                         row.put("member_id",      memberId);
-                        row.put("member_name",    dispName);
+                        row.put("member_name",      dispName);
+                        row.put("member_name_rep",  nameRep);
+                        row.put("member_name_site", nameSite);
                         row.put("billing_amount", (long) billingAmount);
                         row.put("bank_code",      bankCode);
                         row.put("bank_account",   bankAccount);
@@ -1607,6 +1640,19 @@ public class CmsBillingService {
     }
 
     private String str(Object v) { return v != null ? v.toString() : ""; }
+
+    /** YYYYMM의 전월 YYYYMM 반환 (익월 청구 거래처의 전월 미수 조회용) */
+    private String prevYyyymm(String yyyymm) {
+        if (yyyymm == null || yyyymm.length() < 6) return yyyymm;
+        try {
+            int y = Integer.parseInt(yyyymm.substring(0, 4));
+            int m = Integer.parseInt(yyyymm.substring(4, 6));
+            m--; if (m == 0) { m = 12; y--; }
+            return String.format("%04d%02d", y, m);
+        } catch (NumberFormatException e) {
+            return yyyymm;
+        }
+    }
 
     /**
      * 수동 청구 생성 전 약정일별 청구 가능 건수 조회

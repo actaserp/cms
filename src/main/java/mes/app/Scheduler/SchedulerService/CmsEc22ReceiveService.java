@@ -82,7 +82,9 @@ public class CmsEc22ReceiveService {
             log.info("[CmsEc22Receive] 처리 시작 spjangcd={} targetDate={}", spjangcd, targetDate);
             try {
                 byte[] fileBytes = sftpDownloadWithApiCredential(ec22FileName, targetDate, spjangcd);
-                processSpjangInternal(spjangcd, targetDate, ec22FileName, fileId, fileBytes);
+                List<CmsErpResultSyncService.SyncItem> syncItems =
+                        processSpjangInternal(spjangcd, targetDate, ec22FileName, fileId, fileBytes);
+                syncToErpAfterCommit(spjangcd, targetDate, syncItems);
             } catch (Exception e) {
                 log.error("[CmsEc22Receive] 실패 spjangcd={} targetDate={}: {}", spjangcd, targetDate, e.getMessage(), e);
             }
@@ -103,7 +105,7 @@ public class CmsEc22ReceiveService {
      * @Transactional이 동작하려면 Spring 프록시를 통해 호출되어야 하므로 public
      */
     @Transactional
-    public void processSpjangInternal(String spjangcd, String targetDate, String ec22FileName, long fileId, byte[] fileBytes) throws Exception {
+    public List<CmsErpResultSyncService.SyncItem> processSpjangInternal(String spjangcd, String targetDate, String ec22FileName, long fileId, byte[] fileBytes) throws Exception {
 
         // NCP 업로드 (실패해도 처리는 계속 - 파일은 SFTP에 있으므로 재업로드 가능)
         String objectKey = storageService.buildObjectKey(spjangcd, FEATURE_CODE, ec22FileName);
@@ -287,26 +289,42 @@ public class CmsEc22ReceiveService {
 
         log.info("[CmsEc22Receive] 완료 spjangcd={} 성공={}건 실패={}건", spjangcd, successCount, failCount);
 
-        // PostgreSQL 트랜잭션 커밋 후 MSSQL INSERT 실행
-        // - @Transactional 메서드가 정상 종료돼야 커밋되므로
-        // - MSSQL 실패는 로그만 남김 (PostgreSQL은 이미 커밋)
-        // ✨ ERP 체크: ERP 연동이 활성화된 경우에만 MSSQL에 INSERT
+        // MSSQL 동기화는 이 @Transactional 메서드가 커밋된 뒤(caller에서) 실행한다.
+        return syncItems;
+    }
+
+    /**
+     * PostgreSQL 커밋 후 MSSQL(tb_bank_cmssave) 반영. (비트랜잭션 — caller가 커밋 이후 호출)
+     * 실패해도 PG는 이미 정상 처리됨. 실패 시 ERROR 로그로 표면화 → 결과조회 "ERP 반영" 버튼으로 복구.
+     */
+    public void syncToErpAfterCommit(String spjangcd, String targetDate,
+                                     List<CmsErpResultSyncService.SyncItem> syncItems) {
+        if (syncItems == null || syncItems.isEmpty()) return;
+
         Map<String, Object> erpInfo = sqlRunner.getRow(/* skip_tenant_check */
                 "SELECT host FROM tb_xa012_erp WHERE spjangcd = :spjangcd AND use_yn = 'Y'",
                 new MapSqlParameterSource("spjangcd", spjangcd));
-
-        if (erpInfo != null && erpInfo.get("host") != null) {
-            // ERP 설정이 있으면 MSSQL에 INSERT
-            try {
-                cmsErpResultSyncService.syncResults(spjangcd, targetDate, syncItems);
-                log.info("[CmsEc22Receive] MSSQL 동기화 완료 spjangcd={} targetDate={}", spjangcd, targetDate);
-            } catch (Exception e) {
-                log.warn("[CmsEc22Receive] MSSQL 동기화 실패 (PostgreSQL은 정상 처리됨): {}", e.getMessage());
-            }
-        } else {
+        if (erpInfo == null || erpInfo.get("host") == null) {
             log.info("[CmsEc22Receive] ERP 미설정 - MSSQL 동기화 스킵 spjangcd={} targetDate={}", spjangcd, targetDate);
+            return;
+        }
+
+        try {
+            Map<String, Object> r = cmsErpResultSyncService.syncResults(spjangcd, targetDate, syncItems);
+            int failed = num(r.get("failed"));
+            if (failed > 0) {
+                log.error("[CmsEc22Receive] MSSQL 동기화 일부 실패 spjangcd={} targetDate={} 결과={} → 결과조회 'ERP 반영'으로 복구 필요",
+                        spjangcd, targetDate, r);
+            } else {
+                log.info("[CmsEc22Receive] MSSQL 동기화 완료 spjangcd={} targetDate={} 결과={}", spjangcd, targetDate, r);
+            }
+        } catch (Exception e) {
+            log.error("[CmsEc22Receive] MSSQL 동기화 실패 spjangcd={} targetDate={} (PG는 정상) → 결과조회 'ERP 반영'으로 복구 필요: {}",
+                    spjangcd, targetDate, e.getMessage(), e);
         }
     }
+
+    private int num(Object v) { return v instanceof Number ? ((Number) v).intValue() : 0; }
 
     /**
      * EC22 파싱: R레코드에서 납부자번호(20자) + 불능코드(4자) 추출
@@ -543,7 +561,9 @@ public class CmsEc22ReceiveService {
 
             long   fileId    = ((Number) requestFileRow.get("id")).longValue();
             byte[] fileBytes = sftpDownloadWithApiCredential(fileName, targetDate, spjangcd);
-            processSpjangInternal(spjangcd, targetDate, fileName, fileId, fileBytes);
+            List<CmsErpResultSyncService.SyncItem> syncItems =
+                    processSpjangInternal(spjangcd, targetDate, fileName, fileId, fileBytes);
+            syncToErpAfterCommit(spjangcd, targetDate, syncItems);
 
             result.put("success", true);
             result.put("message", "파일 처리가 완료되었습니다.");

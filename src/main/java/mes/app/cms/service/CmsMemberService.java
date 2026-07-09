@@ -144,6 +144,7 @@ public class CmsMemberService {
                      , m.deduct_amount
                      , m.cycle_type
                      , m.cycle_months
+                     , m.deduct_month_type
                      , m.start_date
                      , m.end_date
                      , m.pause_start_date
@@ -170,6 +171,7 @@ public class CmsMemberService {
                            String bankCode, String bankAccount, String accountHolder,
                            String deductDay, Long deductAmount,
                            String cycleType, String cycleMonths,
+                           String deductMonthType,
                            String startDate, String endDate,
                            String pauseStartDate, String pauseEndDate, String pauseReason,  // 추가됨
                            String agreeYn, String agreeMethod,
@@ -212,6 +214,7 @@ public class CmsMemberService {
             param.addValue("deductAmount",  deductAmount);
             param.addValue("cycleType",     cycleType);
             param.addValue("cycleMonths",   cycleMonths);
+            param.addValue("deductMonthType", org.springframework.util.StringUtils.hasText(deductMonthType) ? deductMonthType : "CURRENT");
             param.addValue("startDate",     startDate);
             param.addValue("endDate",       endDate);
             param.addValue("pauseStartDate",  pauseStartDate);  // 추가됨
@@ -231,6 +234,7 @@ public class CmsMemberService {
                         bank_code, bank_account, account_holder,
                         deduct_day, deduct_amount,
                         cycle_type, cycle_months,
+                        deduct_month_type,
                         start_date, end_date,
                         pause_start_date, pause_end_date, pause_reason,
                         agree_yn, agree_method, status, memo,
@@ -242,6 +246,7 @@ public class CmsMemberService {
                         :bankCode, :bankAccount, :accountHolder,
                         :deductDay, :deductAmount,
                         :cycleType, :cycleMonths,
+                        :deductMonthType,
                         :startDate, :endDate,
                         :pauseStartDate, :pauseEndDate, :pauseReason,
                         :agreeYn, :agreeMethod, :status, :memo,
@@ -287,6 +292,7 @@ public class CmsMemberService {
             param.addValue("deductAmount",  deductAmount);
             param.addValue("cycleType",     cycleType);
             param.addValue("cycleMonths",   cycleMonths);
+            param.addValue("deductMonthType", org.springframework.util.StringUtils.hasText(deductMonthType) ? deductMonthType : "CURRENT");
             param.addValue("startDate",     startDate);
             param.addValue("endDate",       endDate);
             param.addValue("pauseStartDate",  pauseStartDate);  // 추가됨
@@ -317,6 +323,7 @@ public class CmsMemberService {
                         deduct_amount  = :deductAmount,
                         cycle_type     = :cycleType,
                         cycle_months   = :cycleMonths,
+                        deduct_month_type = :deductMonthType,
                         start_date     = :startDate,
                         end_date       = :endDate,
                         pause_start_date = :pauseStartDate,
@@ -992,6 +999,7 @@ public class CmsMemberService {
                             }
                             String cycleMonths = months.isEmpty() ? null : String.join(",", months);
                             String cycleType   = (months.size() == 12) ? "REGULAR" : "IRREGULAR";
+                            String deductMonthType = "2".equals(autoFlag) ? "NEXT" : "CURRENT";
                             if ("REGULAR".equals(cycleType)) cycleMonths = null;
 
                             // actcd 기준으로 기존 member 조회
@@ -1039,6 +1047,7 @@ public class CmsMemberService {
                             p.addValue("endDate",      endDate);
                             p.addValue("cycleType",    cycleType);
                             p.addValue("cycleMonths",  cycleMonths);
+                            p.addValue("deductMonthType", deductMonthType);
                             p.addValue("userId",       userId);
 
                             if (existing == null) {
@@ -1051,6 +1060,7 @@ public class CmsMemberService {
                                             deduct_amount, deduct_day,
                                             start_date, end_date,
                                             cycle_type, cycle_months,
+                                            deduct_month_type,
                                             agree_yn, cltcd, status,
                                             _creater_id, _created, _modifier_id, _modified
                                         ) VALUES (
@@ -1060,85 +1070,17 @@ public class CmsMemberService {
                                             :deductAmount, :deductDay,
                                             :startDate, :endDate,
                                             :cycleType, :cycleMonths,
+                                            :deductMonthType,
                                             :agreeYn, :cltcd, 'ACTIVE',
                                             :userId, NOW(), :userId, NOW()
                                         )
                                         """, p);
                                 inserted++;
                             } else {
-                                String beforeModified = str(existing.get("_modified"));
-
-                                sqlRunner.execute(/* skip_tenant_check */
-                                        """
-                                        UPDATE cms_member SET
-                                         member_name    = :memberName,
-                                         member_type    = :memberType,
-                                         member_no      = COALESCE(:memberNo, member_no),
-                                         id_number      = :idNumber,
-                                         resident_no    = :residentNo,
-                                         bank_code      = :bankCode,
-                                         bank_account   = :bankAccount,
-                                         phone          = :phone,
-                                         email          = :email,
-                                         adresa         = :adresa,
-                                         zipcd          = :zipcd,
-                                         deduct_amount  = :deductAmount,
-                                         deduct_day     = :deductDay,
-                                         start_date     = :startDate,
-                                         end_date       = :endDate,
-                                         cycle_type     = :cycleType,
-                                         cycle_months   = :cycleMonths,
-                                         agree_yn       = CASE WHEN :agreeYn = 'Y' THEN 'Y' ELSE agree_yn END,
-                                         _modifier_id   = CASE WHEN (
-                                             COALESCE(member_type, '') != COALESCE(:memberType, '') OR
-                                             COALESCE(member_name, '')  != COALESCE(:memberName, '')  OR
-                                             COALESCE(id_number, '')    != COALESCE(:idNumber, '')    OR
-                                             COALESCE(resident_no, '')  != COALESCE(:residentNo, '')  OR
-                                             COALESCE(bank_code, '')    != COALESCE(:bankCode, '')    OR
-                                             COALESCE(bank_account, '') != COALESCE(:bankAccount, '') OR
-                                             COALESCE(phone, '')        != COALESCE(:phone, '')       OR
-                                             COALESCE(email, '')        != COALESCE(:email, '')       OR
-                                             COALESCE(adresa, '')       != COALESCE(:adresa, '')      OR
-                                             COALESCE(zipcd, '')        != COALESCE(:zipcd, '')       OR
-                                             COALESCE(deduct_amount, 0) != COALESCE(:deductAmount, 0) OR
-                                             COALESCE(deduct_day, '')   != COALESCE(:deductDay, '')   OR
-                                             COALESCE(start_date, '')   != COALESCE(:startDate, '')   OR
-                                             COALESCE(end_date, '')     != COALESCE(:endDate, '')     OR
-                                             COALESCE(cycle_type, '')   != COALESCE(:cycleType, '')   OR
-                                             COALESCE(cycle_months, '') != COALESCE(:cycleMonths, '')
-                                         ) THEN :userId ELSE _modifier_id END,
-                                         _modified      = CASE WHEN (
-                                             COALESCE(member_type, '') != COALESCE(:memberType, '') OR
-                                             COALESCE(member_name, '')  != COALESCE(:memberName, '')  OR
-                                             COALESCE(id_number, '')    != COALESCE(:idNumber, '')    OR
-                                             COALESCE(resident_no, '')  != COALESCE(:residentNo, '')  OR
-                                             COALESCE(bank_code, '')    != COALESCE(:bankCode, '')    OR
-                                             COALESCE(bank_account, '') != COALESCE(:bankAccount, '') OR
-                                             COALESCE(phone, '')        != COALESCE(:phone, '')       OR
-                                             COALESCE(email, '')        != COALESCE(:email, '')       OR
-                                             COALESCE(adresa, '')       != COALESCE(:adresa, '')      OR
-                                             COALESCE(zipcd, '')        != COALESCE(:zipcd, '')       OR
-                                             COALESCE(deduct_amount, 0) != COALESCE(:deductAmount, 0) OR
-                                             COALESCE(deduct_day, '')   != COALESCE(:deductDay, '')   OR
-                                             COALESCE(start_date, '')   != COALESCE(:startDate, '')   OR
-                                             COALESCE(end_date, '')     != COALESCE(:endDate, '')     OR
-                                             COALESCE(cycle_type, '')   != COALESCE(:cycleType, '')   OR
-                                             COALESCE(cycle_months, '') != COALESCE(:cycleMonths, '')
-                                         ) THEN NOW() ELSE _modified END
-                                     WHERE spjangcd = :spjangcd AND cltcd = :cltcd
-                                        """, p);
-
-                                Map<String, Object> after = sqlRunner.getRow(/* skip_tenant_check */
-                                        "SELECT _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :cltcd",
-                                        new MapSqlParameterSource("spjangcd", spjangcd).addValue("cltcd", actcd));
-
-                                String afterModified = after != null ? str(after.get("_modified")) : "";
-
-                                if (!beforeModified.equals(afterModified)) {
-                                    updated++;
-                                } else {
-                                    skipped++;
-                                }
+                                // [C안] 기존 회원은 자동 덮어쓰기 금지.
+                                // 웹(cms_member)이 최신일 수 있어 ERP 값으로 되돌리면 안 됨.
+                                // 교정은 담당자가 previewSync/applySync에서 선택 반영.
+                                skipped++;
                             }
                         } catch (Exception e) {
                             log.warn("[ERP동기화] 행 처리 실패: {}", e.getMessage());
@@ -1362,6 +1304,7 @@ public class CmsMemberService {
                     row.put("end_date",      endDate);
                     row.put("cycle_type",    cycleType);
                     row.put("cycle_months",  cycleMonths);
+                    row.put("deduct_month_type", "2".equals(autoFlag) ? "NEXT" : "CURRENT");
                     result.add(row);
                 }
             }
@@ -1395,7 +1338,7 @@ public class CmsMemberService {
 
         // cms_member 현재값
         List<Map<String, Object>> members = sqlRunner.getRows(/* skip_tenant_check */
-                "SELECT id, cltcd, member_no, member_name, member_type, id_number, resident_no, bank_code, bank_account, deduct_amount, deduct_day FROM cms_member WHERE spjangcd = :spjangcd",
+                "SELECT id, cltcd, member_no, member_name, member_type, id_number, resident_no, bank_code, bank_account, deduct_amount, deduct_day, sync_confirmed_ref FROM cms_member WHERE spjangcd = :spjangcd",
                 new MapSqlParameterSource("spjangcd", spjangcd));
         Map<String, Map<String, Object>> memberMap = new java.util.HashMap<>();
         for (Map<String, Object> m : members) memberMap.put(str(m.get("cltcd")), m);
@@ -1455,6 +1398,16 @@ public class CmsMemberService {
                     continue;
                 }
 
+                // [2-0] 담당자가 이미 확인/확정했고, 그 이후 ERP값이 안 바뀌었으면 제외
+                //       (ERP값이 또 바뀌면 ref가 달라져 다시 노출됨)
+                Map<String, Object> erpRowChk = erpRowMap.get(cltcd);
+                String confirmedRef = str(existing.get("sync_confirmed_ref"));
+                if (erpRowChk != null && !confirmedRef.isEmpty()
+                        && confirmedRef.equals(syncRef(erpRowChk))) {
+                    sameCount++;
+                    continue;
+                }
+
                 // [2-2] 청구 이력 없음 → 수동 검증 대상
                 if (lastResultCode == null) {
                     Map<String, Object> uRow = new java.util.LinkedHashMap<>();
@@ -1468,35 +1421,45 @@ public class CmsMemberService {
                 // [2-3] 값문제 실패(0017/0012/0013/0014 등) → 교정 대상
                 Map<String, Object> erpRow = erpRowMap.get(cltcd);
 
+                // ERP CMS 대상에 없는 회원(웹 인증분 등)은 비교/반영 대상 아님 → 패스
+                if (erpRow == null) {
+                    sameCount++;
+                    continue;
+                }
+
                 String curMemberNo = str(existing.get("member_no"));
-                String newMemberNo = (erpRow != null && !StringUtils.hasText(curMemberNo))
+                String newMemberNo = !StringUtils.hasText(curMemberNo)
                         ? str(erpRow.get("erp_member_no")) : curMemberNo;
 
                 String curAmt = existing.get("deduct_amount") != null
                         ? Long.toString(((Number) existing.get("deduct_amount")).longValue()) : "";
-                String newAmt = (erpRow != null && erpRow.get("deduct_amount") != null)
+                String newAmt = erpRow.get("deduct_amount") != null
                         ? erpRow.get("deduct_amount").toString() : "";
 
                 List<Map<String, Object>> keyChanges  = new java.util.ArrayList<>();
                 List<Map<String, Object>> infoChanges = new java.util.ArrayList<>();
-                if (erpRow != null) {
-                    syncCheckField(keyChanges, "bank_code",    str(existing.get("bank_code")),    str(erpRow.get("bank_code")));
-                    syncCheckField(keyChanges, "bank_account", str(existing.get("bank_account")), str(erpRow.get("bank_account")));
-                    syncCheckField(keyChanges, "member_no",    curMemberNo,                       newMemberNo);
-                    syncCheckField(keyChanges, "id_number",    str(existing.get("id_number")),    str(erpRow.get("id_number")));
-                    syncCheckField(infoChanges, "member_name",   str(existing.get("member_name")), str(erpRow.get("member_name")));
-                    syncCheckField(infoChanges, "deduct_amount", curAmt,                           newAmt);
-                    syncCheckField(infoChanges, "deduct_day",    str(existing.get("deduct_day")),  str(erpRow.get("deduct_day")));
+                syncCheckField(keyChanges, "bank_code",    str(existing.get("bank_code")),    str(erpRow.get("bank_code")));
+                syncCheckField(keyChanges, "bank_account", str(existing.get("bank_account")), str(erpRow.get("bank_account")));
+                syncCheckField(keyChanges, "member_no",    curMemberNo,                       newMemberNo);
+                syncCheckField(keyChanges, "id_number",    str(existing.get("id_number")),    str(erpRow.get("id_number")));
+                syncCheckField(infoChanges, "member_name",   str(existing.get("member_name")), str(erpRow.get("member_name")));
+                syncCheckField(infoChanges, "deduct_amount", curAmt,                           newAmt);
+                syncCheckField(infoChanges, "deduct_day",    str(existing.get("deduct_day")),  str(erpRow.get("deduct_day")));
+
+                // 실제로 바뀐 필드가 하나도 없으면 제외
+                if (keyChanges.isEmpty() && infoChanges.isEmpty()) {
+                    sameCount++;
+                    continue;
                 }
 
                 Map<String, Object> item = new java.util.LinkedHashMap<>();
                 item.put("cltcd",            cltcd);
                 item.put("member_name",      existing.get("member_name"));
                 item.put("last_result_code", lastResultCode);
-                item.put("no_eb13",          erpRow == null);
+                item.put("no_eb13",          false);
                 item.put("key_changes",      keyChanges);
                 item.put("info_changes",     infoChanges);
-                if (erpRow != null) item.put("new_values", erpRow);
+                item.put("new_values", erpRow);
                 changedRows.add(item);
             }
         } catch (Exception e) {
@@ -1588,6 +1551,23 @@ public class CmsMemberService {
         }
     }
 
+    /**
+     * 확정 스냅샷 기준값. previewSync에서 비교하는 필드들을 정규화해 이어붙인 문자열.
+     * 담당자가 "확인함"으로 확정한 시점의 ERP 값과 동일하면 다음 미리보기에서 제외하는 데 사용.
+     */
+    private String syncRef(Map<String, Object> erpRow) {
+        if (erpRow == null) return "";
+        String amt = erpRow.get("deduct_amount") != null ? erpRow.get("deduct_amount").toString() : "";
+        return String.join("|",
+                str(erpRow.get("bank_code")),
+                str(erpRow.get("bank_account")),
+                str(erpRow.get("member_no") != null ? erpRow.get("member_no") : erpRow.get("erp_member_no")),
+                str(erpRow.get("id_number")),
+                str(erpRow.get("member_name")),
+                amt,
+                str(erpRow.get("deduct_day")));
+    }
+
     /** ERP 동기화 선택 반영 — 선택된 cltcd만 INSERT/UPDATE */
     public Map<String, Object> applySync(String spjangcd, List<String> selectedCltcds, String userId) {
         Set<String> selected = (selectedCltcds != null && !selectedCltcds.isEmpty())
@@ -1658,6 +1638,7 @@ public class CmsMemberService {
                     p.addValue("endDate",      erpRow.get("end_date"));
                     p.addValue("cycleType",    erpRow.get("cycle_type"));
                     p.addValue("cycleMonths",  erpRow.get("cycle_months"));
+                    p.addValue("deductMonthType", erpRow.get("deduct_month_type"));
                     p.addValue("userId",       userId);
 
                     if (existing == null) {
@@ -1668,14 +1649,14 @@ public class CmsMemberService {
                                     id_number, resident_no, bank_code, bank_account,
                                     phone, email, adresa, zipcd,
                                     deduct_amount, deduct_day, start_date, end_date,
-                                    cycle_type, cycle_months, agree_yn, cltcd, status,
+                                    cycle_type, cycle_months, deduct_month_type, agree_yn, cltcd, status,
                                     _creater_id, _created, _modifier_id, _modified
                                 ) VALUES (
                                     :spjangcd, :memberNo, :memberType, :memberName,
                                     :idNumber, :residentNo, :bankCode, :bankAccount,
                                     :phone, :email, :adresa, :zipcd,
                                     :deductAmount, :deductDay, :startDate, :endDate,
-                                    :cycleType, :cycleMonths, :agreeYn, :cltcd, 'ACTIVE',
+                                    :cycleType, :cycleMonths, :deductMonthType, :agreeYn, :cltcd, 'ACTIVE',
                                     :userId, NOW(), :userId, NOW()
                                 )
                                 """, p);
@@ -1751,6 +1732,161 @@ public class CmsMemberService {
 
         log.info("[ERP반영] 완료 spjangcd={} 신규={} 수정={} 스킵={} 실패={}", spjangcd, inserted, updated, skipped, failed);
         return Map.of("inserted", inserted, "updated", updated, "skipped", skipped, "failed", failed);
+    }
+
+    /** 필드별 선택 반영에서 허용하는 필드 → cms_member 컬럼 매핑 */
+    private static final Map<String, String> SYNC_FIELD_COL = Map.of(
+            "bank_code",     "bank_code",
+            "bank_account",  "bank_account",
+            "member_no",     "member_no",
+            "id_number",     "id_number",
+            "member_name",   "member_name",
+            "deduct_amount", "deduct_amount",
+            "deduct_day",    "deduct_day");
+
+    /**
+     * ERP 동기화 필드별 선택 반영 + 확정.
+     * 담당자가 회원별로 "어느 필드를 ERP 값으로 바꿀지"를 고른 결과(decisions)를 반영한다.
+     *  - erpFields에 든 필드만 ERP 값으로 UPDATE (나머지는 웹 값 유지)
+     *  - 반영 여부와 무관하게 sync_confirmed_at/ref를 기록 → 같은 ERP 상태면 다음 미리보기에서 제외
+     *
+     * decisions: [{ "cltcd": "...", "erpFields": ["bank_account","deduct_amount"] }, ...]
+     *            erpFields가 비어 있으면 "웹 값 유지(확인만)" 로 처리.
+     */
+    public Map<String, Object> applySyncSelective(String spjangcd, List<Map<String, Object>> decisions, String userId) {
+        if (decisions == null || decisions.isEmpty()) {
+            return Map.of("updated", 0, "confirmed", 0, "failed", 0);
+        }
+        log.info("[ERP선택반영] 시작 spjangcd={} 대상={}건", spjangcd, decisions.size());
+
+        Map<String, Object> erp = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT host, port, db_name, username, password, custcd, ms_spjangcd FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd));
+        if (erp == null) throw new IllegalStateException("ERP 접속정보가 없습니다.");
+        String custcd     = str(erp.get("custcd"));
+        String msSpjangcd = str(erp.get("ms_spjangcd"));
+
+        Map<String, Object> cms = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT is_normal_status, amount_round_unit FROM tb_xa012_cms WHERE spjangcd = :spjangcd AND ms_spjangcd IS NOT DISTINCT FROM :msSpjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd)
+                        .addValue("msSpjangcd", msSpjangcd.isEmpty() ? null : msSpjangcd));
+        int roundUnit = (cms != null && cms.get("amount_round_unit") != null)
+                ? ((Number) cms.get("amount_round_unit")).intValue() : 1;
+
+        Set<String> excludeSet = sqlRunner.getRows(/* skip_tenant_check */
+                        "SELECT cltcd FROM cms_member_sync_exclude WHERE spjangcd = :spjangcd",
+                        new MapSqlParameterSource("spjangcd", spjangcd))
+                .stream().map(r -> str(r.get("cltcd"))).collect(java.util.stream.Collectors.toSet());
+
+        // 결정 대상 cltcd 집합
+        Set<String> wanted = decisions.stream().map(d -> str(d.get("cltcd")))
+                .filter(StringUtils::hasText).collect(java.util.stream.Collectors.toSet());
+
+        String url = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
+                str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
+        try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
+        catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
+
+        // ERP 행을 cltcd로 인덱싱
+        Map<String, Map<String, Object>> erpRowMap = new java.util.HashMap<>();
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
+                url, str(erp.get("username")), str(erp.get("password")))) {
+            for (Map<String, Object> r : fetchErpSyncRows(conn, custcd, roundUnit, excludeSet)) {
+                String c = str(r.get("cltcd"));
+                if (wanted.contains(c)) erpRowMap.put(c, r);
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("MSSQL 접속 실패: " + e.getMessage());
+        }
+
+        int updated = 0, confirmed = 0, failed = 0;
+        for (Map<String, Object> d : decisions) {
+            String cltcd = str(d.get("cltcd"));
+            if (!StringUtils.hasText(cltcd)) continue;
+            Map<String, Object> erpRow = erpRowMap.get(cltcd);
+            if (erpRow == null) { failed++; continue; } // ERP에서 사라졌거나 대상 아님
+
+            @SuppressWarnings("unchecked")
+            List<String> erpFields = d.get("erpFields") instanceof List
+                    ? (List<String>) d.get("erpFields") : java.util.Collections.emptyList();
+
+            try {
+                Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
+                        "SELECT id FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :cltcd",
+                        new MapSqlParameterSource("spjangcd", spjangcd).addValue("cltcd", cltcd));
+
+                // 신규 회원: cms_member에 없으면 ERP 값 통짜 INSERT (필드선택 무의미)
+                if (existing == null) {
+                    String memberNo = StringUtils.hasText(str(erpRow.get("member_no")))
+                            ? str(erpRow.get("member_no")) : str(erpRow.get("erp_member_no"));
+                    MapSqlParameterSource ip = new MapSqlParameterSource();
+                    ip.addValue("spjangcd",     spjangcd);
+                    ip.addValue("memberNo",     memberNo);
+                    ip.addValue("memberType",   erpRow.get("member_type"));
+                    ip.addValue("memberName",   erpRow.get("member_name"));
+                    ip.addValue("idNumber",     erpRow.get("id_number"));
+                    ip.addValue("residentNo",   erpRow.get("resident_no"));
+                    ip.addValue("bankCode",     erpRow.get("bank_code"));
+                    ip.addValue("bankAccount",  erpRow.get("bank_account"));
+                    ip.addValue("deductAmount", erpRow.get("deduct_amount"));
+                    ip.addValue("deductDay",    erpRow.get("deduct_day"));
+                    ip.addValue("agreeYn",      erpRow.get("agree_yn"));
+                    ip.addValue("confRef",      syncRef(erpRow));
+                    ip.addValue("cltcd",        cltcd);
+                    ip.addValue("monthType",    erpRow.get("deduct_month_type"));
+                    ip.addValue("userId",       userId);
+                    sqlRunner.execute(/* skip_tenant_check */
+                            """
+                            INSERT INTO cms_member (
+                                spjangcd, member_no, member_type, member_name, id_number, resident_no,
+                                bank_code, bank_account, deduct_amount, deduct_day, deduct_month_type, agree_yn, cltcd, status,
+                                sync_confirmed_at, sync_confirmed_ref,
+                                _creater_id, _created, _modifier_id, _modified
+                            ) VALUES (
+                                :spjangcd, :memberNo, :memberType, :memberName, :idNumber, :residentNo,
+                                :bankCode, :bankAccount, :deductAmount, :deductDay, :monthType, :agreeYn, :cltcd, 'ACTIVE',
+                                NOW(), :confRef,
+                                :userId, NOW(), :userId, NOW()
+                            )
+                            """, ip);
+                    updated++;
+                    continue;
+                }
+
+                // 선택된 필드만 SET 절 구성 (화이트리스트로 컬럼 검증)
+                StringBuilder set = new StringBuilder();
+                MapSqlParameterSource p = new MapSqlParameterSource();
+                p.addValue("spjangcd", spjangcd);
+                p.addValue("cltcd",    cltcd);
+                p.addValue("userId",   userId);
+                for (String f : erpFields) {
+                    String col = SYNC_FIELD_COL.get(f);
+                    if (col == null) continue; // 허용되지 않은 필드 무시
+                    Object val = "member_no".equals(f)
+                            ? (StringUtils.hasText(str(erpRow.get("member_no"))) ? erpRow.get("member_no") : erpRow.get("erp_member_no"))
+                            : erpRow.get(f);
+                    set.append(col).append(" = :").append(f).append(", ");
+                    p.addValue(f, val);
+                }
+                // 확정 스냅샷은 항상 기록 (웹 유지여도 다음 미리보기에서 제외되도록)
+                p.addValue("confRef", syncRef(erpRow));
+                String sql = "UPDATE cms_member SET " + set
+                        + "sync_confirmed_at = NOW(), sync_confirmed_ref = :confRef, "
+                        + "_modifier_id = :userId, "
+                        + "_modified = CASE WHEN :hasField THEN NOW() ELSE _modified END "
+                        + "WHERE spjangcd = :spjangcd AND cltcd = :cltcd";
+                p.addValue("hasField", !erpFields.isEmpty());
+                sqlRunner.execute(/* skip_tenant_check */ sql, p);
+
+                if (erpFields.isEmpty()) confirmed++; else updated++;
+            } catch (Exception e) {
+                log.warn("[ERP선택반영] 실패 cltcd={} {}", cltcd, e.getMessage());
+                failed++;
+            }
+        }
+
+        log.info("[ERP선택반영] 완료 spjangcd={} 반영={} 확인만={} 실패={}", spjangcd, updated, confirmed, failed);
+        return Map.of("updated", updated, "confirmed", confirmed, "failed", failed);
     }
 
     /**

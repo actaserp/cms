@@ -6,6 +6,7 @@ import mes.app.Scheduler.SchedulerService.CmsEb22ReceiveService;
 import mes.app.Scheduler.SchedulerService.CmsEc21SendService;
 import mes.app.Scheduler.SchedulerService.CmsEc22ReceiveService;
 import mes.app.cms.service.CmsBillingService;
+import mes.app.cms.service.CmsErpResultSyncService;
 import mes.app.cms.service.CmsHolidayService;
 import mes.app.common.TenantContext;
 import mes.domain.entity.User;
@@ -42,6 +43,9 @@ public class CmsBillingController {
 
     @Autowired
     private CmsEc22ReceiveService cmsEc22ReceiveService;
+
+    @Autowired
+    private CmsErpResultSyncService cmsErpResultSyncService;
 
     /** 목록 조회 */
     @GetMapping("/list")
@@ -410,6 +414,42 @@ public class CmsBillingController {
         } catch (Exception e) {
             result.success = false;
             result.message = "파일 처리 실패: " + e.getMessage();
+        }
+        return result;
+    }
+
+    /** 결과 ERP 반영 — 선택한 출금일들의 SUCCESS 결과를 tb_bank_cmssave에 반영(없으면 INSERT).
+     *  body: { "deduct_dates": ["20260701","20260702"] } */
+    @PostMapping("/erp-resync")
+    public AjaxResult erpResync(@RequestBody Map<String, Object> body) {
+        AjaxResult result = new AjaxResult();
+        try {
+            String spjangcd = TenantContext.get();
+            @SuppressWarnings("unchecked")
+            List<String> deductDates = body.get("deduct_dates") instanceof List
+                    ? (List<String>) body.get("deduct_dates") : java.util.Collections.emptyList();
+            if (deductDates.isEmpty()) {
+                result.success = false;
+                result.message = "반영할 출금일을 선택하세요.";
+                return result;
+            }
+            int inserted = 0, skipped = 0, failed = 0;
+            java.util.Set<String> done = new java.util.LinkedHashSet<>(deductDates);
+            for (String dd : done) {
+                if (dd == null || dd.isBlank()) continue;
+                Map<String, Object> r = cmsErpResultSyncService.resyncByDeductDate(spjangcd, dd.replace("-", ""));
+                inserted += ((Number) r.getOrDefault("inserted", 0)).intValue();
+                skipped  += ((Number) r.getOrDefault("skipped", 0)).intValue();
+                failed   += ((Number) r.getOrDefault("failed", 0)).intValue();
+            }
+            Map<String, Object> data = new java.util.LinkedHashMap<>();
+            data.put("inserted", inserted);
+            data.put("skipped", skipped);
+            data.put("failed", failed);
+            result.data = data;
+        } catch (Exception e) {
+            result.success = false;
+            result.message = "ERP 반영 실패: " + e.getMessage();
         }
         return result;
     }

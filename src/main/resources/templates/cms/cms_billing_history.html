@@ -188,6 +188,7 @@
             </div>
             <div class="container-fluid">
                 <div id="theGrid"></div>
+                <div style="padding:6px 0;"><button type="button" class="btn-default" id="btnExcel" style="background:#217346; color:#fff; width:120px;">엑셀 다운로드</button></div>
                 <div id="paginationBar" style="display:flex; align-items:center; gap:6px; margin:6px 0;">
                     <button onclick="searchList(0)"             style="padding:2px 8px;">◀◀</button>
                     <button onclick="searchList(currentPage-1)" style="padding:2px 8px;" id="btnPrevPage">◀</button>
@@ -426,13 +427,57 @@
         }
 
         /* ── 이벤트 바인딩 ── */
+        function exportExcel() {
+            var params = {
+                start_date: ($('#srchStartDate').val() || '').replace(/-/g, ''),
+                end_date: ($('#srchEndDate').val() || '').replace(/-/g, ''),
+                billing_type: $('#srchBillingType').val(),
+                status: $('#srchStatus').val() || 'SUCCESS,FAIL',
+                member_name: $('#srchMemberName').val()
+            };
+            params.page = 0;
+            params.size = 1000000;
+            $.ajax({
+                url: withCtx('/api/cms/billing/history/list'),
+                type: 'GET',
+                data: params,
+                success: function (result) {
+                    if (!result || result.success === false) { Alert.alert('', '엑셀 조회 실패: ' + ((result && result.message) || '')); return; }
+                    var rows = (result.data && result.data.data) ? result.data.data : (result.data || []);
+                    if (!rows.length) { Alert.alert('', '다운로드할 데이터가 없습니다.'); return; }
+                    var host = document.createElement('div');
+                    host.style.position = 'absolute'; host.style.left = '-99999px'; host.style.top = '0';
+                    host.style.width = '1200px'; host.style.height = '400px';
+                    document.body.appendChild(host);
+                    var tmp = new wijmo.grid.FlexGrid(host, {
+                        autoGenerateColumns: false, columns: columns, isReadOnly: true,
+                        itemsSource: new wijmo.collections.CollectionView(rows)
+                    });
+                    var cleanup = function () { try { tmp.dispose(); } catch (e) {} if (host.parentNode) host.parentNode.removeChild(host); };
+                    wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
+                        tmp, {includeColumnHeaders: true, includeCellStyles: false}, '청구이력_' + (($('#srchStartDate').val()||'').replace(/-/g,'') + '-' + ($('#srchEndDate').val()||'').replace(/-/g,'')) + '.xlsx',
+                        function () { cleanup(); },
+                        function () { cleanup(); Alert.alert('', '엑셀 생성 실패'); }
+                    );
+                },
+                error: function () { Alert.alert('오류', '엑셀 다운로드 조회 실패'); }
+            });
+        }
+
         $(document).ready(function() {
             $('#btnSearch').click(function() { searchList(0); });
+            $('#btnExcel').click(exportExcel);
             $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(0); });
 
-            $('#btnThisMonth').click(function() { setThisMonth(); searchList(0); });
-            $('#btnLastMonth').click(function() { setLastMonth(); searchList(0); });
-            $('#btn3Month').click(function() {
+            $('#btnThisMonth').click(function () {
+                setThisMonth();
+                searchList(0);
+            });
+            $('#btnLastMonth').click(function () {
+                setLastMonth();
+                searchList(0);
+            });
+            $('#btn3Month').click(function () {
                 set3Month();
                 searchList(0);
             });

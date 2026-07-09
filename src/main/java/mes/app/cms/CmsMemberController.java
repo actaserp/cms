@@ -68,6 +68,7 @@ public class CmsMemberController {
             @RequestParam(value = "deduct_amount",     required = false) Long    deductAmount,
             @RequestParam(value = "cycle_type",        required = false) String  cycleType,
             @RequestParam(value = "cycle_months",      required = false) String  cycleMonths,
+            @RequestParam(value = "deduct_month_type", required = false) String  deductMonthType,
             @RequestParam(value = "start_date",        required = false) String  startDate,
             @RequestParam(value = "end_date",          required = false) String  endDate,
             @RequestParam(value = "pause_start_date",  required = false) String  pauseStartDate,  // 추가됨
@@ -85,7 +86,7 @@ public class CmsMemberController {
                 id, memberType, memberName, memberNo, idNumber,
                 phone, email, zipcd, adresa, adresb,
                 bankCode, bankAccount, accountHolder,
-                deductDay, deductAmount, cycleType, cycleMonths, startDate, endDate,
+                deductDay, deductAmount, cycleType, cycleMonths, deductMonthType, startDate, endDate,
                 pauseStartDate, pauseEndDate, pauseReason,  // 추가됨
                 agreeYn, agreeMethod, status, memo,
                 user.getUsername());
@@ -163,7 +164,7 @@ public class CmsMemberController {
         return result;
     }
 
-    /** ERP 동기화 선택 반영 */
+    /** ERP 동기화 선택 반영 (회원 단위 통짜 — 구버전) */
     @PostMapping("/erp-sync-apply")
     public AjaxResult erpSyncApply(
             @RequestBody(required = false) List<String> selectedCltcds,
@@ -172,6 +173,23 @@ public class CmsMemberController {
         User user = (User) auth.getPrincipal();
         try {
             result.data = cmsMemberService.applySync(user.getSpjangcd(), selectedCltcds, user.getUsername());
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    /** ERP 동기화 필드별 선택 반영 + 확정 (신버전)
+     *  body: [{ "cltcd":"...", "erpFields":["bank_account","deduct_amount"] }, ...] */
+    @PostMapping("/erp-sync-apply-selective")
+    public AjaxResult erpSyncApplySelective(
+            @RequestBody(required = false) List<Map<String, Object>> decisions,
+            Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        try {
+            result.data = cmsMemberService.applySyncSelective(user.getSpjangcd(), decisions, user.getUsername());
         } catch (Exception e) {
             result.success = false;
             result.message = e.getMessage();

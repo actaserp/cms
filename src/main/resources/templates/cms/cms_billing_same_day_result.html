@@ -279,10 +279,13 @@
                     <!--                            style="background:#dc3545; color:#fff;">재청구</button>-->
                     <button type="button" class="btn-default" id="btnReceiveNow"
                             style="background:#4a6cf7; color:#fff;">결과 수신</button>
+                    <button type="button" class="btn-default" id="btnErpResync"
+                            style="background:#e67e22; color:#fff;">ERP 반영</button>
                 </div>
             </div>
             <div class="container-fluid">
                 <div id="theGrid"></div>
+                <div style="padding:6px 0;"><button type="button" class="btn-default" id="btnExcel" style="background:#217346; color:#fff; width:120px;">엑셀 다운로드</button></div>
                 <div id="paginationBar" style="display:flex; align-items:center; gap:6px; margin:6px 0;">
                     <button onclick="searchList(0)"             style="padding:2px 8px;">◀◀</button>
                     <button onclick="searchList(currentPage-1)" style="padding:2px 8px;" id="btnPrevPage">◀</button>
@@ -334,6 +337,7 @@
 <th:block layout:fragment="scripts">
     <script type="text/javascript">
         var theGrid;
+        var lastResultRows = [];
         var viewdata;
         let ec22SelectedFile = null;
         let ec22Files = [];
@@ -432,6 +436,7 @@
         }
 
         function bindGrid(data) {
+            lastResultRows = data || [];
             if (theGrid) theGrid.dispose();
             viewdata = new wijmo.collections.CollectionView(data);
             theGrid = new wijmo.grid.FlexGrid('#theGrid', {
@@ -679,10 +684,49 @@
             });
         }
 
+        function exportExcel() {
+            var ymVal = $('#srchBillingYm').val() || '';
+            var params = {
+                billing_ym: ymVal.replace('-', ''),
+                result_date: ($('#srchResultDate').val() || '').replace(/-/g, ''),
+                status: $('#srchStatus').val(),
+                member_name: $('#srchMemberName').val(),
+                deduct_type: 'EC'
+            };
+            params.page = 0;
+            params.size = 1000000;
+            $.ajax({
+                url: withCtx('/api/cms/billing/result/list'),
+                type: 'GET',
+                data: params,
+                success: function (result) {
+                    if (!result || result.success === false) { Alert.alert('', '엑셀 조회 실패: ' + ((result && result.message) || '')); return; }
+                    var rows = (result.data && result.data.data) ? result.data.data : (result.data || []);
+                    if (!rows.length) { Alert.alert('', '다운로드할 데이터가 없습니다.'); return; }
+                    var host = document.createElement('div');
+                    host.style.position = 'absolute'; host.style.left = '-99999px'; host.style.top = '0';
+                    host.style.width = '1200px'; host.style.height = '400px';
+                    document.body.appendChild(host);
+                    var tmp = new wijmo.grid.FlexGrid(host, {
+                        autoGenerateColumns: false, columns: columns, isReadOnly: true,
+                        itemsSource: new wijmo.collections.CollectionView(rows)
+                    });
+                    var cleanup = function () { try { tmp.dispose(); } catch (e) {} if (host.parentNode) host.parentNode.removeChild(host); };
+                    wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
+                        tmp, {includeColumnHeaders: true, includeCellStyles: false}, '당일결과_' + (ymVal.replace('-', '') || '전체') + '.xlsx',
+                        function () { cleanup(); },
+                        function () { cleanup(); Alert.alert('', '엑셀 생성 실패'); }
+                    );
+                },
+                error: function () { Alert.alert('오류', '엑셀 다운로드 조회 실패'); }
+            });
+        }
+
         $(document).ready(function() {
             $('#btnSearch').click(function () {
                 searchList(0);
             });
+            $('#btnExcel').click(exportExcel);
             $('#srchMemberName').keypress(function (e) {
                 if (e.which === 13) searchList(0);
             });
@@ -690,6 +734,28 @@
             $('#btnRechargeConfirm').click(doRecharge);
             // 결과 수신 버튼 클릭
             $('#btnReceiveNow').click(openEc22FilesModal);
+            $('#btnErpResync').click(doErpResync);
+
+            function doErpResync() {
+                if (!lastResultRows || lastResultRows.length === 0) { Alert.alert('', '먼저 결과를 조회하세요.'); return; }
+                var set = {};
+                lastResultRows.forEach(function (r) { var dd = String(r.deduct_date || '').replace(/-/g, ''); if (dd) set[dd] = true; });
+                var dates = Object.keys(set);
+                if (dates.length === 0) { Alert.alert('', '반영할 출금일이 없습니다.'); return; }
+                Alert.confirm('', '조회된 출금일 ' + dates.length + '건의 성공 결과를 ERP(tb_bank_cmssave)에 반영합니다.\n(이미 있는 건은 건너뜁니다)', function () {
+                    $.ajax({
+                        url: withCtx('/api/cms/billing/erp-resync'),
+                        type: 'POST', contentType: 'application/json',
+                        data: JSON.stringify({deduct_dates: dates}),
+                        headers: {'X-CSRF-TOKEN': $('[name=_csrf]').val()},
+                        success: function (result) {
+                            if (result.success) { var d = result.data || {}; Alert.alert('ERP 반영 완료', '신규 반영 ' + (d.inserted || 0) + '건, 이미있음 ' + (d.skipped || 0) + '건' + (d.failed > 0 ? ', 실패 ' + d.failed + '건' : '')); }
+                            else { Alert.alert('ERP 반영 실패', result.message); }
+                        },
+                        error: function () { Alert.alert('오류', 'ERP 반영 요청 중 오류가 발생했습니다.'); }
+                    });
+                });
+            }
 
             // 모달 닫기
             $('#btnEc22Cancel').click(function () {

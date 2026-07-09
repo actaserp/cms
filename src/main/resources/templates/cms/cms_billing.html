@@ -364,7 +364,13 @@
                 </table>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
-                <span id="erpSummary" style="font-size:12px; color:#888;"></span>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span id="erpSummary" style="font-size:12px; color:#888;"></span>
+                    <span style="font-size:12px; color:#555;">표시명:
+                        <label style="cursor:pointer; margin-left:4px;"><input type="radio" name="erpNameType" value="REP" checked> 대표거래처명</label>
+                        <label style="cursor:pointer; margin-left:6px;"><input type="radio" name="erpNameType" value="SITE"> 현장명</label>
+                    </span>
+                </div>
                 <div style="display:flex; gap:8px;">
                     <button type="button" id="btnErpConfirm"
                             style="background:#e67e22; color:#fff; padding:6px 18px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">청구생성</button>
@@ -591,13 +597,41 @@
         }
 
         function exportExcel() {
-            if (!theGrid) { Alert.alert('', '데이터가 없습니다.'); return; }
-            var ymVal = $('#srchBillingYm').val() || '청구목록';
-            wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
-                theGrid,
-                { includeColumnHeaders: true, includeCellStyles: false },
-                '수납청구_' + ymVal.replace('-', '') + '.xlsx'
-            );
+            var ymVal = $('#srchBillingYm').val() || '';
+            var params = {
+                billing_ym: ymVal.replace('-', ''),
+                send_date_from: ($('#srchSendDateFrom').val() || '').replace(/-/g, ''),
+                send_date_to: ($('#srchSendDateTo').val() || '').replace(/-/g, ''),
+                member_name: $('#srchMemberName').val(),
+                status: $('#srchStatus').val()
+            };
+            params.page = 0;
+            params.size = 1000000;
+            $.ajax({
+                url: withCtx('/api/cms/billing/list'),
+                type: 'GET',
+                data: params,
+                success: function (result) {
+                    if (!result || result.success === false) { Alert.alert('', '엑셀 조회 실패: ' + ((result && result.message) || '')); return; }
+                    var rows = (result.data && result.data.data) ? result.data.data : (result.data || []);
+                    if (!rows.length) { Alert.alert('', '다운로드할 데이터가 없습니다.'); return; }
+                    var host = document.createElement('div');
+                    host.style.position = 'absolute'; host.style.left = '-99999px'; host.style.top = '0';
+                    host.style.width = '1200px'; host.style.height = '400px';
+                    document.body.appendChild(host);
+                    var tmp = new wijmo.grid.FlexGrid(host, {
+                        autoGenerateColumns: false, columns: columns, isReadOnly: true,
+                        itemsSource: new wijmo.collections.CollectionView(rows)
+                    });
+                    var cleanup = function () { try { tmp.dispose(); } catch (e) {} if (host.parentNode) host.parentNode.removeChild(host); };
+                    wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
+                        tmp, {includeColumnHeaders: true, includeCellStyles: false}, '수납청구_' + (ymVal.replace('-', '') || '전체') + '.xlsx',
+                        function () { cleanup(); },
+                        function () { cleanup(); Alert.alert('', '엑셀 생성 실패'); }
+                    );
+                },
+                error: function () { Alert.alert('오류', '엑셀 다운로드 조회 실패'); }
+            });
         }
 
         var memberHighlightIndex = -1;
@@ -1521,8 +1555,31 @@
             $('#erpChkAll').on('change', function () {
                 var checked = $(this).is(':checked');
                 $('#erpRows input.erp-check:not(:disabled)').prop('checked', checked);
+                $('#erpRows input.erp-day-check:not(:disabled)').prop('checked', checked);
+            });
+            // 출금일 그룹 체크 → 해당 출금일의 선택가능 행만 토글
+            $('#erpRows').on('change', 'input.erp-day-check', function () {
+                var checked = $(this).is(':checked');
+                var dd = String($(this).data('deduct-date'));
+                $('#erpRows input.erp-check[data-deduct-date="' + dd + '"]:not(:disabled)').prop('checked', checked);
+                syncErpChkAll();
+            });
+            // 개별 행 체크 → 그룹헤더/전체 상태 동기화
+            $('#erpRows').on('change', 'input.erp-check', function () {
+                var dd = String($(this).data('deduct-date'));
+                var $grp = $('#erpRows input.erp-check[data-deduct-date="' + dd + '"]:not(:disabled)');
+                var allOn = $grp.length > 0 && $grp.filter(':checked').length === $grp.length;
+                $('#erpRows input.erp-day-check[data-deduct-date="' + dd + '"]').prop('checked', allOn);
+                syncErpChkAll();
             });
         });
+
+        // 전체선택 체크박스 상태를 개별 선택 결과에 맞춰 동기화
+        function syncErpChkAll() {
+            var $all = $('#erpRows input.erp-check:not(:disabled)');
+            var on = $all.length > 0 && $all.filter(':checked').length === $all.length;
+            $('#erpChkAll').prop('checked', on);
+        }
 
         var erpBillingYm = '';
 
@@ -1573,22 +1630,55 @@
                 return;
             }
 
+            // 출금일별 정렬 (출금일 없는 건은 맨 뒤로)
+            rows = rows.slice().sort(function (a, b) {
+                var da = (a.deduct_date || '99999999');
+                var db = (b.deduct_date || '99999999');
+                if (da !== db) return da < db ? -1 : 1;
+                return (a.member_name || '').localeCompare(b.member_name || '');
+            });
+
             var html = '';
             var okCount = 0;
+            var prevDD = null;
+
             rows.forEach(function (r) {
                 var st = ERP_STATUS[r.row_status] || {label: r.row_status, color: '#555', bg: '#eee'};
                 var canSelect = (r.row_status === 'OK');
                 if (canSelect) okCount++;
 
                 var dd = r.deduct_date || '';
-                var ddDisp = dd.length === 8 ? dd.substring(0, 4) + '-' + dd.substring(4, 6) + '-' + dd.substring(6, 8) : '-';
+                var ddDisp = dd.length === 8 ? dd.substring(0, 4) + '-' + dd.substring(4, 6) + '-' + dd.substring(6, 8) : '미지정';
+                var ddKey = dd || 'NONE';
+
+                // 출금일이 바뀌면 그룹 헤더(출금일 단위 전체선택) 삽입
+                if (ddKey !== prevDD) {
+                    prevDD = ddKey;
+                    var grpOkCount = rows.filter(function (x) {
+                        return (x.deduct_date || 'NONE') === ddKey && x.row_status === 'OK';
+                    }).length;
+                    html += '<tr style="background:#eef2fb;">'
+                        + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">'
+                        + '<input type="checkbox" class="erp-day-check" data-deduct-date="' + ddKey + '"'
+                        + (grpOkCount > 0 ? ' checked' : ' disabled') + '>'
+                        + '</td>'
+                        + '<td colspan="4" style="padding:6px 8px; border:1px solid #dde0ea; font-weight:700; color:#33415c;">'
+                        + '출금일 ' + ddDisp
+                        + ' <span style="font-weight:400; color:#888; font-size:12px;">(생성가능 ' + grpOkCount + '건)</span>'
+                        + '</td>'
+                        + '</tr>';
+                }
 
                 html += '<tr>'
                     + '<td style="padding:6px 8px; border:1px solid #eee; text-align:center;">'
-                    + '<input type="checkbox" class="erp-check" value="' + r.erp_mis_key + '"'
+                    + '<input type="checkbox" class="erp-check" value="' + r.erp_mis_key + '" data-deduct-date="' + ddKey + '"'
                     + (canSelect ? ' checked' : ' disabled') + '>'
                     + '</td>'
-                    + '<td style="padding:6px 8px; border:1px solid #eee; text-align:left;">' + (r.member_name || '') + '</td>'
+                    + '<td style="padding:6px 8px; border:1px solid #eee; text-align:left; padding-left:22px;">'
+                    +   '<span class="erp-name" data-rep="' + escAttr(r.member_name_rep || r.member_name || '') + '" data-site="' + escAttr(r.member_name_site || r.member_name || '') + '">'
+                    +     ((curErpNameType() === 'SITE' ? (r.member_name_site || r.member_name) : (r.member_name_rep || r.member_name)) || '')
+                    +   '</span>'
+                    + '</td>'
                     + '<td style="padding:6px 8px; border:1px solid #eee; text-align:right;">' + Number(r.billing_amount || 0).toLocaleString() + '</td>'
                     + '<td style="padding:6px 8px; border:1px solid #eee; text-align:center;">' + ddDisp + '</td>'
                     + '<td style="padding:6px 8px; border:1px solid #eee; text-align:center;">'
@@ -1601,6 +1691,25 @@
             $('#erpChkAll').prop('checked', okCount > 0);
             $('#erpSummary').text('생성가능 ' + okCount + '건 / 전체 ' + rows.length + '건');
         }
+
+        // 현재 선택된 표시명 타입 (REP=대표거래처명 / SITE=현장명)
+        function curErpNameType() {
+            var v = $('input[name="erpNameType"]:checked').val();
+            return v === 'SITE' ? 'SITE' : 'REP';
+        }
+        function escAttr(v) {
+            return String(v == null ? '' : v)
+                .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        // 표시명 토글: 재조회 없이 이름 셀만 즉시 교체
+        $(document).on('change', 'input[name="erpNameType"]', function () {
+            var t = curErpNameType();
+            $('#erpRows span.erp-name').each(function () {
+                var $s = $(this);
+                $s.text(t === 'SITE' ? ($s.data('site') || $s.data('rep')) : ($s.data('rep') || $s.data('site')));
+            });
+        });
 
         function confirmErpImport() {
             var sendDate = $('#erpSendDate').val();
