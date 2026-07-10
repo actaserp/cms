@@ -50,19 +50,17 @@
             <section class="section" style="width: 70%;">
                 <div class="section-top">
                     <div class="search-wrap">
-                        <dl>
-                            <dt><label><span class="eq">*</span>청구년월</label></dt>
-                            <dd>
-                                <div class="srch-box">
-                                    <input type="month" class="form-control2" id="srchBillingYm" style="width:130px;">
-                                </div>
-                            </dd>
-                        </dl>
+                        <!-- 청구년월 필터 제거: 목록은 출금신청일로 조회한다.
+                             단, 청구생성/재청구/즉시전송/ERP/엑셀의 '기준 달'로 계속 쓰이므로
+                             현재월을 담는 hidden으로 유지한다(init에서 세팅). -->
+                        <input type="hidden" id="srchBillingYm">
                         <dl>
                             <dt><label>출금신청일<span style="font-size:11px; color:#aaa;"> (삭제시 전체 검색)</span></label></dt>
                             <dd>
-                                <div class="srch-box">
-                                    <input type="date" class="form-control2" id="srchSendDate" style="width:130px;">
+                                <div class="srch-box" style="display:flex; align-items:center; gap:4px;">
+                                    <input type="date" class="form-control2" id="srchSendDateFrom" style="width:130px;">
+                                    <span>~</span>
+                                    <input type="date" class="form-control2" id="srchSendDateTo" style="width:130px;">
                                 </div>
                             </dd>
                         </dl>
@@ -100,12 +98,13 @@
                             <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;" >재청구</button>
                             <button type="button" class="btn-default" id="btnSendNow"
                                     style="background:#27ae60; color:#fff;">즉시전송</button>
+                            <button type="button" class="btn-default" id="btnExcel" style="background:#217346; color:#fff; width:120px;">엑셀 다운로드</button>
                         </div>
                     </div>
                 </div>
                 <div class="container-fluid">
                     <div id="theGrid"></div>
-                    <div style="padding:6px 0;"><button type="button" class="btn-default" id="btnExcel" style="background:#217346; color:#fff; width:120px;">엑셀 다운로드</button></div>
+
                     <div id="paginationBar" style="display:flex; align-items:center; gap:6px; margin:6px 0;">
                         <button onclick="searchList(0)"             style="padding:2px 8px;">◀◀</button>
                         <button onclick="searchList(currentPage-1)" style="padding:2px 8px;" id="btnPrevPage">◀</button>
@@ -434,7 +433,8 @@
                 + String(now.getDate()).padStart(2, '0');
 
             $('#srchBillingYm').val(ym);
-            $('#srchSendDate').val(todayStr);
+            $('#srchSendDateFrom').val(ym + '-01');
+            $('#srchSendDateTo').val(todayStr);
             $('#billing_ym_input').val(ym);
 
             searchList();
@@ -606,17 +606,16 @@
         }
 
         function searchList(page) {
-            var ymVal = $('#srchBillingYm').val();
-            if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
-            if (page === undefined || page === null) page = 0;
+            if (typeof page !== 'number') page = 0;
             if (page < 0 || page >= totalPages) return;
             currentPage = page;
             $.ajax({
                 url: withCtx('/api/cms/billing/list'),
                 type: 'GET',
                 data: {
-                    billing_ym:  ymVal.replace('-', ''),
-                    send_date:   ($('#srchSendDate').val() || '').replace(/-/g, ''),
+                    billing_ym:  ($('#srchBillingYm').val() || '').replace('-', ''),
+                    send_date_from: ($('#srchSendDateFrom').val() || '').replace(/-/g, ''),
+                    send_date_to:   ($('#srchSendDateTo').val()   || '').replace(/-/g, ''),
                     member_name: $('#srchMemberName').val(),
                     status:      $('#srchStatus').val(),
                     deduct_type: 'EC',
@@ -1075,8 +1074,9 @@
         function exportExcel() {
             var ymVal = $('#srchBillingYm').val() || '';
             var params = {
-                billing_ym: ymVal.replace('-', ''),
-                send_date: ($('#srchSendDate').val() || '').replace(/-/g, ''),
+                billing_ym: ($('#srchBillingYm').val() || '').replace('-', ''),
+                send_date_from: ($('#srchSendDateFrom').val() || '').replace(/-/g, ''),
+                send_date_to:   ($('#srchSendDateTo').val()   || '').replace(/-/g, ''),
                 member_name: $('#srchMemberName').val(),
                 status: $('#srchStatus').val(),
                 deduct_type: 'EC'
@@ -1111,7 +1111,7 @@
         }
 
         $(document).ready(function() {
-            $('#btnSearch').click(searchList);
+            $('#btnSearch').click(function () { searchList(0); });
             $('#btnExcel').click(exportExcel);
             $('#srchMemberName').keypress(function (e) {
                 if (e.which === 13) searchList();

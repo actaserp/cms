@@ -244,18 +244,12 @@
             <div class="section-top">
                 <div class="search-wrap">
                     <dl>
-                        <dt><label><span class="eq">*</span>청구년월</label></dt>
+                        <dt><label><span class="eq">*</span>출금일자</label></dt>
                         <dd>
-                            <div class="srch-box">
-                                <input type="month" class="form-control2" id="srchBillingYm" style="width:130px;">
-                            </div>
-                        </dd>
-                    </dl>
-                    <dl>
-                        <dt><label>출금일자<span style="font-size:11px; color:#aaa;"> (선택한 날짜로 검색)</span></label></dt>
-                        <dd>
-                            <div class="srch-box">
-                                <input type="date" class="form-control2" id="srchResultDate" style="width:130px;">
+                            <div class="srch-box" style="display:flex; align-items:center; gap:4px;">
+                                <input type="date" class="form-control2" id="srchDeductDateFrom" style="width:130px;">
+                                <span>~</span>
+                                <input type="date" class="form-control2" id="srchDeductDateTo" style="width:130px;">
                             </div>
                         </dd>
                     </dl>
@@ -419,25 +413,24 @@
 
         function init() {
             var now = new Date();
-            var ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-            $('#srchBillingYm').val(ym);
+            var y = now.getFullYear(), m = now.getMonth();
+            var pad = function (n) { return String(n).padStart(2, '0'); };
+            var first = y + '-' + pad(m + 1) + '-01';
+            var last  = y + '-' + pad(m + 1) + '-' + pad(new Date(y, m + 1, 0).getDate());
+            $('#srchDeductDateFrom').val(first);
+            $('#srchDeductDateTo').val(last);
             searchList(0);
         }
 
         function searchList(page) {
             if (page < 0 || page >= totalPages) return;
             currentPage = page;
-            var ymVal = $('#srchBillingYm').val();
-            if (!ymVal) {
-                Alert.alert('', '청구년월을 선택하세요.');
-                return;
-            }
             $.ajax({
                 url: withCtx('/api/cms/billing/result/list'),
                 type: 'GET',
                 data: {
-                    billing_ym: ymVal.replace('-', ''),
-                    result_date: ($('#srchResultDate').val() || '').replace(/-/g, ''),
+                    deduct_date_from: ($('#srchDeductDateFrom').val() || '').replace(/-/g, ''),
+                    deduct_date_to:   ($('#srchDeductDateTo').val()   || '').replace(/-/g, ''),
                     status: $('#srchStatus').val(),
                     member_name: $('#srchMemberName').val(),
                     page: currentPage,
@@ -479,16 +472,12 @@
         }
 
         function openRechargeModal() {
-            var ymVal = $('#srchBillingYm').val();
-            if (!ymVal) {
-                Alert.alert('', '청구년월을 선택하세요.');
+            var startStr = ($('#srchDeductDateFrom').val() || '').replace(/-/g, '');
+            var endStr   = ($('#srchDeductDateTo').val()   || '').replace(/-/g, '');
+            if (!startStr || !endStr) {
+                Alert.alert('', '출금일자 범위를 선택하세요.');
                 return;
             }
-
-            var ym = ymVal.split('-');
-            var lastDay = new Date(ym[0], ym[1], 0).getDate(); // 해당 월 말일
-            var startStr = ymVal.replace('-', '') + '01';
-            var endStr = ymVal.replace('-', '') + String(lastDay).padStart(2, '0');
 
             $.ajax({
                 url: withCtx('/api/cms/billing/history/list'),
@@ -735,10 +724,11 @@
         }
 
         function exportExcel() {
-            var ymVal = $('#srchBillingYm').val() || '';
+            var ddFrom = ($('#srchDeductDateFrom').val() || '').replace(/-/g, '');
+            var ddTo   = ($('#srchDeductDateTo').val()   || '').replace(/-/g, '');
             var params = {
-                billing_ym: ymVal.replace('-', ''),
-                result_date: ($('#srchResultDate').val() || '').replace(/-/g, ''),
+                deduct_date_from: ddFrom,
+                deduct_date_to:   ddTo,
                 status: $('#srchStatus').val(),
                 member_name: $('#srchMemberName').val()
             };
@@ -762,7 +752,7 @@
                     });
                     var cleanup = function () { try { tmp.dispose(); } catch (e) {} if (host.parentNode) host.parentNode.removeChild(host); };
                     wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
-                        tmp, {includeColumnHeaders: true, includeCellStyles: false}, '수납결과_' + (ymVal.replace('-', '') || '전체') + '.xlsx',
+                        tmp, {includeColumnHeaders: true, includeCellStyles: false}, '수납결과_' + ((ddFrom || ddTo) ? (ddFrom + '-' + ddTo) : '전체') + '.xlsx',
                         function () { cleanup(); },
                         function () { cleanup(); Alert.alert('', '엑셀 생성 실패'); }
                     );

@@ -26,6 +26,7 @@
             color: #444;
         }
         .grid-summary span { font-weight: 700; color: #4a6cf7; }
+        .excel-menu-item:hover { background:#f0f7f2; }
     </style>
 </head>
 
@@ -49,14 +50,10 @@
             <section class="section" style="width: 70%;">
                 <div class="section-top">
                     <div class="search-wrap">
-                        <dl>
-                            <dt><label><span class="eq">*</span>청구년월</label></dt>
-                            <dd>
-                                <div class="srch-box">
-                                    <input type="month" class="form-control2" id="srchBillingYm" style="width:130px;">
-                                </div>
-                            </dd>
-                        </dl>
+                        <!-- 청구년월 필터 제거: 목록은 출금신청일로 조회한다.
+                             단, 청구생성/재청구/즉시전송/ERP/엑셀의 '기준 달'로 계속 쓰이므로
+                             현재월을 담는 hidden으로 유지한다(init에서 세팅). -->
+                        <input type="hidden" id="srchBillingYm">
                         <dl>
                             <dt><label>출금신청일</label></dt>
                             <dd>
@@ -101,8 +98,25 @@
                             <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;">재청구</button>
                             <button type="button" class="btn-default" id="btnSendNow"
                                     style="background:#27ae60; color:#fff;">즉시전송</button>
-                            <button type="button" class="btn-default" id="btnExcel"
-                                    style="background:#217346; color:#fff; width: 120px;">엑셀 다운로드</button>
+                            <div class="excel-menu" style="position:relative; display:inline-block;">
+                                <button type="button" class="btn-default" id="btnExcelMenu"
+                                        style="background:#217346; color:#fff;">엑셀 ▾</button>
+                                <div id="excelMenuDropdown"
+                                     style="display:none; position:absolute; right:0; top:100%; margin-top:2px;
+                                     background:#fff; border:1px solid #dde0ea; border-radius:6px;
+                                     box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:1000; min-width:130px; overflow:hidden;">
+                                    <a id="btnExcel" class="excel-menu-item"
+                                       style="display:block; padding:8px 12px; font-size:13px; color:#333;
+                                       cursor:pointer; white-space:nowrap;">⬇&nbsp; 다운로드</a>
+                                    <a id="btnExcelTemplate" class="excel-menu-item"
+                                       style="display:block; padding:8px 12px; font-size:13px; color:#333;
+                                       cursor:pointer; white-space:nowrap; border-top:1px solid #eee;">📄&nbsp; 양식 받기</a>
+                                    <a id="btnExcelUpload" class="excel-menu-item"
+                                       style="display:block; padding:8px 12px; font-size:13px; color:#333;
+                                       cursor:pointer; white-space:nowrap; border-top:1px solid #eee;">⬆&nbsp; 업로드</a>
+                                </div>
+                                <input type="file" id="excelUploadFile" accept=".xlsx,.xls" style="display:none;">
+                            </div>
                             <button type="button" class="btn-default" id="btnChangeDate"
                                     style="background:#f39c12; color:#fff;">출금일 변경</button>
                         </div>
@@ -436,6 +450,46 @@
         </div>
     </div>
 
+    <!-- 엑셀 업로드 미리보기/결과 모달 -->
+    <div id="modalExcelUpload" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+     background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:20px 24px; width:860px; max-width:94vw;
+             max-height:88vh; display:flex; flex-direction:column; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 12px; font-size:15px;">엑셀 업로드</h3>
+            <div style="font-size:12px; color:#555; margin-bottom:10px; line-height:1.7; background:#f7f9fc; border:1px solid #e3e8f0; border-radius:6px; padding:10px 12px;">
+                <div><strong>· 청구번호 있음 → 수정</strong> (대기 상태만): <strong>청구금액 · 출금일자 · 메모</strong>만 반영됩니다.</div>
+                <div><strong>· 청구번호 없음 → 신규</strong>: <strong>납부자명 · 청구금액 · 출금일자</strong> 필수. 납부자번호는 선택.</div>
+                <div style="color:#c0392b;">· 계좌·은행·예금주는 엑셀로 수정할 수 없어요(회원 등록 계좌 기준). 신규 건 계좌는 자동으로 채워집니다.</div>
+                <div style="color:#888;">· 동명이인이면 해당 회원 수만큼 각각 청구가 생성됩니다. 특정하려면 납부자번호를 함께 넣으세요.</div>
+                <div style="color:#888;">· <a id="lnkTemplateInModal" style="color:#4a6cf7; cursor:pointer; text-decoration:underline;">양식 파일 받기</a> 후 작성하면 편해요.</div>
+            </div>
+
+            <!-- 드롭존 (파싱 전) -->
+            <div id="excelDropzone"
+                 style="border:2px dashed #b7c2d6; border-radius:8px; padding:34px 16px; text-align:center;
+                 color:#7a869a; font-size:13px; cursor:pointer; background:#fbfcfe;">
+                <div style="font-size:26px; margin-bottom:6px;">⬆</div>
+                <div>여기로 엑셀 파일을 <strong>끌어다 놓거나</strong>, 클릭해서 선택하세요.</div>
+                <div style="font-size:11px; color:#aab; margin-top:4px;">.xlsx / .xls</div>
+            </div>
+
+            <div id="excelPreviewInfo" style="font-size:12px; color:#333; margin:8px 0; display:none;"></div>
+            <div id="excelPreviewWrap" style="overflow:auto; border:1px solid #dde0ea; flex:1; min-height:200px; display:none;">
+                <table id="excelPreviewTable" style="width:100%; border-collapse:collapse; font-size:12px;"></table>
+            </div>
+            <div id="excelUploadResult" style="display:none; margin-top:10px; font-size:12px; max-height:220px; overflow:auto;"></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:14px;">
+                <a id="btnExcelReselect" style="font-size:12px; color:#4a6cf7; cursor:pointer; text-decoration:underline; display:none;">다른 파일 선택</a>
+                <span></span>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" class="btn-default" id="btnExcelUploadConfirm"
+                            style="background:#1e6b3f; color:#fff; display:none;">업로드 실행</button>
+                    <button type="button" class="btn-default" id="btnExcelUploadCancel">닫기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <footer style="margin-top: 24px;">
         <p>Copyright&#169; 0000 corp. All rights reserved.</p>
     </footer>
@@ -562,7 +616,7 @@
                 + String(now.getDate()).padStart(2, '0');
 
             $('#srchBillingYm').val(ym);
-            $('#srchSendDateFrom').val(todayStr);
+            $('#srchSendDateFrom').val(ym + '-01');
             $('#srchSendDateTo').val(todayStr);
             $('#billing_ym_input').val(ym);
 
@@ -632,6 +686,295 @@
                 },
                 error: function () { Alert.alert('오류', '엑셀 다운로드 조회 실패'); }
             });
+        }
+
+        // ── 엑셀 업로드 (upsert) ─────────────────────────────
+        // 엑셀 헤더(한글) → 서버 필드명 매핑. 다운로드 헤더와 동일.
+        var UPLOAD_HEADER_MAP = {
+            '청구번호': 'billing_seq', '납부자명': 'member_name', '납부자번호': 'member_no',
+            '사업자번호': 'id_number', '은행': 'bank_name', '계좌번호': 'bank_account',
+            '약정일': 'deduct_day', '출금일자': 'deduct_date', '청구신청일': 'send_date',
+            '청구금액': 'billing_amount', '상태': 'status', '처리일자': 'result_date',
+            '재청구': 'recharged_yn', '메모': 'memo'
+        };
+        var parsedUploadRows = [];
+
+        // 업로드 양식 컬럼 (계좌/은행/예금주 없음 — 엑셀로 수정 불가)
+        var TEMPLATE_COLUMNS = [
+            { binding: 'billing_seq',    header: '청구번호',   width: 110 },
+            { binding: 'member_name',    header: '납부자명',   width: 110 },
+            { binding: 'member_no',      header: '납부자번호', width: 100 },
+            { binding: 'billing_amount', header: '청구금액',   width: 90 },
+            { binding: 'deduct_date',    header: '출금일자',   width: 100 },
+            { binding: 'memo',           header: '메모',       width: 460 }
+        ];
+
+        function downloadTemplate() {
+            // 안내행([안내])·예시행은 업로드 전 삭제. 지우지 않아도 실제 회원과 매칭되지 않아
+            // "실패"로 걸러지므로 잘못 등록되지 않는다.
+            var sample = [
+                { billing_seq: '[안내]', member_name: '', member_no: '', billing_amount: '', deduct_date: '', memo: '↓ [안내]·(예시) 행은 실제 업로드 전에 모두 삭제하세요.' },
+                { billing_seq: '[안내]', member_name: '', member_no: '', billing_amount: '', deduct_date: '', memo: '신규 등록: 납부자명 · 청구금액 · 출금일자(YYYY-MM-DD)는 필수입니다.' },
+                { billing_seq: '[안내]', member_name: '', member_no: '', billing_amount: '', deduct_date: '', memo: '납부자번호: 알면 입력, 모르면 비워두세요. 동명이인일 때만 특정용으로 사용합니다(번호를 넣으면 이름보다 번호가 우선).' },
+                { billing_seq: '[안내]', member_name: '', member_no: '', billing_amount: '', deduct_date: '', memo: '수정: 청구번호가 있으면 청구금액 · 출금일자 · 메모만 반영됩니다(대기 상태만).' },
+                { billing_seq: '[안내]', member_name: '', member_no: '', billing_amount: '', deduct_date: '', memo: '계좌 · 은행 · 예금주는 엑셀로 수정할 수 없습니다 — 회원 등록 계좌에서 자동 적용됩니다.' },
+                { billing_seq: '',            member_name: '홍길동(예시)', member_no: '', billing_amount: 50000, deduct_date: '2026-07-25', memo: '(예시) 신규 — 이 행은 삭제 후 사용' },
+                { billing_seq: '202607-0001', member_name: '',           member_no: '', billing_amount: 60000, deduct_date: '2026-07-26', memo: '(예시) 수정 — 청구번호를 실제 값으로. 이 행은 삭제 후 사용' }
+            ];
+            var host = document.createElement('div');
+            host.style.position = 'absolute'; host.style.left = '-99999px'; host.style.top = '0';
+            host.style.width = '900px'; host.style.height = '300px';
+            document.body.appendChild(host);
+            var tmp = new wijmo.grid.FlexGrid(host, {
+                autoGenerateColumns: false, columns: TEMPLATE_COLUMNS, isReadOnly: true,
+                itemsSource: new wijmo.collections.CollectionView(sample)
+            });
+            var cleanup = function () { try { tmp.dispose(); } catch (e) {} if (host.parentNode) host.parentNode.removeChild(host); };
+            wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
+                tmp, { includeColumnHeaders: true, includeCellStyles: false }, '수납청구_업로드양식.xlsx',
+                function () { cleanup(); },
+                function () { cleanup(); Alert.alert('', '양식 생성 실패'); }
+            );
+        }
+
+        function resetUploadModal() {
+            parsedUploadRows = [];
+            $('#excelDropzone').show();
+            $('#excelPreviewInfo').hide().empty();
+            $('#excelPreviewWrap').hide();
+            $('#excelPreviewTable').empty();
+            $('#excelUploadResult').hide().empty();
+            $('#btnExcelUploadConfirm').hide().prop('disabled', false);
+            $('#btnExcelReselect').hide();
+        }
+
+        function openExcelUpload() {
+            resetUploadModal();
+            $('#modalExcelUpload').css('display', 'flex');
+        }
+
+        function pickExcelFile() {
+            $('#excelUploadFile').val('');  // 같은 파일 재선택 허용
+            $('#excelUploadFile').click();
+        }
+
+        // 엑셀 파서: SheetJS(XLSX). 없으면 CDN에서 로드.
+        function ensureXLSX(cb) {
+            if (window.XLSX) { cb(); return; }
+            var s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+            s.onload = function () { cb(); };
+            s.onerror = function () {
+                Alert.alert('오류', '엑셀 파서를 불러오지 못했습니다.\n(네트워크/보안정책 차단 가능 — 관리자에게 SheetJS(xlsx) 포함을 요청하세요.)');
+            };
+            document.head.appendChild(s);
+        }
+
+        function pad2(n) { return String(n).padStart(2, '0'); }
+
+        // 엑셀 날짜 serial(숫자) → YYYY-MM-DD (JS Date 로컬타임 거치지 않아 타임존 오차 없음)
+        function excelSerialToISO(n) {
+            var ms = Math.round((n - 25569) * 86400000); // 25569 = 1970-01-01의 엑셀 serial
+            var d = new Date(ms);
+            return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+        }
+
+        // 출금일자 셀을 YYYY-MM-DD로 정규화 (날짜셀/serial/텍스트 모두 처리)
+        function normalizeDateCell(v) {
+            if (v == null || v === '') return '';
+            // 진짜 날짜셀(Date): 로컬 기준 달력값을 읽는다(밀림 방지)
+            if (v instanceof Date) {
+                return v.getFullYear() + '-' + pad2(v.getMonth() + 1) + '-' + pad2(v.getDate());
+            }
+            // 엑셀 날짜 serial(숫자, 대략 1954~2119 범위)
+            if (typeof v === 'number') {
+                if (v >= 20000 && v <= 90000) return excelSerialToISO(v);
+                v = '' + v;
+            }
+            var s = ('' + v).trim();
+            if (!s) return '';
+            if (/^\d{8}$/.test(s)) return s;                                  // YYYYMMDD
+            var m = s.match(/^(\d{4})[.\-\/\s]+(\d{1,2})[.\-\/\s]+(\d{1,2})/); // YYYY-MM-DD / YYYY.MM.DD
+            if (m) return m[1] + '-' + pad2(m[2]) + '-' + pad2(m[3]);
+            m = s.match(/^(\d{1,2})[.\-\/]+(\d{1,2})[.\-\/]+(\d{2,4})$/);      // M/D/YY(미국식) 또는 D/M/Y
+            if (m) {
+                var a = +m[1], b = +m[2], y = +m[3];
+                if (y < 100) y += 2000;
+                var mo = a, d = b;
+                if (a > 12 && b <= 12) { mo = b; d = a; }                     // 첫 숫자가 12 초과면 일/월로 간주
+                return y + '-' + pad2(mo) + '-' + pad2(d);
+            }
+            return s; // 알 수 없으면 원본 그대로 (서버에서 실패로 표시)
+        }
+
+        // 시트의 2차원 배열(aoa)을 헤더 매핑으로 행 객체 목록으로 변환
+        function aoaToRows(aoa) {
+            if (!aoa || !aoa.length) return [];
+            var header = (aoa[0] || []).map(function (h) { return (h == null ? '' : ('' + h)).trim(); });
+            var idxToField = header.map(function (h) { return UPLOAD_HEADER_MAP[h] || null; });
+            var out = [];
+            for (var r = 1; r < aoa.length; r++) {
+                var row = aoa[r] || []; var obj = {}; var has = false;
+                for (var c = 0; c < header.length; c++) {
+                    var f = idxToField[c]; if (!f) continue;
+                    var raw = row[c];
+                    var v = (f === 'deduct_date') ? normalizeDateCell(raw)
+                        : ((raw == null) ? '' : ('' + raw).trim());
+                    obj[f] = v; if (v !== '') has = true;
+                }
+                if (has) out.push(obj);
+            }
+            return out;
+        }
+
+        function parseWithSheetJS(file) {
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    var data = new Uint8Array(e.target.result);
+                    var wb = XLSX.read(data, { type: 'array' });
+                    var ws = wb.Sheets[wb.SheetNames[0]];
+                    // raw:true → 날짜셀은 엑셀 serial(숫자), 숫자는 숫자, 텍스트는 문자열. 날짜는 normalizeDateCell에서 변환.
+                    var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+                    var rows = aoaToRows(aoa);
+                    if (!rows.length) { Alert.alert('', '읽을 데이터가 없습니다. 헤더 행이 있는지 확인하세요.'); return; }
+                    parsedUploadRows = rows;
+                    renderUploadPreview(rows);
+                } catch (err) {
+                    Alert.alert('오류', '엑셀 파싱 실패: ' + (err && err.message ? err.message : err));
+                }
+            };
+            reader.onerror = function () { Alert.alert('', '파일을 읽지 못했습니다.'); };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function handleExcelFile(file) {
+            if (!file) return;
+            var name = (file.name || '').toLowerCase();
+            if (name && name.slice(-5) !== '.xlsx' && name.slice(-4) !== '.xls') {
+                Alert.alert('', '엑셀 파일(.xlsx/.xls)만 업로드할 수 있어요.');
+                return;
+            }
+            // 파일 시그니처로 형식 확인 (xlsx=zip 'PK', 구형 xls=OLE 0xD0CF)
+            var sniff = new FileReader();
+            sniff.onload = function (ev) {
+                var b = new Uint8Array(ev.target.result);
+                var isZip = b.length >= 2 && b[0] === 0x50 && b[1] === 0x4B;
+                var isOle = b.length >= 2 && b[0] === 0xD0 && b[1] === 0xCF;
+                if (!isZip && !isOle) {
+                    Alert.alert('', '올바른 엑셀 파일이 아니에요(CSV·다른 형식이거나 손상됨).\n엑셀에서 .xlsx로 저장한 파일을 올려주세요.');
+                    return;
+                }
+                ensureXLSX(function () { parseWithSheetJS(file); });
+            };
+            sniff.onerror = function () { Alert.alert('', '파일을 읽지 못했습니다.'); };
+            sniff.readAsArrayBuffer(file.slice(0, 8));
+        }
+
+        function extractRowsFromGrid(grid) {
+            var cols = grid.columns;
+            var idxToField = [];
+            for (var c = 0; c < cols.length; c++) {
+                var h = (cols[c].header || '').toString().trim();
+                idxToField[c] = UPLOAD_HEADER_MAP[h] || null;
+            }
+            var out = [];
+            var rc = grid.rows.length;
+            for (var r = 0; r < rc; r++) {
+                var obj = {}; var hasVal = false;
+                for (var c2 = 0; c2 < cols.length; c2++) {
+                    var f = idxToField[c2]; if (!f) continue;
+                    var v = grid.getCellData(r, c2, false);
+                    v = (v == null) ? '' : ('' + v).trim();
+                    obj[f] = v;
+                    if (v !== '') hasVal = true;
+                }
+                if (hasVal) out.push(obj);
+            }
+            return out;
+        }
+
+        function upTd(v) { return '<td style="border:1px solid #eee;padding:4px 6px;white-space:nowrap;">' + (v == null ? '' : v) + '</td>'; }
+
+        function renderUploadPreview(rows) {
+            $('#excelDropzone').hide();
+            $('#excelUploadResult').hide().empty();
+            $('#excelPreviewInfo').show();
+            $('#excelPreviewWrap').hide();
+            $('#excelPreviewTable').empty();
+            $('#btnExcelReselect').show();
+            $('#btnExcelUploadConfirm').show().prop('disabled', false);
+
+            var newCnt = rows.filter(function (r) { return !r.billing_seq; }).length;
+            var updCnt = rows.length - newCnt;
+            $('#excelPreviewInfo').html(
+                '읽은 데이터 <strong>' + rows.length + '</strong>건 · 신규 <strong>' + newCnt + '</strong>건 · 수정 <strong>' + updCnt + '</strong>건'
+                + '<div style="color:#888;margin-top:4px;">업로드 실행 시 청구번호 있는 건은 수정, 없는 건은 신규로 반영됩니다.</div>'
+            );
+        }
+
+        function submitExcelUpload() {
+            if (!parsedUploadRows.length) return;
+            var ymVal = ($('#srchBillingYm').val() || '').replace('-', '');
+            Alert.confirm('', parsedUploadRows.length + '행을 업로드하시겠습니까?\n(청구번호 있으면 수정, 없으면 신규)', function () {
+                $('#btnExcelUploadConfirm').prop('disabled', true);
+                $.ajax({
+                    url: withCtx('/api/cms/billing/bulk-upload'),
+                    type: 'POST',
+                    contentType: 'application/json',
+                    headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
+                    data: JSON.stringify({ rows: parsedUploadRows, billing_ym: ymVal, deduct_type: 'EB' }),
+                    success: function (result) {
+                        renderUploadResult(result);
+                        if (result && result.success) { searchList(0); }
+                    },
+                    error: function (xhr) {
+                        $('#btnExcelUploadConfirm').prop('disabled', false);
+                        var msg = '업로드 요청 실패 (HTTP ' + (xhr && xhr.status) + ')';
+                        if (xhr && xhr.status === 403) msg += ' — 권한/CSRF 오류';
+                        else if (xhr && xhr.status === 404) msg += ' — 서버에 bulk-upload API가 없습니다(백엔드 배포 확인)';
+                        else if (xhr && xhr.status === 500) msg += ' — 서버 처리 오류';
+                        Alert.alert('오류', msg);
+                    }
+                });
+            });
+        }
+
+        function renderUploadResult(result) {
+            var data = (result && result.data) || {};
+            var applied = data.applied === true;
+            var details = data.details || [];
+            var summary;
+            if (applied) {
+                summary = '<div style="color:#1e6b3f;font-weight:700;">반영 완료 — 신규 ' + (data.inserted || 0)
+                    + '건, 수정 ' + (data.updated || 0) + '건, 스킵 ' + (data.skipped || 0) + '건</div>';
+                $('#btnExcelUploadConfirm').hide();
+            } else {
+                summary = '<div style="color:#c0392b;font-weight:700;">실패 ' + (data.failed || 0)
+                    + '건이 있어 반영되지 않았습니다. 아래 오류를 수정 후 다시 업로드하세요.</div>';
+                $('#btnExcelUploadConfirm').prop('disabled', false);
+            }
+            var problems = details.filter(function (d) { return d.result === 'FAILED' || d.result === 'SKIPPED'; });
+            var shown = problems.slice(0, 100);
+            var probRows = shown
+                .map(function (d) {
+                    var color = d.result === 'FAILED' ? '#c0392b' : '#c47f17';
+                    return '<tr>' + upTd(d.row + '행') + upTd(d.billing_seq || '-')
+                        + '<td style="border:1px solid #eee;padding:4px 6px;color:' + color + ';">' + d.result + '</td>'
+                        + upTd(d.message) + '</tr>';
+                }).join('');
+            var moreNote = problems.length > shown.length
+                ? '<div style="color:#888;margin-top:4px;">…외 ' + (problems.length - shown.length) + '건 더 (상위 100건만 표시)</div>'
+                : '';
+            var table = probRows
+                ? '<table style="width:100%;border-collapse:collapse;margin-top:6px;"><thead><tr>'
+                + '<th style="padding:4px 6px;border:1px solid #dde0ea;background:#f5f6fa;">행</th>'
+                + '<th style="padding:4px 6px;border:1px solid #dde0ea;background:#f5f6fa;">청구번호</th>'
+                + '<th style="padding:4px 6px;border:1px solid #dde0ea;background:#f5f6fa;">결과</th>'
+                + '<th style="padding:4px 6px;border:1px solid #dde0ea;background:#f5f6fa;">메시지</th></tr></thead><tbody>'
+                + probRows + '</tbody></table>' + moreNote
+                : '';
+            $('#excelUploadResult').html(summary + table).show();
         }
 
         var memberHighlightIndex = -1;
@@ -1542,6 +1885,41 @@
                 if (date) $('.recharge-date').val(date);
             });
             $('#btnExcel').click(exportExcel);
+            $('#btnExcelMenu').click(function (e) {
+                e.stopPropagation();
+                $('#excelMenuDropdown').toggle();
+            });
+            // 메뉴 항목 선택 또는 바깥 클릭 시 닫기
+            $('.excel-menu-item').click(function () { $('#excelMenuDropdown').hide(); });
+            $(document).on('click', function (e) {
+                if (!$(e.target).closest('.excel-menu').length) $('#excelMenuDropdown').hide();
+            });
+            $('#btnExcelUpload').click(openExcelUpload);
+            $('#btnExcelTemplate').click(downloadTemplate);
+            $('#lnkTemplateInModal').click(downloadTemplate);
+            $('#btnExcelReselect').click(pickExcelFile);
+            $('#excelDropzone').on('click', pickExcelFile);
+            $('#excelDropzone').on('dragover', function (e) {
+                e.preventDefault(); e.stopPropagation();
+                $(this).css({ background: '#eef4ff', borderColor: '#4a6cf7' });
+            });
+            $('#excelDropzone').on('dragleave', function (e) {
+                e.preventDefault(); e.stopPropagation();
+                $(this).css({ background: '#fbfcfe', borderColor: '#b7c2d6' });
+            });
+            $('#excelDropzone').on('drop', function (e) {
+                e.preventDefault(); e.stopPropagation();
+                $(this).css({ background: '#fbfcfe', borderColor: '#b7c2d6' });
+                var dt = e.originalEvent.dataTransfer;
+                var f = dt && dt.files && dt.files[0];
+                if (f) handleExcelFile(f);
+            });
+            $('#excelUploadFile').on('change', function () {
+                var f = this.files && this.files[0];
+                if (f) handleExcelFile(f);
+            });
+            $('#btnExcelUploadConfirm').click(submitExcelUpload);
+            $('#btnExcelUploadCancel').click(function () { $('#modalExcelUpload').hide(); });
             $('#btnChangeDate').click(openChangeDateModal);
             $('#btnChangeDateConfirm').click(doChangeDate);
             $('#btnChangeDateCancel').click(function () {

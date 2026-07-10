@@ -531,6 +531,299 @@ public class CmsBillingService {
                         .minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // 엑셀 대량 업로드 (upsert)
+    // ─────────────────────────────────────────────────────────────
+
+    /** 상태 라벨(한글) → 코드 매핑 (엑셀 표시값도 허용) */
+    private static final Map<String, String> STATUS_LABEL_TO_CODE = Map.of(
+            "대기", "PENDING", "출금요청", "REQUESTED", "성공", "SUCCESS",
+            "실패", "FAIL", "취소", "CANCEL", "오류", "ERROR");
+
+    private static String rowStr(Map<String, Object> row, String key) {
+        Object v = row.get(key);
+        return v == null ? null : v.toString().trim();
+    }
+
+    /** 금액 문자열 정규화: "1,000", "1000원" → "1000" */
+    private static Long parseAmount(String s) {
+        if (s == null || s.isBlank()) return null;
+        String digits = s.replaceAll("[^0-9-]", "");
+        if (digits.isBlank() || "-".equals(digits)) return null;
+        try { return Long.parseLong(digits); } catch (NumberFormatException e) { return null; }
+    }
+
+    /** 날짜 정규화: "2025-01-15", "20250115" → "20250115" (8자리만 유효) */
+    private static String parseDate8(String s) {
+        if (s == null) return null;
+        String digits = s.replaceAll("[^0-9]", "");
+        return digits.length() == 8 ? digits : null;
+    }
+
+    /** 약정일 정규화: "말일" → "99", "10일" → "10" */
+    private static String parseDeductDay(String s) {
+        if (s == null || s.isBlank()) return null;
+        String t = s.trim();
+        if (t.contains("말")) return "99";
+        String digits = t.replaceAll("[^0-9]", "");
+        return digits.isBlank() ? null : digits;
+    }
+
+    /** 상태 정규화: 코드 그대로거나 한글 라벨이면 코드로 변환 */
+    private static String parseStatus(String s) {
+        if (s == null || s.isBlank()) return null;
+        String t = s.trim();
+        if (STATUS_LABEL_TO_CODE.containsValue(t.toUpperCase())) return t.toUpperCase();
+        return STATUS_LABEL_TO_CODE.get(t);
+    }
+
+    /**
+     * 엑셀 행 배열을 upsert 처리한다.
+     * @param rows 화면에서 파싱한 행 목록. 각 행 키:
+     *             billing_seq, member_name, member_no, bank_name, bank_account,
+     *             deduct_day, deduct_date, billing_amount, status, memo
+     * @param defaultBillingYm 출금일자가 없을 때 사용할 청구년월(yyyyMM). 선택.
+     * @param deductType 출금유형(기본 EB)
+     * @return inserted/updated/skipped/failed 카운트와 상세 로그(details)
+     */
+    @Transactional
+    public Map<String, Object> bulkUpsertBilling(List<Map<String, Object>> rows,
+                                                 String defaultBillingYm,
+                                                 String deductType,
+                                                 String userId) {
+        String spjangcd = TenantContext.get();
+        String effDeductType = StringUtils.hasText(deductType) ? deductType : "EB";
+        String defYm = defaultBillingYm != null ? defaultBillingYm.replace("-", "") : null;
+
+        // ── 1단계: 전체 검증 & 실행 계획 수립 (DB 읽기만, 쓰기 없음) ──────────
+        // Postgres는 트랜잭션 중 한 문장이 실패하면 이후 문장이 모두 중단되므로,
+        // 먼저 모든 행을 검증해 실패가 하나라도 있으면 아무것도 쓰지 않고 반환한다(원자적).
+        List<Map<String, Object>> details = new ArrayList<>();
+        List<Runnable> writes = new ArrayList<>();
+        int[] cnt = {0, 0, 0, 0}; // inserted, updated, skipped, failed
+
+        int rowNo = 0;
+        for (Map<String, Object> row : rows) {
+            rowNo++;
+            final int rn = rowNo;
+            String billingSeq   = rowStr(row, "billing_seq");
+            String memberName   = rowStr(row, "member_name");
+            String memberNo     = rowStr(row, "member_no");
+            String memo         = rowStr(row, "memo");
+            Long   billingAmount = parseAmount(rowStr(row, "billing_amount"));
+            String deductDate   = parseDate8(rowStr(row, "deduct_date"));
+            // 계좌/은행/예금주/약정일/상태는 엑셀로 수정하지 않는다.
+            // (계좌는 회원의 검증된 계좌 = EB13 실명확인/출금동의 기준이어야 하므로 잠금)
+
+            if (StringUtils.hasText(billingSeq)) {
+                // ── 수정: 청구번호로 기존 건을 찾아 금액/출금일자/메모만 반영 ──
+                Map<String, Object> existing = sqlRunner.getRow(
+                        "SELECT id, status, deduct_date, send_date, deduct_type " +
+                                "FROM cms_billing WHERE spjangcd = :spjangcd AND billing_seq = :billingSeq",
+                        new MapSqlParameterSource()
+                                .addValue("spjangcd", spjangcd)
+                                .addValue("billingSeq", billingSeq));
+
+                if (existing == null) {
+                    cnt[3]++;
+                    details.add(detail(rn, billingSeq, "FAILED", "청구번호가 존재하지 않습니다."));
+                    continue;
+                }
+                String curStatus = existing.get("status") != null ? existing.get("status").toString() : "";
+                if (!"PENDING".equals(curStatus)) {
+                    cnt[2]++;
+                    details.add(detail(rn, billingSeq, "SKIPPED",
+                            "대기(PENDING) 상태만 수정 가능(현재: " + curStatus + ")"));
+                    continue;
+                }
+
+                Long id = ((Number) existing.get("id")).longValue();
+                String curDeductType = existing.get("deduct_type") != null
+                        ? existing.get("deduct_type").toString() : effDeductType;
+                String curDeductDate = existing.get("deduct_date") != null ? existing.get("deduct_date").toString() : null;
+                String newDeductDate = StringUtils.hasText(deductDate) ? deductDate : curDeductDate;
+                String sendDate;
+                if (StringUtils.hasText(newDeductDate) && !newDeductDate.equals(curDeductDate)) {
+                    sendDate = calcSendDate(newDeductDate, curDeductType);
+                } else {
+                    sendDate = existing.get("send_date") != null ? existing.get("send_date").toString() : null;
+                }
+                final String fSendDate = sendDate, fNewDeductDate = newDeductDate;
+                final Long fAmountU = billingAmount;
+                final String fMemoU = memo;
+
+                cnt[1]++;
+                details.add(detail(rn, billingSeq, "UPDATED", "수정 예정 (금액/출금일자/메모)"));
+                writes.add(() -> {
+                    // COALESCE: 비어있는 셀은 기존값 유지. 계좌·납부자 정보는 건드리지 않음.
+                    sqlRunner.execute("""
+                            UPDATE cms_billing SET
+                                billing_amount = COALESCE(:billingAmount, billing_amount),
+                                deduct_date    = COALESCE(:deductDate, deduct_date),
+                                send_date      = :sendDate,
+                                memo           = COALESCE(:memo, memo),
+                                _modifier_id   = :userId,
+                                _modified      = NOW()
+                            WHERE id = :id AND spjangcd = :spjangcd
+                            """, new MapSqlParameterSource()
+                            .addValue("id", id).addValue("spjangcd", spjangcd)
+                            .addValue("billingAmount", fAmountU)
+                            .addValue("deductDate", fNewDeductDate).addValue("sendDate", fSendDate)
+                            .addValue("memo", fMemoU).addValue("userId", userId));
+                });
+
+            } else {
+                // ── 신규: 납부자명(또는 납부자번호)으로 회원 매칭. 계좌는 회원에서 자동 ──
+                if (!StringUtils.hasText(memberName) && !StringUtils.hasText(memberNo)) {
+                    cnt[3]++;
+                    details.add(detail(rn, null, "FAILED", "신규 등록에는 납부자명이 필요합니다."));
+                    continue;
+                }
+                if (billingAmount == null) {
+                    cnt[3]++;
+                    details.add(detail(rn, null, "FAILED", "청구금액이 올바르지 않습니다."));
+                    continue;
+                }
+                if (!StringUtils.hasText(deductDate)) {
+                    cnt[3]++;
+                    details.add(detail(rn, null, "FAILED", "출금일자가 필요합니다."));
+                    continue;
+                }
+
+                // 납부자번호가 있으면 정확 매칭, 없으면 납부자명으로 매칭(동명이인 모두 대상)
+                List<Map<String, Object>> members;
+                if (StringUtils.hasText(memberNo)) {
+                    members = sqlRunner.getRows(
+                            "SELECT id, member_name, member_no, bank_code, bank_account, account_holder, deduct_day, agree_yn " +
+                                    "FROM cms_member WHERE spjangcd = :spjangcd AND member_no = :memberNo",
+                            new MapSqlParameterSource().addValue("spjangcd", spjangcd).addValue("memberNo", memberNo));
+                } else {
+                    members = sqlRunner.getRows(
+                            "SELECT id, member_name, member_no, bank_code, bank_account, account_holder, deduct_day, agree_yn " +
+                                    "FROM cms_member WHERE spjangcd = :spjangcd AND member_name = :memberName",
+                            new MapSqlParameterSource().addValue("spjangcd", spjangcd).addValue("memberName", memberName));
+                }
+
+                if (members == null || members.isEmpty()) {
+                    cnt[3]++;
+                    details.add(detail(rn, null, "FAILED",
+                            "일치하는 회원이 없습니다: " + (StringUtils.hasText(memberNo) ? memberNo : memberName)));
+                    continue;
+                }
+
+                // 출금이체 동의(agree_yn = 'Y') 회원만 대상
+                List<Map<String, Object>> agreed = new ArrayList<>();
+                for (Map<String, Object> mm : members) {
+                    String ay = mm.get("agree_yn") != null ? mm.get("agree_yn").toString() : "N";
+                    if ("Y".equals(ay)) agreed.add(mm);
+                }
+                if (agreed.isEmpty()) {
+                    cnt[3]++;
+                    details.add(detail(rn, null, "FAILED", "출금이체 동의가 완료된 회원이 없습니다: "
+                            + (StringUtils.hasText(memberNo) ? memberNo : memberName)));
+                    continue;
+                }
+
+                final String billingYm  = deductDate.substring(0, 6);
+                final String fDeductDate = deductDate;
+                final String fSendDateN  = calcSendDate(deductDate, effDeductType);
+                final Long fAmountN      = billingAmount;
+                final String fMemoN      = memo;
+
+                // 동명이인이면 매칭된 회원 수만큼 각각 청구 생성
+                for (Map<String, Object> mm : agreed) {
+                    final Long memberId        = ((Number) mm.get("id")).longValue();
+                    final String useMemberName = mm.get("member_name") != null ? mm.get("member_name").toString() : memberName;
+                    final String useBankCode   = mm.get("bank_code") != null ? mm.get("bank_code").toString() : null;
+                    final String useBankAccount = mm.get("bank_account") != null ? mm.get("bank_account").toString() : null;
+                    final String useHolder     = mm.get("account_holder") != null ? mm.get("account_holder").toString() : useMemberName;
+                    final String useDeductDay  = mm.get("deduct_day") != null ? mm.get("deduct_day").toString() : null;
+                    cnt[0]++;
+                    writes.add(() -> {
+                        String newSeq = generateBillingSeq(spjangcd, billingYm);
+                        sqlRunner.execute("""
+                                INSERT INTO cms_billing (
+                                    spjangcd, billing_ym, billing_seq,
+                                    member_id, member_name, bank_code, bank_account, account_holder,
+                                    billing_amount, deduct_day, deduct_date, send_date,
+                                    deduct_type, status, memo,
+                                    _creater_id, _created, _modifier_id, _modified
+                                ) VALUES (
+                                    :spjangcd, :billingYm, :billingSeq,
+                                    :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
+                                    :billingAmount, :deductDay, :deductDate, :sendDate,
+                                    :deductType, 'PENDING', :memo,
+                                    :userId, NOW(), :userId, NOW()
+                                )
+                                """, new MapSqlParameterSource()
+                                .addValue("spjangcd", spjangcd).addValue("billingYm", billingYm).addValue("billingSeq", newSeq)
+                                .addValue("memberId", memberId).addValue("memberName", useMemberName)
+                                .addValue("bankCode", useBankCode).addValue("bankAccount", useBankAccount)
+                                .addValue("accountHolder", useHolder).addValue("billingAmount", fAmountN)
+                                .addValue("deductDay", useDeductDay).addValue("deductDate", fDeductDate).addValue("sendDate", fSendDateN)
+                                .addValue("deductType", effDeductType).addValue("memo", fMemoN).addValue("userId", userId));
+                    });
+                }
+                if (agreed.size() > 1) {
+                    details.add(detail(rn, null, "INSERTED",
+                            "동명이인 " + agreed.size() + "명 → " + agreed.size() + "건 생성 예정 (" + memberName + ")"));
+                } else {
+                    details.add(detail(rn, null, "INSERTED",
+                            "신규 등록 예정 (" + agreed.get(0).get("member_name") + ")"));
+                }
+            }
+        }
+
+        // ── 2단계: 실패가 하나라도 있으면 전체 취소(쓰기 없음), 없으면 일괄 반영 ──
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("total", rows.size());
+        out.put("details", details);
+
+        if (cnt[3] > 0) {
+            // 원자성: 실패 행이 있으면 아무것도 반영하지 않음
+            out.put("applied", false);
+            out.put("inserted", 0);
+            out.put("updated", 0);
+            out.put("skipped", cnt[2]);
+            out.put("failed", cnt[3]);
+            out.put("plan_inserted", cnt[0]);
+            out.put("plan_updated", cnt[1]);
+            return out;
+        }
+
+        for (Runnable w : writes) w.run();
+
+        out.put("applied", true);
+        out.put("inserted", cnt[0]);
+        out.put("updated", cnt[1]);
+        out.put("skipped", cnt[2]);
+        out.put("failed", 0);
+        return out;
+    }
+
+    private Map<String, Object> detail(int rowNo, String billingSeq, String resultCode, String message) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("row", rowNo);
+        m.put("billing_seq", billingSeq);
+        m.put("result", resultCode);
+        m.put("message", message);
+        return m;
+    }
+
+    /** 은행명 → 은행코드 조회 (회원에 코드가 없을 때 보완용) */
+    private String resolveBankCode(String bankName) {
+        if (!StringUtils.hasText(bankName)) return null;
+        try {
+            Map<String, Object> r = sqlRunner.getRow(
+                    "SELECT bank_code FROM cms_bank_code WHERE bank_name = :bankName LIMIT 1",
+                    new MapSqlParameterSource().addValue("bankName", bankName.trim()));
+            return r != null && r.get("bank_code") != null ? r.get("bank_code").toString() : null;
+        } catch (Exception e) {
+            log.warn("[bulkUpsertBilling] 은행코드 조회 실패: {}", bankName);
+            return null;
+        }
+    }
+
     /** 청구 자동생성 */
     @Transactional
     public Map<String, Object> generateBilling(String billingYm, String deductType, String userId) {
@@ -692,12 +985,12 @@ public class CmsBillingService {
     }
 
     /** 수납결과 조회 (billing_ym 필수, result_date/status/member_name/deduct_type 선택) */
-    public Map<String, Object> getBillingResultList(String billingYm, String resultDate, String status,
+    public Map<String, Object> getBillingResultList(String billingYm, String deductDateFrom, String deductDateTo,
+                                                    String resultDate, String status,
                                                     String memberName, String deductType, int page, int size) {
         String spjangcd = TenantContext.get();
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
-        param.addValue("billingYm", billingYm);
         param.addValue("deductType", deductType != null ? deductType : "EB");
 
         String baseWhere =
@@ -705,10 +998,25 @@ public class CmsBillingService {
                         "  LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code" +
                         "  LEFT JOIN cms_member m ON m.id = b.member_id" +
                         "  WHERE b.spjangcd = :spjangcd" +
-                        "    AND LEFT(COALESCE(b.deduct_date), 6) = :billingYm" +
                         "    AND b.deduct_type = :deductType";
 
         String filters = "";
+        // 출금일자(deduct_date) 범위 필터 — 신규 기본 조회 방식
+        if (StringUtils.hasText(deductDateFrom) && StringUtils.hasText(deductDateTo)) {
+            filters += " AND b.deduct_date BETWEEN :ddFrom AND :ddTo";
+            param.addValue("ddFrom", deductDateFrom);
+            param.addValue("ddTo",   deductDateTo);
+        } else if (StringUtils.hasText(deductDateFrom)) {
+            filters += " AND b.deduct_date >= :ddFrom";
+            param.addValue("ddFrom", deductDateFrom);
+        } else if (StringUtils.hasText(deductDateTo)) {
+            filters += " AND b.deduct_date <= :ddTo";
+            param.addValue("ddTo", deductDateTo);
+        } else if (StringUtils.hasText(billingYm)) {
+            // 하위호환: 범위가 없고 청구년월만 오면 기존처럼 월 단위로 조회
+            filters += " AND LEFT(b.deduct_date, 6) = :billingYm";
+            param.addValue("billingYm", billingYm);
+        }
         if (StringUtils.hasText(resultDate)) {
             filters += " AND (b.result_date = :resultDate OR (b.status = 'FAIL' AND b.deduct_date = :resultDate))";
             param.addValue("resultDate", resultDate);

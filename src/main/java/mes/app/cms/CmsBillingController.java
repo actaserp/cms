@@ -187,7 +187,9 @@ public class CmsBillingController {
     /** 수납결과 조회 */
     @GetMapping("/result/list")
     public AjaxResult getResultList(
-            @RequestParam(value = "billing_ym"                   ) String billingYm,
+            @RequestParam(value = "billing_ym",       required = false) String billingYm,
+            @RequestParam(value = "deduct_date_from", required = false) String deductDateFrom,
+            @RequestParam(value = "deduct_date_to",   required = false) String deductDateTo,
             @RequestParam(value = "result_date", required = false) String resultDate,
             @RequestParam(value = "status",      required = false) String status,
             @RequestParam(value = "member_name", required = false) String memberName,
@@ -197,7 +199,8 @@ public class CmsBillingController {
             HttpServletRequest request) {
 
         AjaxResult result = new AjaxResult();
-        result.data = cmsBillingService.getBillingResultList(billingYm, resultDate, status, memberName, deductType, page, size);
+        result.data = cmsBillingService.getBillingResultList(
+                billingYm, deductDateFrom, deductDateTo, resultDate, status, memberName, deductType, page, size);
         return result;
     }
 
@@ -450,6 +453,54 @@ public class CmsBillingController {
         } catch (Exception e) {
             result.success = false;
             result.message = "ERP 반영 실패: " + e.getMessage();
+        }
+        return result;
+    }
+
+    /**
+     * 엑셀 대량 업로드 (upsert)
+     * - 청구번호(billing_seq)가 있으면 수정, 없으면 신규 등록
+     * - 수정은 PENDING 상태 건만 허용, 나머지는 스킵
+     * - 신규는 납부자번호로 회원을 찾아 출금이체 동의(agree_yn=Y) 확인
+     * 화면에서 파싱한 행 배열(rows)을 JSON body로 받아 한 트랜잭션으로 처리한다.
+     */
+    @PostMapping("/bulk-upload")
+    public AjaxResult bulkUpload(@RequestBody Map<String, Object> body, Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        AjaxResult result = new AjaxResult();
+        try {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> rows = body.get("rows") instanceof List
+                    ? (List<Map<String, Object>>) body.get("rows") : java.util.Collections.emptyList();
+            if (rows.isEmpty()) {
+                result.success = false;
+                result.message = "업로드할 데이터가 없습니다.";
+                return result;
+            }
+            String defaultBillingYm = body.get("billing_ym") != null ? body.get("billing_ym").toString() : null;
+            String deductType = body.get("deduct_type") != null ? body.get("deduct_type").toString() : "EB";
+
+            Map<String, Object> data = cmsBillingService.bulkUpsertBilling(
+                    rows, defaultBillingYm, deductType, user.getUsername());
+
+            boolean applied = Boolean.TRUE.equals(data.get("applied"));
+            int inserted = ((Number) data.getOrDefault("inserted", 0)).intValue();
+            int updated  = ((Number) data.getOrDefault("updated", 0)).intValue();
+            int skipped  = ((Number) data.getOrDefault("skipped", 0)).intValue();
+            int failed   = ((Number) data.getOrDefault("failed", 0)).intValue();
+
+            result.data = data;
+            if (applied) {
+                result.message = String.format("반영 완료 — 신규 %d건, 수정 %d건, 스킵 %d건", inserted, updated, skipped);
+            } else {
+                // 실패 행이 있어 전체 미반영 (원자적 처리)
+                result.success = false;
+                result.message = String.format("실패 %d건이 있어 반영되지 않았습니다. 오류를 수정 후 다시 업로드하세요.", failed);
+            }
+        } catch (Exception e) {
+            result.success = false;
+            result.message = "엑셀 업로드 실패: " + e.getMessage();
+            log.error("[CmsBillingController] 엑셀 업로드 실패", e);
         }
         return result;
     }
