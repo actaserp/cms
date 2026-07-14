@@ -30,10 +30,12 @@ public class CmsMemberController {
     public AjaxResult getList(
             @RequestParam(value = "member_name", required = false) String memberName,
             @RequestParam(value = "member_no",   required = false) String memberNo,
+            @RequestParam(value = "keyword",     required = false) String keyword,
             @RequestParam(value = "status",      required = false) String status,
             HttpServletRequest request) {
 
-        List<Map<String, Object>> items = cmsMemberService.getMemberList(memberName, memberNo, status);
+        // keyword가 있으면 이름 OR 번호 통합검색(계좌조회 모달용), 없으면 기존 방식 그대로
+        List<Map<String, Object>> items = cmsMemberService.getMemberList(memberName, memberNo, keyword, status);
         AjaxResult result = new AjaxResult();
         result.data = items;
         return result;
@@ -297,6 +299,33 @@ public class CmsMemberController {
         } catch (Exception e) {
             result.success = false;
             result.message = e.getMessage();
+        }
+        return result;
+    }
+
+
+    /** 실시간 계좌조회 — 금결원 예금주명 확인 (등록 여부와 무관, 예금주명 검증용) */
+    @PostMapping("/account-inquiry")
+    @ResponseBody
+    public AjaxResult accountInquiry(@RequestParam("bank_code")          String bankCode,
+                                     @RequestParam("account_no")         String accountNo,
+                                     @RequestParam("identification_no")  String identificationNo,
+                                     @RequestParam(value = "input_holder", required = false) String inputHolder,
+                                     Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        AjaxResult result = new AjaxResult();
+        try {
+            Map<String, Object> res = cmsMemberService.inquiryAccount(
+                    user.getSpjangcd(), bankCode, accountNo, identificationNo, inputHolder);
+            result.success = Boolean.TRUE.equals(res.get("success"));
+            result.data = res;
+            if (!result.success) {
+                result.message = res.get("responseMessage") != null
+                        ? (String) res.get("responseMessage") : "계좌조회에 실패했습니다.";
+            }
+        } catch (Exception e) {
+            result.success = false;
+            result.message = "계좌조회 오류: " + e.getMessage();
         }
         return result;
     }

@@ -171,6 +171,14 @@
             font-size: 11px;
             font-weight: 600;
         }
+        .sig-badge {
+            display: inline-block;
+            padding: 1px 7px;
+            margin-right: 4px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+        }
     </style>
 </head>
 
@@ -310,6 +318,10 @@
                                         style="background:#ff7f00; color:#fff;display: none;">
                                     ERP 동기화
                                 </button>
+                            </li>
+                            <li>
+                                <button type="button" class="btn-default" id="btnOpenInquiry"
+                                        style="background:#4a6cf7; color:#fff; width: 120px;">금결원 계좌조회</button>
                             </li>
                         </ul>
                     </div>
@@ -684,6 +696,133 @@
         </div>
     </div>
 
+    <!-- ====== 금결원 계좌조회 모달 ====== -->
+    <div id="modalAccountInquiry" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+         background:rgba(0,0,0,.48); z-index:120;">
+        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+                    background:#fff; border-radius:8px; width:520px; max-width:96vw; max-height:90vh;
+                    display:flex; flex-direction:column; box-shadow:0 8px 40px rgba(0,0,0,.28);">
+            <div style="padding:14px 20px; border-bottom:1px solid #e0e4ef; display:flex;
+                        align-items:center; justify-content:space-between; flex-shrink:0;">
+                <h3 style="margin:0; font-size:15px;">금결원 계좌조회</h3>
+                <span id="aiStatusBadge" class="status-badge" style="padding:3px 10px;"></span>
+            </div>
+
+            <div style="padding:16px 20px; overflow:auto;">
+                <!-- 입력 방식 탭 -->
+                <div style="display:flex; gap:6px; margin-bottom:14px;">
+                    <button type="button" id="aiTabDirect" class="ai-tab"
+                            style="flex:1; padding:7px; border:2px solid #4a6cf7; background:#f0f2ff;
+                                   color:#4a6cf7; border-radius:4px; cursor:pointer; font-size:13px; font-weight:600;">
+                        직접 입력
+                    </button>
+                    <button type="button" id="aiTabSearch" class="ai-tab"
+                            style="flex:1; padding:7px; border:2px solid transparent; background:#f5f6fa;
+                                   color:#666; border-radius:4px; cursor:pointer; font-size:13px; font-weight:600;">
+                        납부자 검색
+                    </button>
+                </div>
+
+                <!-- 납부자 검색 영역 -->
+                <div id="aiSearchArea" style="display:none; margin-bottom:14px; padding:10px;
+                     background:#f8f9fc; border:1px solid #e0e4ef; border-radius:4px;">
+                    <div style="display:flex; gap:6px; margin-bottom:8px;">
+                        <input type="text" id="aiSearchKeyword" placeholder="납부자명 또는 납부자번호"
+                               style="flex:1; border:1px solid #dde0ea; border-radius:4px; font-size:13px;">
+                        <button type="button" id="btnAiSearch"
+                                style="white-space:nowrap; padding:6px 14px; background:#4a6cf7; color:#fff;
+                                       border:none; border-radius:4px; cursor:pointer; font-size:13px;">검색</button>
+                    </div>
+                    <div id="aiSearchResults" style="max-height:160px; overflow:auto; border-top:1px solid #e0e4ef;">
+                        <div style="padding:12px; text-align:center; color:#999; font-size:12px;">
+                            납부자명 또는 번호로 검색하세요.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 입력 폼 (직접입력 & 검색선택 공용) -->
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <colgroup><col style="width:110px"><col></colgroup>
+                    <tbody>
+                    <tr>
+                        <th style="padding:6px; text-align:left; color:#555;">출금은행</th>
+                        <td style="padding:6px;">
+                            <select id="aiBankCode" style="width:100%; border:1px solid #dde0ea; border-radius:4px;">
+                                <option value="">선택</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="padding:6px; text-align:left; color:#555;">계좌번호</th>
+                        <td style="padding:6px;">
+                            <input type="text" id="aiAccountNo" placeholder="하이픈 제외"
+                                   style="width:100%; padding:6px; border:1px solid #dde0ea; border-radius:4px; box-sizing:border-box;">
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="padding:6px; text-align:left; color:#555;">식별번호</th>
+                        <td style="padding:6px;">
+                            <input type="text" id="aiIdNumber" placeholder="사업자번호 또는 생년월일 6자리"
+                                   style="width:100%; padding:6px; border:1px solid #dde0ea; border-radius:4px; box-sizing:border-box;">
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+
+                <div style="margin-top:12px; text-align:center;">
+                    <button type="button" id="btnAiDoInquiry"
+                            style="width:100%; padding:9px; background:#4a6cf7; color:#fff; border:none;
+                                   border-radius:4px; cursor:pointer; font-size:14px; font-weight:600;">
+                        금결원 조회
+                    </button>
+                </div>
+
+                <!-- 조회 결과 -->
+                <div id="aiResultBody" style="display:none; margin-top:16px; padding-top:14px; border-top:1px solid #e0e4ef;">
+                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <tbody>
+                        <tr>
+                            <th style="padding:7px; text-align:left; width:120px; color:#555;">조회된 예금주명</th>
+                            <td style="padding:7px; font-weight:700; font-size:15px; color:#1c5fd6;">
+                                <span id="aiDepositor"></span>
+                            </td>
+                        </tr>
+                        <tr id="aiDiffRow" style="display:none;">
+                            <th style="padding:7px; text-align:left; color:#555;">폼 입력값</th>
+                            <td style="padding:7px;">
+                                <span id="aiCurrentHolder" style="text-decoration:line-through; color:#888;"></span>
+                                <span style="margin:0 6px; color:#e67e22;">→</span>
+                                <span id="aiNewHolder" style="color:#0d6efd; font-weight:700;"></span>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                    <div id="aiMatchNote" style="margin-top:12px; padding:8px 10px; border-radius:4px;
+                         font-size:12px; line-height:1.5;"></div>
+                </div>
+
+                <div id="aiErrorBody" style="display:none; margin-top:14px; padding:10px;
+                     background:#fdecea; border-radius:4px; color:#dc3545; font-size:13px;"></div>
+
+                <div style="margin-top:14px; padding:8px 10px; background:#fff9f0; border:1px solid #ffe4d4;
+                            border-radius:4px; font-size:11px; color:#a05a00; line-height:1.5;">
+                    ※ 계좌조회는 <b>예금주명 확인</b>일 뿐, 출금이체 등록(신청) 완료를 의미하지 않습니다.
+                    등록 여부는 EB14 결과 또는 청구 결과코드로 별도 확인하세요.
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:8px; padding:14px 20px;
+                        border-top:1px solid #e0e4ef; flex-shrink:0;">
+                <button type="button" id="btnAiApply"
+                        style="display:none; background:#0d6efd; color:#fff; padding:6px 18px; border:none;
+                               border-radius:4px; cursor:pointer; font-size:13px;">폼에 예금주명 반영</button>
+                <button type="button" id="btnAiClose"
+                        style="background:#f5f6fa; color:#333; padding:6px 18px; border:1px solid #dde0ea;
+                               border-radius:4px; cursor:pointer; font-size:13px;">닫기</button>
+            </div>
+        </div>
+    </div>
+
     <footer style="margin-top: 24px;">
         <p>Copyright&#169; 0000 corp. All rights reserved.</p>
     </footer>
@@ -703,6 +842,12 @@
             <div class="modal-body">
                 <div id="erpSyncLoading" style="text-align:center;padding:50px;color:#aaa;">미리보기 불러오는 중…</div>
                 <div id="erpSyncChangedWrap" style="display:none;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+                        <input type="text" id="erpSyncSearch" placeholder="업체명 또는 납부자번호 검색"
+                               style="flex:1;padding:6px 10px;border:1px solid #dde0ea;border-radius:4px;font-size:13px;">
+                        <button type="button" id="btnErpSyncSearchClear" class="btn-default"
+                                style="font-size:12px;padding:5px 10px;">초기화</button>
+                    </div>
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                         <label style="font-size:13px;font-weight:600;cursor:pointer;">
                             <input type="checkbox" id="chkErpAll"> 전체선택
@@ -716,8 +861,8 @@
                             <th style="width:32px;"></th>
                             <th>납부자명</th>
                             <th style="width:80px;">cltcd</th>
-                            <th style="width:70px;">최근결과</th>
-                            <th>변경 내역 (현재값 → 새값)</th>
+                            <th style="width:50px;" title="신호 개수: 청구실패+등록계좌불일치+원장불일치">신호</th>
+                            <th>변경 내역 (현재값 → 새값 · 변경값 기본선택)</th>
                         </tr>
                         </thead>
                         <tbody id="erpSyncTbody"></tbody>
@@ -945,9 +1090,10 @@
 
         // 은행 드롭다운 로드 (cms_bank_code 테이블 기준)
         var bankCodeList = [];
+
         function loadBankCodes() {
             $.ajax({
-                url: '/api/cms/bank_code/list',
+                url: withCtx('/api/cms/bank_code/list'),
                 type: 'GET',
                 success: function (result) {
                     if (result.success && result.data) {
@@ -966,7 +1112,7 @@
 
         function searchList() {
             $.ajax({
-                url: '/api/cms/member/list',
+                url: withCtx('/api/cms/member/list'),
                 type: 'GET',
                 data: {
                     member_name: $('#srchMemberName').val(),
@@ -1029,7 +1175,9 @@
 
         // 선택(체크)된 회원 목록 반환 — 저장소 기준(검색과 무관)
         function getCheckedMembers() {
-            return Object.keys(selectedMembers).map(function (k) { return selectedMembers[k]; });
+            return Object.keys(selectedMembers).map(function (k) {
+                return selectedMembers[k];
+            });
         }
 
         // 상단 일괄해지 버튼/카운트 갱신
@@ -1355,10 +1503,18 @@
             });
 
             $('#chkErpAll').on('change', function () {
-                $('#erpSyncTbody input.erp-member-chk:not(:disabled)').prop('checked', this.checked);
+                // 검색 필터로 보이는 행만 선택 (숨겨진 행은 유지)
+                $('#erpSyncTbody tr:visible input.erp-member-chk:not(:disabled)').prop('checked', this.checked);
                 updateErpSelCount();
             });
             $('#erpSyncTbody').on('change', 'input.erp-member-chk', updateErpSelCount);
+
+            // 업체 검색 (실시간, 체크 유지)
+            $('#erpSyncSearch').on('input', applyErpSyncSearch);
+            $('#btnErpSyncSearchClear').click(function () {
+                $('#erpSyncSearch').val('');
+                applyErpSyncSearch();
+            });
 
             $('#btnErpSyncApply').click(function () {
                 // 체크된 회원마다, 필드별로 ERP를 고른 것만 erpFields에 담아 결정 구성
@@ -1380,7 +1536,9 @@
                     Alert.alert('', '확정할 회원을 선택하세요.');
                     return;
                 }
-                var erpCnt = decisions.filter(function (d) { return d.erpFields && d.erpFields.length; }).length;
+                var erpCnt = decisions.filter(function (d) {
+                    return d.erpFields && d.erpFields.length;
+                }).length;
                 var keepCnt = decisions.length - erpCnt;
                 Alert.confirm('', '선택한 ' + decisions.length + '건을 확정합니다.\n(ERP 반영 ' + erpCnt + '건 / 웹 유지·확인 ' + keepCnt + '건)', function () {
                     $('#btnErpSyncApply').prop('disabled', true).text('확정 중…');
@@ -1481,8 +1639,12 @@
                 $('#chgAccountHolder').val($('#account_holder').val() || $(this).data('memberName') || '');
                 $('#modalChangeAccount').css('display', 'flex');
             });
-            $('#btnChgClose').click(function () { $('#modalChangeAccount').hide(); });
-            $('#btnChgCancel').click(function () { $('#modalChangeAccount').hide(); });
+            $('#btnChgClose').click(function () {
+                $('#modalChangeAccount').hide();
+            });
+            $('#btnChgCancel').click(function () {
+                $('#modalChangeAccount').hide();
+            });
 
             // 계좌변경 - 신청
             $('#btnChgSubmit').click(function () {
@@ -1491,8 +1653,14 @@
                 var bankAccount = ($('#chgBankAccount').val() || '').replace(/[^0-9]/g, '');
                 var accountHolder = $('#chgAccountHolder').val();
 
-                if (!bankCode) { Alert.alert('', '새 은행을 선택하세요.'); return; }
-                if (!bankAccount) { Alert.alert('', '새 계좌번호를 입력하세요.'); return; }
+                if (!bankCode) {
+                    Alert.alert('', '새 은행을 선택하세요.');
+                    return;
+                }
+                if (!bankAccount) {
+                    Alert.alert('', '새 계좌번호를 입력하세요.');
+                    return;
+                }
 
                 Alert.confirm('', '기존 계좌 해지 + 새 계좌 신규 신청이 함께 접수됩니다.\n계속하시겠습니까?', function () {
                     AjaxUtil.postAsyncData('/api/cms/member/change-account',
@@ -1514,13 +1682,221 @@
                 });
             });
 
+            // ── 금결원 계좌조회 (독립 모달) ──────────────────────
+            // 모달 열기
+            $('#btnOpenInquiry').click(function () {
+                // 은행 드롭다운 채우기 (기존 bankCodeList 재사용)
+                var opts = '<option value="">선택</option>';
+                (bankCodeList || []).forEach(function (item) {
+                    opts += '<option value="' + item.bank_code + '">' + item.bank_name + '</option>';
+                });
+                $('#aiBankCode').html(opts);
+
+                // 폼이 열려 있으면(신규/수정 중) 현재 값 프리필
+                var curId = $('#id').val();
+                if ($('#bank_code').val()) $('#aiBankCode').val($('#bank_code').val());
+                $('#aiAccountNo').val(($('#bank_account').val() || ''));
+                $('#aiIdNumber').val(($('#id_number').val() || ''));
+                // 폼의 현재 예금주명·수정여부를 모달에 기억
+                $('#modalAccountInquiry')
+                    .data('formHolder', $('#account_holder').val() || '')
+                    .data('isEdit', !!curId);
+
+                resetInquiryModal();
+                switchInquiryTab('direct');
+                $('#modalAccountInquiry').show();
+            });
+
+            // 탭 전환
+            function switchInquiryTab(mode) {
+                if (mode === 'search') {
+                    $('#aiSearchArea').show();
+                    $('#aiTabSearch').css({border: '2px solid #4a6cf7', background: '#f0f2ff', color: '#4a6cf7'});
+                    $('#aiTabDirect').css({border: '2px solid transparent', background: '#f5f6fa', color: '#666'});
+                } else {
+                    $('#aiSearchArea').hide();
+                    $('#aiTabDirect').css({border: '2px solid #4a6cf7', background: '#f0f2ff', color: '#4a6cf7'});
+                    $('#aiTabSearch').css({border: '2px solid transparent', background: '#f5f6fa', color: '#666'});
+                }
+            }
+
+            $('#aiTabDirect').click(function () {
+                switchInquiryTab('direct');
+            });
+            $('#aiTabSearch').click(function () {
+                switchInquiryTab('search');
+            });
+
+            // 결과 영역 초기화
+            function resetInquiryModal() {
+                $('#aiResultBody').hide();
+                $('#aiErrorBody').hide();
+                $('#btnAiApply').hide();
+                $('#aiStatusBadge').text('').attr('style', 'padding:3px 10px;');
+            }
+
+            // 납부자 검색 (기존 member/list 재사용)
+            $('#btnAiSearch').click(doInquirySearch);
+            $('#aiSearchKeyword').keypress(function (e) {
+                if (e.which === 13) doInquirySearch();
+            });
+
+            function doInquirySearch() {
+                var kw = ($('#aiSearchKeyword').val() || '').trim();
+                $('#aiSearchResults').html('<div style="padding:12px; text-align:center; color:#999; font-size:12px;">검색중...</div>');
+                $.ajax({
+                    url: withCtx('/api/cms/member/list'),
+                    type: 'GET',
+                    data: {keyword: kw},
+                    success: function (result) {
+                        var list = Array.isArray(result.data) ? result.data : (result.data || []);
+                        if (!list.length) {
+                            $('#aiSearchResults').html('<div style="padding:12px; text-align:center; color:#999; font-size:12px;">검색 결과가 없습니다.</div>');
+                            return;
+                        }
+                        var html = '';
+                        list.forEach(function (m) {
+                            html += '<div class="ai-search-row" data-bank="' + (m.bank_code || '')
+                                + '" data-account="' + (m.bank_account || '')
+                                + '" data-idno="' + (m.id_number || '')
+                                + '" data-holder="' + (m.account_holder || m.member_name || '')
+                                + '" style="padding:8px 10px; border-bottom:1px solid #eee; cursor:pointer; font-size:12px;">'
+                                + '<b>' + (m.member_name || '') + '</b> '
+                                + '<span style="color:#888;">(' + (m.member_no || '') + ')</span><br>'
+                                + '<span style="color:#666;">' + (m.bank_name || '') + ' ' + (m.bank_account || '') + '</span>'
+                                + '</div>';
+                        });
+                        $('#aiSearchResults').html(html);
+                    }
+                });
+            }
+
+            // 검색 결과 행 클릭 → 입력 폼 채우고 직접입력 탭으로
+            $('#aiSearchResults').on('click', '.ai-search-row', function () {
+                var $r = $(this);
+                $('#aiBankCode').val($r.data('bank') || '');
+                $('#aiAccountNo').val($r.data('account') || '');
+                $('#aiIdNumber').val($r.data('idno') || '');
+                $('#modalAccountInquiry').data('formHolder', String($r.data('holder') || ''));
+                switchInquiryTab('direct');
+            });
+
+            // 조회 실행
+            $('#btnAiDoInquiry').click(function () {
+                var bankCode = $('#aiBankCode').val();
+                var accountNo = ($('#aiAccountNo').val() || '').replace(/[^0-9]/g, '');
+                var idNo = ($('#aiIdNumber').val() || '').replace(/[^0-9]/g, '');
+                var formHolder = String($('#modalAccountInquiry').data('formHolder') || '');
+
+                if (!bankCode) {
+                    Alert.alert('', '출금은행을 선택하세요.');
+                    return;
+                }
+                if (!accountNo) {
+                    Alert.alert('', '계좌번호를 입력하세요.');
+                    return;
+                }
+                if (!idNo) {
+                    Alert.alert('', '식별번호(사업자번호 또는 생년월일 6자리)를 입력하세요.');
+                    return;
+                }
+
+                var $btn = $(this);
+                $btn.prop('disabled', true).text('조회중...');
+
+                AjaxUtil.postAsyncData('/api/cms/member/account-inquiry',
+                    {
+                        bank_code: bankCode,
+                        account_no: accountNo,
+                        identification_no: idNo,
+                        input_holder: formHolder
+                    },
+                    function (result) {
+                        $btn.prop('disabled', false).text('금결원 조회');
+                        var d = result.data || {};
+                        drawInquiryResult(d, result.success, result.message);
+                    });
+            });
+
+            // 결과 그리기
+            function drawInquiryResult(d, ok, errMsg) {
+                var $badge = $('#aiStatusBadge');
+                if (ok) {
+                    $('#aiResultBody').show();
+                    $('#aiErrorBody').hide();
+                    $('#btnAiApply').show();
+                    $('#aiDepositor').text(d.depositorName || '');
+
+                    var formHolder = String($('#modalAccountInquiry').data('formHolder') || '');
+                    var isEdit = !!$('#modalAccountInquiry').data('isEdit');
+                    var changed = formHolder && (formHolder.replace(/\s+/g, '') !== (d.depositorName || '').replace(/\s+/g, ''));
+
+                    if (formHolder && changed) {
+                        $('#aiDiffRow').show();
+                        $('#aiCurrentHolder').text(formHolder);
+                        $('#aiNewHolder').text(d.depositorName || '');
+                    } else {
+                        $('#aiDiffRow').hide();
+                    }
+
+                    var $note = $('#aiMatchNote');
+                    if (!formHolder) {
+                        $badge.text('조회 성공').css({background: '#e7f5ea', color: '#28a745'});
+                        $note.css({background: '#f0f7ff', color: '#0d6efd'})
+                            .text('예금주명이 확인되었습니다. "폼에 예금주명 반영"을 누르면 반영됩니다.');
+                    } else if (d.holderMatched) {
+                        $badge.text('일치').css({background: '#e7f5ea', color: '#28a745'});
+                        $note.css({background: '#e7f5ea', color: '#28a745'})
+                            .text('폼의 예금주명과 금결원 조회 결과가 일치합니다.');
+                    } else {
+                        $badge.text('불일치 주의').css({background: '#fff3e0', color: '#e67e22'});
+                        $note.css({background: '#fff3e0', color: '#e67e22'})
+                            .html('폼 예금주명(<b>' + formHolder + '</b>)과 금결원 예금주명(<b>'
+                                + (d.depositorName || '') + '</b>)이 다릅니다. '
+                                + '연동 시 이 불일치가 미신청/반려의 원인일 수 있습니다.');
+                    }
+                } else {
+                    $('#aiResultBody').hide();
+                    $('#aiErrorBody').show().text((errMsg || d.responseMessage || '계좌조회에 실패했습니다.')
+                        + (d.responseCode ? ' (코드 ' + d.responseCode + ')' : ''));
+                    $('#btnAiApply').hide();
+                    $badge.text('조회 실패').css({background: '#fdecea', color: '#dc3545'});
+                }
+                $('#modalAccountInquiry').data('result', d);
+            }
+
+            // 폼에 예금주명 반영 — 폼이 열려 있을 때만 의미. 계좌/은행/식별번호도 같이 반영.
+            $('#btnAiApply').click(function () {
+                var d = $('#modalAccountInquiry').data('result') || {};
+                if (d.depositorName) $('#account_holder').val(d.depositorName);
+                // 조회에 쓴 값도 폼에 반영(직접입력/검색선택으로 바뀌었을 수 있으므로)
+                if ($('#aiBankCode').val()) $('#bank_code').val($('#aiBankCode').val());
+                if ($('#aiAccountNo').val()) $('#bank_account').val(($('#aiAccountNo').val() || '').replace(/[^0-9]/g, ''));
+                if ($('#aiIdNumber').val()) $('#id_number').val($('#aiIdNumber').val());
+                $('#modalAccountInquiry').hide();
+            });
+
+            $('#btnAiClose').click(function () {
+                $('#modalAccountInquiry').hide();
+            });
+            $('#modalAccountInquiry').click(function (e) {
+                if (e.target === this) $(this).hide();
+            });
+
             $('#btnCancelSelected').click(function () {
                 var checked = getCheckedMembers();
-                if (checked.length === 0) { Alert.alert('', '해지할 대상을 선택하세요.'); return; }
+                if (checked.length === 0) {
+                    Alert.alert('', '해지할 대상을 선택하세요.');
+                    return;
+                }
 
                 // ACTIVE 아닌 건 미리 걸러 안내
-                var active   = checked.filter(function (m) { return m.status === 'ACTIVE'; });
-                var inactive = checked.filter(function (m) { return m.status !== 'ACTIVE'; });
+                var active = checked.filter(function (m) {
+                    return m.status === 'ACTIVE';
+                });
+                var inactive = checked.filter(function (m) {
+                    return m.status !== 'ACTIVE';
+                });
 
                 if (active.length === 0) {
                     Alert.alert('', '선택한 건 중 해지 가능한(활성) 회원이 없습니다.');
@@ -1531,8 +1907,8 @@
                     ? '<div style="color:#c0392b; font-size:12px; margin-top:8px;">※ 활성 아님 ' + inactive.length + '건은 제외됩니다.</div>'
                     : '';
 
-                ccActive  = active;   // 페이징 대상 저장
-                ccPage    = 0;
+                ccActive = active;   // 페이징 대상 저장
+                ccPage = 0;
                 renderCancelConfirmPage();
                 $('#cancelConfirmCount').text(active.length);
                 $('#cancelConfirmWarn').html(warn);
@@ -1541,8 +1917,12 @@
 
             // 확인 모달 - 실행
             $('#btnCancelConfirmDo').click(function () {
-                var active = getCheckedMembers().filter(function (m) { return m.status === 'ACTIVE'; });
-                var ids = active.map(function (m) { return m.id; }).join(',');
+                var active = getCheckedMembers().filter(function (m) {
+                    return m.status === 'ACTIVE';
+                });
+                var ids = active.map(function (m) {
+                    return m.id;
+                }).join(',');
                 $('#modalCancelConfirm').hide();
 
                 AjaxUtil.postAsyncData('/api/cms/member/cancel-multi',
@@ -1558,15 +1938,25 @@
                     });
             });
 
-            $('#btnCancelConfirmClose').click(function () { $('#modalCancelConfirm').hide(); });
-            $('#btnCancelConfirmX').click(function () { $('#modalCancelConfirm').hide(); });
+            $('#btnCancelConfirmClose').click(function () {
+                $('#modalCancelConfirm').hide();
+            });
+            $('#btnCancelConfirmX').click(function () {
+                $('#modalCancelConfirm').hide();
+            });
 
             $('#ccPrev').click(function () {
-                if (ccPage > 0) { ccPage--; renderCancelConfirmPage(); }
+                if (ccPage > 0) {
+                    ccPage--;
+                    renderCancelConfirmPage();
+                }
             });
             $('#ccNext').click(function () {
                 var maxPage = Math.ceil(ccActive.length / CC_PAGE_SIZE) - 1;
-                if (ccPage < maxPage) { ccPage++; renderCancelConfirmPage(); }
+                if (ccPage < maxPage) {
+                    ccPage++;
+                    renderCancelConfirmPage();
+                }
             });
         });
 
@@ -1576,7 +1966,7 @@
         var ccPage = 0;
 
         function renderCancelConfirmPage() {
-            var total   = ccActive.length;
+            var total = ccActive.length;
             var maxPage = Math.max(0, Math.ceil(total / CC_PAGE_SIZE) - 1);
             if (ccPage > maxPage) ccPage = maxPage;
 
@@ -1589,8 +1979,8 @@
                     + '<td style="padding:5px 8px; border:1px solid #eee; text-align:center;">' + (m.member_no || '') + '</td>'
                     + '<td style="padding:5px 8px; border:1px solid #eee; text-align:center;">' + (m.bank_name || '') + '</td>'
                     + '<td style="padding:5px 8px; border:1px solid #eee; text-align:center;">'
-                    +   '<button type="button" class="cc-remove" data-id="' + m.id + '" title="선택 취소"'
-                    +           ' style="background:none; border:none; color:#c0392b; font-size:15px; line-height:1; cursor:pointer;">&times;</button>'
+                    + '<button type="button" class="cc-remove" data-id="' + m.id + '" title="선택 취소"'
+                    + ' style="background:none; border:none; color:#c0392b; font-size:15px; line-height:1; cursor:pointer;">&times;</button>'
                     + '</td>'
                     + '</tr>';
             }).join('');
@@ -1608,7 +1998,9 @@
         $(document).on('click', '.cc-remove', function () {
             var id = $(this).data('id');
             delete selectedMembers[id];                 // 저장소에서 제거
-            ccActive = ccActive.filter(function (m) { return String(m.id) !== String(id); });
+            ccActive = ccActive.filter(function (m) {
+                return String(m.id) !== String(id);
+            });
             updateCancelSelection();                    // 상단 카운트/버튼 갱신
             if (theGrid) theGrid.invalidate();          // 그리드 체크 표시 갱신
             if (ccActive.length === 0) {                // 다 지우면 모달 닫기
@@ -1629,12 +2021,14 @@
             'bank_account': '계좌번호',
             'bank_code': '은행코드',
             'member_no': '납부자번호',
-            'id_number': '식별번호'
+            'id_number': '식별번호',
+            'resident_no': '주민번호'
         };
         var DANGER_FIELDS = ['bank_account', 'bank_code'];
 
         function openErpSyncModal() {
             $('#erpSyncSummary').html('<span style="color:#888;">로딩 중…</span>');
+            $('#erpSyncSearch').val('');
             $('#erpSyncLoading').show();
             $('#erpSyncChangedWrap, #erpSyncEmpty, #erpSyncError').hide();
             $('#btnErpSyncApply').prop('disabled', true).text('선택 반영');
@@ -1685,7 +2079,7 @@
 
             // [신규] 항목 먼저 표시 — cms_member에 없는 대상, 기본 체크
             newItems.forEach(function (item) {
-                tbody += '<tr class="erp-row-new" data-cltcd="' + escHtml(item.cltcd) + '">'
+                tbody += '<tr class="erp-row-new" data-cltcd="' + escHtml(item.cltcd) + '" data-name="' + escHtml(item.member_name || '') + '" data-memberno="' + escHtml(item.member_no || item.erp_member_no || '') + '">'
                     + '<td style="text-align:center;">'
                     + '<input type="checkbox" class="erp-member-chk" data-cltcd="' + escHtml(item.cltcd) + '" data-isnew="1" checked>'
                     + '</td>'
@@ -1708,48 +2102,85 @@
                 var rowClass = noEb13 ? 'erp-row-noeb13' : (isDanger ? 'erp-row-danger' : '');
                 var prefix = isDanger ? '★ ' : '';
 
-                var rl = RESULT_LABEL[item.last_result_code] || ['알수없음', '#f5f6fa', '#555'];
-                var resBadge = '<span class="result-badge" style="background:' + rl[1] + ';color:' + rl[2] + ';">'
-                    + rl[0] + '</span>';
+                // ── 3층 신호 뱃지 (billing실패 / EB13≠member / EB13≠원장) ──
+                var sigHtml = '';
+                if (item.sig_billing_fail) {
+                    var rl2 = RESULT_LABEL[item.last_result_code] || ['청구실패', '#fde8d8', '#c0392b'];
+                    sigHtml += '<span class="sig-badge" style="background:#fdecea;color:#c0392b;">청구실패 '
+                        + escHtml(item.last_result_code || '') + '</span>';
+                }
+                if (item.sig_eb13_diff) {
+                    sigHtml += '<span class="sig-badge" style="background:#fff3cd;color:#a06a00;">등록계좌≠현재</span>';
+                }
+                if (item.sig_ledger_diff) {
+                    sigHtml += '<span class="sig-badge" style="background:#e2d9f3;color:#4a235a;">원장≠등록</span>';
+                }
+                var sigCount = item.sig_count || 0;
+                if (sigCount >= 2) rowClass += ' erp-row-danger';
 
                 var allChanges = (item.key_changes || []).concat(item.info_changes || []);
                 var cltcdEsc = escHtml(item.cltcd);
 
                 var changesHtml = '';
+                if (sigHtml) changesHtml += '<div style="margin-bottom:6px;">' + sigHtml + '</div>';
                 if (noEb13) {
-                    changesHtml = '<span style="color:#c0392b;">EB13 등록 없음 — 아래에서 값을 직접 확인하세요</span>';
+                    changesHtml += '<span style="color:#c0392b;">EB13 등록 없음 — 아래에서 값을 직접 확인하세요</span>';
                 }
-                // 필드별 웹/ERP 선택 (기본: 웹 유지). ERP를 골라야 그 필드만 반영됨.
+                // 필드별 선택. ★ 기본 선택 = 변경될 값(ERP/추천). 그게 추천이니까.
                 allChanges.forEach(function (c) {
                     var label = FIELD_LABEL[c.field] || c.field;
                     var isBig = DANGER_FIELDS.indexOf(c.field) >= 0;
                     var nm = 'erpf_' + cltcdEsc + '_' + c.field;
+                    // 계좌 필드면 추천 근거(실패계좌 배제) 힌트 표시
+                    var accHint = '';
+                    if (c.field === 'bank_account' && item.failed_account) {
+                        accHint = ' <span style="color:#c0392b;font-size:11px;">(청구실패 계좌 '
+                            + escHtml(item.failed_account) + ' 제외 추천)</span>';
+                    }
                     changesHtml += '<div class="erp-field-pick" style="margin:3px 0;">'
                         + '<span style="display:inline-block;min-width:82px;color:#555;">' + (isBig ? '★ ' : '') + label + '</span> '
                         + '<label style="margin-right:10px;cursor:pointer;">'
-                        +   '<input type="radio" name="' + nm + '" value="WEB" data-cltcd="' + cltcdEsc + '" data-field="' + escHtml(c.field) + '" checked> '
-                        +   '웹 <b>' + escHtml(c.current) + '</b>'
+                        + '<input type="radio" name="' + nm + '" value="WEB" data-cltcd="' + cltcdEsc + '" data-field="' + escHtml(c.field) + '"> '
+                        + '현재 <b>' + escHtml(c.current) + '</b>'
                         + '</label>'
                         + '<label style="cursor:pointer;' + (isBig ? 'color:#c0392b;' : '') + '">'
-                        +   '<input type="radio" name="' + nm + '" value="ERP" data-cltcd="' + cltcdEsc + '" data-field="' + escHtml(c.field) + '"> '
-                        +   'ERP <b>' + escHtml(c['new']) + '</b>'
+                        + '<input type="radio" name="' + nm + '" value="ERP" data-cltcd="' + cltcdEsc + '" data-field="' + escHtml(c.field) + '" checked> '
+                        + '변경 <b>' + escHtml(c['new']) + '</b>' + accHint
                         + '</label>'
                         + '</div>';
                 });
 
-                tbody += '<tr class="' + rowClass + '" data-cltcd="' + cltcdEsc + '">'
+                tbody += '<tr class="' + rowClass + '" data-cltcd="' + cltcdEsc + '" data-name="' + escHtml(item.member_name || '') + '" data-memberno="' + escHtml(item.member_no || item.erp_member_no || '') + '">'
                     + '<td style="text-align:center;">'
                     + '<input type="checkbox" class="erp-member-chk" data-cltcd="' + cltcdEsc + '" checked>'
                     + '</td>'
                     + '<td>' + escHtml(prefix + (item.member_name || '')) + '</td>'
                     + '<td style="text-align:center;">' + escHtml(item.cltcd || '') + '</td>'
-                    + '<td style="text-align:center;">' + resBadge + '</td>'
+                    + '<td style="text-align:center;">' + (sigCount > 0 ? '<b style="color:#c0392b;">' + sigCount + '</b>' : '-') + '</td>'
                     + '<td>' + changesHtml + '</td>'
                     + '</tr>';
             });
             $('#erpSyncTbody').html(tbody);
             $('#erpSyncChangedWrap').show();
             updateErpSelCount();
+            // 검색어가 있으면 렌더 후 재적용 (재조회 없이 필터만)
+            applyErpSyncSearch();
+        }
+
+        // 업체 검색 — 행을 숨기기만 하고 체크박스 상태는 건드리지 않음(선택 유지)
+        function applyErpSyncSearch() {
+            var kw = ($('#erpSyncSearch').val() || '').trim().toLowerCase();
+            $('#erpSyncTbody tr').each(function () {
+                if (!kw) {
+                    $(this).show();
+                    return;
+                }
+                var name = ($(this).data('name') || '').toString().toLowerCase();
+                var no = ($(this).data('memberno') || '').toString().toLowerCase();
+                var cltcd = ($(this).data('cltcd') || '').toString().toLowerCase();
+                var hit = name.indexOf(kw) >= 0 || no.indexOf(kw) >= 0 || cltcd.indexOf(kw) >= 0;
+                $(this).toggle(hit);
+            });
         }
 
         function updateErpSelCount() {

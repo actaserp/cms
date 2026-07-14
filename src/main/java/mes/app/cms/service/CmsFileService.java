@@ -34,32 +34,52 @@ public class CmsFileService {
     // ── 목록 조회 ──────────────────────────────────────────────────────────────
 
     public Map<String, Object> getCmsFileList(String dateFrom, String dateTo,
-                                               String fileType, String sendStatus,
-                                               int page, int size) {
+                                              String fileType, String sendStatus,
+                                              int page, int size) {
         String spjangcd = TenantContext.get();
         var param = new MapSqlParameterSource("spjangcd", spjangcd);
 
         String baseSelect =
-            "SELECT f.id, f.spjangcd, f.file_name, f.file_type, f.target_date," +
-            "       f.billing_count, f.billing_amount, f.send_type," +
-            "       f.send_status, f.sent_at, f.error_message, f._creater_id," +
-            "       TO_CHAR(f._created AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS _created," +
-            "       TO_CHAR(f.sent_at  AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS sent_at_kst," +
-            "       COALESCE(" +
-            "           (SELECT b.member_name FROM cms_file_billing fb" +
-            "            JOIN cms_billing b ON b.id = fb.billing_id" +
-            "            WHERE fb.file_id = f.id ORDER BY fb.line_seq LIMIT 1)," +
-            "           (SELECT b.member_name FROM cms_file rf" +
-            "            JOIN cms_file_billing fb ON fb.file_id = rf.id" +
-            "            JOIN cms_billing b ON b.id = fb.billing_id" +
-            "            WHERE rf.spjangcd = f.spjangcd AND rf.target_date = f.target_date" +
-            "              AND rf.file_type = CASE f.file_type" +
-            "                  WHEN 'EB22' THEN 'EB21' WHEN 'EC22' THEN 'EC21'" +
-            "                  WHEN 'EB14' THEN 'EB13' ELSE NULL END" +
-            "            ORDER BY rf.id DESC, fb.line_seq LIMIT 1)" +
-            "       ) AS rep_member_name" +
-            "  FROM cms_file f" +
-            "  WHERE f.spjangcd = :spjangcd";
+                "SELECT f.id, f.spjangcd, f.file_name, f.file_type, f.target_date," +
+                        "       f.billing_count, f.billing_amount, f.send_type," +
+                        "       f.send_status, f.sent_at, f.error_message, f._creater_id," +
+                        "       TO_CHAR(f._created AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS _created," +
+                        "       TO_CHAR(f.sent_at  AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS sent_at_kst," +
+                        "       COALESCE(" +
+                        // ① 청구 파일(EB21/EC21): 직접 매핑된 billing
+                        "           (SELECT b.member_name FROM cms_file_billing fb" +
+                        "            JOIN cms_billing b ON b.id = fb.billing_id" +
+                        "            WHERE fb.file_id = f.id ORDER BY fb.line_seq LIMIT 1)," +
+                        // ② 결과 파일(EB22/EC22): 짝 요청 파일의 billing
+                        "           (SELECT b.member_name FROM cms_file rf" +
+                        "            JOIN cms_file_billing fb ON fb.file_id = rf.id" +
+                        "            JOIN cms_billing b ON b.id = fb.billing_id" +
+                        "            WHERE rf.spjangcd = f.spjangcd AND rf.target_date = f.target_date" +
+                        "              AND rf.file_type = CASE f.file_type" +
+                        "                  WHEN 'EB22' THEN 'EB21' WHEN 'EC22' THEN 'EC21'" +
+                        "                  ELSE NULL END" +
+                        "            ORDER BY rf.id DESC, fb.line_seq LIMIT 1)," +
+                        // ③ 신청 파일(EB13/EI13): 직접 매핑된 register
+                        "           (SELECT r.member_name FROM cms_file_register fr" +
+                        "            JOIN cms_account_register r ON r.id = fr.register_id" +
+                        "            WHERE fr.file_id = f.id ORDER BY fr.line_seq LIMIT 1)," +
+                        // ④ 신청결과(EB14): 짝 EB13 파일의 register
+                        "           (SELECT r.member_name FROM cms_file rf" +
+                        "            JOIN cms_file_register fr ON fr.file_id = rf.id" +
+                        "            JOIN cms_account_register r ON r.id = fr.register_id" +
+                        "            WHERE rf.spjangcd = f.spjangcd AND rf.target_date = f.target_date" +
+                        "              AND f.file_type = 'EB14' AND rf.file_type = 'EB13'" +
+                        "            ORDER BY rf.id DESC, fr.line_seq LIMIT 1)" +
+                        "       ) AS rep_member_name," +
+                        // 대표납부자 외 몇 건인지 (billing 건수 우선, 없으면 register 건수)
+                        "       COALESCE(" +
+                        "           (SELECT COUNT(*) FROM cms_file_billing WHERE file_id = f.id)," +
+                        "           0) +" +
+                        "       COALESCE(" +
+                        "           (SELECT COUNT(*) FROM cms_file_register WHERE file_id = f.id)," +
+                        "           0) AS detail_count" +
+                        "  FROM cms_file f" +
+                        "  WHERE f.spjangcd = :spjangcd";
 
         String filters = "";
         if (StringUtils.hasText(dateFrom))  { filters += " AND f.target_date >= CAST(:dateFrom AS DATE)"; param.addValue("dateFrom", dateFrom); }
@@ -70,7 +90,7 @@ public class CmsFileService {
         // 전체 건수 + 청구금액 합계
         Map<String, Object> aggRow = sqlRunner.getRow(/* skip_tenant_check */
                 "SELECT COUNT(*) AS cnt, COALESCE(SUM(f.billing_amount),0) AS total_amount" +
-                "  FROM cms_file f WHERE f.spjangcd = :spjangcd" + filters, param);
+                        "  FROM cms_file f WHERE f.spjangcd = :spjangcd" + filters, param);
         long totalCount  = aggRow != null ? ((Number) aggRow.get("cnt")).longValue()          : 0L;
         long totalAmount = aggRow != null ? ((Number) aggRow.get("total_amount")).longValue() : 0L;
 
@@ -122,6 +142,62 @@ public class CmsFileService {
                 LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code
                 WHERE fb.file_id = :fileId
                 ORDER BY fb.line_seq
+                """,
+                new MapSqlParameterSource("fileId", targetFileId));
+    }
+
+    /** EB13/EI13/EB14 파일 상세 — 연결된 계좌등록/해지 신청 목록.
+     *  청구(billing)와 달리 cms_file_register 매핑으로 cms_account_register를 조회한다. */
+    public List<Map<String, Object>> getCmsFileRegisters(Long fileId) {
+        // 직접 매핑 건수 확인
+        Map<String, Object> countRow = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT COUNT(*) AS cnt FROM cms_file_register WHERE file_id = :fileId",
+                new MapSqlParameterSource("fileId", fileId));
+        long cnt = countRow != null ? ((Number) countRow.get("cnt")).longValue() : 0;
+
+        Long targetFileId = fileId;
+        if (cnt == 0) {
+            // 결과 파일(EB14)이면 짝 요청 파일(EB13) 찾기
+            Map<String, Object> reqFile = sqlRunner.getRow(/* skip_tenant_check */
+                    """
+                    SELECT req.id FROM cms_file f
+                    JOIN cms_file req ON req.spjangcd = f.spjangcd
+                        AND req.target_date = f.target_date
+                        AND req.file_type = CASE f.file_type
+                            WHEN 'EB14' THEN 'EB13'
+                            ELSE NULL
+                        END
+                    WHERE f.id = :fileId
+                    ORDER BY req.id DESC
+                    LIMIT 1
+                    """,
+                    new MapSqlParameterSource("fileId", fileId));
+            if (reqFile != null && reqFile.get("id") != null) {
+                targetFileId = ((Number) reqFile.get("id")).longValue();
+            }
+        }
+
+        return sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT fr.line_seq,
+                       r.member_name, r.member_no,
+                       r.bank_account, r.bank_code,
+                       bc.bank_name,
+                       r.apply_type, r.change_flag,
+                       r.ei13_status, r.eb13_status, r.status,
+                       r.eb14_result, r.eb14_fail_code,
+                       CASE
+                         WHEN r.apply_type='1' AND r.change_flag='Y' THEN '변경(신규)'
+                         WHEN r.apply_type='3' AND r.change_flag='Y' THEN '변경(해지)'
+                         WHEN r.apply_type='1' THEN '신규'
+                         WHEN r.apply_type='3' THEN '해지'
+                         ELSE COALESCE(r.apply_type,'')
+                       END AS apply_label
+                FROM cms_file_register fr
+                JOIN cms_account_register r ON r.id = fr.register_id
+                LEFT JOIN cms_bank_code bc ON bc.bank_code = r.bank_code
+                WHERE fr.file_id = :fileId
+                ORDER BY fr.line_seq
                 """,
                 new MapSqlParameterSource("fileId", targetFileId));
     }

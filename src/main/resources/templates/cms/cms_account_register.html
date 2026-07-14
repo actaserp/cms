@@ -193,6 +193,8 @@
                     </button>
                     <button type="button" class="btn-default" id="btnReceiveEb14"
                             style="background:#17a2b8; color:#fff;">결과수신</button>
+                    <button type="button" id="btnOpenEb11"
+                            style="background:#e53e3e; color:#fff; padding:6px 14px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">EB11 해지수신</button>
                 </div>
             </div>
 
@@ -265,6 +267,37 @@
                 <button type="button" id="btnEb14Cancel"
                         style="background:#f5f6fa; color:#333; padding:6px 18px;
                            border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EB11 해지수신 모달 -->
+    <div id="modalEb11" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+ background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:24px 28px; min-width:620px; max-height:80vh; overflow:auto;
+              box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 14px; font-size:15px;">EB11 은행해지 수신</h3>
+            <div id="modalEb11UploaderDiv" style="margin-bottom:12px;"></div>
+            <div style="display:flex; gap:8px; margin-bottom:12px;">
+                <button type="button" id="btnEb11Preview"
+                        style="background:#4a6cf7; color:#fff; padding:6px 16px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">미리보기</button>
+                <span id="eb11Summary" style="align-self:center; font-size:12px; color:#666;"></span>
+            </div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:16px;">
+                <thead><tr style="background:#f5f6fa; color:#555;">
+                    <th style="padding:6px; border:1px solid #dde0ea; width:34px;"></th>
+                    <th style="padding:6px; border:1px solid #dde0ea;">납부자번호</th>
+                    <th style="padding:6px; border:1px solid #dde0ea;">납부자명</th>
+                    <th style="padding:6px; border:1px solid #dde0ea;">파일계좌</th>
+                    <th style="padding:6px; border:1px solid #dde0ea;">비고</th>
+                </tr></thead>
+                <tbody id="eb11Rows"></tbody>
+            </table>
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" id="btnEb11Apply"
+                        style="background:#e53e3e; color:#fff; padding:6px 18px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">처리하기</button>
+                <button type="button" id="btnEb11Cancel"
+                        style="background:#f5f6fa; color:#333; padding:6px 18px; border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">닫기</button>
             </div>
         </div>
     </div>
@@ -769,6 +802,62 @@
             $('#btnEb14Confirm').click(doReceiveEb14);
             $('#btnEb14Cancel').click(function () {
                 $('#modalEb14').hide();
+            });
+
+            var eb11Bbsseq = null;
+            var eb11Uploader = null;
+
+            $(document).on('click', '#btnOpenEb11', function () {
+                eb11Bbsseq = Math.floor(Date.now() % 1000000000);   // temp bbsseq
+                $('#eb11Rows').empty(); $('#eb11Summary').text('');
+                $('#modalEb11UploaderDiv').empty();
+                eb11Uploader = new ax5FileUploadClass('modalEb11UploaderDiv', eb11Bbsseq, {
+                    table_name: 'EB11', attach_name: 'EB11', manual_upload: false
+                });
+                $('#modalEb11').css('display', 'flex');
+            });
+            $(document).on('click', '#btnEb11Cancel', function () { $('#modalEb11').hide(); });
+
+            $(document).on('click', '#btnEb11Preview', function () {
+                AjaxUtil.postAsyncData('/api/cms/account-register/preview-eb11',
+                    { bbsseq: eb11Bbsseq }, function (result) {
+                        if (!result.success) {
+                            Alert.alert('미리보기 실패', result.message);
+                            return;
+                        }
+                        var d = result.data || {};
+                        $('#eb11Summary').text('총 ' + (d.total||0) + '건 / 해지가능 ' + (d.cancelable||0) + ' / 불가 ' + (d.blocked||0));
+                        var html = '';
+                        (d.rows || []).forEach(function (r) {
+                            var red = r.checkable ? '' : 'color:#e53e3e;';
+                            var chk = r.checkable
+                                ? '<input type="checkbox" class="eb11-chk" data-id="' + r.member_id + '" checked>'
+                                : '';
+                            html += '<tr style="' + red + '">'
+                                + '<td style="padding:6px; border:1px solid #dde0ea; text-align:center;">' + chk + '</td>'
+                                + '<td style="padding:6px; border:1px solid #dde0ea;">' + r.member_no + '</td>'
+                                + '<td style="padding:6px; border:1px solid #dde0ea;">' + (r.member_name||'') + '</td>'
+                                + '<td style="padding:6px; border:1px solid #dde0ea;">' + (r.file_account||'') + '</td>'
+                                + '<td style="padding:6px; border:1px solid #dde0ea;">' + (r.reason||'') + '</td>'
+                                + '</tr>';
+                        });
+                        $('#eb11Rows').html(html || '<tr><td colspan="5" style="padding:10px; text-align:center; color:#999;">해지 대상 없음</td></tr>');
+                    });
+            });
+
+            $(document).on('click', '#btnEb11Apply', function () {
+                var ids = $('.eb11-chk:checked').map(function () { return $(this).data('id'); }).get();
+                if (!ids.length) { Alert.alert('', '처리할 대상을 선택하세요.'); return; }
+                AjaxUtil.postAsyncData('/api/cms/account-register/apply-eb11',
+                    { bbsseq: eb11Bbsseq, member_ids: ids.join(',') }, function (result) {
+                        if (!result.success) {
+                            Alert.alert('처리 실패', result.message);
+                            return;
+                        }
+                        Alert.alert('처리 완료', (result.data && result.data.message) || '완료');
+                        $('#modalEb11').hide();
+                        searchList(0);
+                    });
             });
         });
     </script>

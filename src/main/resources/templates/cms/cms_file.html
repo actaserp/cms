@@ -9,6 +9,13 @@
         .status-FAILED    { background: #f8d7da; color: #721c24; }
         .status-RECEIVED  { background: #d1ecf1; color: #0c5460; }
         .status-CANCELLED { background: #e2e3e5; color: #383d41; }
+        .status-APPROVED  { background: #d4edda; color: #155724; }
+        .status-REJECTED  { background: #f0d0ff; color: #6a0dad; }
+        .apply-badge { display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 11px; font-weight: 700; }
+        .apply-new    { background: #e7f0ff; color: #1c5fd6; }
+        .apply-cancel { background: #f3e2e2; color: #b04242; }
+        .apply-change { background: #fff3cd; color: #a06a00; }
         .type-EI13 { background: #d4edda; color: #155724; }
         .type-EB13 { background: #e2d9f3; color: #4a235a; }
         .type-EB14 { background: #fde8d8; color: #7d3c0a; }
@@ -90,8 +97,8 @@
                 </div>
 
                 <div style="padding: 6px 0; display:flex; gap:4px; align-items:center;">
-<!--                    <button type="button" class="btn-default" id="btnGenerate"-->
-<!--                            style="width:130px; background:#4a6cf7; color:#fff;">파일 수동생성</button>-->
+                    <!--                    <button type="button" class="btn-default" id="btnGenerate"-->
+                    <!--                            style="width:130px; background:#4a6cf7; color:#fff;">파일 수동생성</button>-->
                     <button type="button" class="btn-default" id="btnDownload">다운로드</button>
                     <button type="button" class="btn-default" id="btnSendSftp"
                             style="background:#17a2b8; color:#fff;">SFTP전송</button>
@@ -168,7 +175,7 @@
             </div>
             <div style="overflow-y:auto; flex:1;">
                 <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                    <thead>
+                    <thead id="modalFileDetailHead">
                     <tr style="background:#f5f6fa; color:#555;">
                         <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">순번</th>
                         <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:left;">납부자명</th>
@@ -226,7 +233,8 @@
                 cellTemplate: function(ctx) {
                     var item = ctx.row.dataItem;
                     if (!ctx.value) return '-';
-                    var count = Number(item.billing_count) || 0;
+                    // 신청(EB13/EI13/EB14)은 register 건수, 청구는 billing 건수 → detail_count로 통합
+                    var count = Number(item.detail_count) || Number(item.billing_count) || 0;
                     return count > 1
                         ? ctx.value + ' 외 ' + (count - 1) + '건'
                         : ctx.value;
@@ -355,39 +363,91 @@
             });
         }
 
+        // 신청 계열(계좌등록/해지)과 청구 계열을 구분
+        function isRegisterType(ft) {
+            return ft === 'EB13' || ft === 'EI13' || ft === 'EB14';
+        }
+
         function openFileDetailModal(file) {
-            $('#modalFileDetailTitle').text(file.file_name + ' 청구 목록');
+            var isReg = isRegisterType(file.file_type);
+            $('#modalFileDetailTitle').text(file.file_name + (isReg ? ' 신청 목록' : ' 청구 목록'));
+            // 헤더도 유형에 맞게 교체
+            renderDetailHead(isReg);
             $('#modalFileDetailRows').html('<tr><td colspan="6" style="text-align:center; padding:20px; color:#aaa;">로딩 중...</td></tr>');
             $('#modalFileDetail').css('display', 'flex');
 
+            var endpoint = isReg ? '/registrations' : '/billings';
             $.ajax({
-                url: withCtx('/api/cms/cms-files/' + file.id + '/billings'),
+                url: withCtx('/api/cms/cms-files/' + file.id + endpoint),
                 type: 'GET',
                 success: function(result) {
                     if (!result.success || !result.data || result.data.length === 0) {
-                        $('#modalFileDetailRows').html('<tr><td colspan="6" style="text-align:center; padding:20px; color:#aaa;">청구 내역이 없습니다.</td></tr>');
+                        $('#modalFileDetailRows').html('<tr><td colspan="6" style="text-align:center; padding:20px; color:#aaa;">'
+                            + (isReg ? '신청 내역이 없습니다.' : '청구 내역이 없습니다.') + '</td></tr>');
                         return;
                     }
-                    var STATUS_MAP = { PENDING:'대기', REQUESTED:'출금요청', SUCCESS:'성공', FAIL:'실패', CANCEL:'취소', ERROR:'오류' };
-                    var html = '';
-                    result.data.forEach(function(b) {
-                        html += '<tr>'
-                            + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">' + (b.line_seq || '') + '</td>'
-                            + '<td style="padding:6px 8px; border:1px solid #dde0ea; min-width:180px;">' + (b.member_name || '') + '</td>'
-                            + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">' + (b.bank_name || '') + '</td>'
-                            + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">' + (b.bank_account || '') + '</td>'
-                            + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:right;">' + Number(b.billing_amount || 0).toLocaleString() + '</td>'
-                            + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">'
-                            +   '<span class="status-badge status-' + b.status + '">' + (STATUS_MAP[b.status] || b.status) + '</span>'
-                            + '</td>'
-                            + '</tr>';
-                    });
-                    $('#modalFileDetailRows').html(html);
+                    $('#modalFileDetailRows').html(isReg
+                        ? buildRegisterRows(result.data)
+                        : buildBillingRows(result.data));
                 },
                 error: function() {
                     $('#modalFileDetailRows').html('<tr><td colspan="6" style="text-align:center; padding:20px; color:#e74c3c;">조회 실패</td></tr>');
                 }
             });
+        }
+
+        // 모달 테이블 헤더를 유형별로 교체
+        function renderDetailHead(isReg) {
+            var cells = isReg
+                ? ['순번','납부자명','구분','은행','계좌번호','상태']
+                : ['순번','납부자명','은행','계좌번호','금액','상태'];
+            var html = '';
+            cells.forEach(function(c, i) {
+                var align = (!isReg && i === 4) ? 'right' : (i === 1 ? 'left' : 'center');
+                html += '<th style="padding:7px 8px; border:1px solid #dde0ea; text-align:' + align + ';">' + c + '</th>';
+            });
+            $('#modalFileDetailHead').html('<tr style="background:#f5f6fa; color:#555;">' + html + '</tr>');
+        }
+
+        // 청구 목록 행
+        function buildBillingRows(data) {
+            var STATUS_MAP = { PENDING:'대기', REQUESTED:'출금요청', SUCCESS:'성공', FAIL:'실패', CANCEL:'취소', ERROR:'오류' };
+            var html = '';
+            data.forEach(function(b) {
+                html += '<tr>'
+                    + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">' + (b.line_seq || '') + '</td>'
+                    + '<td style="padding:6px 8px; border:1px solid #dde0ea; min-width:180px;">' + (b.member_name || '') + '</td>'
+                    + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">' + (b.bank_name || '') + '</td>'
+                    + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">' + (b.bank_account || '') + '</td>'
+                    + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:right;">' + Number(b.billing_amount || 0).toLocaleString() + '</td>'
+                    + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">'
+                    +   '<span class="status-badge status-' + b.status + '">' + (STATUS_MAP[b.status] || b.status) + '</span>'
+                    + '</td></tr>';
+            });
+            return html;
+        }
+
+        // 신청(계좌등록/해지) 목록 행 — 신규/해지 구분 표시
+        function buildRegisterRows(data) {
+            var STATUS_MAP = { PENDING:'대기', SENT:'송신완료', APPROVED:'승인', REJECTED:'거절', CANCELLED:'해지완료', FAILED:'실패' };
+            var html = '';
+            data.forEach(function(r) {
+                var label = r.apply_label || '';
+                var labelCls = label.indexOf('해지') >= 0 ? 'apply-cancel'
+                    : (label.indexOf('변경') >= 0 ? 'apply-change' : 'apply-new');
+                html += '<tr>'
+                    + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">' + (r.line_seq || '') + '</td>'
+                    + '<td style="padding:6px 8px; border:1px solid #dde0ea; min-width:160px;">' + (r.member_name || '')
+                    +   ' <span style="color:#999; font-size:11px;">(' + (r.member_no || '') + ')</span></td>'
+                    + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">'
+                    +   '<span class="apply-badge ' + labelCls + '">' + label + '</span></td>'
+                    + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">' + (r.bank_name || '') + '</td>'
+                    + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">' + (r.bank_account || '') + '</td>'
+                    + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">'
+                    +   '<span class="status-badge status-' + (r.status || '') + '">' + (STATUS_MAP[r.status] || r.status || '') + '</span>'
+                    + '</td></tr>';
+            });
+            return html;
         }
 
         function deleteFile() {

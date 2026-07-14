@@ -196,5 +196,23 @@ public class CmsAccountRegisterController {
         return result;
     }
 
+    @PostMapping("/preview-eb11")
+    public AjaxResult previewEb11(@RequestParam Integer bbsseq) {
+        AjaxResult result = new AjaxResult();
+        try { result.data = cmsAccountRegisterService.previewEb11(bbsseq); }
+        catch (Exception e) { result.success = false; result.message = e.getMessage(); }
+        return result;
+    }
 
+    @PostMapping("/apply-eb11")
+    public AjaxResult applyEb11(@RequestParam Integer bbsseq,
+                                @RequestParam("member_ids") String memberIdsStr,
+                                Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        AjaxResult result = new AjaxResult();
+        try {
+            result.data = cmsAccountRegisterService.applyEb11(bbsseq, parseIds(memberIdsStr), user.getUsername());
+        } catch (Exception e) { result.success = false; result.message = e.getMessage(); }
+        return result;
+    }
 }

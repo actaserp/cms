@@ -339,4 +339,63 @@ public class CmsTokenService {
     }
 
     private String str(Object v) { return v != null ? v.toString() : ""; }
+
+    // ── 실시간 계좌조회 (DEPOSITOR_NAME_INQUIRY) ──────────────
+    //
+    // 금결원 실시간 부가서비스 엔드포인트: POST {apiBaseUrl}/biz/realtime/transaction
+    // 요청 형식이 다른 API와 달리 multipart/form-data 이고,
+    // 'request' 파트에 JSON 문자열(type=application/json)을 담아야 한다.
+    // 계좌조회는 evidence_file 을 넣지 않는다.
+    //
+    // 주의: 이 호출은 "예금주명 확인"만 한다. 출금이체 등록(신청) 여부와는 무관하다.
+    //
+    // 반환: 금결원 응답의 data 노드 (account_depositor_name, response_code 등 포함)
+    public JsonNode realtimeAccountInquiry(String spjangcd,
+                                           String bankCode,
+                                           String accountNo,
+                                           String identificationNo,
+                                           long instituteTrackingNo) throws Exception {
+        String token = getToken(spjangcd);
+
+        // request JSON (계좌조회 필수 필드만)
+        String requestJson = objectMapper.writeValueAsString(Map.of(
+                "account_no", accountNo,
+                "bank_code", bankCode,
+                "identification_no", identificationNo,
+                "institute_tracking_no", instituteTrackingNo,
+                "realtime_transaction_type", "DEPOSITOR_NAME_INQUIRY"
+        ));
+
+        // multipart/form-data 본문 직접 구성 (Java 표준 HttpClient는 multipart 빌더가 없음)
+        String boundary = "----CmsBoundary" + System.currentTimeMillis();
+        String CRLF = "\r\n";
+        StringBuilder sb = new StringBuilder();
+        sb.append("--").append(boundary).append(CRLF);
+        sb.append("Content-Disposition: form-data; name=\"request\"").append(CRLF);
+        sb.append("Content-Type: application/json").append(CRLF);
+        sb.append(CRLF);
+        sb.append(requestJson).append(CRLF);
+        sb.append("--").append(boundary).append("--").append(CRLF);
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(apiBaseUrl + "/biz/realtime/transaction"))
+                .header("Authorization", "Bearer " + token)
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofString(sb.toString()))
+                .build();
+
+        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        log.info("[CmsRealtimeInquiry] spjangcd={} bankCode={} accountNo={} trackingNo={} status={} 응답={}",
+                spjangcd, bankCode, accountNo, instituteTrackingNo, resp.statusCode(), resp.body());
+
+        // 처리중(102) — 실시간 요청내역 조회로 재확인해야 하는 케이스. 여기선 그대로 올려 호출부에서 판단.
+        if (resp.statusCode() != 200 && resp.statusCode() != 102) {
+            throw new IllegalStateException("실시간 계좌조회 실패: HTTP " + resp.statusCode() + " " + resp.body());
+        }
+
+        JsonNode node = objectMapper.readTree(resp.body());
+        // 최상위 response_code 는 요청 접수 코드(B0000 계열). 실제 조회 결과는 data.response_code 를 봐야 함.
+        return node.path("data");
+    }
+
 }

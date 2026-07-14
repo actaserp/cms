@@ -46,6 +46,10 @@ public class CmsMemberService {
      * 납부자 목록 조회
      */
     public List<Map<String, Object>> getMemberList(String memberName, String memberNo, String status) {
+        return getMemberList(memberName, memberNo, null, status);
+    }
+
+    public List<Map<String, Object>> getMemberList(String memberName, String memberNo, String keyword, String status) {
         String spjangcd = TenantContext.get();
         MapSqlParameterSource param = new MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
@@ -106,6 +110,12 @@ public class CmsMemberService {
         if (StringUtils.hasText(memberNo)) {
             sql += " AND m.member_no LIKE '%' || :memberNo || '%'";
             param.addValue("memberNo", memberNo);
+        }
+        // 통합검색: 이름 OR 번호 (계좌조회 모달 검색용)
+        if (StringUtils.hasText(keyword)) {
+            sql += " AND (m.member_name LIKE '%' || :keyword || '%'"
+                    + "      OR m.member_no LIKE '%' || :keyword || '%')";
+            param.addValue("keyword", keyword);
         }
         if (StringUtils.hasText(status)) {
             sql += " AND m.status = :status";
@@ -1130,6 +1140,7 @@ public class CmsMemberService {
                         + " END AS resident_no,"
                         + " LTRIM(RTRIM(COALESCE(XB.bnkcode,''))) AS bank_code,"
                         + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS bank_account,"
+                        + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(C.accnum,''))),'-',''),' ','') AS xclient_account,"
                         + " C.hptelnum AS phone, C.agneremail AS email,"
                         + " C.cltadres AS adresa, C.zipcd AS zipcd,"
                         + " CASE"
@@ -1195,6 +1206,7 @@ public class CmsMemberService {
                         + "      ELSE NULL END AS resident_no,"
                         + " LTRIM(RTRIM(COALESCE(XB.bnkcode,''))) AS bank_code,"
                         + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS bank_account,"
+                        + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(X.accnum,''))),'-',''),' ','') AS xclient_account,"
                         + " X.hptelnum AS phone, X.agneremail AS email,"
                         + " X.cltadres AS adresa, X.zipcd AS zipcd,"
                         + " NULL AS deduct_amount_raw,"
@@ -1292,6 +1304,7 @@ public class CmsMemberService {
                     row.put("resident_no",   rs.getString("resident_no"));
                     row.put("bank_code",     bankCode);
                     row.put("bank_account",  bankAccount);
+                    row.put("xclient_account", rs.getString("xclient_account"));
                     row.put("erp_member_no", erpMemberNo);
                     row.put("agree_yn",      agreeYn);
                     row.put("phone",         rs.getString("phone"));
@@ -1343,19 +1356,32 @@ public class CmsMemberService {
         Map<String, Map<String, Object>> memberMap = new java.util.HashMap<>();
         for (Map<String, Object> m : members) memberMap.put(str(m.get("cltcd")), m);
 
-        // 최근 billing result_code
+        // 최근 billing result_code + 실패 계좌 (실패계좌 배제 추천용)
         List<Map<String, Object>> billingRows = sqlRunner.getRows(/* skip_tenant_check */
                 """
-                SELECT DISTINCT ON (b.member_id) b.member_id, b.result_code
+                SELECT DISTINCT ON (b.member_id) b.member_id, b.result_code,
+                       b.bank_account AS failed_account, b.result_msg
                 FROM cms_billing b
                 WHERE b.spjangcd = :spjangcd
                 ORDER BY b.member_id, b.deduct_date DESC NULLS LAST, b._created DESC NULLS LAST
                 """,
                 new MapSqlParameterSource("spjangcd", spjangcd));
         Map<Long, String> billingMap = new java.util.HashMap<>();
+        Map<Long, String> billingMsgMap = new java.util.HashMap<>();
+        // member_id → 최근 실패 청구에 쓰인 계좌(정규화). 성공(0000)/잔액부족(0021)은 계좌문제 아님 → 배제대상서 제외
+        Map<Long, String> failedAcctMap = new java.util.HashMap<>();
+        java.util.Set<String> acctFailCodes = java.util.Set.of("0017", "0019", "0012", "0013", "0014");
         for (Map<String, Object> br : billingRows) {
             Object mid = br.get("member_id");
-            if (mid != null) billingMap.put(((Number) mid).longValue(), str(br.get("result_code")));
+            if (mid == null) continue;
+            long id = ((Number) mid).longValue();
+            String rc = str(br.get("result_code"));
+            billingMap.put(id, rc);
+            billingMsgMap.put(id, str(br.get("result_msg")));
+            if (acctFailCodes.contains(rc)) {
+                String fa = str(br.get("failed_account")).replaceAll("[^0-9]", "");
+                if (!fa.isEmpty()) failedAcctMap.put(id, fa);
+            }
         }
         java.util.Set<String> successCodes = java.util.Set.of("0000", "0021");
 
@@ -1436,10 +1462,33 @@ public class CmsMemberService {
                 String newAmt = erpRow.get("deduct_amount") != null
                         ? erpRow.get("deduct_amount").toString() : "";
 
+                // ── 추천 계좌 결정: "실패한 계좌를 배제 + XCLIENT(원장) 우선" ──
+                //   세 소스: eb13Acc(erpRow.bank_account), xclientAcc(erpRow.xclient_account), curAcc(cms_member)
+                //   billing에서 계좌문제(0017/0019 등)로 실패한 계좌는 추천에서 제외한다.
+                String eb13Acc    = str(erpRow.get("bank_account")).replaceAll("[^0-9]", "");
+                String xclientAcc = str(erpRow.get("xclient_account")).replaceAll("[^0-9]", "");
+                String curAcc     = str(existing.get("bank_account")).replaceAll("[^0-9]", "");
+                String failedAcc  = memberId != null ? failedAcctMap.get(memberId) : null;
+
+                // 추천 우선순위: XCLIENT(원장) → EB13. 단 실패한 계좌면 건너뜀.
+                String recommendedAcc = null;
+                for (String cand : new String[]{ xclientAcc, eb13Acc }) {
+                    if (cand == null || cand.isEmpty()) continue;
+                    if (failedAcc != null && cand.equals(failedAcc)) continue; // 실패계좌 배제
+                    recommendedAcc = cand;
+                    break;
+                }
+                // 후보가 다 실패계좌뿐이면(=배제할 게 없으면) XCLIENT>EB13 순으로라도 채움
+                if (recommendedAcc == null) {
+                    recommendedAcc = !xclientAcc.isEmpty() ? xclientAcc
+                            : (!eb13Acc.isEmpty() ? eb13Acc : curAcc);
+                }
+
                 List<Map<String, Object>> keyChanges  = new java.util.ArrayList<>();
                 List<Map<String, Object>> infoChanges = new java.util.ArrayList<>();
                 syncCheckField(keyChanges, "bank_code",    str(existing.get("bank_code")),    str(erpRow.get("bank_code")));
-                syncCheckField(keyChanges, "bank_account", str(existing.get("bank_account")), str(erpRow.get("bank_account")));
+                // 계좌: 추천계좌(실패배제+원장우선)로 비교. 은행코드는 통합/자체 달라 비교 제외.
+                syncCheckField(keyChanges, "bank_account", curAcc,                            recommendedAcc);
                 syncCheckField(keyChanges, "member_no",    curMemberNo,                       newMemberNo);
                 syncCheckField(keyChanges, "id_number",    str(existing.get("id_number")),    str(erpRow.get("id_number")));
                 syncCheckField(infoChanges, "member_name",   str(existing.get("member_name")), str(erpRow.get("member_name")));
@@ -1460,8 +1509,32 @@ public class CmsMemberService {
                 item.put("key_changes",      keyChanges);
                 item.put("info_changes",     infoChanges);
                 item.put("new_values", erpRow);
+
+                // ── 3층 신호 (화면 정렬·강조용) ──
+                boolean sigBilling  = lastResultCode != null && acctFailCodes.contains(lastResultCode);
+                boolean sigEb13Diff = !curAcc.equals(eb13Acc) && !eb13Acc.isEmpty();
+                boolean sigLedgerDiff = !eb13Acc.isEmpty() && !xclientAcc.isEmpty()
+                        && !eb13Acc.equals(xclientAcc);   // EB13 vs 원장(XCLIENT)
+                item.put("sig_billing_fail", sigBilling);
+                item.put("sig_eb13_diff",    sigEb13Diff);
+                item.put("sig_ledger_diff",  sigLedgerDiff);
+                item.put("last_result_msg",  memberId != null ? billingMsgMap.get(memberId) : null);
+                // 신호 개수 → 정렬 가중치(많을수록 위)
+                int sigCount = (sigBilling?1:0) + (sigEb13Diff?1:0) + (sigLedgerDiff?1:0);
+                item.put("sig_count", sigCount);
+                // 계좌 세 소스 원본(화면 참고 표시용)
+                item.put("acc_member",  curAcc);
+                item.put("acc_eb13",    eb13Acc);
+                item.put("acc_xclient", xclientAcc);
+                item.put("acc_recommended", recommendedAcc);
+                item.put("failed_account", failedAcc);
+
                 changedRows.add(item);
             }
+            // 신호 많은 순으로 정렬 (billing실패+양쪽불일치가 최상단)
+            changedRows.sort((a, b) -> Integer.compare(
+                    (int) b.getOrDefault("sig_count", 0),
+                    (int) a.getOrDefault("sig_count", 0)));
         } catch (Exception e) {
             throw new IllegalStateException("MSSQL 접속 실패: " + e.getMessage());
         }
@@ -1827,7 +1900,7 @@ public class CmsMemberService {
                     ip.addValue("idNumber",     erpRow.get("id_number"));
                     ip.addValue("residentNo",   erpRow.get("resident_no"));
                     ip.addValue("bankCode",     erpRow.get("bank_code"));
-                    ip.addValue("bankAccount",  erpRow.get("bank_account"));
+                    ip.addValue("bankAccount",  resolveRecommendedAccount(spjangcd, null, erpRow));
                     ip.addValue("deductAmount", erpRow.get("deduct_amount"));
                     ip.addValue("deductDay",    erpRow.get("deduct_day"));
                     ip.addValue("agreeYn",      erpRow.get("agree_yn"));
@@ -1859,12 +1932,24 @@ public class CmsMemberService {
                 p.addValue("spjangcd", spjangcd);
                 p.addValue("cltcd",    cltcd);
                 p.addValue("userId",   userId);
+
+                // 계좌 반영 시 previewSync와 동일한 추천계좌(실패계좌 배제 + XCLIENT 우선)를 사용.
+                //  화면에 보여준 값(추천)과 실제 반영값이 일치해야 하므로 여기서도 동일 계산.
+                Long emId = ((Number) existing.get("id")).longValue();
+                String recAcc = resolveRecommendedAccount(spjangcd, emId, erpRow);
+
                 for (String f : erpFields) {
                     String col = SYNC_FIELD_COL.get(f);
                     if (col == null) continue; // 허용되지 않은 필드 무시
-                    Object val = "member_no".equals(f)
-                            ? (StringUtils.hasText(str(erpRow.get("member_no"))) ? erpRow.get("member_no") : erpRow.get("erp_member_no"))
-                            : erpRow.get(f);
+                    Object val;
+                    if ("member_no".equals(f)) {
+                        val = StringUtils.hasText(str(erpRow.get("member_no")))
+                                ? erpRow.get("member_no") : erpRow.get("erp_member_no");
+                    } else if ("bank_account".equals(f)) {
+                        val = recAcc;               // ★ EB13 계좌가 아니라 추천계좌
+                    } else {
+                        val = erpRow.get(f);
+                    }
                     set.append(col).append(" = :").append(f).append(", ");
                     p.addValue(f, val);
                 }
@@ -1887,6 +1972,45 @@ public class CmsMemberService {
 
         log.info("[ERP선택반영] 완료 spjangcd={} 반영={} 확인만={} 실패={}", spjangcd, updated, confirmed, failed);
         return Map.of("updated", updated, "confirmed", confirmed, "failed", failed);
+    }
+
+    /**
+     * 추천 계좌 결정 — previewSync와 동일 규칙.
+     *  "cms_billing에서 계좌문제(0017/0019 등)로 실패한 계좌를 배제 + XCLIENT(원장) 우선".
+     *  memberId가 null(신규)이면 실패이력이 없으므로 XCLIENT>EB13 순.
+     */
+    private String resolveRecommendedAccount(String spjangcd, Long memberId, Map<String, Object> erpRow) {
+        String eb13Acc    = str(erpRow.get("bank_account")).replaceAll("[^0-9]", "");
+        String xclientAcc = str(erpRow.get("xclient_account")).replaceAll("[^0-9]", "");
+
+        String failedAcc = null;
+        if (memberId != null) {
+            Map<String, Object> fb = sqlRunner.getRow(/* skip_tenant_check */
+                    """
+                    SELECT bank_account, result_code
+                    FROM cms_billing
+                    WHERE spjangcd = :spjangcd AND member_id = :memberId
+                    ORDER BY deduct_date DESC NULLS LAST, _created DESC NULLS LAST
+                    LIMIT 1
+                    """,
+                    new MapSqlParameterSource("spjangcd", spjangcd).addValue("memberId", memberId));
+            if (fb != null) {
+                String rc = str(fb.get("result_code"));
+                java.util.Set<String> acctFailCodes = java.util.Set.of("0017", "0019", "0012", "0013", "0014");
+                if (acctFailCodes.contains(rc)) {
+                    failedAcc = str(fb.get("bank_account")).replaceAll("[^0-9]", "");
+                    if (failedAcc.isEmpty()) failedAcc = null;
+                }
+            }
+        }
+
+        for (String cand : new String[]{ xclientAcc, eb13Acc }) {
+            if (cand == null || cand.isEmpty()) continue;
+            if (failedAcc != null && cand.equals(failedAcc)) continue;
+            return cand;
+        }
+        // 후보가 다 실패계좌뿐이면 XCLIENT>EB13 순
+        return !xclientAcc.isEmpty() ? xclientAcc : eb13Acc;
     }
 
     /**
@@ -2253,6 +2377,19 @@ public class CmsMemberService {
         if (!"ACTIVE".equals(str(member.get("status"))))
             throw new IllegalStateException("ACTIVE 상태 회원만 해지 가능. 현재: " + str(member.get("status")));
 
+        // ★ 중복 신청 방지: 진행 중(PENDING)인 등록/해지 신청이 있으면 막는다.
+        Map<String, Object> pendingRow = sqlRunner.getRow(/* skip_tenant_check */
+                """
+                SELECT COUNT(*) AS cnt FROM cms_account_register
+                WHERE spjangcd = :spjangcd AND member_id = :memberId AND status = 'PENDING'
+                """,
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+        long pendingCnt = pendingRow != null ? ((Number) pendingRow.get("cnt")).longValue() : 0;
+        if (pendingCnt > 0) {
+            throw new IllegalStateException(
+                    "이미 진행 중인 등록/해지 신청이 있습니다. '출금이체 인증 관리'에서 먼저 처리한 뒤 다시 시도하세요.");
+        }
+
         // 해지 신청 행 INSERT (신규 이력은 그대로 두고 별도 행)
         Map<String, Object> regRow = sqlRunner.getRow(/* skip_tenant_check */
                 """
@@ -2325,6 +2462,19 @@ public class CmsMemberService {
                         "member_id", memberId,
                         "member_name", str(member.get("member_name")),
                         "reason", "ACTIVE 아님(" + str(member.get("status")) + ")"));
+                continue;
+            }
+
+            // ★ 중복 신청 방지: 진행 중(PENDING) 신청 있으면 이 회원은 건너뜀
+            Map<String, Object> pRow = sqlRunner.getRow(/* skip_tenant_check */
+                    "SELECT COUNT(*) AS cnt FROM cms_account_register" +
+                            " WHERE spjangcd = :spjangcd AND member_id = :memberId AND status = 'PENDING'",
+                    new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+            if (pRow != null && ((Number) pRow.get("cnt")).longValue() > 0) {
+                skipped.add(Map.of(
+                        "member_id", memberId,
+                        "member_name", str(member.get("member_name")),
+                        "reason", "이미 진행 중인 신청 있음"));
                 continue;
             }
 
@@ -2449,6 +2599,25 @@ public class CmsMemberService {
                     "message", "기존 계좌가 없어 계좌변경 대상이 아닙니다. 신규 등록을 이용하세요.");
         }
 
+        // ★ 중복 신청 방지: 이 회원에 아직 완결되지 않은(PENDING) 등록/해지 신청이 있으면 막는다.
+        //   (계좌변경을 두 번 누르거나, 해지 후 변경을 눌러 중복·모순 신청이 생기는 것을 차단)
+        Map<String, Object> pendingRow = sqlRunner.getRow(/* skip_tenant_check */
+                """
+                SELECT COUNT(*) AS cnt
+                FROM cms_account_register
+                WHERE spjangcd = :spjangcd
+                  AND member_id = :memberId
+                  AND status = 'PENDING'
+                  AND COALESCE(status,'') <> 'CANCELLED'
+                """,
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+        long pendingCnt = pendingRow != null ? ((Number) pendingRow.get("cnt")).longValue() : 0;
+        if (pendingCnt > 0) {
+            return Map.of("success", false,
+                    "message", "이미 진행 중인 등록/해지 신청이 있습니다. "
+                            + "'출금이체 인증 관리'에서 기존 신청을 먼저 처리(전송/취소)한 뒤 다시 시도하세요.");
+        }
+
         // 1) 해지행('3') - 구계좌
         sqlRunner.execute(/* skip_tenant_check */
                 """
@@ -2518,4 +2687,67 @@ public class CmsMemberService {
         return Map.of("success", true,
                 "message", "계좌변경 신청이 접수되었습니다. '출금이체 인증 관리'에서 인증 등록 신청으로 전송하세요.");
     }
+
+    // ── 실시간 계좌조회 (금결원 예금주명 확인) ────────────────
+    // ※ 이 조회는 예금주명 확인일 뿐, 출금이체 등록(신청) 여부를 보장하지 않는다.
+    @Autowired
+    private CmsTokenService cmsTokenService;
+
+    public Map<String, Object> inquiryAccount(String spjangcd,
+                                              String bankCode,
+                                              String accountNo,
+                                              String identificationNo,
+                                              String inputHolder) throws Exception {
+        Map<String, Object> out = new java.util.HashMap<>();
+
+        if (!StringUtils.hasText(bankCode) || !StringUtils.hasText(accountNo)
+                || !StringUtils.hasText(identificationNo)) {
+            out.put("success", false);
+            out.put("responseMessage", "은행/계좌번호/식별번호를 모두 입력하세요.");
+            return out;
+        }
+
+        String cleanAccount = accountNo.replaceAll("[^0-9]", "");
+        String cleanIdNo    = identificationNo.replaceAll("[^0-9]", "");
+
+        // 요청 추적번호: yyMMddHHmmss + 3자리 랜덤 → 호출마다 유니크
+        long trackingNo = Long.parseLong(
+                java.time.LocalDateTime.now().format(
+                        java.time.format.DateTimeFormatter.ofPattern("yyMMddHHmmss"))
+                        + String.format("%03d", new java.util.Random().nextInt(1000)));
+
+        com.fasterxml.jackson.databind.JsonNode data =
+                cmsTokenService.realtimeAccountInquiry(
+                        spjangcd, bankCode, cleanAccount, cleanIdNo, trackingNo);
+
+        String resultCode = data.path("response_code").asText("");
+        String resultMsg  = data.path("response_message").asText("");
+        String depositor  = data.path("account_depositor_name").asText("");
+        String txStatus   = data.path("realtime_transaction_status").asText("");
+
+        boolean ok = "0000".equals(resultCode) && StringUtils.hasText(depositor);
+
+        boolean holderMatched = false;
+        if (ok && StringUtils.hasText(inputHolder)) {
+            holderMatched = normalizeName(inputHolder).equals(normalizeName(depositor));
+        }
+
+        out.put("success", ok);
+        out.put("responseCode", resultCode);
+        out.put("responseMessage", resultMsg);
+        out.put("depositorName", depositor);
+        out.put("bankCode", bankCode);
+        out.put("accountNo", cleanAccount);
+        out.put("identificationNo", cleanIdNo);
+        out.put("transactionStatus", txStatus);
+        out.put("instituteTrackingNo", String.valueOf(trackingNo));
+        out.put("holderMatched", holderMatched);
+        out.put("inputHolder", inputHolder != null ? inputHolder : "");
+        return out;
+    }
+
+    private String normalizeName(String s) {
+        return s == null ? "" : s.replaceAll("\\s+", "").trim();
+    }
+
 }

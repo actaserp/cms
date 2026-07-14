@@ -47,6 +47,15 @@ public class CmsFileController {
         return result;
     }
 
+    /** EB13/EI13/EB14 파일 상세 — 계좌등록/해지 신청 목록 (신규/해지 구분) */
+    @GetMapping("/cms-files/{fileId}/registrations")
+    public AjaxResult getCmsFileRegisters(@PathVariable Long fileId) {
+        List<Map<String, Object>> items = cmsFileService.getCmsFileRegisters(fileId);
+        AjaxResult result = new AjaxResult();
+        result.data = items;
+        return result;
+    }
+
     /** 수동 생성 */
     @PostMapping("/eb-files/generate")
     public AjaxResult generate(
