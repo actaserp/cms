@@ -42,6 +42,9 @@ public class CmsMemberService {
         return v != null ? v.toString() : "";
     }
 
+    private static final java.util.concurrent.atomic.AtomicInteger TRACKING_SEQ =
+            new java.util.concurrent.atomic.AtomicInteger(0);
+
     /**
      * 납부자 목록 조회
      */
@@ -2710,11 +2713,10 @@ public class CmsMemberService {
         String cleanAccount = accountNo.replaceAll("[^0-9]", "");
         String cleanIdNo    = identificationNo.replaceAll("[^0-9]", "");
 
-        // 요청 추적번호: yyMMddHHmmss + 3자리 랜덤 → 호출마다 유니크
+
         long trackingNo = Long.parseLong(
-                java.time.LocalDateTime.now().format(
-                        java.time.format.DateTimeFormatter.ofPattern("yyMMddHHmmss"))
-                        + String.format("%03d", new java.util.Random().nextInt(1000)));
+                java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
+                        + String.format("%04d", TRACKING_SEQ.updateAndGet(i -> (i + 1) % 10000)));
 
         com.fasterxml.jackson.databind.JsonNode data =
                 cmsTokenService.realtimeAccountInquiry(
