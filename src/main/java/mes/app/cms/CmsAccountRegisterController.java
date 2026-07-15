@@ -162,6 +162,30 @@ public class CmsAccountRegisterController {
         return result;
     }
 
+    /** 대기건 신청 취소 — 행 삭제 + cms_member 원복 */
+    @PostMapping("/cancel")
+    public AjaxResult cancelPending(@RequestParam("ids") String idsStr, Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        List<Long> ids = parseIds(idsStr);
+        AjaxResult result = new AjaxResult();
+        if (ids.isEmpty()) {
+            result.success = false;
+            result.message = "취소할 항목을 선택하세요.";
+            return result;
+        }
+        try {
+            Map<String, Object> res = cmsAccountRegisterService.cancelPending(ids, user.getUsername());
+            int deleted = res.get("deleted") != null ? ((Number) res.get("deleted")).intValue() : 0;
+            result.data = res;
+            result.message = (String) res.get("message");
+            if (deleted == 0) result.success = false;
+        } catch (Exception e) {
+            result.success = false;
+            result.message = "취소 실패: " + e.getMessage();
+        }
+        return result;
+    }
+
     /** 동의서 파일 첨부/변경 */
     @PostMapping("/update-file")
     public AjaxResult updateFile(

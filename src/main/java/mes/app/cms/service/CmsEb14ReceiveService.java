@@ -161,9 +161,13 @@ public class CmsEb14ReceiveService {
         int recordSize   = 120;
         int totalRecords = fileBytes.length / recordSize;
 
-        // memberNo → failCode / applyType (EB14 불능 레코드만 존재)
-        Map<String, String> failCodeMap = new LinkedHashMap<>();
-        Map<String, String> failTypeMap = new LinkedHashMap<>();
+        // ★ 불능 키 = 납부자번호 + 신청구분.
+        //   EB14 레코드에 신청구분(pos=25)이 있으므로 금결원은 신규/해지 결과를 "건별"로 준다.
+        //   계좌변경은 같은 납부자번호에 신규('1')+해지('3')가 함께 나가므로,
+        //   memberNo 만 키로 쓰면 뒤 레코드가 앞 레코드를 덮어써서 한쪽 결과가 소실된다.
+        //   (예: 해지 승인 + 신규 불능 → 구계좌가 죽었는데 시스템은 '변경 거절'로 오인 → 다음달 0017 전멸)
+        //   2026-07-15 수정.
+        Map<String, String> failCodeMap = new LinkedHashMap<>();   // "memberNo|applyType" → failCode
 
         for (int i = 0; i < totalRecords; i++) {
             byte[] record = Arrays.copyOfRange(fileBytes, i * recordSize, (i + 1) * recordSize);
@@ -177,25 +181,29 @@ public class CmsEb14ReceiveService {
             String resultCd  = line.substring(91, 92).trim();
             String failCode  = line.substring(92, 96).trim();
 
+            if (!StringUtils.hasText(applyType)) applyType = "1";   // 구파일 방어
+
             if ("N".equals(resultCd)) {
-                failCodeMap.put(memberNo, failCode);
-                failTypeMap.put(memberNo, applyType);
-                log.info("[CmsEb14] 불능 memberNo={} code={} applyType={}", memberNo, failCode, applyType);
+                failCodeMap.put(memberNo + "|" + applyType, failCode);
+                log.info("[CmsEb14] 불능 memberNo={} applyType={} code={}", memberNo, applyType, failCode);
             }
         }
 
-        List<String> failMemberNos = new ArrayList<>(failCodeMap.keySet());
+        // ── 불능 건 처리 (건별) ──────────────────────────────────────────────
+        for (Map.Entry<String, String> e : failCodeMap.entrySet()) {
+            String[] parts   = e.getKey().split("\\|", 2);
+            String memberNo  = parts[0];
+            String applyType = parts[1];
+            String failCode  = e.getValue();
 
-        // ── 불능 건 처리 ────────────────────────────────────────────────────
-        for (String memberNo : failMemberNos) {
-            String failCode  = failCodeMap.get(memberNo);
-            String applyType = failTypeMap.get(memberNo);
             var p = new MapSqlParameterSource();
             p.addValue("spjangcd",   spjangcd);
             p.addValue("memberNo",   memberNo);
+            p.addValue("applyType",  applyType);
             p.addValue("failCode",   failCode);
             p.addValue("targetDate", targetDate);
 
+            // ★ apply_type 조건 필수. 없으면 같은 납부자의 반대편 건(계좌변경 세트)까지 REJECTED 로 오염됨.
             sqlRunner.execute(/* skip_tenant_check */
                     """
                     UPDATE cms_account_register
@@ -203,9 +211,11 @@ public class CmsEb14ReceiveService {
                         eb14_received_at=NOW(), status='REJECTED', _modified=NOW()
                     WHERE spjangcd=:spjangcd AND member_no=:memberNo
                       AND apply_date=:targetDate
+                      AND COALESCE(apply_type,'1') = :applyType
                     """, p);
 
             // 해지 불능 → cms_member 원복 (PENDING_CANCEL → ACTIVE)
+            // ※ 계좌변경(change_flag='Y')의 해지행은 제외 — 그건 status 를 건드리지 않았으므로 원복 대상이 아님.
             if ("3".equals(applyType)) {
                 sqlRunner.execute(/* skip_tenant_check */
                         """
@@ -216,38 +226,61 @@ public class CmsEb14ReceiveService {
                           AND r.spjangcd   = :spjangcd
                           AND r.member_no  = :memberNo
                           AND r.apply_date = :targetDate
+                          AND r.apply_type = '3'
+                          AND COALESCE(r.change_flag,'N') <> 'Y'
+                          AND m.status = 'PENDING_CANCEL'
                         """, p);
                 log.info("[CmsEb14] 해지불능 → cms_member ACTIVE 원복 memberNo={} code={}", memberNo, failCode);
             }
         }
 
-        // ── 정상(파일에 없는 건) 처리 ────────────────────────────────────────
+        // ── 정상(파일에 불능으로 안 나온 건) 처리 ────────────────────────────
+        // ★ 제외 기준도 (납부자번호, 신청구분) 쌍이어야 한다.
+        //   member_no 만으로 제외하면, 해지만 불능인 계좌변경 건에서 승인된 신규행이
+        //   영원히 PENDING 으로 남는 유령 행이 된다.
+        List<String> failNewNos    = new ArrayList<>();   // 신규('1') 불능 납부자번호
+        List<String> failCancelNos = new ArrayList<>();   // 해지('3') 불능 납부자번호
+        for (String k : failCodeMap.keySet()) {
+            String[] parts = k.split("\\|", 2);
+            if ("3".equals(parts[1])) failCancelNos.add(parts[0]);
+            else                      failNewNos.add(parts[0]);
+        }
+
         var base = new MapSqlParameterSource();
         base.addValue("spjangcd",   spjangcd);
         base.addValue("targetDate", targetDate);
-        if (!failMemberNos.isEmpty()) base.addValue("failNos", failMemberNos);
-
-        String notInClause = failMemberNos.isEmpty() ? "" : "AND member_no NOT IN (:failNos)";
 
         // 신규(apply_type='1') 정상 → APPROVED
+        var pNew = new MapSqlParameterSource(base.getValues());
+        String notInNew = "";
+        if (!failNewNos.isEmpty()) {
+            notInNew = "AND member_no NOT IN (:failNewNos) ";
+            pNew.addValue("failNewNos", failNewNos);
+        }
         sqlRunner.execute(/* skip_tenant_check */
                 "UPDATE cms_account_register " +
                         "SET eb14_received_at=NOW(), eb14_result='Y', status='APPROVED', _modified=NOW() " +
                         "WHERE spjangcd=:spjangcd AND apply_date=:targetDate " +
                         "  AND COALESCE(apply_type,'1') = '1' " +
-                        notInClause +
+                        notInNew +
                         "  AND eb13_status='SENT' AND status='PENDING'",
-                base);
+                pNew);
 
         // 해지(apply_type='3') 정상 → CANCELLED
+        var pCancel = new MapSqlParameterSource(base.getValues());
+        String notInCancel = "";
+        if (!failCancelNos.isEmpty()) {
+            notInCancel = "AND member_no NOT IN (:failCancelNos) ";
+            pCancel.addValue("failCancelNos", failCancelNos);
+        }
         sqlRunner.execute(/* skip_tenant_check */
                 "UPDATE cms_account_register " +
                         "SET eb14_received_at=NOW(), eb14_result='Y', status='CANCELLED', _modified=NOW() " +
                         "WHERE spjangcd=:spjangcd AND apply_date=:targetDate " +
                         "  AND apply_type='3' " +
-                        notInClause +
+                        notInCancel +
                         "  AND eb13_status='SENT' AND status='PENDING'",
-                base);
+                pCancel);
 
         // ── cms_member 상태 반영 ─────────────────────────────────────────────
         // 신규 승인 → agree_yn='Y'
@@ -317,7 +350,8 @@ public class CmsEb14ReceiveService {
                             .addValue("seq", seq++));
         }
 
-        log.info("[CmsEb14] 처리완료 spjangcd={} 불능={}건", spjangcd, failMemberNos.size());
+        log.info("[CmsEb14] 처리완료 spjangcd={} 불능={}건(신규 {} / 해지 {})",
+                spjangcd, failCodeMap.size(), failNewNos.size(), failCancelNos.size());
     }
 
     private byte[] sftpDownload(String fileName, String user, String password) {

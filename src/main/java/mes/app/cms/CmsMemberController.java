@@ -58,6 +58,7 @@ public class CmsMemberController {
             @RequestParam(value = "member_name"                        ) String  memberName,
             @RequestParam(value = "member_no",         required = false) String  memberNo,
             @RequestParam(value = "id_number",         required = false) String  idNumber,
+            @RequestParam(value = "resident_no",       required = false) String  residentNo,
             @RequestParam(value = "phone",             required = false) String  phone,
             @RequestParam(value = "email",             required = false) String  email,
             @RequestParam(value = "zipcd",             required = false) String  zipcd,
@@ -85,7 +86,7 @@ public class CmsMemberController {
         User user = (User) auth.getPrincipal();
 
         Long savedId = cmsMemberService.saveMember(
-                id, memberType, memberName, memberNo, idNumber,
+                id, memberType, memberName, memberNo, idNumber, residentNo,
                 phone, email, zipcd, adresa, adresb,
                 bankCode, bankAccount, accountHolder,
                 deductDay, deductAmount, cycleType, cycleMonths, deductMonthType, startDate, endDate,

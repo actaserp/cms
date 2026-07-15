@@ -179,6 +179,44 @@
             font-size: 11px;
             font-weight: 600;
         }
+
+        /* placeholder 안내문구만 작게. 입력된 실제 값은 기본 크기 유지.
+           ※ layout_page 데코레이터의 공통 CSS 가 이 <style> 뒤에 로드되어
+              같은 특이도면 덮여버림 → input.을 붙여 특이도를 올리고 !important 로 고정. */
+        input.ph-sm::placeholder                { font-size: 11px !important; color: #aaa !important; }
+        input.ph-sm::-webkit-input-placeholder  { font-size: 11px !important; color: #aaa !important; }
+        input.ph-sm::-moz-placeholder           { font-size: 11px !important; color: #aaa !important; opacity: 1; }
+        input.ph-sm:-ms-input-placeholder       { font-size: 11px !important; color: #aaa !important; }
+
+        /* 도움말 아이콘 (라벨 옆 ? → 호버하면 설명 툴팁) */
+        .help-ico {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 14px; height: 14px; border-radius: 50%;
+            background: #b8bfd0; color: #fff;
+            font-size: 10px; font-weight: 700; line-height: 1;
+            cursor: help; margin-left: 4px; vertical-align: middle;
+            position: relative;
+        }
+        .help-ico:hover { background: #4a6cf7; }
+        .help-ico::after {
+            content: attr(data-tip);
+            position: absolute; bottom: calc(100% + 7px); left: 50%;
+            transform: translateX(-50%);
+            background: #2c3345; color: #fff;
+            padding: 7px 10px; border-radius: 5px;
+            font-size: 11px; font-weight: 400; line-height: 1.55;
+            width: 240px; white-space: normal; text-align: left;
+            opacity: 0; visibility: hidden; transition: opacity .12s;
+            z-index: 3000; pointer-events: none;
+            box-shadow: 0 3px 10px rgba(0,0,0,.18);
+        }
+        .help-ico::before {
+            content: ''; position: absolute; bottom: calc(100% + 2px); left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent; border-top-color: #2c3345;
+            opacity: 0; visibility: hidden; z-index: 3001; pointer-events: none;
+        }
+        .help-ico:hover::after, .help-ico:hover::before { opacity: 1; visibility: visible; }
     </style>
 </head>
 
@@ -241,6 +279,8 @@
                         <span style="font-size:12px; color:#555;">선택 <b id="cancelSelCount">0</b>건</span>
                         <button type="button" class="btn-default" id="btnCancelSelected"
                                 style="background:#e74c3c; color:#fff; opacity:0.5;width:110px;" disabled>선택 해지신청</button>
+                        <button type="button" class="btn-default" id="btnChangeAccountSelected"
+                                style="background:#4a6cf7; color:#fff; opacity:0.5;width:110px;" disabled>계좌변경</button>
                     </div>
                     <div id="theGrid"></div>
                     <div id="gridCount" style="font-size:12px; color:#888; margin-top:4px; text-align:right;"></div>
@@ -374,11 +414,13 @@
                                 </tr>
                                 <tr>
                                     <th style="padding:5px; border:1px solid #ddd; text-align:center;"
-                                        id="idNumberLabel">사업자등록번호
+                                        id="idNumberLabel">사업자번호/생년월일<span class="help-ico"
+                                                                           data-tip="출금계좌 등록 시 은행에 신고한 번호입니다. 회원이 아니라 ‘예금주’ 기준이므로, 법인이라도 대표자 개인계좌를 쓰면 회사 사업자번호가 아니라 대표자 생년월일 6자리를 넣습니다.">?</span>
                                     </th>
                                     <td style="padding:5px; border:1px solid #ddd;">
                                         <input type="text" id="id_number" name="id_number"
-                                               placeholder="YYYYMMDD" maxlength="20">
+                                               class="ph-sm"
+                                               placeholder="사업자번호 10자리 또는 생년월일 6자리" maxlength="10">
                                     </td>
                                     <th style="padding:5px; border:1px solid #ddd; text-align:center;">연락처</th>
                                     <td style="padding:5px; border:1px solid #ddd;">
@@ -387,8 +429,15 @@
                                 </tr>
                                 <tr>
                                     <th style="padding:5px; border:1px solid #ddd; text-align:center;">이메일</th>
-                                    <td colspan="3" style="padding:5px; border:1px solid #ddd;">
+                                    <td style="padding:5px; border:1px solid #ddd;">
                                         <input type="text" id="email" name="email">
+                                    </td>
+                                    <th style="padding:5px; border:1px solid #ddd; text-align:center;">주민번호<span class="help-ico"
+                                                                                                                 data-tip="회원 본인의 번호입니다. 내부 보관용이며 금결원에 전송되지 않습니다. 출금신청에 쓰이는 번호는 왼쪽 ‘사업자번호/생년월일’ 칸입니다.">?</span></th>
+                                    <td style="padding:5px; border:1px solid #ddd;">
+                                        <input type="text" id="resident_no" name="resident_no"
+                                               class="ph-sm"
+                                               placeholder="주민번호 13자리 또는 사업자번호 10자리">
                                     </td>
                                 </tr>
                                 <tr>
@@ -667,7 +716,7 @@
                 <tr>
                     <th style="padding:7px; text-align:left; color:#555;">새 은행</th>
                     <td style="padding:7px;">
-                        <select id="chgBankCode" style="width:100%; padding:5px; border:1px solid #dde0ea; border-radius:4px;">
+                        <select id="chgBankCode" style="width:100%; border:1px solid #dde0ea; border-radius:4px;">
                             <option value="">선택</option>
                         </select>
                     </td>
@@ -760,7 +809,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <th style="padding:6px; text-align:left; color:#555;">식별번호</th>
+                        <th style="padding:6px; text-align:left; color:#555;">사업자번호/생년월일</th>
                         <td style="padding:6px;">
                             <input type="text" id="aiIdNumber" placeholder="사업자번호 또는 생년월일 6자리"
                                    style="width:100%; padding:6px; border:1px solid #dde0ea; border-radius:4px; box-sizing:border-box;">
@@ -815,7 +864,7 @@
                         border-top:1px solid #e0e4ef; flex-shrink:0;">
                 <button type="button" id="btnAiApply"
                         style="display:none; background:#0d6efd; color:#fff; padding:6px 18px; border:none;
-                               border-radius:4px; cursor:pointer; font-size:13px;">폼에 예금주명 반영</button>
+                               border-radius:4px; cursor:pointer; font-size:13px;">폼에 적용</button>
                 <button type="button" id="btnAiClose"
                         style="background:#f5f6fa; color:#333; padding:6px 18px; border:1px solid #dde0ea;
                                border-radius:4px; cursor:pointer; font-size:13px;">닫기</button>
@@ -1078,13 +1127,16 @@
             $('.member-type-group label').removeClass('selected');
             $('#lbl-' + type).addClass('selected');
 
-            // 식별번호 라벨·placeholder
+            // ★ 라벨은 회원유형에 따라 바꾸지 않는다.
+            //   이 번호는 "회원"이 아니라 "출금계좌 예금주"를 따라가기 때문.
+            //   예) 법인 회원이 대표자 개인계좌를 출금계좌로 등록한 경우
+            //        → 회원은 법인이지만 신고번호는 생년월일 6자리.
+            //   유형으로 라벨을 강제하면 담당자가 회사 사업자번호를 넣는 오류를 유도함.
+            //   (※ 금결원 규격: 생년월일은 6자리. 8자리 YYYYMMDD 아님)
             if (type === 'P') {
-                $('#idNumberLabel').text('생년월일');
-                $('#id_number').attr('placeholder', 'YYYYMMDD').attr('maxlength', '8');
+                $('#id_number').attr('placeholder', '생년월일 6자리 (예: 620614)').attr('maxlength', '10');
             } else {
-                $('#idNumberLabel').text('사업자등록번호');
-                $('#id_number').attr('placeholder', '숫자 10자리 (하이픈 제외)').attr('maxlength', '10');
+                $('#id_number').attr('placeholder', '사업자번호 10자리 또는 생년월일 6자리').attr('maxlength', '10');
             }
         }
 
@@ -1186,6 +1238,14 @@
             $('#cancelSelCount').text(checked.length);
             $('#btnCancelSelected').prop('disabled', checked.length === 0)
                 .css('opacity', checked.length === 0 ? 0.5 : 1);
+
+            // 계좌변경은 구계좌 해지 + 신계좌 신규를 세트로 만드는 건별 작업이라
+            // 반드시 1건만 선택되어야 한다. (해지는 다건 가능)
+            var one = (checked.length === 1);
+            $('#btnChangeAccountSelected').prop('disabled', !one)
+                .css('opacity', one ? 1 : 0.5)
+                .attr('title', checked.length === 0 ? '변경할 납부자를 1건 선택하세요.'
+                    : (one ? '' : '계좌변경은 1건씩만 가능합니다. (현재 ' + checked.length + '건 선택)'));
         }
 
         function fillForm(item) {
@@ -1205,6 +1265,7 @@
             $('#id_number').val(item.id_number || '');
             $('#phone').val(item.phone || '');
             $('#email').val(item.email || '');
+            $('#resident_no').val(item.resident_no || '');
             $('#zipcd').val(item.zipcd || '');
             $('#adresa').val(item.adresa || '');
             $('#adresb').val(item.adresb || '');
@@ -1628,7 +1689,34 @@
                 });
             });
 
-            // 계좌변경 - 모달 열기
+            // 계좌변경 - 그리드 선택에서 모달 열기 (폼 안 거치지 않고 바로)
+            $('#btnChangeAccountSelected').click(function () {
+                var checked = getCheckedMembers();
+                if (checked.length !== 1) {
+                    Alert.alert('', '계좌변경은 1건씩만 가능합니다. 한 건만 선택하세요.');
+                    return;
+                }
+                var m = checked[0];
+
+                // 폼 버튼과 동일한 가드: 이미 CMS 등록(인증완료)된 활성 회원만 계좌변경 가능.
+                // 미등록 회원은 '변경'이 아니라 신규 등록으로 가야 함.
+                if (m.status !== 'ACTIVE' || m.agree_status !== '인증완료') {
+                    Alert.alert('', '계좌변경은 ‘활성 + 인증완료’ 납부자만 가능합니다.\n'
+                        + '(' + (m.member_name || '') + ' — 상태: ' + (m.status || '?')
+                        + ', 동의: ' + (m.agree_status || '미인증') + ')\n\n'
+                        + '아직 등록되지 않은 납부자는 계좌변경이 아니라 신규 등록으로 진행하세요.');
+                    return;
+                }
+
+                $('#chgMemberId').val(m.id);
+                $('#chgMemberName').text(m.member_name || '');
+                $('#chgBankCode').val('');
+                $('#chgBankAccount').val('');
+                $('#chgAccountHolder').val(m.account_holder || m.member_name || '');
+                $('#modalChangeAccount').css('display', 'flex');
+            });
+
+            // 계좌변경 - 모달 열기 (폼 내 버튼)
             $('#btnChangeAccount').click(function () {
                 var memberId = $(this).data('memberId');
                 if (!memberId) return;
@@ -1674,6 +1762,9 @@
                             if (result.success) {
                                 $('#modalChangeAccount').hide();
                                 Alert.alert('', result.message || '계좌변경 신청이 접수되었습니다.');
+                                // 신청 끝난 건은 선택 해제 — 상태가 바뀌었으므로 체크를 남겨두면 헷갈림
+                                delete selectedMembers[memberId];
+                                updateCancelSelection();
                                 searchList();
                             } else {
                                 Alert.alert('', result.message || '계좌변경 신청에 실패했습니다.');
@@ -1797,7 +1888,7 @@
                     return;
                 }
                 if (!idNo) {
-                    Alert.alert('', '식별번호(사업자번호 또는 생년월일 6자리)를 입력하세요.');
+                    Alert.alert('', '사업자번호 10자리 또는 생년월일 6자리를 입력하세요.');
                     return;
                 }
 
@@ -1843,7 +1934,7 @@
                     if (!formHolder) {
                         $badge.text('조회 성공').css({background: '#e7f5ea', color: '#28a745'});
                         $note.css({background: '#f0f7ff', color: '#0d6efd'})
-                            .text('예금주명이 확인되었습니다. "폼에 예금주명 반영"을 누르면 반영됩니다.');
+                            .text('예금주명이 확인되었습니다. "폼에 적용"을 누르면 예금주명·은행·계좌가 함께 반영됩니다.');
                     } else if (d.holderMatched) {
                         $badge.text('일치').css({background: '#e7f5ea', color: '#28a745'});
                         $note.css({background: '#e7f5ea', color: '#28a745'})
@@ -1865,7 +1956,7 @@
                 $('#modalAccountInquiry').data('result', d);
             }
 
-            // 폼에 예금주명 반영 — 폼이 열려 있을 때만 의미. 계좌/은행/식별번호도 같이 반영.
+            // 조회 결과를 폼에 반영 — 예금주명 + 은행/계좌/식별번호 같이.
             $('#btnAiApply').click(function () {
                 var d = $('#modalAccountInquiry').data('result') || {};
                 if (d.depositorName) $('#account_holder').val(d.depositorName);
@@ -2019,11 +2110,24 @@
         };
         var FIELD_LABEL = {
             'bank_account': '계좌번호',
-            'bank_code': '은행코드',
+            'bank_code': '은행',
             'member_no': '납부자번호',
-            'id_number': '식별번호',
+            // ※ id_number(식별번호) ≠ member_no(납부자번호). 금결원 규격상 별개 필드임.
+            //   담당자가 알아보기 쉬운 기존 CMS 화면 용어로 표기.
+            'id_number': '사업자번호/생년월일',
             'resident_no': '주민번호'
         };
+
+        // 은행코드 → "은행명(코드)". 담당자는 이름으로 보고,
+        // 금결원 문의 시 코드가 필요하므로 둘 다 보여준다.
+        function bankLabel(code) {
+            if (!code) return '(없음)';
+            var hit = null;
+            (bankCodeList || []).forEach(function (x) {
+                if (String(x.bank_code) === String(code)) hit = x;
+            });
+            return hit ? hit.bank_name + '(' + code + ')' : String(code);
+        }
         var DANGER_FIELDS = ['bank_account', 'bank_code'];
 
         function openErpSyncModal() {
@@ -2131,6 +2235,9 @@
                     var label = FIELD_LABEL[c.field] || c.field;
                     var isBig = DANGER_FIELDS.indexOf(c.field) >= 0;
                     var nm = 'erpf_' + cltcdEsc + '_' + c.field;
+                    // 은행은 코드만 보여주면 담당자가 판단 못함 → 은행명으로 변환
+                    var curTxt = (c.field === 'bank_code') ? bankLabel(c.current) : String(c.current == null ? '' : c.current);
+                    var newTxt = (c.field === 'bank_code') ? bankLabel(c['new']) : String(c['new'] == null ? '' : c['new']);
                     // 계좌 필드면 추천 근거(실패계좌 배제) 힌트 표시
                     var accHint = '';
                     if (c.field === 'bank_account' && item.failed_account) {
@@ -2141,11 +2248,11 @@
                         + '<span style="display:inline-block;min-width:82px;color:#555;">' + (isBig ? '★ ' : '') + label + '</span> '
                         + '<label style="margin-right:10px;cursor:pointer;">'
                         + '<input type="radio" name="' + nm + '" value="WEB" data-cltcd="' + cltcdEsc + '" data-field="' + escHtml(c.field) + '"> '
-                        + '현재 <b>' + escHtml(c.current) + '</b>'
+                        + '현재 <b>' + escHtml(curTxt) + '</b>'
                         + '</label>'
                         + '<label style="cursor:pointer;' + (isBig ? 'color:#c0392b;' : '') + '">'
                         + '<input type="radio" name="' + nm + '" value="ERP" data-cltcd="' + cltcdEsc + '" data-field="' + escHtml(c.field) + '" checked> '
-                        + '변경 <b>' + escHtml(c['new']) + '</b>' + accHint
+                        + '변경 <b>' + escHtml(newTxt) + '</b>' + accHint
                         + '</label>'
                         + '</div>';
                 });

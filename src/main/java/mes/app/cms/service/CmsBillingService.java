@@ -1066,7 +1066,7 @@ public class CmsBillingService {
                         "                 OR (b.erp_mis_key IS NULL AND rb.member_id=b.member_id" +
                         "                     AND rb.memo LIKE '%불능 / 재청구%' AND rb.deduct_date > b.deduct_date) )" +
                         "              ) THEN 'Y' ELSE 'N' END AS recharged_yn" +
-                        baseWhere + filters + " ORDER BY b.billing_seq LIMIT :pgSize OFFSET :pgOffset";
+                        baseWhere + filters + " ORDER BY b.deduct_date DESC, b.billing_seq LIMIT :pgSize OFFSET :pgOffset";
 
         param.addValue("pgSize",   size);
         param.addValue("pgOffset", (long) page * size);
@@ -1500,14 +1500,7 @@ public class CmsBillingService {
 
         // 기관별 기본 표시명(SITE=현장명 / REP=대표거래처명). 컬럼 없거나 미설정이면 REP.
         String nameType = "REP";
-        try {
-            Map<String, Object> nt = sqlRunner.getRow(/* skip_tenant_check */
-                    "SELECT name_type FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
-                    new MapSqlParameterSource("spjangcd", spjangcd));
-            if (nt != null && StringUtils.hasText(str(nt.get("name_type")))) {
-                nameType = str(nt.get("name_type")).toUpperCase();
-            }
-        } catch (Exception ignore) { /* name_type 컬럼 미존재 시 REP 유지 */ }
+
 
         try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
         catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
@@ -1583,7 +1576,6 @@ public class CmsBillingService {
                         // 기관 기본값(SITE/REP)에 따른 기본 표시명. 화면 토글이 site/rep로 전환.
                         String memberName    = "SITE".equalsIgnoreCase(nameType) ? nameSite : nameRep;
 
-                        if (!StringUtils.hasText(actcd)) actcd = cltcd;
                         if (billingAmount <= 0) continue;
 
                         Map<String, Object> member = sqlRunner.getRow(/* skip_tenant_check */
@@ -1591,10 +1583,12 @@ public class CmsBillingService {
                                 SELECT id, member_name, member_no, bank_code, bank_account,
                                        account_holder, deduct_day, agree_yn, deduct_month_type
                                 FROM cms_member
-                                WHERE spjangcd = :spjangcd AND cltcd = :actcd
+                                WHERE spjangcd = :spjangcd
+                                  AND cltcd IN (:actcd, :cltcd)
                                 """,
                                 new MapSqlParameterSource("spjangcd", spjangcd)
-                                        .addValue("actcd", actcd));
+                                        .addValue("actcd", actcd)
+                                        .addValue("cltcd", cltcd));
 
                         // 당월/익월 판단: cms_member.deduct_month_type 우선, 없으면 ERP XCLIENT.autoflag 폴백
                         //  익월(NEXT / autoflag=2) → 전월 발생 미수를 이번 달 청구, 그 외 → 당월 미수

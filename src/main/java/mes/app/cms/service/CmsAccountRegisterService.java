@@ -8,6 +8,7 @@ import mes.domain.services.SqlRunner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
@@ -52,18 +53,61 @@ public class CmsAccountRegisterService {
             param.addValue("memberId", memberId);
         }
 
+        // ★ DISTINCT ON (member_id, apply_type) 제거. (2026-07-15)
+        //   계좌변경은 같은 member_id 에 해지행('3')+신규행('1')이 같은 시각에 생기는 세트인데,
+        //   DISTINCT ON 이 apply_type 그룹마다 1행만 남기면서 과거 이력행과 경쟁 →
+        //   _created 가 동일하면 어느 행이 살아남을지 불확정 → 해지행에 엉뚱한 계좌가 표시됨.
+        //
+        // ★ 계좌변경 세트 병합:
+        //   담당자에게 '변경(해지)/변경(신규)' 두 줄은 내부 구현이 새어나온 것. 업무상 계좌변경은 1건.
+        //   → 신규행('1')을 대표로 삼고 해지행('3')은 목록에서 감춘다. 해지행의 계좌는 old_* 로 붙여
+        //     "구계좌 → 신계좌" 를 한 줄에 보여준다. pair_id 로 신청/취소 시 두 행을 함께 처리.
+        //
+        //   단, 두 행의 status 가 서로 다르면 감추지 않는다.
+        //   (예: 해지 승인 + 신규 거절 → 그건 더 이상 '변경'이 아니라 '해지 완료 + 신규 재신청 필요' 상태.
+        //    한 줄로 뭉치면 구계좌가 이미 죽은 사실이 화면에서 사라져 위험함.)
+        //   병합은 반드시 백엔드에서. 프론트 그룹핑은 페이징으로 세트가 갈리면 깨진다.
         String innerSql =
-                "SELECT DISTINCT ON (r.member_id, r.apply_type)" +
-                        "       r.id, r.member_id, m.member_name, m.member_no, bc.bank_name," +
-                        "       r.bank_account, r.apply_date, r.apply_type, r.change_flag," +
+                "SELECT r.id, r.member_id, m.member_name, m.member_no, bc.bank_name," +
+                        "       r.bank_code, r.bank_account, r.apply_date, r.apply_type, r.change_flag," +
                         "       r.ei13_status, r.ei13_sent_at, r.eb13_status, r.eb13_sent_at," +
                         "       r.eb14_result, r.eb14_fail_code, r.eb14_received_at," +
-                        "       r.status, r.memo, r._created, r.agree_file_path" +
+                        "       r.status, r.memo, r._created, r.agree_file_path," +
+                        // 취소 가능 여부: 아직 금결원에 안 나간 PENDING 건만.
+                        "       CASE WHEN r.status = 'PENDING' AND COALESCE(r.eb13_status,'PENDING') = 'PENDING'" +
+                        "            THEN 'Y' ELSE 'N' END AS cancelable," +
+                        // 짝(해지행) 정보 — 계좌변경 세트가 같은 상태로 붙어 있을 때만 채워진다
+                        "       pair.id           AS pair_id," +
+                        "       pair.bank_account AS old_bank_account," +
+                        "       pair.bank_code    AS old_bank_code," +
+                        "       obc.bank_name     AS old_bank_name" +
                         "  FROM cms_account_register r" +
                         "  JOIN cms_member m ON m.id = r.member_id" +
                         "  LEFT JOIN cms_bank_code bc ON bc.bank_code = r.bank_code" +
+                        "  LEFT JOIN LATERAL (" +
+                        "       SELECT c.id, c.bank_code, c.bank_account" +
+                        "         FROM cms_account_register c" +
+                        "        WHERE c.spjangcd    = r.spjangcd" +
+                        "          AND c.member_id   = r.member_id" +
+                        "          AND c.change_flag = 'Y' AND c.apply_type = '3'" +
+                        "          AND c.apply_date  = r.apply_date" +
+                        "          AND c.status      = r.status" +
+                        "          AND r.change_flag = 'Y' AND r.apply_type = '1'" +
+                        "        ORDER BY c.id DESC LIMIT 1" +
+                        "  ) pair ON TRUE" +
+                        "  LEFT JOIN cms_bank_code obc ON obc.bank_code = pair.bank_code" +
                         "  WHERE r.spjangcd = :spjangcd" + filters +
-                        "  ORDER BY r.member_id, r.apply_type, r._created DESC";
+                        // 신규행과 같은 상태로 짝이 맞는 해지행은 숨긴다(= 신규행 한 줄로 병합됨).
+                        // 짝이 없거나 상태가 갈리면 해지행도 자기 줄로 노출된다.
+                        "    AND NOT (r.change_flag = 'Y' AND r.apply_type = '3' AND EXISTS (" +
+                        "         SELECT 1 FROM cms_account_register n" +
+                        "          WHERE n.spjangcd    = r.spjangcd" +
+                        "            AND n.member_id   = r.member_id" +
+                        "            AND n.change_flag = 'Y' AND n.apply_type = '1'" +
+                        "            AND n.apply_date  = r.apply_date" +
+                        "            AND n.status      = r.status))" +
+                        // 신청일 역순.
+                        "  ORDER BY r.apply_date DESC, r.member_id DESC, r.apply_type, r.id DESC";
 
         Map<String, Object> countRow = sqlRunner.getRow(/* skip_tenant_check */
                 "SELECT COUNT(*) AS cnt FROM (" + innerSql + ") sub", param);
@@ -75,6 +119,186 @@ public class CmsAccountRegisterService {
                 innerSql + " LIMIT :pgSize OFFSET :pgOffset", param);
 
         return Map.of("data", rows, "totalCount", totalCount, "totalAmount", 0L);
+    }
+
+
+    /**
+     * 대기(PENDING) 신청 취소 — 행을 삭제하고 cms_member 상태를 원복한다.
+     *
+     * ★ 취소 가능 조건: status='PENDING' AND eb13_status='PENDING'
+     *   eb13_status='SENT' 면 이미 금결원에 신청이 나간 것이라, 우리 DB에서 지워도
+     *   은행 쪽 처리는 그대로 진행된다. 그런 건 '취소'가 아니라 거짓말이 되므로 막는다.
+     *   (EB14 결과를 받은 뒤 재등록/재신청으로 처리해야 함)
+     *
+     * ★ 계좌변경(change_flag='Y')은 해지행('3')+신규행('1')이 한 세트라 반드시 함께 삭제한다.
+     *   한쪽만 지우면 반쪽짜리 신청이 남아 EB13이 깨진 상태로 나간다.
+     *
+     * 원복 대상:
+     *   - 단순 해지신청 취소  → cms_member.status : PENDING_CANCEL → ACTIVE
+     *   - 계좌변경 취소       → cms_member.agree_yn : 'N' → 'Y' + 계좌를 구계좌로 원복
+     *     (2026-07-15부터 changeAccount 가 cms_member 계좌를 즉시 새 값으로 바꾸므로,
+     *      취소 시 반드시 되돌려야 한다. 구계좌는 해지행(apply_type='3').bank_account 에 보존돼 있음.
+     *      이걸 안 하면 취소했는데 계좌만 새 값으로 남아 다음 청구가 0017 로 실패한다.)
+     */
+    @Transactional
+    public Map<String, Object> cancelPending(List<Long> ids, String userId) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of("deleted", 0, "failed", 0, "message", "취소할 항목을 선택하세요.");
+        }
+        String spjangcd = TenantContext.get();
+
+        List<Map<String, Object>> targets = sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT id, member_id, member_name, apply_type, change_flag,
+                       status, ei13_status, eb13_status
+                FROM cms_account_register
+                WHERE spjangcd = :spjangcd AND id IN (:ids)
+                """,
+                new MapSqlParameterSource("spjangcd", spjangcd).addValue("ids", ids));
+
+        int deleted = 0, failed = 0;
+        StringBuilder msg = new StringBuilder();
+        java.util.Set<Long> handled = new java.util.HashSet<>();
+
+        for (Map<String, Object> t : targets) {
+            Long   rid       = ((Number) t.get("id")).longValue();
+            Long   memberId  = t.get("member_id") != null ? ((Number) t.get("member_id")).longValue() : null;
+            String name      = str(t.get("member_name"));
+            String status    = str(t.get("status"));
+            String eb13      = str(t.get("eb13_status"));
+            String changeFlg = str(t.get("change_flag"));
+
+            if (handled.contains(rid)) continue;   // 세트로 이미 처리됨
+
+            if (!"PENDING".equals(status)) {
+                failed++;
+                msg.append(name).append(": 대기 상태가 아니라 취소할 수 없습니다(").append(status).append("). ");
+                continue;
+            }
+            if ("SENT".equals(eb13)) {
+                failed++;
+                msg.append(name).append(": 이미 금결원에 신청이 전송되어 취소할 수 없습니다. ")
+                        .append("결과(EB14) 수신 후 재신청으로 처리하세요. ");
+                continue;
+            }
+
+            boolean isChange = "Y".equals(changeFlg);
+
+            if (isChange) {
+                // 계좌변경 세트 전체 삭제 (해지행+신규행). 하나라도 이미 전송됐으면 세트 전체를 막는다.
+                Map<String, Object> sentRow = sqlRunner.getRow(/* skip_tenant_check */
+                        """
+                        SELECT COUNT(*) AS cnt FROM cms_account_register
+                        WHERE spjangcd = :spjangcd AND member_id = :memberId
+                          AND change_flag = 'Y' AND status = 'PENDING'
+                          AND eb13_status = 'SENT'
+                        """,
+                        new MapSqlParameterSource("spjangcd", spjangcd).addValue("memberId", memberId));
+                if (sentRow != null && ((Number) sentRow.get("cnt")).longValue() > 0) {
+                    failed++;
+                    msg.append(name).append(": 계좌변경 세트 중 일부가 이미 전송되어 취소할 수 없습니다. ");
+                    continue;
+                }
+
+                // ★ 삭제 전에 구계좌를 확보한다 (해지행에 보존돼 있음). 삭제 후엔 못 읽는다.
+                Map<String, Object> oldRow = sqlRunner.getRow(/* skip_tenant_check */
+                        """
+                        SELECT bank_code, bank_account, account_holder
+                        FROM cms_account_register
+                        WHERE spjangcd = :spjangcd AND member_id = :memberId
+                          AND change_flag = 'Y' AND apply_type = '3' AND status = 'PENDING'
+                        ORDER BY id DESC LIMIT 1
+                        """,
+                        new MapSqlParameterSource("spjangcd", spjangcd).addValue("memberId", memberId));
+
+                List<Map<String, Object>> setRows = sqlRunner.getRows(/* skip_tenant_check */
+                        """
+                        SELECT id FROM cms_account_register
+                        WHERE spjangcd = :spjangcd AND member_id = :memberId
+                          AND change_flag = 'Y' AND status = 'PENDING'
+                        """,
+                        new MapSqlParameterSource("spjangcd", spjangcd).addValue("memberId", memberId));
+                for (Map<String, Object> r : setRows) handled.add(((Number) r.get("id")).longValue());
+
+                int n = sqlRunner.execute(/* skip_tenant_check */
+                        """
+                        DELETE FROM cms_account_register
+                        WHERE spjangcd = :spjangcd AND member_id = :memberId
+                          AND change_flag = 'Y' AND status = 'PENDING'
+                        """,
+                        new MapSqlParameterSource("spjangcd", spjangcd).addValue("memberId", memberId));
+
+                // 동의상태 + 계좌 원복 — changeAccount 가 바꿔놓은 것을 되돌림
+                if (oldRow != null && StringUtils.hasText(str(oldRow.get("bank_account")))) {
+                    sqlRunner.execute(/* skip_tenant_check */
+                            """
+                            UPDATE cms_member SET
+                                bank_code      = :oldBankCode,
+                                bank_account   = :oldBankAccount,
+                                account_holder = COALESCE(:oldHolder, account_holder),
+                                agree_yn       = 'Y',
+                                _modifier_id   = :userId,
+                                _modified      = NOW()
+                            WHERE id = :memberId AND spjangcd = :spjangcd
+                            """,
+                            new MapSqlParameterSource("memberId", memberId)
+                                    .addValue("spjangcd", spjangcd).addValue("userId", userId)
+                                    .addValue("oldBankCode",    str(oldRow.get("bank_code")))
+                                    .addValue("oldBankAccount", str(oldRow.get("bank_account")))
+                                    .addValue("oldHolder",      StringUtils.hasText(str(oldRow.get("account_holder")))
+                                            ? str(oldRow.get("account_holder")) : null));
+                    log.info("[RegisterCancel] 계좌변경 취소 memberId={} 삭제={}행 계좌 원복 {} agree_yn=Y",
+                            memberId, n, str(oldRow.get("bank_account")));
+                } else {
+                    // 구계좌를 못 찾은 경우 — 계좌는 건드리지 않고 동의상태만 되돌린다.
+                    // (계좌를 임의로 비우면 더 나쁘다. 로그를 남겨 수동 확인 유도)
+                    sqlRunner.execute(/* skip_tenant_check */
+                            """
+                            UPDATE cms_member SET
+                                agree_yn     = 'Y',
+                                _modifier_id = :userId,
+                                _modified    = NOW()
+                            WHERE id = :memberId AND spjangcd = :spjangcd
+                            """,
+                            new MapSqlParameterSource("memberId", memberId)
+                                    .addValue("spjangcd", spjangcd).addValue("userId", userId));
+                    log.warn("[RegisterCancel] 계좌변경 취소 memberId={} — 해지행에서 구계좌를 찾지 못해 "
+                            + "계좌는 새 값 그대로 남습니다. 수동 확인 필요.", memberId);
+                }
+
+                deleted += n;
+
+            } else {
+                handled.add(rid);
+                int n = sqlRunner.execute(/* skip_tenant_check */
+                        "DELETE FROM cms_account_register WHERE spjangcd = :spjangcd AND id = :id",
+                        new MapSqlParameterSource("spjangcd", spjangcd).addValue("id", rid));
+
+                // 단순 해지신청('3') 취소 → 회원을 다시 활성으로
+                if ("3".equals(str(t.get("apply_type")))) {
+                    sqlRunner.execute(/* skip_tenant_check */
+                            """
+                            UPDATE cms_member SET
+                                status       = 'ACTIVE',
+                                _modifier_id = :userId,
+                                _modified    = NOW()
+                            WHERE id = :memberId AND spjangcd = :spjangcd
+                              AND status = 'PENDING_CANCEL'
+                            """,
+                            new MapSqlParameterSource("memberId", memberId)
+                                    .addValue("spjangcd", spjangcd).addValue("userId", userId));
+                }
+                deleted += n;
+                log.info("[RegisterCancel] 신청 취소 id={} memberId={} applyType={}",
+                        rid, memberId, str(t.get("apply_type")));
+            }
+        }
+
+        String message = deleted > 0
+                ? "취소 " + deleted + "건" + (failed > 0 ? " / 실패 " + failed + "건 — " + msg : "")
+                : (msg.length() > 0 ? msg.toString() : "취소된 건이 없습니다.");
+
+        return Map.of("deleted", deleted, "failed", failed, "message", message);
     }
 
     public Long save(Long memberId, String agreeType, String agreeExt,

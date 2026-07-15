@@ -191,6 +191,9 @@
                     <button type="button" class="btn-default" id="btnReRegister"
                             style="background:#6c757d; color:#fff;" disabled>재신청
                     </button>
+                    <button type="button" class="btn-default" id="btnCancelPending"
+                            style="background:#e74c3c; color:#fff;" disabled>신청취소
+                    </button>
                     <button type="button" class="btn-default" id="btnReceiveEb14"
                             style="background:#17a2b8; color:#fff;">결과수신</button>
                     <button type="button" id="btnOpenEb11"
@@ -321,21 +324,41 @@
             {
                 binding: 'apply_type', header: '구분', width: 72, align: 'center',
                 cellTemplate: function (ctx) {
-                    var isChange = ctx.item.change_flag === 'Y';
-                    if (ctx.item.apply_type === '3') {
+                    var it = ctx.item;
+                    var isChange = it.change_flag === 'Y';
+                    // 계좌변경 세트가 병합된 행(pair_id 있음) → '계좌변경' 한 개로 표시
+                    if (isChange && it.pair_id) {
+                        return '<span class="apply-badge apply-change">계좌변경</span>';
+                    }
+                    // 짝이 안 맞아 펼쳐진 계좌변경 건 — 상태가 갈렸다는 뜻이라 정체를 그대로 드러낸다
+                    if (it.apply_type === '3') {
                         return isChange
-                            ? '<span class="apply-badge apply-change">변경(해지)</span>'
+                            ? '<span class="apply-badge apply-cancel" title="계좌변경 중 해지건. 신규건과 결과가 달라 분리 표시됩니다.">해지(변경분)</span>'
                             : '<span class="apply-badge apply-cancel">해지</span>';
                     }
                     return isChange
-                        ? '<span class="apply-badge apply-change">변경(신규)</span>'
+                        ? '<span class="apply-badge apply-new" title="계좌변경 중 신규건. 해지건과 결과가 달라 분리 표시됩니다.">신규(변경분)</span>'
                         : '<span class="apply-badge apply-new">신규</span>';
                 }
             },
             {binding: 'member_name', header: '납부자명', width: 110, align: 'left'},
             {binding: 'member_no', header: '납부자번호', width: 120, align: 'center'},
             {binding: 'bank_name', header: '은행', width: 80, align: 'center'},
-            {binding: 'bank_account', header: '계좌번호', width: 150, align: 'center'},
+            {
+                binding: 'bank_account', header: '계좌번호', width: 200, align: 'center',
+                cellTemplate: function (ctx) {
+                    var it = ctx.item;
+                    var acc = ctx.value || '-';
+                    // 병합된 계좌변경 행이면 "구계좌 → 신계좌"
+                    if (it.old_bank_account && it.old_bank_account !== acc) {
+                        return '<span style="color:#999; text-decoration:line-through;">'
+                            + it.old_bank_account + '</span>'
+                            + '<span style="color:#4a6cf7; margin:0 4px;">&rarr;</span>'
+                            + '<b>' + acc + '</b>';
+                    }
+                    return acc;
+                }
+            },
             {
                 binding: 'apply_date', header: '신청일', width: 100, align: 'center',
                 cellTemplate: function (ctx) {
@@ -552,6 +575,18 @@
                 return isNew || isCancel;
             });
 
+            // 신청취소: 아직 금결원에 안 나간 대기건만. eb13_status='SENT' 면 이미 나가서 취소 불가.
+            var cancelables = selected.filter(function (i) {
+                return i.status === 'PENDING' && i.eb13_status === 'PENDING';
+            });
+            var canCancel = cancelables.length > 0;
+            $('#btnCancelPending')
+                .prop('disabled', !canCancel)
+                .css('opacity', canCancel ? 1 : 0.5)
+                .attr('title', selected.length === 0
+                    ? '취소할 대기건을 선택하세요.'
+                    : (canCancel ? '' : '이미 전송된 건은 취소할 수 없습니다. 결과(EB14) 수신 후 재신청으로 처리하세요.'));
+
             var canReRegister = selected.some(function(i) {
                 return i.status === 'REJECTED'
                     || i.status === 'FAILED'
@@ -576,6 +611,48 @@
                     'cursor': canReRegister ? 'pointer' : 'not-allowed'
                 });
 
+        }
+
+        // 신청취소 — 대기건 삭제 + cms_member 원복
+        function cancelPending() {
+            var items = getSelectedItems().filter(function (i) {
+                return i.status === 'PENDING' && i.eb13_status === 'PENDING';
+            });
+            if (!items.length) {
+                Alert.alert('', '취소할 수 있는 대기건이 없습니다.');
+                return;
+            }
+
+            // 계좌변경 건이 섞였는지 — 세트로 함께 취소된다는 걸 미리 알려준다
+            var hasChange = items.some(function (i) { return i.change_flag === 'Y'; });
+            var names = items.map(function (i) { return i.member_name; })
+                .filter(function (v, idx, a) { return a.indexOf(v) === idx; });
+
+            var msg = '선택한 ' + items.length + '건의 신청을 취소합니다.\n\n'
+                + '대상: ' + names.join(', ') + '\n\n'
+                + '· 신청 내역은 삭제됩니다(복구 불가)\n'
+                + '· 해지신청 건은 납부자가 다시 \u2018활성\u2019 으로 돌아갑니다\n';
+            if (hasChange) {
+                msg += '· 계좌변경 건은 해지+신규가 한 세트라 함께 취소되고, 동의상태가 \u2018인증완료\u2019 로 복구됩니다\n';
+            }
+            msg += '\n계속하시겠습니까?';
+
+            Alert.confirm('', msg, function () {
+                // 병합행이면 해지행(pair_id)도 함께 취소 대상에 넣는다
+                var ids = [];
+                items.forEach(function (i) {
+                    ids.push(i.id);
+                    if (i.pair_id) ids.push(i.pair_id);
+                });
+                ids = ids.filter(function (v, ix, a) { return a.indexOf(v) === ix; });
+                AjaxUtil.postAsyncData('/api/cms/account-register/cancel',
+                    {ids: ids.join(',')},
+                    function (result) {
+                        Alert.alert('', result.message || (result.success ? '취소되었습니다.' : '취소 실패'));
+                        selectedRows = {};
+                        searchList(currentPage);
+                    });
+            });
         }
 
         // 계좌등록 신청 — EI13 → EB13 자동 순서 처리
@@ -642,10 +719,19 @@
             });
         }
 
+        // ★ 선택된 행의 id 목록.
+        //   계좌변경은 화면에선 1행이지만 DB에는 해지행+신규행 2행이다.
+        //   pair_id(해지행)를 함께 펼쳐 보내지 않으면 EB13 파일에 해지가 안 실려
+        //   "구계좌 해지 없이 신계좌만 등록" 되는 사고가 난다. 반드시 세트로 전송.
         function getSelectedIds() {
-            return Object.keys(selectedRows).map(function (k) {
-                return selectedRows[k].id;
+            var ids = [];
+            Object.keys(selectedRows).forEach(function (k) {
+                var r = selectedRows[k];
+                ids.push(r.id);
+                if (r.pair_id) ids.push(r.pair_id);
             });
+            // 중복 제거
+            return ids.filter(function (v, i, a) { return a.indexOf(v) === i; });
         }
 
         function getSelectedItems() {
@@ -797,6 +883,7 @@
             });
             $('#btnRegister').click(register);
             $('#btnReRegister').click(reRegister);
+            $('#btnCancelPending').click(cancelPending);
             $('#btnReceiveEb14').click(receiveEb14);
             $('#btnCreateFromErp').click(createFromErp);
             $('#btnEb14Confirm').click(doReceiveEb14);
@@ -826,7 +913,7 @@
                             return;
                         }
                         var d = result.data || {};
-                        $('#eb11Summary').text('총 ' + (d.total||0) + '건 / 해지가능 ' + (d.cancelable||0) + ' / 불가 ' + (d.blocked||0));
+                        $('#eb11Summary').text('총 ' + (d.total || 0) + '건 / 해지가능 ' + (d.cancelable || 0) + ' / 불가 ' + (d.blocked || 0));
                         var html = '';
                         (d.rows || []).forEach(function (r) {
                             var red = r.checkable ? '' : 'color:#e53e3e;';
@@ -836,9 +923,9 @@
                             html += '<tr style="' + red + '">'
                                 + '<td style="padding:6px; border:1px solid #dde0ea; text-align:center;">' + chk + '</td>'
                                 + '<td style="padding:6px; border:1px solid #dde0ea;">' + r.member_no + '</td>'
-                                + '<td style="padding:6px; border:1px solid #dde0ea;">' + (r.member_name||'') + '</td>'
-                                + '<td style="padding:6px; border:1px solid #dde0ea;">' + (r.file_account||'') + '</td>'
-                                + '<td style="padding:6px; border:1px solid #dde0ea;">' + (r.reason||'') + '</td>'
+                                + '<td style="padding:6px; border:1px solid #dde0ea;">' + (r.member_name || '') + '</td>'
+                                + '<td style="padding:6px; border:1px solid #dde0ea;">' + (r.file_account || '') + '</td>'
+                                + '<td style="padding:6px; border:1px solid #dde0ea;">' + (r.reason || '') + '</td>'
                                 + '</tr>';
                         });
                         $('#eb11Rows').html(html || '<tr><td colspan="5" style="padding:10px; text-align:center; color:#999;">해지 대상 없음</td></tr>');
@@ -846,10 +933,15 @@
             });
 
             $(document).on('click', '#btnEb11Apply', function () {
-                var ids = $('.eb11-chk:checked').map(function () { return $(this).data('id'); }).get();
-                if (!ids.length) { Alert.alert('', '처리할 대상을 선택하세요.'); return; }
+                var ids = $('.eb11-chk:checked').map(function () {
+                    return $(this).data('id');
+                }).get();
+                if (!ids.length) {
+                    Alert.alert('', '처리할 대상을 선택하세요.');
+                    return;
+                }
                 AjaxUtil.postAsyncData('/api/cms/account-register/apply-eb11',
-                    { bbsseq: eb11Bbsseq, member_ids: ids.join(',') }, function (result) {
+                    {bbsseq: eb11Bbsseq, member_ids: ids.join(',')}, function (result) {
                         if (!result.success) {
                             Alert.alert('처리 실패', result.message);
                             return;

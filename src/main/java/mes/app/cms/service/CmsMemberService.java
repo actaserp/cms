@@ -64,6 +64,7 @@ public class CmsMemberService {
                      , m.member_name
                      , m.member_no
                      , m.id_number
+                     , m.resident_no
                      , m.phone
                      , m.email
                      , m.zipcd
@@ -144,6 +145,7 @@ public class CmsMemberService {
                      , m.member_name
                      , m.member_no
                      , m.id_number
+                     , m.resident_no
                      , m.phone
                      , m.email
                      , m.zipcd
@@ -179,7 +181,7 @@ public class CmsMemberService {
      * 납부자 저장 (신규/수정)
      */
     public Long saveMember(Long id, String memberType, String memberName, String memberNo,
-                           String idNumber, String phone, String email,
+                           String idNumber, String residentNo, String phone, String email,
                            String zipcd, String adresa, String adresb,
                            String bankCode, String bankAccount, String accountHolder,
                            String deductDay, Long deductAmount,
@@ -215,6 +217,7 @@ public class CmsMemberService {
             param.addValue("memberName",    memberName);
             param.addValue("memberNo",      memberNo);
             param.addValue("idNumber",      idNumber);
+            param.addValue("residentNo",    residentNo);
             param.addValue("phone",         phone);
             param.addValue("email",         email);
             param.addValue("zipcd",         zipcd);
@@ -242,7 +245,7 @@ public class CmsMemberService {
             String insertSql = """
                     INSERT INTO cms_member (
                         spjangcd, member_type, member_name, member_no,
-                        id_number, phone, email,
+                        id_number, resident_no, phone, email,
                         zipcd, adresa, adresb,
                         bank_code, bank_account, account_holder,
                         deduct_day, deduct_amount,
@@ -254,7 +257,7 @@ public class CmsMemberService {
                         _creater_id, _created, _modifier_id, _modified
                     ) VALUES (
                         :spjangcd, :memberType, :memberName, :memberNo,
-                        :idNumber, :phone, :email,
+                        :idNumber, :residentNo, :phone, :email,
                         :zipcd, :adresa, :adresb,
                         :bankCode, :bankAccount, :accountHolder,
                         :deductDay, :deductAmount,
@@ -293,6 +296,7 @@ public class CmsMemberService {
             param.addValue("memberType",    StringUtils.hasText(memberType) ? memberType : "C");
             param.addValue("memberName",    memberName);
             param.addValue("idNumber",      idNumber);
+            param.addValue("residentNo",    residentNo);
             param.addValue("phone",         phone);
             param.addValue("email",         email);
             param.addValue("zipcd",         zipcd);
@@ -324,6 +328,7 @@ public class CmsMemberService {
                         member_type    = :memberType,
                         member_name    = :memberName,
                         id_number      = :idNumber,
+                        resident_no    = :residentNo,
                         phone          = :phone,
                         email          = :email,
                         zipcd          = :zipcd,
@@ -805,8 +810,18 @@ public class CmsMemberService {
                             + "          THEN REPLACE(LTRIM(RTRIM(C.saupnum)), '-', '')"
                             + "     ELSE NULL"
                             + " END AS resident_no,"
-                            + " LTRIM(RTRIM(COALESCE(XB.bnkcode, ''))) AS bank_code,"
-                            + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM, ''))), '-', ''), ' ', '') AS bank_account,"
+                            // ★ 계좌·은행 소스 = 원장(E101 우선, 없으면 XCLIENT).
+                            //   기존 CMS 프로시저(PROC_CMS_EB13_R)가 A.accnum/A.bankcd(원장)를 읽는 것과 동일.
+                            //   EB13.CMSACCNUM/BANKCD 는 "등록 신청 시점 스냅샷"이라 원장에서 계좌를 바꿔도
+                            //   갱신되지 않는다. 이걸 읽어서 84건 불일치가 발생했음. (2026-07-15 확인)
+                            //   계좌와 은행은 반드시 같은 소스에서 짝으로 가져와야 한다.
+                            + " CASE WHEN NULLIF(LTRIM(RTRIM(E1.accnum)), '') IS NOT NULL"
+                            + "      THEN LTRIM(RTRIM(COALESCE(B1.bnkcode, '')))"
+                            + "      ELSE LTRIM(RTRIM(COALESCE(B.bnkcode, ''))) END AS bank_code,"
+                            + " CASE WHEN NULLIF(LTRIM(RTRIM(E1.accnum)), '') IS NOT NULL"
+                            + "      THEN REPLACE(REPLACE(LTRIM(RTRIM(E1.accnum)), '-', ''), ' ', '')"
+                            + "      ELSE REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(C.accnum, ''))), '-', ''), ' ', '') END AS bank_account,"
+                            + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM, ''))), '-', ''), ' ', '') AS eb13_account,"
                             + " C.hptelnum AS phone,"
                             + " C.agneremail AS email,"
                             + " C.cltadres AS adresa,"
@@ -847,12 +862,15 @@ public class CmsMemberService {
                             + "         AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(BANKCLTCD))) = 0"
                             + "         AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
                             + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD = XB.bankcd"
+                            + " LEFT JOIN TB_XBANK B1 WITH(NOLOCK) ON E1.bankcd = B1.bankcd"
                             + " WHERE C.custcd = ?"
                             + " AND ("
                             + "     (C.allchk = 1 AND (SELECT COUNT(*) FROM TB_E601 WITH(NOLOCK) WHERE cltcd = C.cltcd AND custcd = C.custcd) = 1)"
                             + "     OR E1.cmsflag = 1"
                             + " )"
-                            + " AND NULLIF(LTRIM(RTRIM(EB.CMSACCNUM)), '') IS NOT NULL"
+                            // ★ 계좌 존재 조건도 원장 기준. (EB13.CMSACCNUM 이 아니라 실제 쓸 계좌가 있어야 함)
+                            + " AND (NULLIF(LTRIM(RTRIM(E1.accnum)), '') IS NOT NULL"
+                            + "      OR NULLIF(LTRIM(RTRIM(C.accnum)), '') IS NOT NULL)"
                             + " AND ("
                             + "     (C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum)) != '')"
                             + "     OR (C.saupnum IS NOT NULL AND LTRIM(RTRIM(C.saupnum)) != '')"
@@ -895,8 +913,10 @@ public class CmsMemberService {
                             + "        WHEN NULLIF(REPLACE(LTRIM(RTRIM(X.saupnum)),'-',''),'') IS NOT NULL"
                             + "        THEN REPLACE(LTRIM(RTRIM(X.saupnum)),'-','')"
                             + "        ELSE NULL END AS resident_no,"
-                            + "   LTRIM(RTRIM(COALESCE(XB.bnkcode, ''))) AS bank_code,"
-                            + "   REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS bank_account,"
+                            // ★ 계좌·은행 소스 = XCLIENT 원장. (EB.ACTCD 가 비어있는 경로 = 프로시저의 ACTCD IS NULL 분기)
+                            + "   LTRIM(RTRIM(COALESCE(XB2.bnkcode, ''))) AS bank_code,"
+                            + "   REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(X.accnum,''))),'-',''),' ','') AS bank_account,"
+                            + "   REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS eb13_account,"
                             + "   X.hptelnum AS phone,"
                             + "   X.agneremail AS email,"
                             + "   X.cltadres AS adresa,"
@@ -915,10 +935,11 @@ public class CmsMemberService {
                             + " INNER JOIN TB_XCLIENT X WITH(NOLOCK)"
                             + "     ON X.custcd = EB.CUSTCD AND X.cltcd = EB.CLTCD"
                             + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD = XB.bankcd"
+                            + " LEFT JOIN TB_XBANK XB2 WITH(NOLOCK) ON X.bankcd = XB2.bankcd"
                             + " WHERE EB.CUSTCD = ?"
                             + "   AND EB.SPFLAG = '1' AND EB.ENDFLAG = 'Y'"
                             + "   AND LEN(ISNULL(EB.ACTCD, '')) = 0"
-                            + "   AND NULLIF(LTRIM(RTRIM(EB.CMSACCNUM)), '') IS NOT NULL"
+                            + "   AND NULLIF(LTRIM(RTRIM(X.accnum)), '') IS NOT NULL"
                             + "   AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(EB.BANKCLTCD))) = 0"
                             + "   AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
                             + "   AND EB.SPDATE = ("
@@ -1141,8 +1162,14 @@ public class CmsMemberService {
                         + "          THEN REPLACE(LTRIM(RTRIM(C.saupnum)),'-','')"
                         + "     ELSE NULL"
                         + " END AS resident_no,"
-                        + " LTRIM(RTRIM(COALESCE(XB.bnkcode,''))) AS bank_code,"
-                        + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS bank_account,"
+                        // ★ 계좌·은행 소스 = 원장(E101 우선, 없으면 XCLIENT). syncFromErp ① 경로와 동일.
+                        + " CASE WHEN NULLIF(LTRIM(RTRIM(E1.accnum)),'') IS NOT NULL"
+                        + "      THEN LTRIM(RTRIM(COALESCE(B1.bnkcode,'')))"
+                        + "      ELSE LTRIM(RTRIM(COALESCE(B.bnkcode,''))) END AS bank_code,"
+                        + " CASE WHEN NULLIF(LTRIM(RTRIM(E1.accnum)),'') IS NOT NULL"
+                        + "      THEN REPLACE(REPLACE(LTRIM(RTRIM(E1.accnum)),'-',''),' ','')"
+                        + "      ELSE REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(C.accnum,''))),'-',''),' ','') END AS bank_account,"
+                        + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS eb13_account,"
                         + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(C.accnum,''))),'-',''),' ','') AS xclient_account,"
                         + " C.hptelnum AS phone, C.agneremail AS email,"
                         + " C.cltadres AS adresa, C.zipcd AS zipcd,"
@@ -1175,10 +1202,12 @@ public class CmsMemberService {
                         + "         AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(BANKCLTCD)))=0"
                         + "         AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
                         + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD=XB.bankcd"
+                        + " LEFT JOIN TB_XBANK B1 WITH(NOLOCK) ON E1.bankcd=B1.bankcd"
                         + " WHERE C.custcd=?"
                         + " AND ((C.allchk=1 AND (SELECT COUNT(*) FROM TB_E601 WITH(NOLOCK)"
                         + "       WHERE cltcd=C.cltcd AND custcd=C.custcd)=1) OR E1.cmsflag=1)"
-                        + " AND NULLIF(LTRIM(RTRIM(EB.CMSACCNUM)),'') IS NOT NULL"
+                        + " AND (NULLIF(LTRIM(RTRIM(E1.accnum)),'') IS NOT NULL"
+                        + "      OR NULLIF(LTRIM(RTRIM(C.accnum)),'') IS NOT NULL)"
                         + " AND ((C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum))!='')"
                         + "   OR (C.saupnum IS NOT NULL AND LTRIM(RTRIM(C.saupnum))!='')"
                         + "   OR (C.prenum IS NOT NULL AND LTRIM(RTRIM(C.prenum))!='' AND LEN(LTRIM(RTRIM(C.prenum)))=13)"
@@ -1207,8 +1236,10 @@ public class CmsMemberService {
                         + "      WHEN NULLIF(REPLACE(LTRIM(RTRIM(X.saupnum)),'-',''),'') IS NOT NULL"
                         + "      THEN REPLACE(LTRIM(RTRIM(X.saupnum)),'-','')"
                         + "      ELSE NULL END AS resident_no,"
-                        + " LTRIM(RTRIM(COALESCE(XB.bnkcode,''))) AS bank_code,"
-                        + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS bank_account,"
+                        // ★ 계좌·은행 소스 = XCLIENT 원장. syncFromErp ② 경로와 동일.
+                        + " LTRIM(RTRIM(COALESCE(XB2.bnkcode,''))) AS bank_code,"
+                        + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(X.accnum,''))),'-',''),' ','') AS bank_account,"
+                        + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS eb13_account,"
                         + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(X.accnum,''))),'-',''),' ','') AS xclient_account,"
                         + " X.hptelnum AS phone, X.agneremail AS email,"
                         + " X.cltadres AS adresa, X.zipcd AS zipcd,"
@@ -1223,10 +1254,11 @@ public class CmsMemberService {
                         + " FROM TB_CMSEB13 EB WITH(NOLOCK)"
                         + " INNER JOIN TB_XCLIENT X WITH(NOLOCK) ON X.custcd=EB.CUSTCD AND X.cltcd=EB.CLTCD"
                         + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD=XB.bankcd"
+                        + " LEFT JOIN TB_XBANK XB2 WITH(NOLOCK) ON X.bankcd=XB2.bankcd"
                         + " WHERE EB.CUSTCD=?"
                         + "   AND EB.SPFLAG='1' AND EB.ENDFLAG='Y'"
                         + "   AND LEN(ISNULL(EB.ACTCD,''))=0"
-                        + "   AND NULLIF(LTRIM(RTRIM(EB.CMSACCNUM)),'') IS NOT NULL"
+                        + "   AND NULLIF(LTRIM(RTRIM(X.accnum)),'') IS NOT NULL"
                         + "   AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(EB.BANKCLTCD)))=0"
                         + "   AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
                         + "   AND EB.SPDATE=(SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
@@ -2675,17 +2707,35 @@ public class CmsMemberService {
                         .addValue("memberType",    memberType)
                         .addValue("userId",        userId));
 
-        // 3) 회원 정보: 계좌는 아직 바꾸지 않고(승인 후 반영), 동의상태만 미신청으로 되돌림
+        // 3) 회원 정보: 계좌를 새 값으로 즉시 반영 + 동의상태는 미신청('N')으로 내림. (2026-07-15 변경)
+        //
+        //    ※ 이전 설계는 '승인 후 반영'이었으나, 담당자가 변경 신청한 계좌를 목록에서 바로 확인해야 해서
+        //      즉시 반영으로 전환. agree_yn='N'(인증대기)이라 아직 출금이체 등록이 안 된 상태임은 유지된다.
+        //
+        //    ★ 전제: 청구(EB21) 생성이 agree_yn='Y' 인 회원만 대상으로 해야 한다.
+        //      인증대기 회원까지 청구를 만들면, 아직 은행에 등록되지 않은 새 계좌로 출금 요청이 나가
+        //      0017(미신청계좌)로 전멸한다. 청구 생성 로직에 해당 필터가 있는지 반드시 확인할 것.
+        //
+        //    ※ 구계좌는 cms_account_register 의 해지행(change_flag='Y', apply_type='3').bank_account 에
+        //      보존된다. 신청 취소 시 그 값으로 원복한다. (CmsAccountRegisterService.cancelPending)
         sqlRunner.execute(/* skip_tenant_check */
                 """
                 UPDATE cms_member SET
-                    agree_yn     = 'N',
-                    agree_method = NULL,
-                    _modifier_id = :userId,
-                    _modified    = NOW()
+                    bank_code      = :bankCode,
+                    bank_account   = :bankAccount,
+                    account_holder = COALESCE(:accountHolder, account_holder),
+                    agree_yn       = 'N',
+                    agree_method   = NULL,
+                    _modifier_id   = :userId,
+                    _modified      = NOW()
                 WHERE id = :memberId AND spjangcd = :spjangcd
                 """,
-                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd).addValue("userId", userId));
+                new MapSqlParameterSource("memberId", memberId)
+                        .addValue("spjangcd", spjangcd)
+                        .addValue("userId", userId)
+                        .addValue("bankCode",      newBankCode)
+                        .addValue("bankAccount",   newBankAccount)
+                        .addValue("accountHolder", StringUtils.hasText(newAccountHolder) ? newAccountHolder : null));
 
         return Map.of("success", true,
                 "message", "계좌변경 신청이 접수되었습니다. '출금이체 인증 관리'에서 인증 등록 신청으로 전송하세요.");
