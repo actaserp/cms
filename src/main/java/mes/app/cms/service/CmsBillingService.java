@@ -1972,35 +1972,26 @@ public class CmsBillingService {
         String effectiveDeductType = deductType != null ? deductType : "EB";
         int nowHour = java.time.LocalTime.now().getHour();
 
-        // 청구 가능한 납부자 조회 (이미 청구된 건 제외)
+        // 청구 가능한 납부자 조회 — 이력으로 회원을 막지 않는다 (NOT EXISTS 제거)
         List<Map<String, Object>> members = sqlRunner.getRows("""
-        SELECT m.id, m.deduct_day, m.deduct_amount, m.pause_start_date, m.pause_end_date
-        FROM cms_member m
-        WHERE m.spjangcd  = :spjangcd
-          AND m.status    = 'ACTIVE'
-          AND m.agree_yn  = 'Y'
-          AND m.start_date <= :lastDay
-          AND m.end_date   >= :firstDay
-          AND (
-              m.cycle_type = 'REGULAR'
-              OR (m.cycle_type = 'IRREGULAR' AND :monthStr = ANY(STRING_TO_ARRAY(m.cycle_months, ',')))
-          )
-          AND NOT EXISTS (
-              SELECT 1 FROM cms_billing b
-              WHERE b.member_id   = m.id
-                AND b.billing_ym  = :billingYm
-                AND b.spjangcd    = :spjangcd
-                AND b.deduct_type = :deductType
-          )
-        ORDER BY m.deduct_day
-        """,
+    SELECT m.id, m.deduct_day, m.deduct_amount, m.pause_start_date, m.pause_end_date
+    FROM cms_member m
+    WHERE m.spjangcd  = :spjangcd
+      AND m.status    = 'ACTIVE'
+      AND m.agree_yn  = 'Y'
+      AND m.start_date <= :lastDay
+      AND m.end_date   >= :firstDay
+      AND (
+          m.cycle_type = 'REGULAR'
+          OR (m.cycle_type = 'IRREGULAR' AND :monthStr = ANY(STRING_TO_ARRAY(m.cycle_months, ',')))
+      )
+    ORDER BY m.deduct_day
+    """,
                 new MapSqlParameterSource()
                         .addValue("spjangcd",   spjangcd)
-                        .addValue("billingYm",  billingYm)
                         .addValue("firstDay",   firstDay)
                         .addValue("lastDay",    lastDay)
-                        .addValue("monthStr",   monthStr)
-                        .addValue("deductType", effectiveDeductType));
+                        .addValue("monthStr",   monthStr));
 
         // 약정일별로 그룹핑하면서 청구 가능 여부 체크
         Map<String, Integer> dayCntMap    = new LinkedHashMap<>();
@@ -2018,6 +2009,24 @@ public class CmsBillingService {
             String deductDate = "99".equals(deductDay) ? lastDay : billingYm + deductDay;
             deductDate = cmsHolidayService.getNextBusinessDay(deductDate);
 
+            // ⭐ 이번 출금일에 이미 유효한 청구(PENDING/REQUESTED/SUCCESS)가 있으면 카운트 제외
+            //    (생성 로직과 동일 기준 — FAIL/ERROR/CANCEL은 재청구 대상이므로 카운트에 포함)
+            Map<String, Object> dup = sqlRunner.getRow("""
+            SELECT 1 FROM cms_billing
+            WHERE spjangcd    = :spjangcd
+              AND member_id   = :memberId
+              AND deduct_type = :deductType
+              AND deduct_date = :deductDate
+              AND status IN ('PENDING','REQUESTED','SUCCESS')
+            LIMIT 1
+            """,
+                    new MapSqlParameterSource()
+                            .addValue("spjangcd",   spjangcd)
+                            .addValue("memberId",   ((Number) m.get("id")).longValue())
+                            .addValue("deductType", effectiveDeductType)
+                            .addValue("deductDate", deductDate));
+            if (dup != null) continue;
+
             // 청구 가능 여부 판단
             boolean available = true;
             String reason = "";
@@ -2034,7 +2043,7 @@ public class CmsBillingService {
                     reason = "신청마감 경과";
                 } else if (deadlineDay.equals(todayStr) && nowHour >= 17) {
                     available = false;
-                    reason = "오늘 15시 마감 초과";
+                    reason = "오늘 17시 마감 초과";
                 }
             } else if ("EC".equals(effectiveDeductType)) {
                 if (deductDate.equals(todayStr) && nowHour >= 11) {
