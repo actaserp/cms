@@ -829,51 +829,40 @@ public class CmsBillingService {
     public Map<String, Object> generateBilling(String billingYm, String deductType, String userId) {
         String spjangcd = TenantContext.get();
 
-        // 청구년월 → 해당 월의 첫날/마지막날
         YearMonth ym = YearMonth.parse(billingYm, DateTimeFormatter.ofPattern("yyyyMM"));
         String firstDay = ym.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String lastDay  = ym.atEndOfMonth().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        // cycle_months 비교용 월 (정수 문자열: "4", "12" 등)
         String monthStr = String.valueOf(ym.getMonthValue());
 
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
-        param.addValue("billingYm", billingYm);
         param.addValue("firstDay", firstDay);
         param.addValue("lastDay", lastDay);
         param.addValue("monthStr", monthStr);
-        param.addValue("deductType", deductType != null ? deductType : "EB");
 
-        // 자동생성 대상 납부자 조회
+        // 자동생성 대상 납부자 조회 — 이력으로 회원을 막지 않는다 (NOT EXISTS 제거)
         String memberSql = """
-                SELECT m.id
-                     , m.member_name
-                     , m.bank_code
-                     , m.bank_account
-                     , m.account_holder
-                     , m.deduct_amount
-                     , m.deduct_day
-                     , m.pause_start_date
-                     , m.pause_end_date
-                FROM cms_member m
-                WHERE m.spjangcd     = :spjangcd
-                  AND m.status       = 'ACTIVE'
-                  AND m.agree_yn     = 'Y'
-                  AND m.start_date  <= :lastDay
-                  AND m.end_date    >= :firstDay
-                  AND (
-                      m.cycle_type = 'REGULAR'
-                      OR (m.cycle_type = 'IRREGULAR' AND :monthStr = ANY(STRING_TO_ARRAY(m.cycle_months, ',')))
-                  )
-                  AND NOT EXISTS (
-                      SELECT 1 FROM cms_billing b
-                      WHERE b.member_id   = m.id
-                        AND b.billing_ym  = :billingYm
-                        AND b.spjangcd    = :spjangcd
-                        AND b.deduct_type = :deductType
-                  )
-                ORDER BY m.id
-                """;
+            SELECT m.id
+                 , m.member_name
+                 , m.bank_code
+                 , m.bank_account
+                 , m.account_holder
+                 , m.deduct_amount
+                 , m.deduct_day
+                 , m.pause_start_date
+                 , m.pause_end_date
+            FROM cms_member m
+            WHERE m.spjangcd     = :spjangcd
+              AND m.status       = 'ACTIVE'
+              AND m.agree_yn     = 'Y'
+              AND m.start_date  <= :lastDay
+              AND m.end_date    >= :firstDay
+              AND (
+                  m.cycle_type = 'REGULAR'
+                  OR (m.cycle_type = 'IRREGULAR' AND :monthStr = ANY(STRING_TO_ARRAY(m.cycle_months, ',')))
+              )
+            ORDER BY m.id
+            """;
 
         List<Map<String, Object>> members = sqlRunner.getRows(memberSql, param);
 
@@ -883,27 +872,20 @@ public class CmsBillingService {
             return result;
         }
 
-        // 현재 최대 seq 조회 → 채번 시작값 결정
         int nextSeq = getNextBillingSeqNo(spjangcd, billingYm);
 
-        // 건별 INSERT
         int count = 0;
         int skippedCount = 0;
         java.time.LocalDate today = java.time.LocalDate.now();
         int nowHour = java.time.LocalTime.now().getHour();
         String todayStr = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String tomorrowStr = today.plusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String effectiveDeductType = deductType != null ? deductType : "EB";
 
         for (Map<String, Object> m : members) {
             String deductDay = (String) m.get("deduct_day");
+            if (deductDay == null || deductDay.isEmpty()) { skippedCount++; continue; }
+
             String deductDate = "99".equals(deductDay) ? lastDay : billingYm + deductDay;
-
-            if (deductDay == null || deductDay.isEmpty()) {
-                skippedCount++;
-                continue;
-            }
-
             deductDate = cmsHolidayService.getNextBusinessDay(deductDate);
 
             // 오늘 이전 날짜 스킵
@@ -912,16 +894,35 @@ public class CmsBillingService {
                 String deadlineDay = cmsHolidayService.getPrevBusinessDay(
                         LocalDate.parse(deductDate, DateTimeFormatter.ofPattern("yyyyMMdd"))
                                 .minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+                // (원본 유지) 마감 지난 건 자동에서는 막지 않음. 통일하려면 아래 한 줄 추가:
+                // if (deadlineDay.compareTo(todayStr) < 0) { skippedCount++; continue; }
                 if (deadlineDay.equals(todayStr) && nowHour >= 17) { skippedCount++; continue; }
             }
             if ("EC".equals(effectiveDeductType) && deductDate.equals(todayStr) && nowHour >= 11) { skippedCount++; continue; }
 
-            // 중지 기간 체크 — 청구년월 기준으로 판단
+            // 중지 기간 체크
             if (isPausedInBillingMonth(m, ym)) {
                 log.info("[generateBilling] 중지 기간 → 청구 생성 스킵 - memberId: {}", m.get("id"));
                 skippedCount++;
                 continue;
             }
+
+            // ⭐ 중복 판정: '이번 출금일(deduct_date)'에 유효한 청구가 있을 때만 스킵
+            Map<String, Object> dup = sqlRunner.getRow("""
+            SELECT 1 FROM cms_billing
+            WHERE spjangcd    = :spjangcd
+              AND member_id   = :memberId
+              AND deduct_type = :deductType
+              AND deduct_date = :deductDate
+              AND status IN ('PENDING','REQUESTED','SUCCESS')
+            LIMIT 1
+            """,
+                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                            .addValue("spjangcd",   spjangcd)
+                            .addValue("memberId",   ((Number) m.get("id")).longValue())
+                            .addValue("deductType", effectiveDeductType)
+                            .addValue("deductDate", deductDate));
+            if (dup != null) { skippedCount++; continue; }
 
             String billingSeq = billingYm + "-" + String.format("%04d", nextSeq++);
 
@@ -937,23 +938,23 @@ public class CmsBillingService {
             ip.addValue("billingAmount", m.get("deduct_amount"));
             ip.addValue("deductDay",     deductDay);
             ip.addValue("deductDate",    deductDate);
-            ip.addValue("deductType",    deductType != null ? deductType : "EB");
+            ip.addValue("deductType",    effectiveDeductType);
             ip.addValue("userId",        userId);
-            ip.addValue("sendDate",      calcSendDate(deductDate, deductType != null ? deductType : "EB"));
+            ip.addValue("sendDate",      calcSendDate(deductDate, effectiveDeductType));
 
             String insertSql = """
-                    INSERT INTO cms_billing (
-                        spjangcd, billing_ym, billing_seq,
-                        member_id, member_name, bank_code, bank_account, account_holder,
-                        billing_amount, deduct_day, deduct_date, send_date,
-                        deduct_type, status, _creater_id, _created, _modifier_id, _modified
-                    ) VALUES (
-                        :spjangcd, :billingYm, :billingSeq,
-                        :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
-                        :billingAmount, :deductDay, :deductDate, :sendDate,
-                        :deductType, 'PENDING', :userId, NOW(), :userId, NOW()
-                    )
-                    """;
+                INSERT INTO cms_billing (
+                    spjangcd, billing_ym, billing_seq,
+                    member_id, member_name, bank_code, bank_account, account_holder,
+                    billing_amount, deduct_day, deduct_date, send_date,
+                    deduct_type, status, _creater_id, _created, _modifier_id, _modified
+                ) VALUES (
+                    :spjangcd, :billingYm, :billingSeq,
+                    :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
+                    :billingAmount, :deductDay, :deductDate, :sendDate,
+                    :deductType, 'PENDING', :userId, NOW(), :userId, NOW()
+                )
+                """;
             sqlRunner.execute(insertSql, ip);
             count++;
         }
@@ -2084,38 +2085,29 @@ public class CmsBillingService {
                 .map(d -> "말일".equals(d) ? "99" : String.format("%02d", Integer.parseInt(d.replace("일", ""))))
                 .collect(java.util.stream.Collectors.toList());
 
-        // 대상 납부자 조회
+        // 대상 납부자 조회 — 이력으로 회원을 막지 않는다 (NOT EXISTS 제거)
         List<Map<String, Object>> members = sqlRunner.getRows("""
-        SELECT m.id, m.member_name, m.bank_code, m.bank_account, m.account_holder,
-               m.deduct_amount, m.deduct_day, m.pause_start_date, m.pause_end_date
-        FROM cms_member m
-        WHERE m.spjangcd  = :spjangcd
-          AND m.status    = 'ACTIVE'
-          AND m.agree_yn  = 'Y'
-          AND m.start_date <= :lastDay
-          AND m.end_date   >= :firstDay
-          AND m.deduct_day = ANY(:deductDays::TEXT[])
-          AND (
-              m.cycle_type = 'REGULAR'
-              OR (m.cycle_type = 'IRREGULAR' AND :monthStr = ANY(STRING_TO_ARRAY(m.cycle_months, ',')))
-          )
-          AND NOT EXISTS (
-              SELECT 1 FROM cms_billing b
-              WHERE b.member_id   = m.id
-                AND b.billing_ym  = :billingYm
-                AND b.spjangcd    = :spjangcd
-                AND b.deduct_type = :deductType
-          )
-        ORDER BY m.deduct_day, m.id
-        """,
+    SELECT m.id, m.member_name, m.bank_code, m.bank_account, m.account_holder,
+           m.deduct_amount, m.deduct_day, m.pause_start_date, m.pause_end_date
+    FROM cms_member m
+    WHERE m.spjangcd  = :spjangcd
+      AND m.status    = 'ACTIVE'
+      AND m.agree_yn  = 'Y'
+      AND m.start_date <= :lastDay
+      AND m.end_date   >= :firstDay
+      AND m.deduct_day = ANY(:deductDays::TEXT[])
+      AND (
+          m.cycle_type = 'REGULAR'
+          OR (m.cycle_type = 'IRREGULAR' AND :monthStr = ANY(STRING_TO_ARRAY(m.cycle_months, ',')))
+      )
+    ORDER BY m.deduct_day, m.id
+    """,
                 new MapSqlParameterSource()
                         .addValue("spjangcd",   spjangcd)
-                        .addValue("billingYm",  billingYm)
                         .addValue("firstDay",   firstDay)
                         .addValue("lastDay",    lastDay)
                         .addValue("monthStr",   monthStr)
-                        .addValue("deductDays", normalizedDays.toArray(new String[0]))
-                        .addValue("deductType", effectiveDeductType));
+                        .addValue("deductDays", normalizedDays.toArray(new String[0])));
 
         int count = 0, skippedCount = 0;
         int nextSeq = getNextBillingSeqNo(spjangcd, billingYm);
@@ -2143,9 +2135,27 @@ public class CmsBillingService {
                 skippedCount++; continue;
             }
 
+            // ⭐ 중복 판정: billing_ym이 아니라 '이번 출금일(deduct_date)'에
+            //    유효한 청구(PENDING/REQUESTED/SUCCESS)가 있을 때만 스킵.
+            //    FAIL/ERROR/CANCEL은 유효하지 않으므로 재생성 허용.
+            Map<String, Object> dup = sqlRunner.getRow("""
+            SELECT 1 FROM cms_billing
+            WHERE spjangcd    = :spjangcd
+              AND member_id   = :memberId
+              AND deduct_type = :deductType
+              AND deduct_date = :deductDate
+              AND status IN ('PENDING','REQUESTED','SUCCESS')
+            LIMIT 1
+            """,
+                    new MapSqlParameterSource()
+                            .addValue("spjangcd",   spjangcd)
+                            .addValue("memberId",   ((Number) m.get("id")).longValue())
+                            .addValue("deductType", effectiveDeductType)
+                            .addValue("deductDate", deductDate));
+            if (dup != null) { skippedCount++; continue; }
+
             String billingSeq = billingYm + "-" + String.format("%04d", nextSeq++);
 
-            // send_date = 오늘 (수동 생성)
             var ip = new MapSqlParameterSource();
             ip.addValue("spjangcd",      spjangcd);
             ip.addValue("billingYm",     billingYm);
@@ -2163,18 +2173,18 @@ public class CmsBillingService {
             ip.addValue("userId",        userId);
 
             sqlRunner.execute("""
-            INSERT INTO cms_billing (
-                spjangcd, billing_ym, billing_seq,
-                member_id, member_name, bank_code, bank_account, account_holder,
-                billing_amount, deduct_day, deduct_date, send_date,
-                deduct_type, status, _creater_id, _created, _modifier_id, _modified
-            ) VALUES (
-                :spjangcd, :billingYm, :billingSeq,
-                :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
-                :billingAmount, :deductDay, :deductDate, :sendDate,
-                :deductType, 'PENDING', :userId, NOW(), :userId, NOW()
-            )
-            """, ip);
+        INSERT INTO cms_billing (
+            spjangcd, billing_ym, billing_seq,
+            member_id, member_name, bank_code, bank_account, account_holder,
+            billing_amount, deduct_day, deduct_date, send_date,
+            deduct_type, status, _creater_id, _created, _modifier_id, _modified
+        ) VALUES (
+            :spjangcd, :billingYm, :billingSeq,
+            :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
+            :billingAmount, :deductDay, :deductDate, :sendDate,
+            :deductType, 'PENDING', :userId, NOW(), :userId, NOW()
+        )
+        """, ip);
             count++;
         }
 
