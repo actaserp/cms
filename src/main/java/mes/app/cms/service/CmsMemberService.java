@@ -841,6 +841,8 @@ public class CmsMemberService {
                             + " E1.enddate AS end_date,"
                             + " E1.accyn AS accyn,"
                             + " EB.BANKCLTCD AS member_no,"
+                            + " EB.SPFLAG AS eb13_spflag,"
+                            + " EB.ENDFLAG AS eb13_endflag,"
                             + " E1.delmon1, E1.delmon2, E1.delmon3, E1.delmon4,"
                             + " E1.delmon5, E1.delmon6, E1.delmon7, E1.delmon8,"
                             + " E1.delmon9, E1.delmon10, E1.delmon11, E1.delmon12"
@@ -848,17 +850,15 @@ public class CmsMemberService {
                             + " LEFT JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd"
                             + " INNER JOIN TB_E601 E6 WITH(NOLOCK) ON C.cltcd = E6.cltcd AND C.custcd = E6.custcd"
                             + " INNER JOIN TB_E101 E1 WITH(NOLOCK) ON E6.actcd = E1.actcd AND E6.custcd = E1.custcd"
-                            + " INNER JOIN TB_CMSEB13 EB WITH(NOLOCK)"
+                            + " LEFT JOIN TB_CMSEB13 EB WITH(NOLOCK)"
                             + "     ON EB.CLTCD = E6.actcd"
                             + "     AND EB.CUSTCD = C.custcd"
-                            + "     AND EB.ENDFLAG = 'Y'"
                             + "     AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(EB.BANKCLTCD))) = 0"
                             + "     AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
                             + "     AND EB.SPDATE = ("
                             + "         SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
                             + "         WHERE CLTCD = E6.actcd"
                             + "         AND CUSTCD = C.custcd"
-                            + "         AND ENDFLAG = 'Y'"
                             + "         AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(BANKCLTCD))) = 0"
                             + "         AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
                             + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD = XB.bankcd"
@@ -991,11 +991,14 @@ public class CmsMemberService {
                                 continue;
                             }
 
-                            // accyn = 1 → EB13 인증완료 → agree_yn = Y
-                            String agreeYn = StringUtils.hasText(erpMemberNo) ? "Y" : "N";
+                            // EB13 인증완료 판정: SPFLAG='1'(신규) AND ENDFLAG='Y'(완료)일 때만 Y.
+                            // (해지건 SPFLAG='3'/ENDFLAG='Y' 를 인증완료로 오인하지 않도록)
+                            String eb13Spflag  = rs.getString("eb13_spflag");
+                            String eb13Endflag = rs.getString("eb13_endflag");
+                            String agreeYn = ("1".equals(eb13Spflag) && "Y".equals(eb13Endflag)) ? "Y" : "N";
 
-                            log.info("[ERP동기화] member확인: cltcd={} actcd={} erpMemberNo='{}' accyn='{}' agreeYn={}",
-                                    cltcd, actcd, erpMemberNo, accyn, agreeYn);
+                            log.info("[ERP동기화] member확인: cltcd={} actcd={} erpMemberNo='{}' spflag='{}' endflag='{}' agreeYn={}",
+                                    cltcd, actcd, erpMemberNo, eb13Spflag, eb13Endflag, agreeYn);
 
                             // deduct_day 처리
                             String autoFlag  = rs.getString("auto_flag");
@@ -1047,7 +1050,8 @@ public class CmsMemberService {
                             } else if (StringUtils.hasText(erpMemberNo)) {
                                 memberNo = erpMemberNo;
                             } else {
-                                memberNo = null;
+                                // EB13(BANKCLTCD) 없는 신규 → 규칙으로 납부자번호 생성
+                                memberNo = generateMemberNo(spjangcd, bankCode, idNumber);
                             }
 
                             String corpperclafi = rs.getString("corpperclafi");
@@ -1137,7 +1141,7 @@ public class CmsMemberService {
      * previewSync / applySync 공용 헬퍼.
      */
     private List<Map<String, Object>> fetchErpSyncRows(
-            java.sql.Connection conn, String custcd, int roundUnit,
+            java.sql.Connection conn, String spjangcd, String custcd, int roundUnit,
             Set<String> excludeSet) throws Exception {
 
         Map<String, String> bnkCodeMap = new java.util.HashMap<>();
@@ -1185,6 +1189,8 @@ public class CmsMemberService {
                         + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autoflag)),''),NULLIF(LTRIM(RTRIM(C.autoflag)),'')) AS auto_flag,"
                         + " E1.stdate AS start_date, E1.enddate AS end_date,"
                         + " EB.BANKCLTCD AS member_no,"
+                        + " EB.SPFLAG AS eb13_spflag,"
+                        + " EB.ENDFLAG AS eb13_endflag,"
                         + " E1.delmon1,E1.delmon2,E1.delmon3,E1.delmon4,"
                         + " E1.delmon5,E1.delmon6,E1.delmon7,E1.delmon8,"
                         + " E1.delmon9,E1.delmon10,E1.delmon11,E1.delmon12"
@@ -1192,13 +1198,13 @@ public class CmsMemberService {
                         + " LEFT JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd=B.bankcd"
                         + " INNER JOIN TB_E601 E6 WITH(NOLOCK) ON C.cltcd=E6.cltcd AND C.custcd=E6.custcd"
                         + " INNER JOIN TB_E101 E1 WITH(NOLOCK) ON E6.actcd=E1.actcd AND E6.custcd=E1.custcd"
-                        + " INNER JOIN TB_CMSEB13 EB WITH(NOLOCK)"
-                        + "     ON EB.CLTCD=E6.actcd AND EB.CUSTCD=C.custcd AND EB.ENDFLAG='Y'"
+                        + " LEFT JOIN TB_CMSEB13 EB WITH(NOLOCK)"
+                        + "     ON EB.CLTCD=E6.actcd AND EB.CUSTCD=C.custcd"
                         + "     AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(EB.BANKCLTCD)))=0"
                         + "     AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
                         + "     AND EB.SPDATE=("
                         + "         SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
-                        + "         WHERE CLTCD=E6.actcd AND CUSTCD=C.custcd AND ENDFLAG='Y'"
+                        + "         WHERE CLTCD=E6.actcd AND CUSTCD=C.custcd"
                         + "         AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(BANKCLTCD)))=0"
                         + "         AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
                         + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD=XB.bankcd"
@@ -1319,7 +1325,17 @@ public class CmsMemberService {
                     String idNumber     = rs.getString("id_number");
                     String erpMemberNo  = rs.getString("member_no");
                     if ("null".equalsIgnoreCase(erpMemberNo)) erpMemberNo = null;
-                    String agreeYn = StringUtils.hasText(erpMemberNo) ? "Y" : "N";
+
+                    // EB13 인증완료 판정: SPFLAG='1'(신규) AND ENDFLAG='Y'(완료)일 때만 Y.
+                    // (해지건 SPFLAG='3'/ENDFLAG='Y' 를 인증완료로 오인하지 않도록)
+                    String eb13Spflag  = rs.getString("eb13_spflag");
+                    String eb13Endflag = rs.getString("eb13_endflag");
+                    String agreeYn = ("1".equals(eb13Spflag) && "Y".equals(eb13Endflag)) ? "Y" : "N";
+
+                    // EB13(BANKCLTCD) 없는 신규 → 규칙으로 납부자번호 생성
+                    if (!StringUtils.hasText(erpMemberNo)) {
+                        erpMemberNo = generateMemberNo(spjangcd, bankCode, idNumber);
+                    }
 
                     String memberType;
                     if (StringUtils.hasText(saupnum)) {
@@ -1435,7 +1451,7 @@ public class CmsMemberService {
 
             // EB13 행 → cltcd 키 맵 구성 (제안값 참조용)
             Map<String, Map<String, Object>> erpRowMap = new java.util.LinkedHashMap<>();
-            for (Map<String, Object> erpRow : fetchErpSyncRows(conn, custcd, roundUnit, excludeSet)) {
+            for (Map<String, Object> erpRow : fetchErpSyncRows(conn, spjangcd, custcd, roundUnit, excludeSet)) {
                 erpRowMap.put(str(erpRow.get("cltcd")), erpRow);
             }
 
@@ -1712,7 +1728,7 @@ public class CmsMemberService {
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
                 url, str(erp.get("username")), str(erp.get("password")))) {
 
-            for (Map<String, Object> erpRow : fetchErpSyncRows(conn, custcd, roundUnit, excludeSet)) {
+            for (Map<String, Object> erpRow : fetchErpSyncRows(conn, spjangcd, custcd, roundUnit, excludeSet)) {
                 String actcd = str(erpRow.get("cltcd"));
                 if (selected != null && !selected.contains(actcd)) { skipped++; continue; }
 
@@ -1899,7 +1915,7 @@ public class CmsMemberService {
         Map<String, Map<String, Object>> erpRowMap = new java.util.HashMap<>();
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
                 url, str(erp.get("username")), str(erp.get("password")))) {
-            for (Map<String, Object> r : fetchErpSyncRows(conn, custcd, roundUnit, excludeSet)) {
+            for (Map<String, Object> r : fetchErpSyncRows(conn, spjangcd, custcd, roundUnit, excludeSet)) {
                 String c = str(r.get("cltcd"));
                 if (wanted.contains(c)) erpRowMap.put(c, r);
             }
