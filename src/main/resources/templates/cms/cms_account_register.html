@@ -771,12 +771,9 @@
                         $.ajax({
                             url: withCtx('/api/cms/account-register/update-file'),
                             type: 'POST',
-                            headers: {'X-CSRF-TOKEN': $('[name=_csrf]').val()},
-                            data: {id: item.id, member_id: item.member_id},
-                            success: function () {
-                                modal.close();
-                                searchList(0);
-                            }
+                            headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
+                            data: { id: item.id, member_id: item.member_id },
+                            success: function() { modal.close(); searchList(0); }
                         });
                     },
                     can_write: item.status === 'PENDING'
@@ -786,17 +783,15 @@
 
                 // deleteFile 오버라이드 — 파일 삭제 시 agree_file_path 초기화
                 var originalDeleteFile = agreeUploader.deleteFile.bind(agreeUploader);
-                agreeUploader.deleteFile = function (fileIndex) {
+                agreeUploader.deleteFile = function(fileIndex) {
                     var result = originalDeleteFile(fileIndex);
                     if (result) {
                         $.ajax({
                             url: withCtx('/api/cms/account-register/clear-file'),
                             type: 'POST',
-                            headers: {'X-CSRF-TOKEN': $('[name=_csrf]').val()},
-                            data: {id: item.id},
-                            success: function () {
-                                searchList(0);
-                            }
+                            headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
+                            data: { id: item.id },
+                            success: function() { searchList(0); }
                         });
                     }
                     return result;
@@ -815,20 +810,20 @@
             $.ajax({
                 url: withCtx('/api/cms/account-register/eb14-file-list'),
                 type: 'GET',
-                success: function (result) {
+                success: function(result) {
                     if (!result.success || !result.data || result.data.length === 0) {
                         Alert.alert('', '수신 가능한 EB14 파일이 없습니다.');
                         return;
                     }
                     var html = '';
-                    result.data.forEach(function (f) {
+                    result.data.forEach(function(f) {
                         var processed = f.processed;
                         var badge = processed
                             ? '<span style="background:#d4edda; color:#155724; padding:2px 8px; border-radius:8px; font-size:11px;">처리완료</span>'
                             : '<span style="background:#fff3cd; color:#856404; padding:2px 8px; border-radius:8px; font-size:11px;">미처리</span>';
                         html += '<tr>'
                             + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
-                            + (processed ? '' : '<input type="checkbox" class="eb14-check" data-date="' + f.transactionDate + '" checked>')
+                            +   (processed ? '' : '<input type="checkbox" class="eb14-check" data-date="' + f.transactionDate + '" checked>')
                             + '</td>'
                             + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + f.fileName + '</td>'
                             + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + f.transactionDate + '</td>'
@@ -843,7 +838,7 @@
 
         function doReceiveEb14() {
             var dates = [];
-            $('.eb14-check:checked').each(function () {
+            $('.eb14-check:checked').each(function() {
                 dates.push($(this).data('date'));
             });
             if (dates.length === 0) {
@@ -853,10 +848,10 @@
             $('#modalEb14').hide();
 
             var done = 0;
-            dates.forEach(function (date) {
+            dates.forEach(function(date) {
                 AjaxUtil.postAsyncData('/api/cms/account-register/receive-eb14',
-                    {target_date: date},
-                    function (result) {
+                    { target_date: date },
+                    function(result) {
                         done++;
                         if (done === dates.length) {
                             Alert.alert('', dates.length + '건 수신 완료');
@@ -903,21 +898,18 @@
 
             $(document).on('click', '#btnOpenEb11', function () {
                 eb11Bbsseq = Math.floor(Date.now() % 1000000000);   // temp bbsseq
-                $('#eb11Rows').empty();
-                $('#eb11Summary').text('');
+                $('#eb11Rows').empty(); $('#eb11Summary').text('');
                 $('#modalEb11UploaderDiv').empty();
                 eb11Uploader = new ax5FileUploadClass('modalEb11UploaderDiv', eb11Bbsseq, {
                     table_name: 'EB11', attach_name: 'EB11', manual_upload: false
                 });
                 $('#modalEb11').css('display', 'flex');
             });
-            $(document).on('click', '#btnEb11Cancel', function () {
-                $('#modalEb11').hide();
-            });
+            $(document).on('click', '#btnEb11Cancel', function () { $('#modalEb11').hide(); });
 
             $(document).on('click', '#btnEb11Preview', function () {
                 AjaxUtil.postAsyncData('/api/cms/account-register/preview-eb11',
-                    {bbsseq: eb11Bbsseq}, function (result) {
+                    { bbsseq: eb11Bbsseq }, function (result) {
                         if (!result.success) {
                             Alert.alert('미리보기 실패', result.message);
                             return;
