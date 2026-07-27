@@ -358,16 +358,20 @@ public class CmsMemberService {
 
             sqlRunner.execute(updateSql, param);
 
-            sqlRunner.execute(/* skip_tenant_check */
-                    """
-                    UPDATE cms_account_register
-                    SET member_no = :memberNo
-                    WHERE member_id = :id AND spjangcd = :spjangcd
-                    """,
-                    new MapSqlParameterSource()
-                            .addValue("memberNo", memberNo)
-                            .addValue("id", id)
-                            .addValue("spjangcd", spjangcd));
+            sqlRunner.execute("""
+                UPDATE cms_account_register
+                SET member_no      = :memberNo,
+                    member_name    = :memberName,
+                    bank_code      = :bankCode,
+                    bank_account   = :bankAccount,
+                    account_holder = :accountHolder,
+                    id_number      = :idNumber,
+                    member_type    = :memberType,
+                    _modified      = NOW()
+                WHERE member_id = :id
+                  AND spjangcd  = :spjangcd
+                  AND COALESCE(eb13_status,'PENDING') <> 'SENT'
+                """, param);
 
             return id;
         }
@@ -1362,6 +1366,8 @@ public class CmsMemberService {
                     row.put("xclient_account", rs.getString("xclient_account"));
                     row.put("erp_member_no", erpMemberNo);
                     row.put("agree_yn",      agreeYn);
+                    row.put("eb13_spflag",   eb13Spflag);
+                    row.put("eb13_endflag",  eb13Endflag);
                     row.put("phone",         rs.getString("phone"));
                     row.put("email",         rs.getString("email"));
                     row.put("adresa",        rs.getString("adresa"));
@@ -1406,7 +1412,7 @@ public class CmsMemberService {
 
         // cms_member 현재값
         List<Map<String, Object>> members = sqlRunner.getRows(/* skip_tenant_check */
-                "SELECT id, cltcd, member_no, member_name, member_type, id_number, resident_no, bank_code, bank_account, deduct_amount, deduct_day, sync_confirmed_ref FROM cms_member WHERE spjangcd = :spjangcd",
+                "SELECT id, cltcd, member_no, member_name, member_type, id_number, resident_no, bank_code, bank_account, deduct_amount, deduct_day, agree_yn, sync_confirmed_ref FROM cms_member WHERE spjangcd = :spjangcd",
                 new MapSqlParameterSource("spjangcd", spjangcd));
         Map<String, Map<String, Object>> memberMap = new java.util.HashMap<>();
         for (Map<String, Object> m : members) memberMap.put(str(m.get("cltcd")), m);
@@ -1564,6 +1570,11 @@ public class CmsMemberService {
                 item.put("key_changes",      keyChanges);
                 item.put("info_changes",     infoChanges);
                 item.put("new_values", erpRow);
+                // 인증 상태(화면 표시용): 웹 현재값 / ERP(EB13) 기준값
+                item.put("agree_yn",     existing.get("agree_yn"));
+                item.put("erp_agree_yn", erpRow.get("agree_yn"));
+                item.put("eb13_spflag",  erpRow.get("eb13_spflag"));
+                item.put("eb13_endflag", erpRow.get("eb13_endflag"));
 
                 // ── 3층 신호 (화면 정렬·강조용) ──
                 boolean sigBilling  = lastResultCode != null && acctFailCodes.contains(lastResultCode);

@@ -1526,32 +1526,41 @@ public class CmsBillingService {
                 dbUrl, str(erp.get("username")), str(erp.get("password")))) {
 
             String sql = """
-            SELECT
-                D.cltcd,
-                D.actcd,
-                D.misdate,
-                D.misnum,
-                C.cltnm                           AS member_name_rep,
-                F.actnm                           AS member_name_site,
-                C.autoflag                        AS autoflag,
-                SUM(D.samt + ISNULL(D.addamt, 0)) AS billing_amount
-            FROM TB_DA024 D WITH(NOLOCK)
-            INNER JOIN TB_XCLIENT C WITH(NOLOCK)
-                ON D.cltcd = C.cltcd
-                AND C.custcd = ?
-                AND C.accnum IS NOT NULL
-                AND LTRIM(RTRIM(C.accnum)) != ''
-                AND C.cmsrnum IS NOT NULL
-                AND LTRIM(RTRIM(C.cmsrnum)) != ''
-            LEFT JOIN TB_E601 F WITH(NOLOCK)
-                ON F.custcd = D.custcd
-                AND F.actcd = D.actcd
-            WHERE D.custcd = ?
-            AND LEFT(D.misdate, 6) IN (?, ?)
-            AND D.samt > 0
-            GROUP BY D.cltcd, D.actcd, D.misdate, D.misnum, C.cltnm, F.actnm, C.autoflag
-            ORDER BY D.cltcd, D.misdate
-            """;
+                SELECT
+                    D.cltcd,
+                    D.actcd,
+                    D.misdate,
+                    D.misnum,
+                    C.cltnm                           AS member_name_rep,
+                    F.actnm                           AS member_name_site,
+                    COALESCE(NULLIF(LTRIM(RTRIM(C.autoflag)),''),
+                             NULLIF(LTRIM(RTRIM(E.autoflag)),'')) AS autoflag,
+                    SUM(D.samt + ISNULL(D.addamt, 0)) AS billing_amount
+                FROM TB_DA024 D WITH(NOLOCK)
+                INNER JOIN TB_XCLIENT C WITH(NOLOCK)
+                    ON D.cltcd = C.cltcd
+                    AND C.custcd = ?
+                LEFT JOIN TB_E601 F WITH(NOLOCK)
+                    ON F.custcd = D.custcd
+                    AND F.actcd = D.actcd
+                OUTER APPLY (
+                    SELECT TOP 1 e.accnum, e.cmsrnum, e.autoflag
+                    FROM TB_E101 e WITH(NOLOCK)
+                    WHERE e.custcd = D.custcd AND e.actcd = D.actcd
+                      AND NULLIF(LTRIM(RTRIM(e.accnum)),'') IS NOT NULL
+                    ORDER BY e.stdate DESC
+                ) E
+                WHERE D.custcd = ?
+                AND LEFT(D.misdate, 6) IN (?, ?)
+                AND D.samt > 0
+                AND ( NULLIF(LTRIM(RTRIM(C.accnum)),'')  IS NOT NULL
+                   OR NULLIF(LTRIM(RTRIM(E.accnum)),'')  IS NOT NULL )
+                AND ( NULLIF(LTRIM(RTRIM(C.cmsrnum)),'') IS NOT NULL
+                   OR NULLIF(LTRIM(RTRIM(E.cmsrnum)),'') IS NOT NULL )
+                GROUP BY D.cltcd, D.actcd, D.misdate, D.misnum, C.cltnm, F.actnm,
+                         C.autoflag, E.autoflag
+                ORDER BY D.cltcd, D.misdate
+                """;
 
             String prevYm = prevYyyymm(billingYm);
             try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -1581,11 +1590,16 @@ public class CmsBillingService {
 
                         Map<String, Object> member = sqlRunner.getRow(/* skip_tenant_check */
                                 """
-                                SELECT id, member_name, member_no, bank_code, bank_account,
-                                       account_holder, deduct_day, agree_yn, deduct_month_type
-                                FROM cms_member
-                                WHERE spjangcd = :spjangcd
-                                  AND cltcd IN (:actcd, :cltcd)
+                                        SELECT id, member_name, member_no, bank_code, bank_account,
+                                                       account_holder, deduct_day, agree_yn, deduct_month_type
+                                                FROM cms_member
+                                                WHERE spjangcd = :spjangcd
+                                                  AND cltcd IN (:actcd, :cltcd)
+                                                  AND status = 'ACTIVE'
+                                                ORDER BY CASE WHEN cltcd = :actcd THEN 0 ELSE 1 END,
+                                                         CASE WHEN agree_yn = 'Y' THEN 0 ELSE 1 END,
+                                                         id
+                                                LIMIT 1
                                 """,
                                 new MapSqlParameterSource("spjangcd", spjangcd)
                                         .addValue("actcd", actcd)
@@ -1735,194 +1749,6 @@ public class CmsBillingService {
                 spjangcd, inserted, skipped, notFound.size());
 
         return Map.of("inserted", inserted, "skipped", skipped, "notFound", notFound);
-    }
-
-    /** ERP TB_DA023 → cms_billing 청구 가져오기 */
-    /** ERP TB_DA024 → cms_billing 청구 가져오기 (구버전: 전체 자동 생성) */
-    public Map<String, Object> importFromErp(String billingYm, String userId) {
-        String spjangcd = TenantContext.get();
-        int inserted = 0, skipped = 0;
-        List<Map<String, String>> notFound = new ArrayList<>();
-
-        // ERP 접속정보 조회
-        Map<String, Object> erp = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT host, port, db_name, username, password, custcd FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
-                new MapSqlParameterSource("spjangcd", spjangcd));
-        if (erp == null) throw new IllegalStateException("ERP 접속정보가 없습니다.");
-
-        String custcd = str(erp.get("custcd"));
-        String dbUrl = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
-                str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
-
-        try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
-        catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
-
-        // 이미 가져온 erp_mis_key 목록 (중복 방지)
-        List<Map<String, Object>> existingKeys = sqlRunner.getRows(/* skip_tenant_check */
-                """
-                SELECT erp_mis_key FROM cms_billing
-                WHERE spjangcd = :spjangcd
-                AND billing_ym = :billingYm
-                AND erp_mis_key IS NOT NULL
-                """,
-                new MapSqlParameterSource("spjangcd", spjangcd)
-                        .addValue("billingYm", billingYm));
-
-        Set<String> existingMisKeys = existingKeys.stream()
-                .map(r -> str(r.get("erp_mis_key")))
-                .collect(Collectors.toSet());
-
-        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
-                dbUrl, str(erp.get("username")), str(erp.get("password")))) {
-
-            // TB_DA024에 actcd 컬럼이 있으므로 바로 사용
-            String sql = """
-            SELECT
-                D.cltcd,
-                D.actcd,
-                D.misdate,
-                D.misnum,
-                C.cltnm                           AS member_name,
-                SUM(D.samt + ISNULL(D.addamt, 0)) AS billing_amount
-            FROM TB_DA024 D WITH(NOLOCK)
-            INNER JOIN TB_XCLIENT C WITH(NOLOCK)
-                ON D.cltcd = C.cltcd
-                AND C.custcd = ?
-                AND C.accnum IS NOT NULL
-                AND LTRIM(RTRIM(C.accnum)) != ''
-                AND C.cmsrnum IS NOT NULL
-                AND LTRIM(RTRIM(C.cmsrnum)) != ''
-            WHERE D.custcd = ?
-            AND LEFT(D.misdate, 6) = ?
-            AND D.samt > 0
-            GROUP BY D.cltcd, D.actcd, D.misdate, D.misnum, C.cltnm
-            ORDER BY D.cltcd, D.misdate
-            """;
-
-            try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, custcd);
-                ps.setString(2, custcd);
-                ps.setString(3, billingYm);
-
-                try (java.sql.ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        String cltcd         = rs.getString("cltcd");
-                        String actcd         = rs.getString("actcd");
-                        String misdate       = rs.getString("misdate");
-                        String misnum        = rs.getString("misnum");
-                        String misKey        = misdate + misnum;
-                        double billingAmount = rs.getDouble("billing_amount");
-                        String memberName    = rs.getString("member_name");
-
-                        // actcd 없으면 cltcd 사용
-                        if (!StringUtils.hasText(actcd)) actcd = cltcd;
-
-                        if (billingAmount <= 0) { skipped++; continue; }
-
-                        // 중복 체크
-                        if (existingMisKeys.contains(misKey)) {
-                            log.info("[ERP청구] 중복 스킵 cltcd={} actcd={} misKey={}", cltcd, actcd, misKey);
-                            skipped++;
-                            continue;
-                        }
-
-                        // cms_member 조회 (actcd 기준)
-                        Map<String, Object> member = sqlRunner.getRow(/* skip_tenant_check */
-                                """
-                                SELECT id, member_name, member_no, bank_code, bank_account,
-                                       account_holder, deduct_day, agree_yn
-                                FROM cms_member
-                                WHERE spjangcd = :spjangcd AND cltcd = :actcd
-                                """,
-                                new MapSqlParameterSource("spjangcd", spjangcd)
-                                        .addValue("actcd", actcd));
-
-                        if (member == null) {
-                            log.warn("[ERP청구] cms_member 없음 cltcd={} actcd={} memberName={}", cltcd, actcd, memberName);
-                            notFound.add(Map.of(
-                                    "cltcd",       cltcd,
-                                    "member_name", memberName
-                            ));
-                            skipped++;
-                            continue;
-                        }
-
-                        String agreeYn = str(member.get("agree_yn"));
-                        if (!"Y".equals(agreeYn)) {
-                            log.warn("[ERP청구] 미인증 납부자 스킵 cltcd={} actcd={} memberName={}", cltcd, actcd, memberName);
-                            notFound.add(Map.of("cltcd", cltcd, "member_name", memberName + "(미인증)"));
-                            skipped++;
-                            continue;
-                        }
-
-                        // 출금일 계산
-                        String deductDay  = str(member.get("deduct_day"));
-                        String deductDate = calcDeductDate(billingYm, deductDay);
-                        String sendDate   = calcSendDate(deductDate, "EB");
-
-                        String billingSeq = generateBillingSeq(spjangcd, billingYm);
-
-                        // cms_billing INSERT
-                        MapSqlParameterSource param = new MapSqlParameterSource();
-                        param.addValue("spjangcd",      spjangcd);
-                        param.addValue("billingYm",     billingYm);
-                        param.addValue("memberId",      member.get("id"));
-                        param.addValue("memberName",    member.get("member_name"));
-                        param.addValue("bankCode",      member.get("bank_code"));
-                        param.addValue("bankAccount",   member.get("bank_account"));
-                        param.addValue("accountHolder", member.get("account_holder"));
-                        param.addValue("deductDay",     deductDay);
-                        param.addValue("billingAmount", (long) billingAmount);
-                        param.addValue("deductDate",    deductDate);
-                        param.addValue("sendDate",      sendDate);
-                        param.addValue("erpMisKey",     misKey);
-                        param.addValue("userId",        userId);
-                        param.addValue("billingSeq",    billingSeq);
-
-                        int rows = sqlRunner.execute(/* skip_tenant_check */
-                                """
-                                INSERT INTO cms_billing (
-                                    spjangcd, billing_ym, billing_seq,
-                                    member_id, member_name,
-                                    bank_code, bank_account, account_holder,
-                                    deduct_day, billing_amount, deduct_date, send_date,
-                                    deduct_type, status, erp_mis_key,
-                                    _creater_id, _created, _modifier_id, _modified
-                                ) VALUES (
-                                    :spjangcd, :billingYm, :billingSeq,
-                                    :memberId, :memberName,
-                                    :bankCode, :bankAccount, :accountHolder,
-                                    :deductDay, :billingAmount, :deductDate, :sendDate,
-                                    'EB', 'PENDING', :erpMisKey,
-                                    :userId, NOW(), :userId, NOW()
-                                )
-                                """, param);
-
-                        log.info("[ERP청구] INSERT rowEffected={} cltcd={} actcd={} misKey={}", rows, cltcd, actcd, misKey);
-
-                        if (rows > 0) {
-                            existingMisKeys.add(misKey);
-                            inserted++;
-                        } else {
-                            log.error("[ERP청구] INSERT 실패 (0 rows) cltcd={} actcd={} misKey={}", cltcd, actcd, misKey);
-                            skipped++;
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.error("[ERP청구] 실패 spjangcd={}: {}", spjangcd, e.getMessage(), e);
-            throw new IllegalStateException("ERP 청구 가져오기 실패: " + e.getMessage());
-        }
-
-        log.info("[ERP청구] 완료 spjangcd={} 신규={} 스킵={} 미등록납부자={}",
-                spjangcd, inserted, skipped, notFound.size());
-
-        return Map.of(
-                "inserted", inserted,
-                "skipped",  skipped,
-                "notFound", notFound
-        );
     }
 
     private String calcDeductDate(String yyyymm, String deductDay) {

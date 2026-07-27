@@ -317,6 +317,10 @@ public class CmsAccountRegisterService {
         if (member == null) return null;
 
         if (!StringUtils.hasText(str(member.get("bank_account")))) return null;
+        if (!StringUtils.hasText(str(member.get("id_number")))) {          // 추가
+            log.warn("[Register] 식별번호 누락으로 생성 제외 memberId={}", memberId);
+            return null;
+        }
 
         var param = new MapSqlParameterSource();
         param.addValue("spjangcd",      spjangcd);

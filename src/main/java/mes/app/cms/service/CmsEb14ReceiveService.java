@@ -24,6 +24,18 @@ import java.util.*;
 /**
  * EB14 — 출금이체 신청결과 수신
  * 불능분만 전송됨 (정상 건은 파일에 없음)
+ *
+ * ※ 2026-07-23 수정 — 매칭 기준을 apply_date → eb13_sent_at 으로 통일.
+ *   기존에는 대상 날짜를 eb13_sent_at 으로 뽑아놓고 UPDATE 는 apply_date 로 비교해서,
+ *   동의서 접수일(apply_date)과 전송일이 다른 건이 영구 PENDING 으로 남았다.
+ *   (예: 20260714 접수분을 20260721 에 전송 → EB14 0721 처리 대상에서 누락,
+ *    eb14_received_at 이 NULL 로 남아 같은 파일을 매 스케줄마다 재다운로드하며
+ *    cms_file 행이 중복 적재되는 부작용까지 발생)
+ *   EB13 파일의 신청일자 항목에도 전송일자가 찍혀 나가므로 수신 매칭 기준은 eb13_sent_at 이 맞다.
+ *
+ *   권장 인덱스:
+ *     CREATE INDEX idx_car_sentdate ON cms_account_register
+ *       (spjangcd, (TO_CHAR(eb13_sent_at,'YYYYMMDD')));
  */
 @Slf4j
 @Service
@@ -32,6 +44,9 @@ public class CmsEb14ReceiveService {
 
     private static final String FEATURE_CODE = "EB14";
     private static final Charset EUC_KR = Charset.forName("EUC-KR");
+
+    /** 매칭 기준 컬럼식 — apply_date 가 아니라 EB13 실제 전송일자 */
+    private static final String SENT_DATE_EXPR = "TO_CHAR(eb13_sent_at, 'YYYYMMDD')";
 
     private final SqlRunner sqlRunner;
     private final CmsTokenService cmsTokenService;
@@ -44,26 +59,28 @@ public class CmsEb14ReceiveService {
     private int sftpPort;
 
     public void run() {
-        // EB13 송신한 모든 사업장 대상
-        List<Map<String, Object>> spjangs = sqlRunner.getRows(/* skip_tenant_check */
+        // ★ 기존 MIN(eb13_sent_at) 은 사업장당 날짜를 하나만 뽑아서, 미처리 전송일이 여러 개면
+        //   가장 오래된 것만 반복 처리되고 나머지는 계속 밀렸다. DISTINCT 로 전부 순회한다.
+        List<Map<String, Object>> targets = sqlRunner.getRows(/* skip_tenant_check */
                 """
                 SELECT DISTINCT spjangcd,
-                       TO_CHAR(MIN(eb13_sent_at), 'YYYYMMDD') AS eb13_sent_date
+                       TO_CHAR(eb13_sent_at, 'YYYYMMDD') AS eb13_sent_date
                 FROM cms_account_register
                 WHERE eb13_status = 'SENT'
                   AND eb14_received_at IS NULL
                   AND eb13_sent_at >= NOW() - INTERVAL '7 days'
-                GROUP BY spjangcd
+                ORDER BY spjangcd, eb13_sent_date
                 """,
                 new MapSqlParameterSource());
 
-        for (Map<String, Object> row : spjangs) {
-            String spjangcd = (String) row.get("spjangcd");
+        for (Map<String, Object> row : targets) {
+            String spjangcd     = (String) row.get("spjangcd");
             String eb13SentDate = (String) row.get("eb13_sent_date");
             try {
                 receive(spjangcd, eb13SentDate);
             } catch (Exception e) {
-                log.error("[CmsEb14] 수신 실패 spjangcd={}: {}", spjangcd, e.getMessage(), e);
+                log.error("[CmsEb14] 수신 실패 spjangcd={} date={}: {}",
+                        spjangcd, eb13SentDate, e.getMessage(), e);
             }
         }
     }
@@ -134,24 +151,46 @@ public class CmsEb14ReceiveService {
             storageService.upload(objectKey, bis, fileBytes.length, "application/octet-stream");
         }
 
-        // cms_file INSERT
+        // cms_file INSERT — 같은 (사업장, 파일종류, 일자) 가 이미 있으면 재사용해 중복 적재 방지
         var fp = new MapSqlParameterSource();
         fp.addValue("spjangcd",  spjangcd);
         fp.addValue("fileName",  fileName);
         fp.addValue("filePath",  objectKey);
         fp.addValue("targetDate", targetDate);
+
         Map<String, Object> fileRow = sqlRunner.getRow(/* skip_tenant_check */
                 """
-                INSERT INTO cms_file (
-                    spjangcd, file_name, file_type, file_path,
-                    target_date, billing_count, billing_amount,
-                    send_status, _creater_id, _created, _modifier_id, _modified
-                ) VALUES (
-                    :spjangcd, :fileName, 'EB14', :filePath,
-                    CAST(:targetDate AS DATE), 0, 0,
-                    'RECEIVED', 'SYSTEM', NOW(), 'SYSTEM', NOW()
-                ) RETURNING id
+                SELECT id FROM cms_file
+                WHERE spjangcd = :spjangcd
+                  AND file_type = 'EB14'
+                  AND target_date = CAST(:targetDate AS DATE)
+                ORDER BY id DESC
+                LIMIT 1
                 """, fp);
+
+        if (fileRow == null || fileRow.get("id") == null) {
+            fileRow = sqlRunner.getRow(/* skip_tenant_check */
+                    """
+                    INSERT INTO cms_file (
+                        spjangcd, file_name, file_type, file_path,
+                        target_date, billing_count, billing_amount,
+                        send_status, _creater_id, _created, _modifier_id, _modified
+                    ) VALUES (
+                        :spjangcd, :fileName, 'EB14', :filePath,
+                        CAST(:targetDate AS DATE), 0, 0,
+                        'RECEIVED', 'SYSTEM', NOW(), 'SYSTEM', NOW()
+                    ) RETURNING id
+                    """, fp);
+        } else {
+            sqlRunner.execute(/* skip_tenant_check */
+                    """
+                    UPDATE cms_file
+                    SET file_path = :filePath, _modifier_id = 'SYSTEM', _modified = NOW()
+                    WHERE id = :id
+                    """,
+                    new MapSqlParameterSource("filePath", objectKey)
+                            .addValue("id", ((Number) fileRow.get("id")).longValue()));
+        }
         long fileId = ((Number) fileRow.get("id")).longValue();
 
         parseAndUpdate(spjangcd, fileBytes, targetDate, fileId);
@@ -205,14 +244,13 @@ public class CmsEb14ReceiveService {
 
             // ★ apply_type 조건 필수. 없으면 같은 납부자의 반대편 건(계좌변경 세트)까지 REJECTED 로 오염됨.
             sqlRunner.execute(/* skip_tenant_check */
-                    """
-                    UPDATE cms_account_register
-                    SET eb14_result='N', eb14_fail_code=:failCode,
-                        eb14_received_at=NOW(), status='REJECTED', _modified=NOW()
-                    WHERE spjangcd=:spjangcd AND member_no=:memberNo
-                      AND apply_date=:targetDate
-                      AND COALESCE(apply_type,'1') = :applyType
-                    """, p);
+                    "UPDATE cms_account_register " +
+                            "SET eb14_result='N', eb14_fail_code=:failCode, " +
+                            "    eb14_received_at=NOW(), status='REJECTED', _modified=NOW() " +
+                            "WHERE spjangcd=:spjangcd AND member_no=:memberNo " +
+                            "  AND " + SENT_DATE_EXPR + " = :targetDate " +
+                            "  AND COALESCE(apply_type,'1') = :applyType",
+                    p);
 
             // 해지 불능 → cms_member 원복 (PENDING_CANCEL → ACTIVE)
             // ※ 계좌변경(change_flag='Y')의 해지행은 제외 — 그건 status 를 건드리지 않았으므로 원복 대상이 아님.
@@ -225,7 +263,7 @@ public class CmsEb14ReceiveService {
                         WHERE r.member_id = m.id
                           AND r.spjangcd   = :spjangcd
                           AND r.member_no  = :memberNo
-                          AND r.apply_date = :targetDate
+                          AND TO_CHAR(r.eb13_sent_at, 'YYYYMMDD') = :targetDate
                           AND r.apply_type = '3'
                           AND COALESCE(r.change_flag,'N') <> 'Y'
                           AND m.status = 'PENDING_CANCEL'
@@ -260,7 +298,7 @@ public class CmsEb14ReceiveService {
         sqlRunner.execute(/* skip_tenant_check */
                 "UPDATE cms_account_register " +
                         "SET eb14_received_at=NOW(), eb14_result='Y', status='APPROVED', _modified=NOW() " +
-                        "WHERE spjangcd=:spjangcd AND apply_date=:targetDate " +
+                        "WHERE spjangcd=:spjangcd AND " + SENT_DATE_EXPR + " = :targetDate " +
                         "  AND COALESCE(apply_type,'1') = '1' " +
                         notInNew +
                         "  AND eb13_status='SENT' AND status='PENDING'",
@@ -276,7 +314,7 @@ public class CmsEb14ReceiveService {
         sqlRunner.execute(/* skip_tenant_check */
                 "UPDATE cms_account_register " +
                         "SET eb14_received_at=NOW(), eb14_result='Y', status='CANCELLED', _modified=NOW() " +
-                        "WHERE spjangcd=:spjangcd AND apply_date=:targetDate " +
+                        "WHERE spjangcd=:spjangcd AND " + SENT_DATE_EXPR + " = :targetDate " +
                         "  AND apply_type='3' " +
                         notInCancel +
                         "  AND eb13_status='SENT' AND status='PENDING'",
@@ -291,7 +329,7 @@ public class CmsEb14ReceiveService {
                 FROM cms_account_register r
                 WHERE r.member_id   = m.id
                   AND r.spjangcd    = :spjangcd
-                  AND r.apply_date  = :targetDate
+                  AND TO_CHAR(r.eb13_sent_at, 'YYYYMMDD') = :targetDate
                   AND r.status      = 'APPROVED'
                 """, base);
 
@@ -303,7 +341,7 @@ public class CmsEb14ReceiveService {
                 FROM cms_account_register r
                 WHERE r.member_id   = m.id
                   AND r.spjangcd    = :spjangcd
-                  AND r.apply_date  = :targetDate
+                  AND TO_CHAR(r.eb13_sent_at, 'YYYYMMDD') = :targetDate
                   AND r.status      = 'CANCELLED'
                   AND COALESCE(r.change_flag,'N') <> 'Y'
                 """, base);
@@ -322,20 +360,30 @@ public class CmsEb14ReceiveService {
                 FROM cms_account_register r
                 WHERE r.member_id   = m.id
                   AND r.spjangcd    = :spjangcd
-                  AND r.apply_date  = :targetDate
+                  AND TO_CHAR(r.eb13_sent_at, 'YYYYMMDD') = :targetDate
                   AND r.status      = 'APPROVED'
                   AND r.apply_type  = '1'
                   AND r.change_flag = 'Y'
                 """, base);
 
         // ── cms_file_register 연결 ──────────────────────────────────────────
+        // 재수신 시 중복 INSERT 되지 않도록 이미 연결된 건은 제외한다.
         List<Map<String, Object>> registers = sqlRunner.getRows(/* skip_tenant_check */
                 """
-                SELECT id FROM cms_account_register
-                WHERE spjangcd=:spjangcd AND apply_date=:targetDate
-                  AND eb13_status='SENT'
+                SELECT r.id
+                FROM cms_account_register r
+                WHERE r.spjangcd = :spjangcd
+                  AND TO_CHAR(r.eb13_sent_at, 'YYYYMMDD') = :targetDate
+                  AND r.eb13_status = 'SENT'
+                  AND NOT EXISTS (
+                        SELECT 1 FROM cms_file_register fr
+                        WHERE fr.file_id = :fileId AND fr.register_id = r.id
+                  )
+                ORDER BY r.id
                 """,
-                new MapSqlParameterSource("spjangcd", spjangcd).addValue("targetDate", targetDate));
+                new MapSqlParameterSource("spjangcd", spjangcd)
+                        .addValue("targetDate", targetDate)
+                        .addValue("fileId", fileId));
 
         int seq = 1;
         for (Map<String, Object> r : registers) {
@@ -350,8 +398,8 @@ public class CmsEb14ReceiveService {
                             .addValue("seq", seq++));
         }
 
-        log.info("[CmsEb14] 처리완료 spjangcd={} 불능={}건(신규 {} / 해지 {})",
-                spjangcd, failCodeMap.size(), failNewNos.size(), failCancelNos.size());
+        log.info("[CmsEb14] 처리완료 spjangcd={} date={} 불능={}건(신규 {} / 해지 {})",
+                spjangcd, targetDate, failCodeMap.size(), failNewNos.size(), failCancelNos.size());
     }
 
     private byte[] sftpDownload(String fileName, String user, String password) {

@@ -414,7 +414,7 @@
                                 </tr>
                                 <tr>
                                     <th style="padding:5px; border:1px solid #ddd; text-align:center;"
-                                        id="idNumberLabel">사업자번호/생년월일<span class="help-ico"
+                                        id="idNumberLabel"><span class="eq">*</span>사업자번호/생년월일<span class="help-ico"
                                                                            data-tip="출금계좌 등록 시 은행에 신고한 번호입니다. 회원이 아니라 ‘예금주’ 기준이므로, 법인이라도 대표자 개인계좌를 쓰면 회사 사업자번호가 아니라 대표자 생년월일 6자리를 넣습니다.">?</span>
                                     </th>
                                     <td style="padding:5px; border:1px solid #ddd;">
@@ -910,6 +910,7 @@
                             <th style="width:32px;"></th>
                             <th>납부자명</th>
                             <th style="width:80px;">cltcd</th>
+                            <th style="width:64px;" title="EB13 출금이체 인증 상태">인증</th>
                             <th style="width:50px;" title="신호 개수: 청구실패+등록계좌불일치+원장불일치">신호</th>
                             <th>변경 내역 (현재값 → 새값 · 변경값 기본선택)</th>
                         </tr>
@@ -1396,6 +1397,23 @@
                 $('#member_no').focus();
                 return;
             }
+
+            // 납부자번호 형식 체크 앞에 삽입
+            var idNumber = ($('#id_number').val() || '').replace(/[^0-9]/g, '');
+            if (!idNumber) {
+                Alert.alert('', '사업자번호/생년월일을 입력해주세요.\n\n'
+                    + '금결원 출금이체 신청 시 예금주 실명확인에 사용되는 필수 항목입니다.\n'
+                    + '비워두면 신청이 불능(9998) 처리됩니다.');
+                $('#id_number').focus();
+                return;
+            }
+            if (idNumber.length !== 10 && idNumber.length !== 6) {
+                Alert.alert('', '사업자번호는 10자리, 생년월일은 6자리로 입력해주세요.\n'
+                    + '(생년월일은 YYMMDD 6자리 — 8자리 아님)');
+                $('#id_number').focus();
+                return;
+            }
+            $('#id_number').val(idNumber);
 
             // 동의방식 = 파일업로드인데 첨부 파일이 없으면 저장 차단
             var agreeMethod = $('input[name="agree_method"]:checked').val();
@@ -2128,6 +2146,7 @@
             });
             return hit ? hit.bank_name + '(' + code + ')' : String(code);
         }
+
         var DANGER_FIELDS = ['bank_account', 'bank_code'];
 
         function openErpSyncModal() {
@@ -2156,6 +2175,28 @@
                     $('#erpSyncError').show().text('서버 오류가 발생했습니다.');
                 }
             });
+        }
+
+        // EB13 상태 뱃지 — SPFLAG(1=신규,3=해지,7=임의해지) + ENDFLAG(Y=완료)
+        function agreeBadge(yn, spflag, endflag) {
+            var sp = String(spflag == null ? '' : spflag).trim();
+            var end = String(endflag == null ? '' : endflag).trim().toUpperCase();
+            if (!sp && !end) {
+                return '<span class="result-badge" style="background:#f5f6fa;color:#666;">EB13없음</span>';
+            }
+            if (sp === '3' || sp === '7') {
+                return '<span class="result-badge" style="background:#e2d9f3;color:#4a235a;">해지'
+                    + (end === 'Y' ? '완료' : '진행') + '</span>';
+            }
+            if (sp === '1' && end === 'Y') {
+                return '<span class="result-badge" style="background:#d1ecf1;color:#0c5460;">인증완료</span>';
+            }
+            if (sp === '1') {
+                return '<span class="result-badge" style="background:#fff3cd;color:#a06a00;">신청중</span>';
+            }
+            return ('Y' === String(yn || '').toUpperCase())
+                ? '<span class="result-badge" style="background:#d1ecf1;color:#0c5460;">인증완료</span>'
+                : '<span class="result-badge" style="background:#fde8d8;color:#c0392b;">미인증</span>';
         }
 
         function renderErpSyncModal(d) {
@@ -2189,6 +2230,7 @@
                     + '</td>'
                     + '<td>' + escHtml(item.member_name || '') + '</td>'
                     + '<td style="text-align:center;">' + escHtml(item.cltcd || '') + '</td>'
+                    + '<td style="text-align:center;">' + agreeBadge(item.agree_yn, item.eb13_spflag, item.eb13_endflag) + '</td>'
                     + '<td style="text-align:center;">'
                     + '<span class="result-badge" style="background:#d4edda;color:#155724;">신규</span>'
                     + '</td>'
@@ -2263,6 +2305,12 @@
                     + '</td>'
                     + '<td>' + escHtml(prefix + (item.member_name || '')) + '</td>'
                     + '<td style="text-align:center;">' + escHtml(item.cltcd || '') + '</td>'
+                    + '<td style="text-align:center;">' + agreeBadge(item.erp_agree_yn, item.eb13_spflag, item.eb13_endflag)
+                    + ((item.agree_yn && String(item.agree_yn).toUpperCase() !== String(item.erp_agree_yn || 'N').toUpperCase())
+                        ? '<div style="font-size:11px;color:#a06a00;margin-top:2px;">웹: '
+                        + ('Y' === String(item.agree_yn).toUpperCase() ? '인증완료' : '미인증') + '</div>'
+                        : '')
+                    + '</td>'
                     + '<td style="text-align:center;">' + (sigCount > 0 ? '<b style="color:#c0392b;">' + sigCount + '</b>' : '-') + '</td>'
                     + '<td>' + changesHtml + '</td>'
                     + '</tr>';
