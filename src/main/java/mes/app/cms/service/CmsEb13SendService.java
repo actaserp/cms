@@ -132,10 +132,12 @@ public class CmsEb13SendService {
 
             var param = new MapSqlParameterSource();
             param.addValue("ids", registerIds);
+            param.addValue("applyDate", applyDate);
             sqlRunner.execute(/* skip_tenant_check */
                     """
                     UPDATE cms_account_register
                     SET eb13_status='SENT', eb13_sent_at=NOW(),
+                        apply_date=CAST(:applyDate AS DATE),
                         _modified=NOW()
                     WHERE id IN (:ids)
                     """, param);
@@ -157,6 +159,7 @@ public class CmsEb13SendService {
                     UPDATE cms_account_register
                     SET eb13_status='FAILED', memo=:errMsg,
                         status='FAILED',
+                        apply_date=CAST(:applyDate AS DATE),
                         _modified=NOW()
                     WHERE id IN (:ids)
                     """, param);

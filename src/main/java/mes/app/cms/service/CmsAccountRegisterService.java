@@ -377,8 +377,17 @@ public class CmsAccountRegisterService {
                 SET status       = 'PENDING',
                     eb13_status  = 'PENDING',
                     eb13_sent_at = NULL,
-                    memo         = CASE WHEN memo IS NULL THEN NULL
-                                        ELSE '[이전] ' || memo END,
+                    -- 이전 EB14 결과는 반드시 함께 비운다.
+                    -- eb14_received_at 이 남아 있으면 getFileList()의 미수신 날짜 추출
+                    -- (eb14_received_at IS NULL) 에 걸리지 않아, 재전송 후 결과 파일을
+                    -- 영영 수신할 수 없게 된다.
+                    eb14_result      = NULL,
+                    eb14_fail_code   = NULL,
+                    eb14_received_at = NULL,
+                    memo         = NULLIF(TRIM(BOTH ' ' FROM
+                                       CASE WHEN eb14_fail_code IS NULL THEN ''
+                                            ELSE '[이전 불능 ' || eb14_fail_code || '] ' END
+                                    || COALESCE('[이전] ' || memo, '')), ''),
                     ei13_status  = CASE WHEN apply_type = '3'                  THEN 'SENT'
                                         WHEN ei13_sent_at::date = CURRENT_DATE THEN ei13_status
                                         ELSE 'PENDING' END,
@@ -388,7 +397,15 @@ public class CmsAccountRegisterService {
                     _modified    = NOW()
                 WHERE id IN (:ids)
                   AND spjangcd = :spjangcd
-                  AND status IN ('FAILED', 'REJECTED')
+                  AND (
+                        -- 실패·거절 건 재신청
+                        status IN ('FAILED', 'REJECTED')
+                        -- EI13만 나간 채 날짜가 넘어간 건 (전송 중 오류/타임아웃 등으로 남은 행).
+                        -- EI13은 당일분만 유효하므로 EI13부터 다시 보내야 한다.
+                        -- 해지건은 ei13_sent_at이 NULL이라 이 비교가 UNKNOWN → 자동 제외.
+                     OR (ei13_status = 'SENT' AND eb13_status = 'PENDING'
+                         AND ei13_sent_at::date <> CURRENT_DATE)
+                      )
                 """,
                 new MapSqlParameterSource("ids", ids).addValue("spjangcd", spjangcd));
 
