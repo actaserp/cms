@@ -102,6 +102,26 @@
             color: #6a0dad;
         }
 
+        .flow-node {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .flow-time {
+            font-size: 10px;
+            font-style: normal;
+            font-weight: 600;
+            color: #6a70a0;
+            letter-spacing: -0.2px;
+        }
+
+        .flow-arrow {
+            color: #aaa;
+            padding-top: 4px;
+        }
+
         .grid-summary {
             display: flex;
             gap: 16px;
@@ -135,19 +155,40 @@
         </div>
 
         <!-- 흐름 안내 -->
-        <div style="display:flex; align-items:center; gap:8px; padding:10px 14px;
-                    background:#f0f2ff; border:1px solid #d0d6ff; border-radius:6px;
-                    margin-bottom:12px; font-size:12px; color:#333;">
-            <span style="font-weight:700; color:#4a6cf7;">처리 흐름</span>
-            <span class="flow-step flow-pending">① 등록대기</span>
-            <span style="color:#aaa;">→</span>
-            <span class="flow-step flow-sent">② 출금동의증빙자료(EI13) 송신</span>
-            <span style="color:#aaa;">→ 24시간 이내 →</span>
-            <span class="flow-step flow-sent">③ 출금이체신청(EB13) 송신</span>
-            <span style="color:#aaa;">→ D+2 →</span>
-            <span class="flow-step flow-approved">④ 출금이체신청결과(EB14) 수신</span>
-            <span style="color:#aaa;">→</span>
-            <span class="flow-step flow-approved">⑤ 동의완료</span>
+        <div style="padding:10px 14px; background:#f0f2ff; border:1px solid #d0d6ff;
+                    border-radius:6px; margin-bottom:12px; font-size:12px; color:#333;">
+            <div style="display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap;">
+                <span style="font-weight:700; color:#4a6cf7; padding-top:4px;">처리 흐름</span>
+
+                <span class="flow-step flow-pending">① 등록대기</span>
+                <span class="flow-arrow">→</span>
+
+                <span class="flow-node">
+                    <span class="flow-step flow-sent">② 출금동의증빙자료(EI13) 송신</span>
+                    <em class="flow-time">D+1 12:00까지</em>
+                </span>
+                <span class="flow-arrow">→</span>
+
+                <span class="flow-node">
+                    <span class="flow-step flow-sent">③ 출금이체신청(EB13) 송신</span>
+                    <em class="flow-time">D+1 12:00까지</em>
+                </span>
+                <span class="flow-arrow">→</span>
+
+                <span class="flow-node">
+                    <span class="flow-step flow-approved">④ 출금이체신청결과(EB14) 수신</span>
+                    <em class="flow-time">D+2 14:00부터</em>
+                </span>
+                <span class="flow-arrow">→</span>
+
+                <span class="flow-step flow-approved">⑤ 동의완료</span>
+            </div>
+            <div style="margin-top:8px; padding-top:7px; border-top:1px dashed #c6cdf5;
+                        font-size:11px; color:#5a5f77; line-height:1.6;">
+                <b style="color:#4a6cf7;">D = 접수일</b> · 모든 기준은 <b>영업일</b>이며 주말·공휴일은 제외됩니다.
+                <b>12:00 이후 송신분은 다음 영업일 접수</b>로 처리되므로, 오후에 신청하면 결과 수신이 하루 밀립니다.
+                <span id="flowEta" style="margin-left:6px; color:#1c5fd6; font-weight:700;"></span>
+            </div>
         </div>
 
         <section class="section">
@@ -371,16 +412,24 @@
                     return flowBadge(ctx.value);
                 }
             },
-            {binding: 'ei13_sent_at', header: 'EI13 송신일시', width: 130, align: 'center',
-                cellTemplate: function(ctx) { return formatDatetime(ctx.value); }},
+            {
+                binding: 'ei13_sent_at', header: 'EI13 송신일시', width: 130, align: 'center',
+                cellTemplate: function (ctx) {
+                    return formatDatetime(ctx.value);
+                }
+            },
             {
                 binding: 'eb13_status', header: 'EB13', width: 90, align: 'center',
                 cellTemplate: function (ctx) {
                     return flowBadge(ctx.value);
                 }
             },
-            {binding: 'eb13_sent_at', header: 'EB13 송신일시', width: 130, align: 'center',
-                cellTemplate: function(ctx) { return formatDatetime(ctx.value); }},
+            {
+                binding: 'eb13_sent_at', header: 'EB13 송신일시', width: 130, align: 'center',
+                cellTemplate: function (ctx) {
+                    return formatDatetime(ctx.value);
+                }
+            },
             {
                 binding: 'eb14_result', header: 'EB14', width: 80, align: 'center',
                 cellTemplate: function (ctx) {
@@ -400,17 +449,25 @@
                         return '<span class="status-badge status-SENT">승인대기</span>';
                     }
                     var map = {PENDING: '대기', APPROVED: '승인완료', REJECTED: '거절', FAILED: '실패', CANCELLED: '해지완료'};
-                    var cls = {PENDING: 'status-PENDING', APPROVED: 'status-APPROVED', REJECTED: 'status-REJECTED', FAILED: 'status-FAILED', CANCELLED: 'status-CANCELLED'};
+                    var cls = {
+                        PENDING: 'status-PENDING',
+                        APPROVED: 'status-APPROVED',
+                        REJECTED: 'status-REJECTED',
+                        FAILED: 'status-FAILED',
+                        CANCELLED: 'status-CANCELLED'
+                    };
                     return '<span class="status-badge ' + (cls[ctx.value] || '') + '">'
                         + (map[ctx.value] || ctx.value || '') + '</span>';
                 }
             },
-            {binding: 'agree_file_path', header: '동의서', width: 70, align: 'center',
-                cellTemplate: function(ctx) {
+            {
+                binding: 'agree_file_path', header: '동의서', width: 70, align: 'center',
+                cellTemplate: function (ctx) {
                     return ctx.value
                         ? '<span class="flow-step flow-approved">첨부됨</span>'
                         : '<span class="flow-step flow-pending">미첨부</span>';
-                }},
+                }
+            },
             {binding: 'memo', header: '메모', width: 150, align: 'left'},
         ];
 
@@ -426,7 +483,35 @@
         document.readyState === 'complete' ? init() : window.onload = init;
 
         function init() {
+            renderFlowEta();
             searchList(0);
+        }
+
+        // 지금 신청하면 EB14 결과를 언제 받을 수 있는지 안내.
+        // 12:00 이후 송신분은 다음 영업일 접수 → D+2(14:00부터) 수신.
+        // 주말만 반영하며 공휴일은 알 수 없으므로 '이후'로 표기한다.
+        function renderFlowEta() {
+            var now = new Date();
+            var d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            var afterCutoff = now.getHours() >= 12;
+
+            function nextBizDay(dt) {
+                do {
+                    dt.setDate(dt.getDate() + 1);
+                }
+                while (dt.getDay() === 0 || dt.getDay() === 6);
+                return dt;
+            }
+
+            // 12시 넘겼으면 접수일이 다음 영업일로 밀린다
+            if (afterCutoff || d.getDay() === 0 || d.getDay() === 6) nextBizDay(d);
+            nextBizDay(d);   // D+1
+            nextBizDay(d);   // D+2
+
+            var days = ['일', '월', '화', '수', '목', '금', '토'];
+            var txt = (d.getMonth() + 1) + '월 ' + d.getDate() + '일(' + days[d.getDay()] + ') 14:00 이후';
+            $('#flowEta').text('지금 신청 시 결과 수신 예정: ' + txt
+                + (afterCutoff ? ' (12시 마감 경과)' : '') + ' ※ 공휴일 제외 전');
         }
 
         function searchList(page) {
@@ -441,7 +526,7 @@
                     page: currentPage,
                     size: 10
                 },
-                success: function(result) {
+                success: function (result) {
                     if (result.success) {
                         var d = result.data;
                         bindGrid(d.data);
@@ -543,10 +628,18 @@
         function updateSummary(d) {
             var data = d.data;
             $('#summaryTotal').text((d.totalCount || 0).toLocaleString());
-            $('#summaryApproved').text(data.filter(function (i) { return i.status === 'APPROVED'; }).length);
-            $('#summaryPending').text(data.filter(function (i) { return i.status === 'PENDING'; }).length);
-            $('#summaryRejected').text(data.filter(function (i) { return i.status === 'REJECTED'; }).length);
-            $('#summaryFailed').text(data.filter(function (i) { return i.status === 'FAILED'; }).length);
+            $('#summaryApproved').text(data.filter(function (i) {
+                return i.status === 'APPROVED';
+            }).length);
+            $('#summaryPending').text(data.filter(function (i) {
+                return i.status === 'PENDING';
+            }).length);
+            $('#summaryRejected').text(data.filter(function (i) {
+                return i.status === 'REJECTED';
+            }).length);
+            $('#summaryFailed').text(data.filter(function (i) {
+                return i.status === 'FAILED';
+            }).length);
         }
 
         // 신청 가능 여부 — 최종 확정된 건과 결과 대기 중인 건만 제외.
@@ -559,7 +652,9 @@
         }
 
         function updateButtons() {
-            var selected = Object.keys(selectedRows).map(function (k) { return selectedRows[k]; });
+            var selected = Object.keys(selectedRows).map(function (k) {
+                return selectedRows[k];
+            });
 
             // 신규 대기건 + 실패/거절 재신청건을 한 버튼으로 함께 보낸다.
             // 보낼 수 없는 건 딱 둘 — 이미 끝난 건(승인/해지완료)과 금결원 계류 중인 건.
@@ -598,9 +693,15 @@
             }
 
             // 계좌변경 건이 섞였는지 — 세트로 함께 취소된다는 걸 미리 알려준다
-            var hasChange = items.some(function (i) { return i.change_flag === 'Y'; });
-            var names = items.map(function (i) { return i.member_name; })
-                .filter(function (v, idx, a) { return a.indexOf(v) === idx; });
+            var hasChange = items.some(function (i) {
+                return i.change_flag === 'Y';
+            });
+            var names = items.map(function (i) {
+                return i.member_name;
+            })
+                .filter(function (v, idx, a) {
+                    return a.indexOf(v) === idx;
+                });
 
             var msg = '선택한 ' + items.length + '건의 신청을 취소합니다.\n\n'
                 + '대상: ' + names.join(', ') + '\n\n'
@@ -618,7 +719,9 @@
                     ids.push(i.id);
                     if (i.pair_id) ids.push(i.pair_id);
                 });
-                ids = ids.filter(function (v, ix, a) { return a.indexOf(v) === ix; });
+                ids = ids.filter(function (v, ix, a) {
+                    return a.indexOf(v) === ix;
+                });
                 AjaxUtil.postAsyncData('/api/cms/account-register/cancel',
                     {ids: ids.join(',')},
                     function (result) {
@@ -647,7 +750,9 @@
                 ids.push(i.id);
                 if (i.pair_id) ids.push(i.pair_id);
             });
-            ids = ids.filter(function (v, ix, a) { return a.indexOf(v) === ix; });
+            ids = ids.filter(function (v, ix, a) {
+                return a.indexOf(v) === ix;
+            });
 
             // 동의서 미첨부 체크 — EI13이 아직 안 나갔거나 재신청으로 리셋될 건이 대상.
             // 해지건(apply_type='3')은 EI13 자체가 불필요하므로 제외.
@@ -659,7 +764,9 @@
 
             if (noFileItems.length > 0) {
                 Alert.alert('', '동의서 파일을 먼저 첨부해주세요.\n'
-                    + '(' + noFileItems.map(function (i) { return i.member_name; }).join(', ') + ')\n'
+                    + '(' + noFileItems.map(function (i) {
+                        return i.member_name;
+                    }).join(', ') + ')\n'
                     + '해당 행을 더블클릭하여 파일을 등록할 수 있습니다.');
                 return;
             }
@@ -704,20 +811,24 @@
                 if (r.pair_id) ids.push(r.pair_id);
             });
             // 중복 제거
-            return ids.filter(function (v, i, a) { return a.indexOf(v) === i; });
+            return ids.filter(function (v, i, a) {
+                return a.indexOf(v) === i;
+            });
         }
 
         function getSelectedItems() {
-            return Object.keys(selectedRows).map(function (k) { return selectedRows[k]; });
+            return Object.keys(selectedRows).map(function (k) {
+                return selectedRows[k];
+            });
         }
 
         // 파일 모달
         function showFilePanel(item) {
             currentItem = item;
 
-            var statusLabel = { PENDING:'대기', APPROVED:'승인완료', REJECTED:'거절' }[item.status] || item.status;
+            var statusLabel = {PENDING: '대기', APPROVED: '승인완료', REJECTED: '거절'}[item.status] || item.status;
             var data = {
-                member_name:  item.member_name  || '',
+                member_name: item.member_name || '',
                 bank_account: item.bank_account || '',
                 status_label: statusLabel
             };
@@ -726,27 +837,30 @@
             var $content = $(content);
 
             var modal = new PopupDraggable('동의서 파일 관리');
-            modal.open({ width: 500, height: 420, $content });
+            modal.open({width: 500, height: 420, $content});
 
             // 모달 열린 후 업로더 초기화
-            setTimeout(function() {
+            setTimeout(function () {
                 agreeUploader = null;
                 $('#modalAgreeUploaderDiv').empty();
                 agreeUploader = new ax5FileUploadClass('modalAgreeUploaderDiv', item.id, {
-                    table_name:   'AGREE',
-                    attach_name:  'AGREE',
+                    table_name: 'AGREE',
+                    attach_name: 'AGREE',
                     accept_files: 'pdf,jpg,jpeg,png,gif,tif',
-                    multiple:     false,
-                    max_count:    1,
-                    file_size:    0.3,
+                    multiple: false,
+                    max_count: 1,
+                    file_size: 0.3,
                     manual_upload: false,
-                    upload_callback: function() {
+                    upload_callback: function () {
                         $.ajax({
                             url: withCtx('/api/cms/account-register/update-file'),
                             type: 'POST',
-                            headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
-                            data: { id: item.id, member_id: item.member_id },
-                            success: function() { modal.close(); searchList(0); }
+                            headers: {'X-CSRF-TOKEN': $('[name=_csrf]').val()},
+                            data: {id: item.id, member_id: item.member_id},
+                            success: function () {
+                                modal.close();
+                                searchList(0);
+                            }
                         });
                     },
                     can_write: item.status === 'PENDING'
@@ -756,15 +870,17 @@
 
                 // deleteFile 오버라이드 — 파일 삭제 시 agree_file_path 초기화
                 var originalDeleteFile = agreeUploader.deleteFile.bind(agreeUploader);
-                agreeUploader.deleteFile = function(fileIndex) {
+                agreeUploader.deleteFile = function (fileIndex) {
                     var result = originalDeleteFile(fileIndex);
                     if (result) {
                         $.ajax({
                             url: withCtx('/api/cms/account-register/clear-file'),
                             type: 'POST',
-                            headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
-                            data: { id: item.id },
-                            success: function() { searchList(0); }
+                            headers: {'X-CSRF-TOKEN': $('[name=_csrf]').val()},
+                            data: {id: item.id},
+                            success: function () {
+                                searchList(0);
+                            }
                         });
                     }
                     return result;
@@ -783,20 +899,20 @@
             $.ajax({
                 url: withCtx('/api/cms/account-register/eb14-file-list'),
                 type: 'GET',
-                success: function(result) {
+                success: function (result) {
                     if (!result.success || !result.data || result.data.length === 0) {
                         Alert.alert('', '수신 가능한 EB14 파일이 없습니다.');
                         return;
                     }
                     var html = '';
-                    result.data.forEach(function(f) {
+                    result.data.forEach(function (f) {
                         var processed = f.processed;
                         var badge = processed
                             ? '<span style="background:#d4edda; color:#155724; padding:2px 8px; border-radius:8px; font-size:11px;">처리완료</span>'
                             : '<span style="background:#fff3cd; color:#856404; padding:2px 8px; border-radius:8px; font-size:11px;">미처리</span>';
                         html += '<tr>'
                             + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
-                            +   (processed ? '' : '<input type="checkbox" class="eb14-check" data-date="' + f.transactionDate + '" checked>')
+                            + (processed ? '' : '<input type="checkbox" class="eb14-check" data-date="' + f.transactionDate + '" checked>')
                             + '</td>'
                             + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + f.fileName + '</td>'
                             + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + f.transactionDate + '</td>'
@@ -811,7 +927,7 @@
 
         function doReceiveEb14() {
             var dates = [];
-            $('.eb14-check:checked').each(function() {
+            $('.eb14-check:checked').each(function () {
                 dates.push($(this).data('date'));
             });
             if (dates.length === 0) {
@@ -821,10 +937,10 @@
             $('#modalEb14').hide();
 
             var done = 0;
-            dates.forEach(function(date) {
+            dates.forEach(function (date) {
                 AjaxUtil.postAsyncData('/api/cms/account-register/receive-eb14',
-                    { target_date: date },
-                    function(result) {
+                    {target_date: date},
+                    function (result) {
                         done++;
                         if (done === dates.length) {
                             Alert.alert('', dates.length + '건 수신 완료');
@@ -870,18 +986,21 @@
 
             $(document).on('click', '#btnOpenEb11', function () {
                 eb11Bbsseq = Math.floor(Date.now() % 1000000000);   // temp bbsseq
-                $('#eb11Rows').empty(); $('#eb11Summary').text('');
+                $('#eb11Rows').empty();
+                $('#eb11Summary').text('');
                 $('#modalEb11UploaderDiv').empty();
                 eb11Uploader = new ax5FileUploadClass('modalEb11UploaderDiv', eb11Bbsseq, {
                     table_name: 'EB11', attach_name: 'EB11', manual_upload: false
                 });
                 $('#modalEb11').css('display', 'flex');
             });
-            $(document).on('click', '#btnEb11Cancel', function () { $('#modalEb11').hide(); });
+            $(document).on('click', '#btnEb11Cancel', function () {
+                $('#modalEb11').hide();
+            });
 
             $(document).on('click', '#btnEb11Preview', function () {
                 AjaxUtil.postAsyncData('/api/cms/account-register/preview-eb11',
-                    { bbsseq: eb11Bbsseq }, function (result) {
+                    {bbsseq: eb11Bbsseq}, function (result) {
                         if (!result.success) {
                             Alert.alert('미리보기 실패', result.message);
                             return;
