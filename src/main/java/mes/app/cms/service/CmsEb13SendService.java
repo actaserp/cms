@@ -137,7 +137,7 @@ public class CmsEb13SendService {
                     """
                     UPDATE cms_account_register
                     SET eb13_status='SENT', eb13_sent_at=NOW(),
-                        apply_date=CAST(:applyDate AS DATE),
+                        apply_date=:applyDate,
                         _modified=NOW()
                     WHERE id IN (:ids)
                     """, param);
@@ -159,7 +159,7 @@ public class CmsEb13SendService {
                     UPDATE cms_account_register
                     SET eb13_status='FAILED', memo=:errMsg,
                         status='FAILED',
-                        apply_date=CAST(:applyDate AS DATE),
+                        apply_date=:applyDate,
                         _modified=NOW()
                     WHERE id IN (:ids)
                     """, param);
