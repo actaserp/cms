@@ -113,7 +113,7 @@ public class CmsAccountRegisterController {
                 .map(Long::parseLong).collect(Collectors.toList());
     }
 
-    /** 계좌등록 신청 — EI13 → EB13 자동 순서 처리 */
+    /** 계좌등록 신청 — 신규 + 재신청(실패/거절) 통합, EI13 → EB13 자동 순서 처리 */
     @PostMapping("/register")
     public AjaxResult register(@RequestParam("ids") String idsStr) {
         List<Long> ids = parseIds(idsStr);
@@ -133,31 +133,6 @@ public class CmsAccountRegisterController {
         if (sentCnt == 0 && failedCnt > 0) {
             result.success = false;
             result.message = message != null ? message : "신청 실패: " + failedCnt + "건";
-        }
-        return result;
-    }
-
-    /** 재신청 — REJECTED 건 새 PENDING 생성 */
-    @PostMapping("/re-register")
-    public AjaxResult reRegister(@RequestParam("ids") String idsStr) {
-        List<Long> ids = parseIds(idsStr);
-        if (ids.isEmpty()) {
-            AjaxResult r = new AjaxResult(); r.success = false;
-            r.message = "재신청할 항목을 선택하세요."; return r;
-        }
-
-        Map<String, Object> res = cmsAccountRegisterService.reRegister(ids);
-
-        int sentCnt  = res.get("sent")   != null ? ((Number) res.get("sent")).intValue()   : 0;
-        int failedCnt = res.get("failed") != null ? ((Number) res.get("failed")).intValue() : 0;
-
-        AjaxResult result = new AjaxResult();
-        result.data = res;
-        if (sentCnt == 0 && failedCnt > 0) {
-            result.success = false;
-            result.message = "재신청 실패: " + failedCnt + "건";
-        } else if (failedCnt > 0) {
-            result.message = "일부 실패: 성공 " + sentCnt + "건, 실패 " + failedCnt + "건";
         }
         return result;
     }

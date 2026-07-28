@@ -358,6 +358,11 @@ public class CmsMemberService {
 
             sqlRunner.execute(updateSql, param);
 
+            // 납부자 정보 변경분을 신청행에 반영.
+            // 화면 isSendable()과 같은 규칙 — "다시 보낼 수 있는 행"만 갱신한다.
+            //  · APPROVED/CANCELLED : 확정된 이력이므로 불변
+            //  · eb13 SENT + EB14 미수신 : 금결원 계류 중, 결과 매칭 기준이라 불변
+            //  · PENDING / FAILED / REJECTED : 재전송 대상 → 갱신
             sqlRunner.execute("""
                 UPDATE cms_account_register
                 SET member_no      = :memberNo,
@@ -370,7 +375,8 @@ public class CmsMemberService {
                     _modified      = NOW()
                 WHERE member_id = :id
                   AND spjangcd  = :spjangcd
-                  AND COALESCE(eb13_status,'PENDING') <> 'SENT'
+                  AND COALESCE(status,'') NOT IN ('APPROVED', 'CANCELLED')
+                  AND NOT (eb13_status = 'SENT' AND eb14_received_at IS NULL)
                 """, param);
 
             return id;

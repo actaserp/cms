@@ -68,7 +68,7 @@ public class CmsAccountRegisterService {
         //    한 줄로 뭉치면 구계좌가 이미 죽은 사실이 화면에서 사라져 위험함.)
         //   병합은 반드시 백엔드에서. 프론트 그룹핑은 페이징으로 세트가 갈리면 깨진다.
         String innerSql =
-                "SELECT r.id, r.member_id, m.member_name, m.member_no, bc.bank_name," +
+                "SELECT r.id, r.member_id, m.member_name, r.id_number, m.member_no, bc.bank_name," +
                         "       r.bank_code, r.bank_account, r.apply_date, r.apply_type, r.change_flag," +
                         "       r.ei13_status, r.ei13_sent_at, r.eb13_status, r.eb13_sent_at," +
                         "       r.eb14_result, r.eb14_fail_code, r.eb14_received_at," +
@@ -357,9 +357,40 @@ public class CmsAccountRegisterService {
         return row != null ? ((Number) row.get("id")).longValue() : null;
     }
 
-    /** EI13 → EB13 자동 순서 처리 */
+    /**
+     * 계좌등록 신청 — EI13 → EB13 자동 순서 처리.
+     * 신규 대기건과 실패/거절 건(재신청)을 함께 받아 한 번에 처리한다.
+     */
     public Map<String, Object> register(List<Long> ids) {
         String spjangcd = TenantContext.get();
+
+        // ── 재신청 정규화 ────────────────────────────────────────────────
+        // 실패(FAILED)·거절(REJECTED) 건을 재전송 가능한 상태로 되돌린다.
+        // 별도의 '재신청' 기능 없이 이 메서드 하나로 신규 + 재신청을 함께 처리한다.
+        //  · 해지건(apply_type='3')은 EI13 자체가 불필요 → ei13은 SENT로 유지
+        //  · EI13은 당일 전송분만 유효(금결원 24시간 규정) → 날짜가 지났으면 재송신하도록 리셋
+        // 계류 중인 건(eb13_status='SENT' + EB14 미수신)은 status가 PENDING이라
+        // 여기 걸리지 않고, 아래 eb13Needed 조회에서도 제외되므로 별도 가드가 필요 없다.
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_account_register
+                SET status       = 'PENDING',
+                    eb13_status  = 'PENDING',
+                    eb13_sent_at = NULL,
+                    memo         = CASE WHEN memo IS NULL THEN NULL
+                                        ELSE '[이전] ' || memo END,
+                    ei13_status  = CASE WHEN apply_type = '3'                  THEN 'SENT'
+                                        WHEN ei13_sent_at::date = CURRENT_DATE THEN ei13_status
+                                        ELSE 'PENDING' END,
+                    ei13_sent_at = CASE WHEN apply_type = '3'                  THEN ei13_sent_at
+                                        WHEN ei13_sent_at::date = CURRENT_DATE THEN ei13_sent_at
+                                        ELSE NULL END,
+                    _modified    = NOW()
+                WHERE id IN (:ids)
+                  AND spjangcd = :spjangcd
+                  AND status IN ('FAILED', 'REJECTED')
+                """,
+                new MapSqlParameterSource("ids", ids).addValue("spjangcd", spjangcd));
 
         List<Long> ei13Needed = sqlRunner.getRows(/* skip_tenant_check */
                         "SELECT id FROM cms_account_register WHERE id IN (:ids) AND ei13_status IN ('PENDING','FAILED') and spjangcd = :spjangcd",
@@ -426,7 +457,8 @@ public class CmsAccountRegisterService {
                                 """,
                                 new MapSqlParameterSource("ids", eb13Needed)
                                         .addValue("spjangcd", spjangcd)
-                                        .addValue("msg", "금결원 센터오류 (status=" + fileStatus + "): " + validationMsg));
+                                        .addValue("msg", "금결원 센터오류 (status=" + fileStatus
+                                                + ", 동일파일 " + eb13Needed.size() + "건 일괄반려): " + validationMsg));
 
                         sent = 0;
                         failed += eb13Needed.size();
@@ -438,108 +470,6 @@ public class CmsAccountRegisterService {
         }
 
         return Map.of("sent", sent, "failed", failed);
-    }
-
-    /** 재신청 — REJECTED 건 새 PENDING으로 INSERT */
-    public Map<String, Object> reRegister(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return Map.of("sent", 0, "failed", 0);
-        }
-        String spjangcd = TenantContext.get();
-
-        // 수정 — 조건 제거하고 ids로만 조회
-        List<Map<String, Object>> targets = sqlRunner.getRows(/* skip_tenant_check */
-                """
-                SELECT id, member_id, member_name, member_no, bank_code, bank_account,
-                       account_holder, id_number, member_type, agree_type, agree_ext,
-                       agree_file_path, ei13_sent_at, ei13_status, eb13_status, status, apply_type
-                FROM cms_account_register
-                WHERE id IN (:ids) AND spjangcd = :spjangcd
-                """,
-                new MapSqlParameterSource("ids", ids).addValue("spjangcd", spjangcd));
-
-        List<Long> registerIds = new java.util.ArrayList<>();
-
-        for (Map<String, Object> t : targets) {
-            Long existingId = ((Number) t.get("id")).longValue();
-            String ei13Status = str(t.get("ei13_status"));
-            String eb13Status = str(t.get("eb13_status"));
-            String applyType  = str(t.get("apply_type"));
-
-            // 해지건(apply_type='3')은 EI13 불필요 → eb13/status만 리셋, ei13은 SENT로 유지해 EB13 대상이 되게 함
-            if ("3".equals(applyType)) {
-                sqlRunner.execute(/* skip_tenant_check */
-                        """
-                        UPDATE cms_account_register
-                        SET eb13_status='PENDING', status='PENDING',
-                            eb13_sent_at=NULL, memo=NULL, _modified=NOW()
-                        WHERE id = :id
-                        """,
-                        new MapSqlParameterSource("id", existingId));
-                registerIds.add(existingId);
-                continue;
-            }
-
-            if ("FAILED".equals(ei13Status) || "REJECTED".equals(str(t.get("status")))) {
-                // EI13 실패 or REJECTED → 전체 리셋
-                sqlRunner.execute(/* skip_tenant_check */
-                        """
-                        UPDATE cms_account_register
-                        SET ei13_status='PENDING', eb13_status='PENDING',
-                            status='PENDING', memo=NULL,
-                            ei13_sent_at=NULL, eb13_sent_at=NULL, _modified=NOW()
-                        WHERE id = :id
-                        """,
-                        new MapSqlParameterSource("id", existingId));
-
-            } else if ("FAILED".equals(eb13Status)) {
-                // EB13 실패 → EI13 송신 시각 확인
-                Object ei13SentAtObj = t.get("ei13_sent_at");
-                boolean ei13Valid = false;
-                if (ei13SentAtObj != null) {
-                    java.sql.Timestamp ei13SentAt = (java.sql.Timestamp) ei13SentAtObj;
-                    ei13Valid = ei13SentAt.toLocalDateTime().toLocalDate()
-                            .isEqual(java.time.LocalDate.now());
-                }
-
-                if (ei13Valid) {
-                    sqlRunner.execute(/* skip_tenant_check */
-                            """
-                            UPDATE cms_account_register
-                            SET eb13_status='PENDING', status='PENDING',
-                                memo=NULL, _modified=NOW()
-                            WHERE id = :id
-                            """,
-                            new MapSqlParameterSource("id", existingId));
-                } else {
-                    // 날짜 변경 → 전체 리셋
-                    sqlRunner.execute(/* skip_tenant_check */
-                            """
-                            UPDATE cms_account_register
-                            SET ei13_status='PENDING', eb13_status='PENDING',
-                                status='PENDING', memo=NULL,
-                                ei13_sent_at=NULL, eb13_sent_at=NULL, _modified=NOW()
-                            WHERE id = :id
-                            """,
-                            new MapSqlParameterSource("id", existingId));
-                }
-            }  else {
-                // 추가 — 취소 등 나머지 케이스 → 전체 리셋
-                sqlRunner.execute(/* skip_tenant_check */
-                        """
-                        UPDATE cms_account_register
-                        SET ei13_status='PENDING', eb13_status='PENDING',
-                            status='PENDING', memo=NULL,
-                            ei13_sent_at=NULL, eb13_sent_at=NULL, _modified=NOW()
-                        WHERE id = :id
-                        """,
-                        new MapSqlParameterSource("id", existingId));
-            }
-            registerIds.add(existingId);
-        }
-
-        // 바로 신청까지 처리
-        return register(registerIds);
     }
 
     /** 동의서 파일 첨부/변경 */
