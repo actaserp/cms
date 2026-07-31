@@ -68,7 +68,11 @@ public class CmsAccountRegisterService {
         //    한 줄로 뭉치면 구계좌가 이미 죽은 사실이 화면에서 사라져 위험함.)
         //   병합은 반드시 백엔드에서. 프론트 그룹핑은 페이징으로 세트가 갈리면 깨진다.
         String innerSql =
-                "SELECT r.id, r.member_id, m.member_name, r.id_number, m.member_no, bc.bank_name," +
+                // ★ 납부자번호는 신청행(r.member_no) 기준. 회원(m.member_no)은 계좌변경 때마다
+                //   새 번호로 덮이므로, 화면과 EB13/EI13 파일이 서로 다른 번호를 보게 된다.
+                //   신청은 "그때 그 번호로 보낸 것"이 고정돼야 한다. (옛 데이터 대비 m 으로 폴백)
+                "SELECT r.id, r.member_id, m.member_name, r.id_number," +
+                        "       COALESCE(NULLIF(r.member_no,''), m.member_no) AS member_no, bc.bank_name," +
                         "       r.bank_code, r.bank_account, r.apply_date, r.apply_type, r.change_flag," +
                         "       r.ei13_status, r.ei13_sent_at, r.eb13_status, r.eb13_sent_at," +
                         "       r.eb14_result, r.eb14_fail_code, r.eb14_received_at," +

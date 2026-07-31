@@ -538,6 +538,7 @@ public class CmsBillingController {
             @RequestParam("billing_ym") String billingYm,
             @RequestParam("send_date")  String sendDate,
             @RequestParam("keys")       String keysStr,
+            @RequestParam(value = "deduct_date", required = false) String deductDate,
             Authentication auth) {
         AjaxResult result = new AjaxResult();
         User user = (User) auth.getPrincipal();
@@ -548,7 +549,7 @@ public class CmsBillingController {
 
         try {
             result.data = cmsBillingService.createErpBilling(
-                    billingYm, sendDate, selectedKeys, user.getUsername());
+                    billingYm, sendDate, selectedKeys, deductDate, user.getUsername());
         } catch (Exception e) {
             result.success = false;
             result.message = e.getMessage();

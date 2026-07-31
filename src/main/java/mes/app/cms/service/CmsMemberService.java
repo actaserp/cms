@@ -715,12 +715,21 @@ public class CmsMemberService {
 
         // 순번 2자리 (중복 방지)
         String prefix = bank + idPart;
+        // ★ 순번은 cms_member 뿐 아니라 cms_account_register(신청 이력)까지 함께 봐야 한다.
+        //   계좌변경 시 cms_member.member_no 는 새 번호로 덮이므로, 회원 테이블만 보면
+        //   이미 은행에 등록/해지된 옛 번호를 다시 뽑아 A016(이중신청)으로 거절된다.
         Map<String, Object> seqRow = sqlRunner.getRow(/* skip_tenant_check */
                 """
-                SELECT COALESCE(MAX(CAST(SUBSTRING(member_no, 9, 2) AS INTEGER)), 0) + 1 AS next_seq
-                FROM cms_member
-                WHERE spjangcd = :spjangcd
-                  AND member_no LIKE :prefix
+                SELECT COALESCE(MAX(seq), 0) + 1 AS next_seq
+                FROM (
+                    SELECT CAST(SUBSTRING(member_no, 9, 2) AS INTEGER) AS seq
+                      FROM cms_member
+                     WHERE spjangcd = :spjangcd AND member_no LIKE :prefix
+                    UNION ALL
+                    SELECT CAST(SUBSTRING(member_no, 9, 2) AS INTEGER)
+                      FROM cms_account_register
+                     WHERE spjangcd = :spjangcd AND member_no LIKE :prefix
+                ) t
                 """,
                 new MapSqlParameterSource("spjangcd", spjangcd)
                         .addValue("prefix", prefix + "%"));
@@ -2716,6 +2725,12 @@ public class CmsMemberService {
                         .addValue("memberType",  memberType)
                         .addValue("userId",      userId));
 
+        // ★ 신규행은 새 납부자번호로 채번한다.
+        //   납부자번호는 은행코드 3 + 식별번호 뒤5 + 순번 2 구조라 은행이 바뀌면 앞자리도 바뀐다.
+        //   같은 번호를 재사용하면 해지 확정 후 재신청이 되어 A016(이중신청)으로 거절된다.
+        //   해지행은 은행 원장 조회 기준이므로 반드시 기존 번호(memberNo)를 그대로 유지할 것.
+        String newMemberNo = generateMemberNo(spjangcd, newBankCode, idNumber);
+
         // 2) 신규행('1') - 신계좌. EI13(동의자료)을 타야 하므로 ei13_status=PENDING.
         //    동의서(agree_file_path)는 이후 '출금이체 인증 관리'에서 첨부 → EI13 전송.
         sqlRunner.execute(/* skip_tenant_check */
@@ -2736,7 +2751,7 @@ public class CmsMemberService {
                         .addValue("spjangcd",      spjangcd)
                         .addValue("memberId",      memberId)
                         .addValue("memberName",    memberName)
-                        .addValue("memberNo",      memberNo)
+                        .addValue("memberNo",      newMemberNo)   // ★ 신규행 = 새 번호
                         .addValue("bankCode",      newBankCode)
                         .addValue("bankAccount",   newBankAccount)
                         .addValue("accountHolder", StringUtils.hasText(newAccountHolder) ? newAccountHolder : memberName)
@@ -2758,6 +2773,7 @@ public class CmsMemberService {
         sqlRunner.execute(/* skip_tenant_check */
                 """
                 UPDATE cms_member SET
+                    member_no      = :newMemberNo,
                     bank_code      = :bankCode,
                     bank_account   = :bankAccount,
                     account_holder = COALESCE(:accountHolder, account_holder),
@@ -2770,6 +2786,7 @@ public class CmsMemberService {
                 new MapSqlParameterSource("memberId", memberId)
                         .addValue("spjangcd", spjangcd)
                         .addValue("userId", userId)
+                        .addValue("newMemberNo",   newMemberNo)
                         .addValue("bankCode",      newBankCode)
                         .addValue("bankAccount",   newBankAccount)
                         .addValue("accountHolder", StringUtils.hasText(newAccountHolder) ? newAccountHolder : null));

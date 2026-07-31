@@ -357,9 +357,13 @@
         <div style="background:#fff; border-radius:8px; padding:24px 28px; min-width:760px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
             <h3 style="margin:0 0 8px; font-size:15px;">ERP 청구생성</h3>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; padding:8px 10px; background:#f5f6fa; border-radius:4px; font-size:13px;">
-                <label style="white-space:nowrap; color:#555;">출금신청일</label>
+                <label style="white-space:nowrap; color:#555;">청구년월</label>
+                <input type="month" id="erpBillingYm" style="border:1px solid #dde0ea; border-radius:4px; padding:3px 7px; font-size:13px;">
+                <label style="white-space:nowrap; color:#555; margin-left:6px;">출금신청일</label>
                 <input type="date" id="erpSendDate" style="border:1px solid #dde0ea; border-radius:4px; padding:3px 7px; font-size:13px;">
-                <span style="color:#888; font-size:12px;">출금일(약정일)은 납부자별 설정값으로 자동 지정됩니다.</span>
+                <label style="white-space:nowrap; color:#555; margin-left:6px;">출금일</label>
+                <input type="date" id="erpDeductDate" style="border:1px solid #dde0ea; border-radius:4px; padding:3px 7px; font-size:13px;">
+                <span id="erpDeductHint" style="color:#888; font-size:12px;">출금신청일 기준 다음 영업일로 자동 계산됩니다. 직접 수정할 수 있고, 비우면 납부자별 약정일이 적용됩니다.</span>
             </div>
             <div style="overflow-y:auto; flex:1;">
                 <table style="width:100%; border-collapse:collapse; font-size:13px;">
@@ -1970,24 +1974,43 @@
         };
 
         function openErpImportModal() {
+            var t = new Date();
+
+            // 청구년월 기본값 = 검색조건 값, 없으면 이번 달.
+            // ※ 전달치를 깜빡하고 안 만든 경우가 있어 모달에서 직접 월을 바꿀 수 있게 한다.
             var ymVal = $('#srchBillingYm').val();
             if (!ymVal) {
-                Alert.alert('', '청구년월을 선택하세요.');
-                return;
+                ymVal = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0');
             }
-            erpBillingYm = ymVal.replace('-', '');
+            $('#erpBillingYm').val(ymVal);
 
             // 출금신청일 기본값 = 오늘
-            var t = new Date();
             var todayStr = t.getFullYear() + '-' +
                 String(t.getMonth() + 1).padStart(2, '0') + '-' +
                 String(t.getDate()).padStart(2, '0');
             $('#erpSendDate').val(todayStr);
+            $('#erpDeductDate').val('');
+            $('#erpDeductHint').text('출금신청일 기준 다음 영업일로 자동 계산됩니다.');
+            erpDeductTouched = false;
+
+            $('#modalErpImport').css('display', 'flex');
+            autoFillDeductDate(true);
+            loadErpPreview();
+        }
+
+        /** 모달의 청구년월 기준으로 후보 목록을 다시 불러온다. */
+        function loadErpPreview() {
+            var ymVal = $('#erpBillingYm').val();
+            if (!ymVal) {
+                Alert.alert('', '청구년월을 선택하세요.');
+                return;
+            }
+            // 생성(confirmErpImport)도 이 값을 쓰므로 반드시 함께 갱신한다.
+            erpBillingYm = ymVal.replace('-', '');
 
             $('#erpRows').html('<tr><td colspan="5" style="padding:20px; text-align:center; color:#888;">불러오는 중...</td></tr>');
             $('#erpSummary').text('');
             $('#erpChkAll').prop('checked', false);
-            $('#modalErpImport').css('display', 'flex');
 
             AjaxUtil.getAsyncData('/api/cms/billing/erp-preview',
                 {billing_ym: erpBillingYm},
@@ -2001,7 +2024,70 @@
                 });
         }
 
+        // 모달 안에서 청구년월을 바꾸면 즉시 재조회
+        $(document).on('change', '#erpBillingYm', function () {
+            loadErpPreview();
+        });
+
+        // 출금신청일이 바뀌면 출금일을 자동 계산(다음 영업일)해 채운다.
+        // 담당자가 수동으로 고친 뒤에는 덮어쓰지 않는다(erpDeductTouched).
+        var erpDeductTouched = false;
+
+        $(document).on('change', '#erpSendDate', function () {
+            autoFillDeductDate();
+        });
+
+        $(document).on('input', '#erpDeductDate', function () {
+            erpDeductTouched = true;
+        });
+
+        function autoFillDeductDate(force) {
+            var send = ($('#erpSendDate').val() || '').replace(/-/g, '');
+            if (!send) return;
+            if (erpDeductTouched && !force) return;
+
+            // 신청일 다음 날부터 시작해, 휴일이면 기존 API가 다음 영업일로 보정해 준다.
+            var d = new Date(send.substring(0, 4), Number(send.substring(4, 6)) - 1, send.substring(6, 8));
+            d.setDate(d.getDate() + 1);
+            var nextDay = d.getFullYear() + '-' +
+                String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                String(d.getDate()).padStart(2, '0');
+
+            checkAndSetBusinessDay(nextDay, function (fixed) {
+                $('#erpDeductDate').val(fixed).trigger('change');
+                erpDeductTouched = false;   // 자동 채움은 '수동 수정'으로 보지 않는다
+            }, true);
+        }
+
+        // 출금일을 직접 지정하면 목록의 출금일 표시도 그 값으로 바꾼다(실제 생성값과 일치시키기 위함).
+        $(document).on('change', '#erpDeductDate', function () {
+            var v = $(this).val();
+            if (v) {
+                var disp = v.replace(/-/g, '').replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
+                $('#erpRows td.erp-dd').text(disp);
+                $('#erpDeductHint').html('<span style="color:#c00;">지정한 출금일이 전 건에 일괄 적용됩니다.</span>');
+            } else {
+                $('#erpDeductHint').text('비우면 납부자별 약정일이 적용됩니다.');
+                erpDeductTouched = true;
+                loadErpPreview();
+            }
+        });
+
+        /** 약정일이 출금신청일보다 이르면(=이미 지난 날짜) 경고를 띄운다. */
+        function warnPastDeductDate(rows) {
+            var send = ($('#erpSendDate').val() || '').replace(/-/g, '');
+            if (!send) return;
+            var past = (rows || []).filter(function (r) {
+                return r.row_status === 'OK' && r.deduct_date && r.deduct_date <= send;
+            });
+            if (past.length) {
+                $('#erpDeductHint').html('<span style="color:#c00;">약정일이 이미 지난 건 '
+                    + past.length + '건. 출금일을 직접 지정하세요.</span>');
+            }
+        }
+
         function renderErpModal(rows) {
+            warnPastDeductDate(rows);
             if (!rows.length) {
                 $('#erpRows').html('<tr><td colspan="5" style="padding:20px; text-align:center; color:#888;">가져올 미수금이 없습니다.</td></tr>');
                 $('#erpSummary').text('');
@@ -2058,7 +2144,7 @@
                     +   '</span>'
                     + '</td>'
                     + '<td style="padding:6px 8px; border:1px solid #eee; text-align:right;">' + Number(r.billing_amount || 0).toLocaleString() + '</td>'
-                    + '<td style="padding:6px 8px; border:1px solid #eee; text-align:center;">' + ddDisp + '</td>'
+                    + '<td class="erp-dd" style="padding:6px 8px; border:1px solid #eee; text-align:center;">' + ddDisp + '</td>'
                     + '<td style="padding:6px 8px; border:1px solid #eee; text-align:center;">'
                     + '<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; color:' + st.color + '; background:' + st.bg + ';">' + st.label + '</span>'
                     + '</td>'
@@ -2090,6 +2176,14 @@
         });
 
         function confirmErpImport() {
+            // 조회 후 월만 바꾸고 생성을 누르는 실수 방어 — 화면 값과 전송 값을 일치시킨다.
+            var ymNow = ($('#erpBillingYm').val() || '').replace('-', '');
+            if (ymNow && ymNow !== erpBillingYm) {
+                Alert.alert('', '청구년월이 변경되었습니다. 목록을 다시 조회한 뒤 생성하세요.');
+                loadErpPreview();
+                return;
+            }
+
             var sendDate = $('#erpSendDate').val();
             if (!sendDate) {
                 Alert.alert('', '출금신청일을 지정하세요.');
@@ -2109,6 +2203,7 @@
                 {
                     billing_ym: erpBillingYm,
                     send_date: sendDate.replace(/-/g, ''),
+                    deduct_date: ($('#erpDeductDate').val() || '').replace(/-/g, ''),
                     keys: keys.join(',')
                 },
                 function (result) {

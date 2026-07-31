@@ -1483,7 +1483,7 @@ public class CmsBillingService {
     }
 
     /**
-     * ERP(TB_DA024) 미수금 후보를 조회해서 cms_member와 매칭한 목록을 리턴한다. (INSERT 안 함)
+     * ERP(TB_DA023 미수원장) 미수금 후보를 조회해서 cms_member와 매칭한 목록을 리턴한다. (INSERT 안 함)
      * 모달에서 사용자가 선택할 목록을 만드는 용도.
      * 각 행 status: OK(생성 가능) / DUP(이미 청구됨) / NO_MEMBER(cms_member 없음) / NOT_AGREED(미인증)
      */
@@ -1525,41 +1525,58 @@ public class CmsBillingService {
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
                 dbUrl, str(erp.get("username")), str(erp.get("password")))) {
 
+            // 기준 테이블: TB_DA023(미수 원장). 파워빌더 PROC_CMS_R mode 03/04 와 동일 조건.
+            //  - 유지보수(관리) 매출만  : gubun IN (TB_DA020 where jgubun='1')
+            //  - 이미 입금된 건 제외    : TB_DA026 수납분 제외 + 잔액>0(부분입금 반영)
+            //  - 이관 전 CMS 출금 성공분 제외 : TB_CMSEB21 / TB_CMSEC21 ENDFLAG='Y'
+            //  - 이월(bemisdate)/상계(sangdate) 건 제외
             String sql = """
                 SELECT
-                    D.cltcd,
-                    D.actcd,
-                    D.misdate,
-                    D.misnum,
+                    A.cltcd,
+                    A.actcd,
+                    A.misdate,
+                    A.misnum,
                     C.cltnm                           AS member_name_rep,
                     F.actnm                           AS member_name_site,
                     COALESCE(NULLIF(LTRIM(RTRIM(C.autoflag)),''),
                              NULLIF(LTRIM(RTRIM(E.autoflag)),'')) AS autoflag,
-                    SUM(D.samt + ISNULL(D.addamt, 0)) AS billing_amount
-                FROM TB_DA024 D WITH(NOLOCK)
+                    (A.misamt - ISNULL(A.bamt,0)   - ISNULL(A.jamt,0)  - ISNULL(A.sunamt,0)
+                              - ISNULL(A.gamt,0)   - ISNULL(A.csamt,0) - ISNULL(A.cmar,0)
+                              - ISNULL(A.dcamt,0)) AS billing_amount
+                FROM TB_DA023 A WITH(NOLOCK)
                 INNER JOIN TB_XCLIENT C WITH(NOLOCK)
-                    ON D.cltcd = C.cltcd
+                    ON A.cltcd = C.cltcd
                     AND C.custcd = ?
                 LEFT JOIN TB_E601 F WITH(NOLOCK)
-                    ON F.custcd = D.custcd
-                    AND F.actcd = D.actcd
+                    ON F.custcd = A.custcd
+                    AND F.actcd = A.actcd
                 OUTER APPLY (
                     SELECT TOP 1 e.accnum, e.cmsrnum, e.autoflag
                     FROM TB_E101 e WITH(NOLOCK)
-                    WHERE e.custcd = D.custcd AND e.actcd = D.actcd
+                    WHERE e.custcd = A.custcd AND e.actcd = A.actcd
+                      AND e.contg <> '04'
                       AND NULLIF(LTRIM(RTRIM(e.accnum)),'') IS NOT NULL
                     ORDER BY e.stdate DESC
                 ) E
-                WHERE D.custcd = ?
-                AND LEFT(D.misdate, 6) IN (?, ?)
-                AND D.samt > 0
+                WHERE A.custcd = ?
+                AND LEFT(A.misdate, 6) IN (?, ?)
+                AND A.gubun IN (SELECT artcd FROM TB_DA020 WITH(NOLOCK) WHERE jgubun = '1')
+                AND A.misdate + A.misnum NOT IN (
+                        SELECT misdate + misnum FROM TB_DA026 WITH(NOLOCK))
+                AND A.misdate + A.misnum NOT IN (
+                        SELECT misdate + misnum FROM TB_CMSEB21 WITH(NOLOCK) WHERE ENDFLAG = 'Y')
+                AND A.misdate + A.misnum NOT IN (
+                        SELECT misdate + misnum FROM TB_CMSEC21 WITH(NOLOCK) WHERE ENDFLAG = 'Y')
+                AND (A.bemisdate + A.bemisnum IS NULL OR LEN(A.bemisdate + A.bemisnum) = 0)
+                AND (A.sangdate IS NULL OR LEN(ISNULL(A.sangdate,'')) = 0)
+                AND (A.misamt - ISNULL(A.bamt,0)   - ISNULL(A.jamt,0)  - ISNULL(A.sunamt,0)
+                              - ISNULL(A.gamt,0)   - ISNULL(A.csamt,0) - ISNULL(A.cmar,0)
+                              - ISNULL(A.dcamt,0)) > 0
                 AND ( NULLIF(LTRIM(RTRIM(C.accnum)),'')  IS NOT NULL
                    OR NULLIF(LTRIM(RTRIM(E.accnum)),'')  IS NOT NULL )
                 AND ( NULLIF(LTRIM(RTRIM(C.cmsrnum)),'') IS NOT NULL
                    OR NULLIF(LTRIM(RTRIM(E.cmsrnum)),'') IS NOT NULL )
-                GROUP BY D.cltcd, D.actcd, D.misdate, D.misnum, C.cltnm, F.actnm,
-                         C.autoflag, E.autoflag
-                ORDER BY D.cltcd, D.misdate
+                ORDER BY A.cltcd, A.misdate
                 """;
 
             String prevYm = prevYyyymm(billingYm);
@@ -1576,7 +1593,7 @@ public class CmsBillingService {
                         String misdate       = rs.getString("misdate");
                         String misnum        = rs.getString("misnum");
                         String misKey        = misdate + misnum;
-                        double billingAmount = rs.getDouble("billing_amount");
+                        long   billingAmount = rs.getLong("billing_amount");   // DA023 잔액(부분입금 차감 후)
                         String autoflag      = str(rs.getString("autoflag"));
                         String misYm         = (misdate != null && misdate.length() >= 6) ? misdate.substring(0, 6) : "";
                         String nameRep       = rs.getString("member_name_rep");   // 대표거래처명(XCLIENT.cltnm)
@@ -1644,7 +1661,7 @@ public class CmsBillingService {
                         row.put("member_name",      dispName);
                         row.put("member_name_rep",  nameRep);
                         row.put("member_name_site", nameSite);
-                        row.put("billing_amount", (long) billingAmount);
+                        row.put("billing_amount", billingAmount);
                         row.put("bank_code",      bankCode);
                         row.put("bank_account",   bankAccount);
                         row.put("account_holder", accountHolder);
@@ -1667,9 +1684,21 @@ public class CmsBillingService {
      * 모달에서 선택된 erp_mis_key 목록으로만 cms_billing 생성.
      * sendDate(출금신청일)는 사용자가 지정한 값을 그대로 사용. 출금일(deduct_date)은 cms_member 약정일 기준 계산.
      */
+    /** 구버전 시그니처 유지 — 출금일 일괄지정 없이 호출하는 경로용. */
     @Transactional
     public Map<String, Object> createErpBilling(String billingYm, String sendDate,
                                                 List<String> selectedKeys, String userId) {
+        return createErpBilling(billingYm, sendDate, selectedKeys, null, userId);
+    }
+
+    /**
+     * @param deductDateOverride 출금일 일괄지정(yyyyMMdd). 비어 있으면 납부자별 약정일로 자동 계산.
+     *        전월치를 뒤늦게 청구할 때 약정일이 이미 지난 날짜가 되므로 화면에서 지정할 수 있게 한다.
+     */
+    @Transactional
+    public Map<String, Object> createErpBilling(String billingYm, String sendDate,
+                                                List<String> selectedKeys,
+                                                String deductDateOverride, String userId) {
         String spjangcd = TenantContext.get();
         int inserted = 0, skipped = 0;
         List<Map<String, String>> notFound = new ArrayList<>();
@@ -1681,6 +1710,13 @@ public class CmsBillingService {
             throw new IllegalStateException("출금신청일을 지정하세요.");
         }
         sendDate = sendDate.replace("-", "");
+
+        // 출금일 일괄지정: 휴일이면 다음 영업일로 보정한다.
+        String fixedDeductDate = null;
+        if (StringUtils.hasText(deductDateOverride)) {
+            fixedDeductDate = cmsHolidayService.getNextBusinessDay(deductDateOverride.replace("-", ""));
+        }
+
         Set<String> wanted = new HashSet<>(selectedKeys);
 
         // preview로 후보를 다시 만들어 선택분만 신뢰성 있게 생성 (금액/회원 재검증)
@@ -1701,7 +1737,9 @@ public class CmsBillingService {
                 continue;
             }
 
-            String deductDate = str(c.get("deduct_date"));
+            String deductDate = StringUtils.hasText(fixedDeductDate)
+                    ? fixedDeductDate                       // 화면에서 일괄지정한 출금일
+                    : str(c.get("deduct_date"));            // 납부자별 약정일 기준 자동계산
             String deductDay  = str(c.get("deduct_day"));
             long   amount     = ((Number) c.get("billing_amount")).longValue();
             String billingSeq = generateBillingSeq(spjangcd, billingYm);

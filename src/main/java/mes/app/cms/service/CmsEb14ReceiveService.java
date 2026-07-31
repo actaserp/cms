@@ -42,6 +42,77 @@ import java.util.*;
 @RequiredArgsConstructor
 public class CmsEb14ReceiveService {
 
+    /**
+     * 불능코드 → 사유 문구.
+     * 출처: CMS 기본설계서 「5.3 불능코드」 (5.3.1 은행입력 / 5.3.2 센터입력 / 5.3.3 기관입력).
+     * 코드만 남기면 담당자가 매번 문서를 뒤져야 하므로 memo 에 문구를 함께 적는다.
+     */
+    private static final Map<String, String> FAIL_CODE_DESC = Map.ofEntries(
+            // 5.3.1 은행입력
+            Map.entry("0012", "계좌번호 오류 또는 계좌번호 없음"),
+            Map.entry("0014", "사업자등록번호 또는 생년월일 오류"),
+            Map.entry("0015", "계정과목 오류(CMS 지정 입출금과목 아님)"),
+            Map.entry("0017", "출금이체 미신청계좌(원장에 계좌·납부자번호 없음/상이)"),
+            Map.entry("0018", "출금이체신청 임의해지(1년 이상 출금요청 없음)"),
+            Map.entry("0019", "출금이체신청 은행 해지"),
+            Map.entry("0020", "자동납부 동의자료 부재로 인한 임의해지"),
+            Map.entry("0021", "잔액 또는 지불가능잔액 부족"),
+            Map.entry("0022", "입금한도 초과"),
+            Map.entry("0024", "계좌변경으로 인한 출금이체신청 해지"),
+            Map.entry("0031", "해약계좌(해지·이관·신규취소·비활동)"),
+            Map.entry("0032", "가명계좌 또는 실명미확인"),
+            Map.entry("0033", "잡좌"),
+            Map.entry("0034", "법적제한·지급정지 또는 사고신고계좌"),
+            Map.entry("0035", "압류·가압류 계좌"),
+            Map.entry("0036", "잔액증명발급 계좌"),
+            Map.entry("0037", "연체계좌 또는 지점통제계좌"),
+            Map.entry("0038", "거래중지계좌(장기 미사용)"),
+            Map.entry("0041", "은행시스템 오류"),
+            // 5.3.2 센터입력
+            Map.entry("0011", "은행점코드 오류"),
+            Map.entry("0051", "기타 오류"),
+            Map.entry("0061", "의뢰금액이 0원"),
+            Map.entry("0062", "건당 이체금액한도 초과"),
+            Map.entry("0065", "법인계좌 사용불가"),
+            Map.entry("0066", "투자자예탁금이 아님"),
+            Map.entry("0068", "통장기재내용 오류(Space 미만 값)"),
+            Map.entry("0075", "출금형태 오류 또는 의뢰금액 최소기준 미만"),
+            Map.entry("0077", "계좌변경 내역을 상대 은행에서 미전송"),
+            Map.entry("0078", "EI13 미전송으로 EB13 신규신청 불능"),
+            Map.entry("0079", "계좌변경을 SET(해지+신규)로 처리하지 않음"),
+            Map.entry("0081", "Record 구분 또는 일련번호 오류"),
+            Map.entry("0087", "한글 오류"),
+            Map.entry("0088", "영문자/숫자 오류"),
+            Map.entry("0089", "Space 오류"),
+            Map.entry("0090", "All Zero 오류"),
+            Map.entry("0091", "생년월일 대신 주민등록번호로 신청"),
+            Map.entry("0096", "CMS 미참가 은행"),
+            Map.entry("0097", "농협/농축협 은행점코드 오류"),
+            Map.entry("0098", "Alpha-Numeric + Space 오류"),
+            Map.entry("0101", "동의자료 구분 오류"),
+            Map.entry("0102", "동의자료 확장자 오류"),
+            Map.entry("0103", "동의자료 크기 오류"),
+            Map.entry("0105", "동의자료 기타 오류"),
+            Map.entry("A011", "신청일자 오류(없거나 전송일보다 이후)"),
+            Map.entry("A012", "신청구분 오류(1/3/7 아님)"),
+            Map.entry("A016", "이중신청 — 이미 등록 또는 해지된 계좌·납부자번호로 재신청"),
+            Map.entry("A018", "납부자번호체계 오류"),
+            // 5.3.3 기관입력
+            Map.entry("A013", "납부자번호 상이 또는 없음"),
+            Map.entry("A017", "기타오류"),
+            Map.entry("A019", "출금요청 중 또는 출금일 도래로 계좌변경 불가"),
+            Map.entry("9998", "기타 오류"),
+            Map.entry("9999", "은행시스템 장애")
+    );
+
+    /** 불능코드를 "코드 설명" 형태의 memo 문구로 변환. 미정의 코드는 코드만 남긴다. */
+    private static String failMemo(String failCode) {
+        String code = failCode == null ? "" : failCode.trim();
+        if (code.isEmpty()) return "불능(코드없음)";
+        String desc = FAIL_CODE_DESC.get(code);
+        return desc != null ? ("불능 " + code + " " + desc) : ("불능 " + code);
+    }
+
     private static final String FEATURE_CODE = "EB14";
     private static final Charset EUC_KR = Charset.forName("EUC-KR");
 
@@ -243,9 +314,14 @@ public class CmsEb14ReceiveService {
             p.addValue("targetDate", targetDate);
 
             // ★ apply_type 조건 필수. 없으면 같은 납부자의 반대편 건(계좌변경 세트)까지 REJECTED 로 오염됨.
+            // ★ memo 에 불능 사유 문구를 누적한다. 코드만으로는 담당자가 원인을 알 수 없다.
+            //   기존 memo 는 보존하고 뒤에 덧붙인다(재신청 이력 추적용).
+            p.addValue("failMemo", failMemo(failCode));
+
             sqlRunner.execute(/* skip_tenant_check */
                     "UPDATE cms_account_register " +
                             "SET eb14_result='N', eb14_fail_code=:failCode, " +
+                            "    memo = LEFT(CONCAT_WS(' / ', NULLIF(memo,''), :failMemo), 500), " +
                             "    eb14_received_at=NOW(), status='REJECTED', _modified=NOW() " +
                             "WHERE spjangcd=:spjangcd AND member_no=:memberNo " +
                             "  AND " + SENT_DATE_EXPR + " = :targetDate " +
