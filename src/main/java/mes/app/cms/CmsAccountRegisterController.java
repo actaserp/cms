@@ -195,6 +195,59 @@ public class CmsAccountRegisterController {
         return result;
     }
 
+    // ── 실시간 부가서비스 ───────────────────────────────────────────────
+    // 파일(EI13/EB13) 경로와 별개. 기존 /register 는 그대로 둔다.
+
+    /** 실시간 신청 대상 조회 — 계좌변경 세트를 해지/신규 개별 건으로 펼쳐서 반환 */
+    @PostMapping("/realtime-targets")
+    public AjaxResult realtimeTargets(@RequestParam("ids") String idsStr) {
+        List<Long> ids = parseIds(idsStr);
+        AjaxResult result = new AjaxResult();
+        if (ids.isEmpty()) {
+            result.success = false;
+            result.message = "대상을 선택하세요.";
+            return result;
+        }
+        try {
+            result.data = cmsAccountRegisterService.getRealtimeTargets(ids);
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    /** 실시간 처리 — 해지는 해지API, 신규는 동의자료제출→계좌등록을 묶어서 호출 */
+    @PostMapping("/realtime-process")
+    public AjaxResult realtimeProcess(@RequestParam("ids") String idsStr, Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        List<Long> ids = parseIds(idsStr);
+        AjaxResult result = new AjaxResult();
+        if (ids.isEmpty()) {
+            result.success = false;
+            result.message = "처리할 항목을 선택하세요.";
+            return result;
+        }
+        try {
+            Map<String, Object> res = cmsAccountRegisterService.processRealtime(ids, user.getUsername());
+            int sent   = res.get("sent")   != null ? ((Number) res.get("sent")).intValue()   : 0;
+            int failed = res.get("failed") != null ? ((Number) res.get("failed")).intValue() : 0;
+            result.data = res;
+            if (sent == 0 && failed > 0) {
+                result.success = false;
+                result.message = res.get("message") != null
+                        ? (String) res.get("message") : "실시간 신청 실패: " + failed + "건";
+            } else if (failed > 0) {
+                result.message = "성공 " + sent + "건 / 실패 " + failed + "건\n"
+                        + (res.get("message") != null ? res.get("message") : "");
+            }
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
     @PostMapping("/preview-eb11")
     public AjaxResult previewEb11(@RequestParam Integer bbsseq) {
         AjaxResult result = new AjaxResult();

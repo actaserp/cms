@@ -305,6 +305,23 @@ public class CmsMemberController {
     }
 
 
+    /** 저장된 계좌조회 결과 — 유료 재조회 전에 화면이 먼저 확인한다. */
+    @GetMapping("/inquiry-cache")
+    @ResponseBody
+    public AjaxResult inquiryCache(@RequestParam("bank_code")  String bankCode,
+                                   @RequestParam("account_no") String accountNo,
+                                   Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        AjaxResult result = new AjaxResult();
+        try {
+            result.data = cmsMemberService.getInquiryCache(user.getSpjangcd(), bankCode, accountNo);
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
     /** 실시간 계좌조회 — 금결원 예금주명 확인 (등록 여부와 무관, 예금주명 검증용) */
     @PostMapping("/account-inquiry")
     @ResponseBody

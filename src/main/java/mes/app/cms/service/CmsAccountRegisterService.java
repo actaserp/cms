@@ -763,4 +763,378 @@ public class CmsAccountRegisterService {
                         .addValue("ext", str(fi.get("fileextns")).toLowerCase()));
     }
 
+
+    // ══════════════════════════════════════════════════════════════════
+    //  실시간 부가서비스 (금결원 REST API)
+    //
+    //  파일(EI13/EB13/EB14) 방식과 별개 경로다. 기존 register()/cancelPending()
+    //  은 손대지 않았으므로 파일 방식은 그대로 동작한다.
+    //
+    //  파일 방식과 다른 점:
+    //   · 결과가 즉시 온다  → eb14_received_at 을 그 자리에서 채운다.
+    //     (안 채우면 CmsEb14ReceiveService.run() 이 오지도 않을 EB14 를 7일간 계속 찾는다)
+    //   · 계좌변경은 해지 → 신규 순서를 우리가 지켜야 한다. pair_id 로 세트를 묶고
+    //     해지가 APPROVED 된 뒤에만 신규를 열어준다.
+    //   · 동의자료는 신규(apply_type='1')만 필요하다. 해지는 바로 해지 API 호출.
+    // ══════════════════════════════════════════════════════════════════
+
+    /** EI13 동의자료 구분(숫자) → 실시간 API evidence_file_type(문자열) */
+    private static String toEvidenceFileType(String agreeType) {
+        if (!StringUtils.hasText(agreeType)) return "PAPER";
+        switch (agreeType.trim()) {
+            case "1": return "PAPER";                 // 서면
+            case "2": return "PUBLIC_SIGNATURE";      // 공동(금융) 전자서명
+            case "3": return "GENERAL_SIGNATURE";     // 일반전자서명
+            case "4": return "RECORDING";             // 녹취
+            case "5": return "ARS";
+            case "6": return "ETC";
+            default:  return "PAPER";
+        }
+    }
+
+    /**
+     * 요청 추적번호 채번. yyyyMMdd + 4자리 순번.
+     * 메모리 카운터는 재시작·다중 인스턴스에서 겹쳐 409(이중요청)를 유발하므로 DB 시퀀스를 쓴다.
+     *   CREATE SEQUENCE IF NOT EXISTS cms_realtime_tracking_seq;
+     */
+    private long nextTrackingNo() {
+        // 시퀀스는 사업장과 무관한 전역 채번이므로 테넌트 조건이 없다.
+        Map<String, Object> row = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT nextval('cms_realtime_tracking_seq') AS seq /* skip_tenant_check */",
+                new MapSqlParameterSource());
+        long seq = row != null ? ((Number) row.get("seq")).longValue() : 0L;
+        String date = java.time.LocalDate.now()
+                .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        return Long.parseLong(date + String.format("%04d", seq % 10000));
+    }
+
+    /** 응답이 성공인지 판정. data.response_code='0000' + TRANSACTION_COMPLETED */
+    private boolean isRealtimeOk(JsonNode data) {
+        return "0000".equals(data.path("response_code").asText(""))
+                && "TRANSACTION_COMPLETED".equals(data.path("realtime_transaction_status").asText(""));
+    }
+
+    /**
+     * 실시간 신청 모달용 — 선택된 행을 '작업 단위'로 묶어서 돌려준다.
+     *
+     * 계좌변경 세트는 해지행/신규행 2행이지만 사용자에게는 1건이다.
+     * 담당자에게 두 번 선택시키지 않고, 진행 시 해지 → 동의자료 → 계좌등록을
+     * 서버가 순서대로 자동 처리한다. 여기서는 그 단계를 미리 보여주기만 한다.
+     */
+    public List<Map<String, Object>> getRealtimeTargets(List<Long> ids) {
+        String spjangcd = TenantContext.get();
+
+        List<Map<String, Object>> rows = sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT r.id, r.member_id, r.member_name, r.member_no, r.apply_type,
+                       r.bank_code, r.bank_account, r.account_holder, r.id_number,
+                       r.agree_type, r.agree_file_path, r.change_flag, r.pair_id,
+                       r.ei13_status, r.ei13_sent_at, r.eb13_status, r.status,
+                       (r.ei13_sent_at::date = CURRENT_DATE) AS evidence_valid_today,
+                       b.bank_name,
+                       c.id           AS cancel_id,
+                       c.member_no    AS cancel_member_no,
+                       c.bank_code    AS cancel_bank_code,
+                       c.bank_account AS cancel_bank_account,
+                       c.status       AS cancel_status,
+                       cb.bank_name   AS cancel_bank_name
+                FROM cms_account_register r
+                LEFT JOIN cms_bank_code b ON b.bank_code = r.bank_code
+                LEFT JOIN cms_account_register c
+                       ON c.pair_id = r.pair_id AND c.apply_type = '3' AND r.apply_type = '1'
+                LEFT JOIN cms_bank_code cb ON cb.bank_code = c.bank_code
+                WHERE r.spjangcd = :spjangcd
+                  AND r.id IN (:ids)
+                  -- 세트의 해지행은 신규행에 병합해 보여주므로 단독 노출하지 않는다.
+                  AND NOT (r.apply_type = '3' AND r.pair_id IS NOT NULL
+                           AND EXISTS (SELECT 1 FROM cms_account_register n
+                                        WHERE n.pair_id = r.pair_id AND n.apply_type = '1'))
+                ORDER BY r.id
+                """,
+                new MapSqlParameterSource("ids", ids).addValue("spjangcd", spjangcd));
+
+        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (Map<String, Object> r : rows) {
+            String applyType = str(r.get("apply_type"));
+            String status    = str(r.get("status"));
+            boolean isSet    = r.get("cancel_id") != null;
+            boolean evidenceDone = "SENT".equals(str(r.get("ei13_status")))
+                    && Boolean.TRUE.equals(r.get("evidence_valid_today"));
+
+            // 진행 단계 안내 — 이미 끝난 단계는 빼고 보여준다.
+            List<String> steps = new java.util.ArrayList<>();
+            if (isSet && !"APPROVED".equals(str(r.get("cancel_status")))) steps.add("구계좌 해지");
+            if ("1".equals(applyType)) {
+                if (!evidenceDone) steps.add("동의자료 제출");
+                steps.add("계좌등록");
+            } else {
+                steps.add("계좌해지");
+            }
+
+            boolean selectable = true;
+            String  blockReason = "";
+            if ("APPROVED".equals(status)) {
+                selectable = false;
+                blockReason = "이미 완료된 건입니다.";
+            } else if ("PENDING".equals(status) && "SENT".equals(str(r.get("eb13_status")))) {
+                selectable = false;
+                blockReason = "파일(EB13)로 전송되어 결과 대기 중입니다.";
+            } else if ("1".equals(applyType) && !evidenceDone
+                    && !StringUtils.hasText(str(r.get("agree_file_path")))) {
+                selectable = false;
+                blockReason = "동의서 파일이 없습니다. 먼저 첨부하세요.";
+            }
+
+            Map<String, Object> m = new java.util.HashMap<>(r);
+            m.put("job_type",      isSet ? "CHANGE" : ("3".equals(applyType) ? "CANCEL" : "NEW"));
+            m.put("job_type_nm",   isSet ? "계좌변경" : ("3".equals(applyType) ? "해지" : "신규"));
+            m.put("steps",         steps);
+            m.put("evidence_done", evidenceDone);
+            m.put("selectable",    selectable);
+            m.put("block_reason",  blockReason);
+            out.add(m);
+        }
+        return out;
+    }
+
+    /**
+     * 실시간 처리 — 작업 단위로 전 단계를 자동 진행한다.
+     *
+     *   해지    : ACCOUNT_UNREGISTRATION
+     *   신규    : EVIDENCE_SUBMISSION → ACCOUNT_REGISTRATION
+     *   계좌변경: (구계좌)ACCOUNT_UNREGISTRATION → EVIDENCE_SUBMISSION → ACCOUNT_REGISTRATION
+     *
+     * 중간 실패 시 그 지점에서 멈춘다. 이미 성공한 단계는 되돌리지 않으며(해지 취소 API가 없음),
+     * 재시도하면 남은 단계부터 이어서 진행한다.
+     *  · 동의자료는 당일 전송분만 유효 → 같은 날 재시도면 계좌등록부터 시작한다.
+     */
+    @Transactional
+    public Map<String, Object> processRealtime(List<Long> ids, String userId) {
+        String spjangcd = TenantContext.get();
+        int sent = 0, failed = 0;
+        List<String> messages = new java.util.ArrayList<>();
+        List<Long> okIds = new java.util.ArrayList<>();
+
+        List<Map<String, Object>> jobs = getRealtimeTargets(ids);
+
+        for (Map<String, Object> job : jobs) {
+            if (!Boolean.TRUE.equals(job.get("selectable"))) continue;
+
+            long   id       = ((Number) job.get("id")).longValue();
+            String jobType  = str(job.get("job_type"));
+            String memberNm = str(job.get("member_name"));
+
+            try {
+                // ── 1단계: 구계좌 해지 (계좌변경일 때만) ─────────────────
+                if ("CHANGE".equals(jobType)
+                        && !"APPROVED".equals(str(job.get("cancel_status")))) {
+                    long cancelId = ((Number) job.get("cancel_id")).longValue();
+                    long tracking = nextTrackingNo();
+                    JsonNode res = cmsTokenService.realtimeAccountUnregistration(
+                            spjangcd,
+                            str(job.get("cancel_bank_code")),
+                            str(job.get("cancel_bank_account")).replaceAll("[^0-9]", ""),
+                            str(job.get("id_number")).replaceAll("[^0-9]", ""),
+                            str(job.get("cancel_member_no")),
+                            tracking);
+
+                    if (!isRealtimeOk(res)) {
+                        markRealtimeFail(cancelId, tracking, res, userId);
+                        failed++;
+                        messages.add(memberNm + " — 구계좌 해지 실패: " + res.path("response_message").asText(""));
+                        continue;   // 해지가 안 되면 등록으로 넘어가지 않는다
+                    }
+                    markRealtimeSuccess(cancelId, tracking, userId);
+                    okIds.add(cancelId);
+                }
+
+                // ── 단독 해지 ────────────────────────────────────────────
+                if ("CANCEL".equals(jobType)) {
+                    long tracking = nextTrackingNo();
+                    JsonNode res = cmsTokenService.realtimeAccountUnregistration(
+                            spjangcd,
+                            str(job.get("bank_code")),
+                            str(job.get("bank_account")).replaceAll("[^0-9]", ""),
+                            str(job.get("id_number")).replaceAll("[^0-9]", ""),
+                            str(job.get("member_no")),
+                            tracking);
+                    if (isRealtimeOk(res)) {
+                        markRealtimeSuccess(id, tracking, userId);
+                        okIds.add(id); sent++;
+                    } else {
+                        markRealtimeFail(id, tracking, res, userId);
+                        failed++;
+                        messages.add(memberNm + " — 해지 실패: " + res.path("response_message").asText(""));
+                    }
+                    continue;
+                }
+
+                // ── 2단계: 동의자료 제출 (당일 제출분이 있으면 건너뜀) ────
+                String bankCode = str(job.get("bank_code"));
+                String account  = str(job.get("bank_account")).replaceAll("[^0-9]", "");
+                String idNo     = str(job.get("id_number")).replaceAll("[^0-9]", "");
+                String payerNo  = str(job.get("member_no"));
+
+                if (!Boolean.TRUE.equals(job.get("evidence_done"))) {
+                    String filePath = str(job.get("agree_file_path"));
+                    byte[] fileBytes;
+                    try (var stream = storageService.download(filePath)) {
+                        fileBytes = stream.readAllBytes();
+                    }
+                    String fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+
+                    long tracking = nextTrackingNo();
+                    JsonNode res = cmsTokenService.realtimeEvidenceSubmission(
+                            spjangcd, bankCode, account, idNo, payerNo, tracking,
+                            toEvidenceFileType(str(job.get("agree_type"))), fileName, fileBytes);
+
+                    if (!isRealtimeOk(res)) {
+                        markRealtimeFail(id, tracking, res, userId);
+                        failed++;
+                        messages.add(memberNm + " — 동의자료 제출 실패: " + res.path("response_message").asText(""));
+                        continue;   // 동의자료 없이는 등록 불가
+                    }
+                    sqlRunner.execute(/* skip_tenant_check */
+                            """
+                            UPDATE cms_account_register
+                            SET ei13_status='SENT', ei13_sent_at=NOW(),
+                                send_method='API', _modifier_id=:userId, _modified=NOW()
+                            WHERE id=:id
+                            """,
+                            new MapSqlParameterSource("id", id).addValue("userId", userId));
+                }
+
+                // ── 3단계: 계좌등록 ──────────────────────────────────────
+                long tracking = nextTrackingNo();
+                JsonNode res = cmsTokenService.realtimeAccountRegistration(
+                        spjangcd, bankCode, account, idNo, payerNo, tracking);
+
+                if (isRealtimeOk(res)) {
+                    markRealtimeSuccess(id, tracking, userId);
+                    okIds.add(id); sent++;
+                } else {
+                    markRealtimeFail(id, tracking, res, userId);
+                    failed++;
+                    messages.add(memberNm + " — 계좌등록 실패: " + res.path("response_message").asText("")
+                            + ("CHANGE".equals(jobType) ? " (구계좌 해지는 완료됨 — 등록만 재시도하세요)" : ""));
+                }
+
+            } catch (Exception e) {
+                log.error("[CmsRealtime] 처리 실패 id={} : {}", id, e.getMessage(), e);
+                markRealtimeFail(id, null, "", e.getMessage(), userId);
+                failed++;
+                messages.add(memberNm + ": " + e.getMessage());
+            }
+        }
+
+        if (!okIds.isEmpty()) writeApiFileLog(spjangcd, okIds, userId);
+
+        Map<String, Object> out = new java.util.HashMap<>();
+        out.put("sent", sent);
+        out.put("failed", failed);
+        out.put("message", messages.isEmpty() ? null : String.join("\n", messages));
+        return out;
+    }
+
+    /** 성공 처리 — 실시간은 결과가 즉시 확정되므로 EB14 수신분까지 함께 채운다. */
+    private void markRealtimeSuccess(long id, long trackingNo, String userId) {
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_account_register
+                SET send_method      = 'API',
+                    tracking_no      = :trackingNo,
+                    ei13_status      = 'SENT',
+                    ei13_sent_at     = COALESCE(ei13_sent_at, NOW()),
+                    eb13_status      = 'SENT',
+                    eb13_sent_at     = NOW(),
+                    eb14_result      = 'Y',
+                    eb14_fail_code   = NULL,
+                    -- ★ 즉시 채운다. 비워두면 EB14 수신 스케줄러가 계속 대상으로 물어간다.
+                    eb14_received_at = NOW(),
+                    status           = 'APPROVED',
+                    _modifier_id     = :userId,
+                    _modified        = NOW()
+                WHERE id = :id
+                """,
+                new MapSqlParameterSource("id", id)
+                        .addValue("trackingNo", String.valueOf(trackingNo))
+                        .addValue("userId", userId));
+
+        // 신규(등록) 성공이면 회원 인증완료 처리
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_member m
+                SET agree_yn = 'Y', _modified = NOW()
+                FROM cms_account_register r
+                WHERE r.id = :id AND r.member_id = m.id AND r.apply_type = '1'
+                """,
+                new MapSqlParameterSource("id", id));
+    }
+
+    private void markRealtimeFail(long id, Long trackingNo, JsonNode data, String userId) {
+        String code = data != null ? data.path("response_code").asText("") : "";
+        String msg  = data != null ? data.path("response_message").asText("") : "";
+        markRealtimeFail(id, trackingNo, code, msg, userId);
+    }
+
+    private void markRealtimeFail(long id, Long trackingNo, String code, String msg, String userId) {
+        String memo = StringUtils.hasText(code) ? ("불능 " + code + " " + msg) : msg;
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_account_register
+                SET send_method      = 'API',
+                    tracking_no      = :trackingNo,
+                    eb13_status      = 'FAILED',
+                    eb13_sent_at     = NOW(),
+                    eb14_result      = 'N',
+                    eb14_fail_code   = NULLIF(:code, ''),
+                    eb14_received_at = NOW(),
+                    status           = 'REJECTED',
+                    memo = LEFT(CONCAT_WS(' / ', NULLIF(memo,''), :memo), 500),
+                    _modifier_id     = :userId,
+                    _modified        = NOW()
+                WHERE id = :id
+                """,
+                new MapSqlParameterSource("id", id)
+                        .addValue("trackingNo", trackingNo != null ? String.valueOf(trackingNo) : null)
+                        .addValue("code", code != null ? code : "")
+                        .addValue("memo", memo != null ? memo : "")
+                        .addValue("userId", userId));
+    }
+
+    /** 실시간 호출 묶음을 cms_file 에 1행으로 남긴다(file_path 없음, send_type='API'). */
+    private void writeApiFileLog(String spjangcd, List<Long> registerIds, String userId) {
+        if (registerIds.isEmpty()) return;
+        String now = java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        var fp = new MapSqlParameterSource();
+        fp.addValue("spjangcd", spjangcd);
+        fp.addValue("fileName", "RT" + now);
+        fp.addValue("cnt",      registerIds.size());
+        fp.addValue("userId",   userId);
+
+        Map<String, Object> fileRow = sqlRunner.getRow(/* skip_tenant_check */
+                """
+                INSERT INTO cms_file (
+                    spjangcd, file_name, file_type, file_path,
+                    target_date, billing_count, billing_amount,
+                    send_type, send_status, sent_at, receive_status, received_at,
+                    _creater_id, _created, _modifier_id, _modified
+                ) VALUES (
+                    :spjangcd, :fileName, 'EB13', NULL,
+                    CURRENT_DATE, :cnt, 0,
+                    'API', 'SENT', NOW(), 'RECEIVED', NOW(),
+                    :userId, NOW(), :userId, NOW()
+                ) RETURNING id
+                """, fp);
+        long fileId = ((Number) fileRow.get("id")).longValue();
+
+        int seq = 1;
+        for (Long rid : registerIds) {
+            sqlRunner.execute(/* skip_tenant_check */
+                    "INSERT INTO cms_file_register (file_id, register_id, line_seq) VALUES (:f, :r, :s)",
+                    new MapSqlParameterSource("f", fileId).addValue("r", rid).addValue("s", seq++));
+        }
+    }
+
 }

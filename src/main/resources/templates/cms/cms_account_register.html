@@ -236,6 +236,22 @@
                             style="background:#17a2b8; color:#fff;">결과수신</button>
                     <button type="button" id="btnOpenEb11"
                             style="background:#e53e3e; color:#fff; padding:6px 14px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">EB11 해지수신</button>
+
+                    <!-- 실시간 신청은 건당 수수료가 발생하므로 기본 노출하지 않는다.
+                         평소에는 파일 방식(인증 등록 신청)을 쓰고 급한 건만 여기서 처리한다. -->
+                    <div style="position:relative; margin-left:auto;">
+                        <button type="button" class="btn-default" id="btnMoreMenu"
+                                style="background:#f5f6fa; color:#555; border:1px solid #dde0ea;
+                                       padding:6px 12px; font-size:15px; line-height:1;">&#8942;</button>
+                        <div id="moreMenu" style="display:none; position:absolute; right:0; top:34px; z-index:50;
+                                    background:#fff; border:1px solid #dde0ea; border-radius:4px;
+                                    box-shadow:0 4px 14px rgba(0,0,0,.12); min-width:170px; padding:4px 0;">
+                            <a href="javascript:;" id="btnRealtime" class="more-item"
+                               style="display:block; padding:9px 14px; font-size:13px; color:#333; text-decoration:none;">
+                                실시간 신청
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -283,6 +299,47 @@
             <div id="modalAgreeUploaderDiv"></div>
         </div>
     </script>
+
+    <!-- 실시간 신청 모달 -->
+    <!-- z-index 는 다른 모달(EB14/EB11)과 같은 1050. 더 높이면 Alert/Confirm 이 뒤에 깔린다. -->
+    <!--  계좌변경은 목록에선 1행이지만 실시간 API 는 해지/신규를 각각 호출해야 한다.
+          여기서 세트를 풀어 개별 건으로 보여주고, 해지가 끝나야 신규를 열어준다.  -->
+    <div id="modalRealtime" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+         background:rgba(0,0,0,.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:6px; width:900px; max-height:82vh; display:flex; flex-direction:column;">
+            <div style="padding:12px 16px; border-bottom:1px solid #eee; font-weight:600;">
+                실시간 신청 — 금결원 API 즉시 처리
+            </div>
+            <div style="padding:8px 16px; font-size:12px; color:#666; background:#faf8ff; border-bottom:1px solid #eee;">
+                파일(EB13) 전송과 달리 <b>즉시 결과가 확정</b>됩니다. 계좌변경은 해지 → 동의자료 → 계좌등록을 순서대로 자동 진행합니다.
+            </div>
+            <div style="flex:1; overflow:auto; padding:0 16px;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                    <tr style="background:#f7f8fa;">
+                        <th style="padding:6px; border:1px solid #eee; width:36px;">
+                            <input type="checkbox" id="rtChkAll"></th>
+                        <th style="padding:6px; border:1px solid #eee; width:70px;">구분</th>
+                        <th style="padding:6px; border:1px solid #eee;">납부자명</th>
+                        <th style="padding:6px; border:1px solid #eee; width:110px;">납부자번호</th>
+                        <th style="padding:6px; border:1px solid #eee;">계좌</th>
+                        <th style="padding:6px; border:1px solid #eee; width:180px;">진행 단계</th>
+                        <th style="padding:6px; border:1px solid #eee; width:150px;">계좌확인</th>
+                    </tr>
+                    </thead>
+                    <tbody id="rtRows"></tbody>
+                </table>
+            </div>
+            <div style="padding:10px 16px; border-top:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                <span id="rtSummary" style="font-size:12px; color:#666;"></span>
+                <span>
+                    <button type="button" id="btnRtCancel" class="btn-default">닫기</button>
+                    <button type="button" id="btnRtConfirm" class="btn-default"
+                            style="background:#6f42c1; color:#fff;">등록하기</button>
+                </span>
+            </div>
+        </div>
+    </div>
 
     <!-- EB14 수신 모달 -->
     <div id="modalEb14" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
@@ -817,6 +874,189 @@
         }
 
         // 계좌등록 신청 — 신규 + 재신청 통합, EI13 → EB13 자동 순서 처리
+        // ── 실시간 신청 ────────────────────────────────────────────────
+        var rtTargets = [];
+
+        function openRealtimeModal() {
+            var ids = getSelectedIds();
+            if (!ids.length) {
+                Alert.alert('', '대상을 선택하세요.');
+                return;
+            }
+            $('#rtRows').html('<tr><td colspan="7" style="padding:20px; text-align:center; color:#888;">불러오는 중...</td></tr>');
+            $('#rtSummary').text('');
+            $('#rtChkAll').prop('checked', false);
+            $('#modalRealtime').css('display', 'flex');
+
+            AjaxUtil.postAsyncData('/api/cms/account-register/realtime-targets',
+                {ids: ids.join(',')}, function (result) {
+                    if (!result.success) {
+                        $('#rtRows').html('<tr><td colspan="7" style="padding:20px; text-align:center; color:#c00;">'
+                            + (result.message || '조회 실패') + '</td></tr>');
+                        return;
+                    }
+                    rtTargets = result.data || [];
+                    renderRealtimeRows();
+                });
+        }
+
+        function renderRealtimeRows() {
+            if (!rtTargets.length) {
+                $('#rtRows').html('<tr><td colspan="7" style="padding:20px; text-align:center; color:#888;">처리할 건이 없습니다.</td></tr>');
+                $('#btnRtConfirm').prop('disabled', true);
+                return;
+            }
+            var html = '', okCnt = 0;
+            rtTargets.forEach(function (r) {
+                var sel = r.selectable;
+                if (sel) okCnt++;
+
+                var color = r.job_type === 'CANCEL' ? '#c00'
+                    : (r.job_type === 'CHANGE' ? '#b7791f' : '#2b6cb0');
+                var badge = '<span style="color:' + color + '; font-weight:600;">'
+                    + escHtml(r.job_type_nm) + '</span>';
+
+                // 계좌: 변경건은 구계좌 → 신계좌
+                var acct = escHtml(r.bank_name || r.bank_code || '') + ' ' + escHtml(r.bank_account || '');
+                if (r.job_type === 'CHANGE') {
+                    acct = '<span style="color:#999; text-decoration:line-through;">'
+                        + escHtml(r.cancel_bank_name || r.cancel_bank_code || '') + ' '
+                        + escHtml(r.cancel_bank_account || '') + '</span><br>' + acct;
+                }
+
+                // 진행 단계
+                var stepTxt = (r.steps || []).map(function (x, i) {
+                    return (i + 1) + '. ' + escHtml(x);
+                }).join('<br>');
+                if (!sel) {
+                    stepTxt = '<span style="color:#999;">' + escHtml(r.block_reason || '-') + '</span>';
+                }
+
+                // 계좌조회 — 등록될 계좌의 예금주를 미리 확인(선택 사항)
+                var inqBtn = (r.job_type === 'CANCEL' || !sel) ? ''
+                    : '<button type="button" class="btn-default rt-inq" data-id="' + r.id + '"'
+                    + ' style="font-size:12px; padding:2px 8px;">예금주 조회</button>'
+                    + '<div class="rt-inq-result" data-id="' + r.id + '" style="font-size:12px; margin-top:3px;"></div>';
+
+                html += '<tr>'
+                    + '<td style="padding:6px; border:1px solid #eee; text-align:center;">'
+                    +   (sel ? '<input type="checkbox" class="rt-chk" value="' + r.id + '" checked>' : '')
+                    + '</td>'
+                    + '<td style="padding:6px; border:1px solid #eee; text-align:center;">' + badge + '</td>'
+                    + '<td style="padding:6px; border:1px solid #eee;">' + escHtml(r.member_name || '') + '</td>'
+                    + '<td style="padding:6px; border:1px solid #eee; text-align:center;">' + escHtml(r.member_no || '') + '</td>'
+                    + '<td style="padding:6px; border:1px solid #eee;">' + acct + '</td>'
+                    + '<td style="padding:6px; border:1px solid #eee; font-size:12px;">' + stepTxt + '</td>'
+                    + '<td style="padding:6px; border:1px solid #eee; text-align:center;">' + inqBtn + '</td>'
+                    + '</tr>';
+            });
+            $('#rtRows').html(html);
+            $('#rtSummary').text('총 ' + rtTargets.length + '건 중 처리 가능 ' + okCnt + '건');
+            $('#btnRtConfirm').prop('disabled', okCnt === 0);
+        }
+
+        // 예금주 조회 — 등록 전에 계좌가 유효한지 담당자가 직접 확인.
+        // 건당 수수료가 발생하므로 (1) 저장된 결과가 있으면 그것부터 보여주고
+        // (2) 실제 호출 전에는 반드시 확인을 받는다.
+        $(document).on('click', '.rt-inq', function () {
+            var id = $(this).data('id');
+            var r  = rtTargets.filter(function (x) { return String(x.id) === String(id); })[0];
+            if (!r) return;
+
+            var acct = (r.bank_account || '').replace(/[^0-9]/g, '');
+
+            AjaxUtil.getAsyncData('/api/cms/member/inquiry-cache',
+                {bank_code: r.bank_code, account_no: acct}, function (cr) {
+                    var c = (cr && cr.success) ? cr.data : null;
+                    if (c && c.inquiry_holder_name) {
+                        showInqResult(id, c.inquiry_holder_name, r, '저장된 결과 ' + (c.inquiry_at || ''));
+                        Alert.confirm('',
+                            '이미 조회한 계좌입니다.\n\n'
+                            + '  예금주 : ' + c.inquiry_holder_name + '\n'
+                            + '  조회일 : ' + (c.inquiry_at || '') + '\n\n'
+                            + '다시 조회할까요? (수수료 발생)',
+                            function () { callRtInquiry(id, r, acct); });
+                    } else {
+                        Alert.confirm('',
+                            '금결원에 예금주 조회를 요청합니다. (수수료 발생)\n\n조회하시겠습니까?',
+                            function () { callRtInquiry(id, r, acct); });
+                    }
+                });
+        });
+
+        function callRtInquiry(id, r, acct) {
+            var $out = $('.rt-inq-result[data-id="' + id + '"]');
+            $out.html('<span style="color:#888;">조회 중...</span>');
+
+            AjaxUtil.postAsyncData('/api/cms/member/account-inquiry', {
+                bank_code: r.bank_code,
+                account_no: acct,
+                identification_no: (r.id_number || '').replace(/[^0-9]/g, ''),
+                input_holder: r.account_holder || r.member_name || ''
+            }, function (result) {
+                var d = result.data || {};
+                if (result.success && d.depositorName) {
+                    showInqResult(id, d.depositorName, r, null, d.holderMatched);
+                } else {
+                    $out.html('<span style="color:#c00;">'
+                        + escHtml(d.responseMessage || result.message || '조회 실패') + '</span>');
+                }
+            });
+        }
+
+        function showInqResult(id, holder, r, note, matched) {
+            var $out = $('.rt-inq-result[data-id="' + id + '"]');
+            if (matched === undefined) {
+                // 저장된 결과 — 입력 예금주와 이름만 비교
+                var input = (r.account_holder || r.member_name || '').replace(/\s+/g, '');
+                matched = input === String(holder).replace(/\s+/g, '');
+            }
+            $out.html('<span style="color:' + (matched ? '#28a745' : '#e67e22') + ';">'
+                + escHtml(holder) + (matched ? ' ✓' : ' (예금주명 불일치)') + '</span>'
+                + (note ? '<div style="color:#999; font-size:11px;">' + escHtml(note) + '</div>' : ''));
+        }
+
+        function confirmRealtime() {
+            var ids = $('.rt-chk:checked').map(function () { return $(this).val(); }).get();
+            if (!ids.length) {
+                Alert.alert('', '처리할 건을 선택하세요.');
+                return;
+            }
+            var picked = rtTargets.filter(function (r) { return ids.indexOf(String(r.id)) >= 0; });
+
+            var msg = '선택한 ' + picked.length + '건을 실시간으로 처리합니다.\n\n';
+            picked.forEach(function (r) {
+                msg += '· ' + r.member_name + ' [' + r.job_type_nm + '] '
+                    + (r.steps || []).join(' → ') + '\n';
+            });
+            msg += '\n즉시 은행 원장에 반영되며 되돌릴 수 없습니다. 계속하시겠습니까?';
+
+            Alert.confirm('', msg, function () {
+                $('#btnRtConfirm').prop('disabled', true).text('처리 중...');
+                AjaxUtil.postAsyncData('/api/cms/account-register/realtime-process',
+                    {ids: ids.join(',')}, function (result) {
+                        $('#btnRtConfirm').prop('disabled', false).text('선택 건 실시간 처리');
+                        var d = result.data || {};
+                        var txt = '성공 ' + (d.sent || 0) + '건, 실패 ' + (d.failed || 0) + '건';
+                        if (d.message) txt += '\n\n' + d.message;
+                        Alert.alert(result.success ? '' : '실시간 신청 실패',
+                            result.success ? txt : (result.message || txt));
+
+                        selectedRows = {};
+                        searchList(0);
+                        // 전부 성공했으면 닫고, 일부 실패면 남은 단계를 이어서 재시도할 수 있게 갱신만 한다.
+                        if ((d.failed || 0) === 0) {
+                            $('#modalRealtime').hide();
+                        } else {
+                            AjaxUtil.postAsyncData('/api/cms/account-register/realtime-targets',
+                                {ids: ids.join(',')}, function (r2) {
+                                    if (r2.success) { rtTargets = r2.data || []; renderRealtimeRows(); }
+                                });
+                        }
+                    });
+            });
+        }
+
         function register() {
             var targets = getSelectedItems().filter(isSendable);
             var skipped = getSelectedItems().length - targets.length;
@@ -1057,6 +1297,23 @@
                 if (e.which === 13) searchList(0);
             });
             $('#btnRegister').click(register);
+            $('#btnRealtime').click(function () {
+                $('#moreMenu').hide();
+                openRealtimeModal();
+            });
+            $(document).on('click', '#btnMoreMenu', function (e) {
+                e.stopPropagation();
+                $('#moreMenu').toggle();
+            });
+            $(document).on('click', function () { $('#moreMenu').hide(); });
+            $(document).on('click', '#moreMenu', function (e) { e.stopPropagation(); });
+            $(document).on('mouseenter', '.more-item', function () { $(this).css('background', '#f5f6fa'); });
+            $(document).on('mouseleave', '.more-item', function () { $(this).css('background', '#fff'); });
+            $('#btnRtCancel').click(function () { $('#modalRealtime').hide(); });
+            $('#btnRtConfirm').click(confirmRealtime);
+            $(document).on('change', '#rtChkAll', function () {
+                $('.rt-chk').prop('checked', $(this).prop('checked'));
+            });
             $('#btnCancelPending').click(cancelPending);
             $('#btnReceiveEb14').click(receiveEb14);
             $('#btnCreateFromErp').click(createFromErp);

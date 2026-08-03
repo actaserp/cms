@@ -359,9 +359,20 @@
                                     ERP 동기화
                                 </button>
                             </li>
-                            <li>
-                                <button type="button" class="btn-default" id="btnOpenInquiry"
-                                        style="background:#4a6cf7; color:#fff; width: 120px;">금결원 계좌조회</button>
+                            <!-- 계좌조회는 건당 비용이 발생하므로 기본 노출하지 않는다.
+                                 비용 안내는 조회 모달 안에서 한다. -->
+                            <li style="position:relative;">
+                                <button type="button" class="btn-default" id="btnMoreMenu"
+                                        style="background:#f5f6fa; color:#555; border:1px solid #dde0ea;
+                                               padding:6px 12px; font-size:15px; line-height:1;">&#8942;</button>
+                                <div id="moreMenu" style="display:none; position:absolute; right:0; top:34px; z-index:130;
+                                            background:#fff; border:1px solid #dde0ea; border-radius:4px;
+                                            box-shadow:0 4px 14px rgba(0,0,0,.12); min-width:170px; padding:4px 0;">
+                                    <a href="javascript:;" id="btnOpenInquiry" class="more-item"
+                                       style="display:block; padding:9px 14px; font-size:13px; color:#333; text-decoration:none;">
+                                        금결원 계좌조회
+                                    </a>
+                                </div>
                             </li>
                         </ul>
                     </div>
@@ -415,7 +426,7 @@
                                 <tr>
                                     <th style="padding:5px; border:1px solid #ddd; text-align:center;"
                                         id="idNumberLabel"><span class="eq">*</span>사업자번호/생년월일<span class="help-ico"
-                                                                           data-tip="출금계좌 등록 시 은행에 신고한 번호입니다. 회원이 아니라 ‘예금주’ 기준이므로, 법인이라도 대표자 개인계좌를 쓰면 회사 사업자번호가 아니라 대표자 생년월일 6자리를 넣습니다.">?</span>
+                                                                                                    data-tip="출금계좌 등록 시 은행에 신고한 번호입니다. 회원이 아니라 ‘예금주’ 기준이므로, 법인이라도 대표자 개인계좌를 쓰면 회사 사업자번호가 아니라 대표자 생년월일 6자리를 넣습니다.">?</span>
                                     </th>
                                     <td style="padding:5px; border:1px solid #ddd;">
                                         <input type="text" id="id_number" name="id_number"
@@ -857,6 +868,9 @@
                             border-radius:4px; font-size:11px; color:#a05a00; line-height:1.5;">
                     ※ 계좌조회는 <b>예금주명 확인</b>일 뿐, 출금이체 등록(신청) 완료를 의미하지 않습니다.
                     등록 여부는 EB14 결과 또는 청구 결과코드로 별도 확인하세요.
+                </div>
+                <div style="margin-top:8px; font-size:11px; color:#999; line-height:1.5;">
+                    조회 1건당 수수료가 발생합니다(약 114~240원). 조회한 계좌는 결과가 저장됩니다.
                 </div>
             </div>
 
@@ -1793,7 +1807,25 @@
 
             // ── 금결원 계좌조회 (독립 모달) ──────────────────────
             // 모달 열기
+            $(document).on('click', '#btnMoreMenu', function (e) {
+                e.stopPropagation();
+                $('#moreMenu').toggle();
+            });
+            $(document).on('click', function () {
+                $('#moreMenu').hide();
+            });
+            $(document).on('click', '#moreMenu', function (e) {
+                e.stopPropagation();
+            });
+            $(document).on('mouseenter', '.more-item', function () {
+                $(this).css('background', '#f5f6fa');
+            });
+            $(document).on('mouseleave', '.more-item', function () {
+                $(this).css('background', '#fff');
+            });
+
             $('#btnOpenInquiry').click(function () {
+                $('#moreMenu').hide();
                 // 은행 드롭다운 채우기 (기존 bankCodeList 재사용)
                 var opts = '<option value="">선택</option>';
                 (bankCodeList || []).forEach(function (item) {
@@ -1911,8 +1943,42 @@
                 }
 
                 var $btn = $(this);
-                $btn.prop('disabled', true).text('조회중...');
 
+                // ★ 계좌조회는 건당 비용이 발생한다(결제원 중계 + 금융회사 수수료).
+                //   같은 계좌를 이미 조회했으면 저장된 결과를 먼저 보여주고,
+                //   담당자가 그래도 다시 조회를 택할 때만 실제 API 를 호출한다.
+                AjaxUtil.getAsyncData('/api/cms/member/inquiry-cache',
+                    {bank_code: bankCode, account_no: accountNo}, function (cr) {
+                        var c = (cr && cr.success) ? cr.data : null;
+                        if (c && c.inquiry_holder_name) {
+                            Alert.confirm('',
+                                '이미 조회한 계좌입니다.\n\n'
+                                + '  예금주 : ' + c.inquiry_holder_name + '\n'
+                                + '  조회일 : ' + (c.inquiry_at || '') + '\n\n'
+                                + '다시 조회할까요? (수수료 발생)',
+                                function () {
+                                    callInquiry($btn, bankCode, accountNo, idNo, formHolder);
+                                },
+                                function () {
+                                    drawInquiryResult({
+                                        depositorName: c.inquiry_holder_name,
+                                        bankCode: bankCode, accountNo: accountNo,
+                                        identificationNo: idNo,
+                                        responseMessage: '저장된 조회 결과 (' + (c.inquiry_at || '') + ')'
+                                    }, true, null);
+                                });
+                        } else {
+                            Alert.confirm('',
+                                '금결원에 계좌조회를 요청합니다. (수수료 발생)\n\n조회하시겠습니까?',
+                                function () {
+                                    callInquiry($btn, bankCode, accountNo, idNo, formHolder);
+                                });
+                        }
+                    });
+            });
+
+            function callInquiry($btn, bankCode, accountNo, idNo, formHolder) {
+                $btn.prop('disabled', true).text('조회중...');
                 AjaxUtil.postAsyncData('/api/cms/member/account-inquiry',
                     {
                         bank_code: bankCode,
@@ -1925,7 +1991,7 @@
                         var d = result.data || {};
                         drawInquiryResult(d, result.success, result.message);
                     });
-            });
+            }
 
             // 결과 그리기
             function drawInquiryResult(d, ok, errMsg) {

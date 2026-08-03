@@ -398,4 +398,116 @@ public class CmsTokenService {
         return node.path("data");
     }
 
+    // ------------------------------------------------------------------
+    // 실시간 부가서비스 (동의자료 제출 / 출금계좌 등록 / 출금계좌 해지)
+    //
+    // 계좌조회(realtimeAccountInquiry)와 같은 엔드포인트를 쓰지만
+    //   - payer_no(납부자번호)가 추가로 필요하고
+    //   - 동의자료 제출은 evidence_file(바이너리)을 함께 올려야 한다.
+    // 그래서 multipart 본문을 byte 로 구성한다(문자열로 만들면 PDF 가 깨짐).
+    //
+    // 처리 순서: EVIDENCE_SUBMISSION → ACCOUNT_REGISTRATION (동의자료가 먼저)
+    // ------------------------------------------------------------------
+
+    /** 동의자료 제출. evidenceFileType 예) PAPER, GENERAL_SIGNATURE, ETC */
+    public JsonNode realtimeEvidenceSubmission(String spjangcd, String bankCode, String accountNo,
+                                               String identificationNo, String payerNo,
+                                               long instituteTrackingNo,
+                                               String evidenceFileType,
+                                               String fileName, byte[] fileBytes) throws Exception {
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("account_no", accountNo);
+        body.put("bank_code", bankCode);
+        body.put("identification_no", identificationNo);
+        body.put("institute_tracking_no", instituteTrackingNo);
+        body.put("payer_no", payerNo);
+        body.put("realtime_transaction_type", "EVIDENCE_SUBMISSION");
+        body.put("evidence_file_type", StringUtils.hasText(evidenceFileType) ? evidenceFileType : "PAPER");
+        return callRealtime(spjangcd, "EVIDENCE_SUBMISSION", body, fileName, fileBytes);
+    }
+
+    /** 출금계좌 등록. 반드시 동의자료 제출이 선행되어야 한다. */
+    public JsonNode realtimeAccountRegistration(String spjangcd, String bankCode, String accountNo,
+                                                String identificationNo, String payerNo,
+                                                long instituteTrackingNo) throws Exception {
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("account_no", accountNo);
+        body.put("bank_code", bankCode);
+        body.put("identification_no", identificationNo);
+        body.put("institute_tracking_no", instituteTrackingNo);
+        body.put("payer_no", payerNo);
+        body.put("realtime_transaction_type", "ACCOUNT_REGISTRATION");
+        return callRealtime(spjangcd, "ACCOUNT_REGISTRATION", body, null, null);
+    }
+
+    /** 출금계좌 해지 */
+    public JsonNode realtimeAccountUnregistration(String spjangcd, String bankCode, String accountNo,
+                                                  String identificationNo, String payerNo,
+                                                  long instituteTrackingNo) throws Exception {
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("account_no", accountNo);
+        body.put("bank_code", bankCode);
+        body.put("identification_no", identificationNo);
+        body.put("institute_tracking_no", instituteTrackingNo);
+        body.put("payer_no", payerNo);
+        body.put("realtime_transaction_type", "ACCOUNT_UNREGISTRATION");
+        return callRealtime(spjangcd, "ACCOUNT_UNREGISTRATION", body, null, null);
+    }
+
+    /** 공통 호출부. fileBytes 가 있으면 evidence_file 파트를 추가한다. */
+    private JsonNode callRealtime(String spjangcd, String txType, Map<String, Object> requestBody,
+                                  String fileName, byte[] fileBytes) throws Exception {
+        String token = getToken(spjangcd);
+        String requestJson = objectMapper.writeValueAsString(requestBody);
+
+        String boundary = "----CmsBoundary" + System.currentTimeMillis();
+        String CRLF = "\r\n";
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+
+        // part 1 : request (JSON)
+        StringBuilder head = new StringBuilder();
+        head.append("--").append(boundary).append(CRLF);
+        head.append("Content-Disposition: form-data; name=\"request\"").append(CRLF);
+        head.append("Content-Type: application/json").append(CRLF);
+        head.append(CRLF).append(requestJson).append(CRLF);
+        out.write(head.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        // part 2 : evidence_file (binary) — 면제기관이면 호출부에서 null 로 넘긴다.
+        if (fileBytes != null && fileBytes.length > 0) {
+            StringBuilder fh = new StringBuilder();
+            fh.append("--").append(boundary).append(CRLF);
+            fh.append("Content-Disposition: form-data; name=\"evidence_file\"; filename=\"")
+                    .append(fileName != null ? fileName : "evidence").append("\"").append(CRLF);
+            fh.append("Content-Type: application/octet-stream").append(CRLF);
+            fh.append(CRLF);
+            out.write(fh.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            out.write(fileBytes);
+            out.write(CRLF.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+
+        out.write(("--" + boundary + "--" + CRLF).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(apiBaseUrl + "/biz/realtime/transaction"))
+                .header("Authorization", "Bearer " + token)
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(out.toByteArray()))
+                .build();
+
+        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        log.info("[CmsRealtime/{}] spjangcd={} trackingNo={} status={} 응답={}",
+                txType, spjangcd, requestBody.get("institute_tracking_no"), resp.statusCode(), resp.body());
+
+        // 102: 처리중 / 409: 이중요청 — 호출부에서 상태를 판단해야 하므로 예외로 던지지 않는다.
+        if (resp.statusCode() != 200 && resp.statusCode() != 102 && resp.statusCode() != 409) {
+            throw new IllegalStateException(
+                    "실시간 " + txType + " 실패: HTTP " + resp.statusCode() + " " + resp.body());
+        }
+
+        JsonNode node = objectMapper.readTree(resp.body());
+        JsonNode data = node.path("data");
+        // data 가 비어 오는 오류 응답(400 계열 등)은 최상위 노드를 그대로 넘겨 메시지를 살린다.
+        return data.isMissingNode() || data.isNull() ? node : data;
+    }
+
 }
