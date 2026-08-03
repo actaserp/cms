@@ -1473,7 +1473,7 @@ public class CmsBillingService {
                COALESCE(SUM(b.billing_amount), 0) AS total_amount
         FROM cms_billing b
         WHERE b.spjangcd    = :spjangcd
-          AND b.billing_ym  = :billingYm
+          AND LEFT(b.deduct_date, 6) = :billingYm
           AND b.deduct_type = :deductType
           AND b.status      = 'PENDING'
           AND b.send_date  IS NOT NULL
@@ -1485,7 +1485,8 @@ public class CmsBillingService {
     /**
      * ERP(TB_DA023 미수원장) 미수금 후보를 조회해서 cms_member와 매칭한 목록을 리턴한다. (INSERT 안 함)
      * 모달에서 사용자가 선택할 목록을 만드는 용도.
-     * 각 행 status: OK(생성 가능) / DUP(이미 청구됨) / NO_MEMBER(cms_member 없음) / NOT_AGREED(미인증)
+     * 각 행 status: OK(생성 가능) / DUP(이미 청구됨) / NOT_AGREED(미인증)
+     * ※ cms_member 미등록 건(구 NO_MEMBER)은 목록에서 제외한다.
      */
     public List<Map<String, Object>> previewErpBilling(String billingYm) {
         String spjangcd = TenantContext.get();
@@ -1636,10 +1637,13 @@ public class CmsBillingService {
                         String dispName = memberName;
                         String bankCode = "", bankAccount = "", accountHolder = "";
 
+                        // ★ cms_member 에 매칭되는 납부자가 없는 건은 목록에서 아예 제외한다.
+                        //   CMS 대상이 아닌 ERP 거래처까지 노출되어 "이건 왜 나오냐"는 혼선이 생김.
+                        //   (생성 대상이 아니므로 제외해도 결과는 동일하다.)
+                        if (member == null) continue;
+
                         if (existingMisKeys.contains(misKey)) {
                             rowStatus = "DUP";
-                        } else if (member == null) {
-                            rowStatus = "NO_MEMBER";
                         } else if (!"Y".equals(str(member.get("agree_yn")))) {
                             rowStatus = "NOT_AGREED";
                             memberId  = member.get("id");
@@ -1730,7 +1734,7 @@ public class CmsBillingService {
             String memberName = str(c.get("member_name"));
 
             if (!"OK".equals(rowStatus)) {
-                // DUP / NO_MEMBER / NOT_AGREED 는 생성 안 함
+                // DUP / NOT_AGREED 는 생성 안 함
                 notFound.add(Map.of("cltcd", str(c.get("cltcd")),
                         "member_name", memberName + "(" + rowStatus + ")"));
                 skipped++;
