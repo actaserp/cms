@@ -139,19 +139,6 @@ public class CmsMemberController {
         cmsMemberService.downloadTemplate(response);
     }
 
-    /** ERP 동기화 */
-    @PostMapping("/erp-sync")
-    public AjaxResult erpSync(Authentication auth) {
-        AjaxResult result = new AjaxResult();
-        User user = (User) auth.getPrincipal();
-        try {
-            result.data = cmsMemberService.syncFromErp(user.getSpjangcd(), user.getUsername());
-        } catch (Exception e) {
-            result.success = false;
-            result.message = e.getMessage();
-        }
-        return result;
-    }
 
     /** ERP 동기화 미리보기 (읽기 전용) */
     @GetMapping("/erp-sync-preview")

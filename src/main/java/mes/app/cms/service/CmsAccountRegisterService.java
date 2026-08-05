@@ -571,7 +571,7 @@ public class CmsAccountRegisterService {
                 WHERE m.spjangcd = :spjangcd
                 AND m.agree_yn = 'N'
                 AND m.status = 'ACTIVE'
-                AND m.cltcd IS NOT NULL
+                AND (m.actcd IS NOT NULL OR m.cltcd IS NOT NULL)
                 AND NOT EXISTS (
                     SELECT 1 FROM cms_account_register r
                     WHERE r.member_id = m.id

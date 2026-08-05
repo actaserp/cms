@@ -90,6 +90,14 @@ public class CmsErpResultSyncService {
             conn.setAutoCommit(true);
 
             for (SyncItem item : items) {
+                // TB_BANK_CMSSAVE.cltcd 는 ERP 원장(TB_XCLIENT.cltcd) 기준이다.
+                // 비어 있으면 ERP에서 미분류 수납으로 쌓이므로 넣지 않고 실패로 표면화한다.
+                if (item.getCltcd() == null || item.getCltcd().isBlank()) {
+                    failed++;
+                    log.error("[CmsErpSync] cltcd 없음 - INSERT 스킵 memberNo={} name={}",
+                            item.getMemberNo(), item.getMemberName());
+                    continue;
+                }
                 if (!item.isSuccess()) {
                     log.info("[CmsErpSync] 출금실패 INSERT 스킵 memberNo={} disableCd={}",
                             item.getMemberNo(), item.getDisableCd());

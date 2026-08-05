@@ -698,17 +698,79 @@ public class CmsMemberService {
         };
     }
 
+    /**
+     * cms_member 를 actcd 맵 / cltcd 맵으로 나눠 인덱싱한다.
+     *
+     * ★ actcd 와 cltcd 는 서로 다른 코드 체계이고 번호대가 겹친다.
+     *   (예: 00745 → actcd로는 '154884이규프라자', cltcd로는 '옹진청과')
+     *   따라서 절대 하나의 키로 합쳐서는 안 되고, actcd는 actcd끼리,
+     *   cltcd는 cltcd끼리만 비교해야 한다.
+     *
+     * @return [0]=actcd맵, [1]=cltcd맵
+     */
+    private List<Map<String, Map<String, Object>>> indexMembers(List<Map<String, Object>> members) {
+        Map<String, Map<String, Object>> byActcd = new java.util.HashMap<>();
+        Map<String, Map<String, Object>> byCltcd = new java.util.HashMap<>();
+        for (Map<String, Object> m : members) {
+            String a = str(m.get("actcd"));
+            String c = str(m.get("cltcd"));
+            if (StringUtils.hasText(a)) byActcd.put(a, m);
+            if (StringUtils.hasText(c)) byCltcd.put(c, m);
+        }
+        return List.of(byActcd, byCltcd);
+    }
+
+    /**
+     * ERP 행에 대응하는 cms_member 를 찾는다.
+     * ①경로(erp_actcd 있음) → actcd 로만 매칭
+     * ②경로(erp_actcd 없음) → cltcd 로만 매칭
+     */
+    private Map<String, Object> matchMember(Map<String, Object> erpRow,
+                                            Map<String, Map<String, Object>> byActcd,
+                                            Map<String, Map<String, Object>> byCltcd) {
+        if (erpRow == null) return null;
+        String ea = str(erpRow.get("erp_actcd"));
+        if (StringUtils.hasText(ea)) return byActcd.get(ea);
+        String ec = str(erpRow.get("erp_cltcd"));
+        return StringUtils.hasText(ec) ? byCltcd.get(ec) : null;
+    }
+
     private String generateMemberNo(String spjangcd, String bankCode, String idNumber) {
+        return generateMemberNo(spjangcd, bankCode, idNumber, false, null);
+    }
+
+    /**
+     * 납부자번호 생성. ERP 프로시저(PROC_CMS_R mode=01)와 동일한 규칙을 따른다.
+     *
+     *   rnumchk = '1' → bnkcode(3) + LEFT(prenum, 6)                + 순번(2)  = 11자리
+     *   그 외          → bnkcode(3) + SUBSTRING(saupnum, 6, 5)      + 순번(2)  = 10자리
+     *
+     * ★ 자릿수로 개인/사업자를 추정하면 안 된다. 웨스턴팰리스처럼 rnumchk=0 인데
+     *   prenum 이 13자리(법인등록번호)인 거래처가 있어 오판한다.
+     */
+    private String generateMemberNo(String spjangcd, String bankCode, String idNumber,
+                                    boolean useResident, String prenum) {
+        // ★ 식별번호가 없으면 납부자번호를 만들 수 없다. 조용히 '00000'을 채우면
+        //   {은행3}0000001 같은 번호가 은행에 등록되어 추적이 불가능해진다. (id=4192 사례)
+        if (idNumber == null || idNumber.replaceAll("[^0-9]", "").isEmpty()) {
+            throw new IllegalStateException(
+                    "납부자번호 생성 불가 - 식별번호(사업자/주민)가 없습니다. bankCode=" + bankCode);
+        }
+
         // 은행코드 3자리
         String bank = (bankCode != null && bankCode.length() >= 3) ? bankCode.substring(0, 3) : "000";
 
-        // 사업자번호 숫자만 추출 후 뒤 5자리
-        String idPart = "00000";
-        if (idNumber != null) {
+        String idPart;
+        String prenumDigits = prenum != null ? prenum.replaceAll("[^0-9]", "") : "";
+        if (useResident && prenumDigits.length() >= 6) {
+            idPart = prenumDigits.substring(0, 6);        // 생년월일 6자리
+        } else {
             String digits = idNumber.replaceAll("[^0-9]", "");
-            if (digits.length() >= 5) {
+            if (digits.length() == 13) {
+                idPart = digits.substring(0, 6);          // prenum 이 idNumber 로 넘어온 경우
+            } else if (digits.length() >= 5) {
                 idPart = digits.substring(digits.length() - 5);
-            } else if (!digits.isEmpty()) {
+            } else {
                 idPart = String.format("%05d", Integer.parseInt(digits));
             }
         }
@@ -748,424 +810,6 @@ public class CmsMemberService {
         return prefix + String.format("%02d", seq);
     }
 
-    public Map<String, Object> syncFromErp(String spjangcd, String userId) {
-        int inserted = 0, updated = 0, skipped = 0, failed = 0;
-
-        // 1. ERP 접속정보 + custcd + ms_spjangcd 조회
-        Map<String, Object> erp = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT host, port, db_name, username, password, custcd, ms_spjangcd FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
-                new MapSqlParameterSource("spjangcd", spjangcd));
-
-        if (erp == null) throw new IllegalStateException("ERP 접속정보가 없습니다.");
-
-        String custcd     = str(erp.get("custcd"));
-        String msSpjangcd = str(erp.get("ms_spjangcd"));
-        if (custcd.isEmpty()) throw new IllegalStateException("업체코드(custcd)가 설정되어 있지 않습니다.");
-
-        // 2. CMS 승인 여부 확인
-        Map<String, Object> cms = sqlRunner.getRow(/* skip_tenant_check */
-                "SELECT is_normal_status, amount_round_unit FROM tb_xa012_cms WHERE spjangcd = :spjangcd AND ms_spjangcd IS NOT DISTINCT FROM :msSpjangcd",
-                new MapSqlParameterSource("spjangcd", spjangcd)
-                        .addValue("msSpjangcd", msSpjangcd.isEmpty() ? null : msSpjangcd));
-
-        if (cms == null || !Boolean.TRUE.equals(cms.get("is_normal_status"))) {
-            throw new IllegalStateException("CMS 서비스 상태가 승인이 아닙니다.");
-        }
-
-        // 업체별 금액 반올림 단위 (없으면 1=원단위)
-        int roundUnit = (cms.get("amount_round_unit") != null)
-                ? ((Number) cms.get("amount_round_unit")).intValue() : 1;
-
-        // 2-1. 동기화 예외 목록 로드
-        Set<String> excludeSet = sqlRunner.getRows(/* skip_tenant_check */
-                        "SELECT cltcd FROM cms_member_sync_exclude WHERE spjangcd = :spjangcd",
-                        new MapSqlParameterSource("spjangcd", spjangcd))
-                .stream()
-                .map(row -> str(row.get("cltcd")))
-                .collect(java.util.stream.Collectors.toSet());
-
-        log.info("[ERP동기화] 동기화 제외 대상: {}", excludeSet);
-
-        // 은행코드 매핑
-        Map<String, String> bnkCodeMap = new java.util.HashMap<>();
-        bnkCodeMap.put("002", "002"); bnkCodeMap.put("003", "003");
-        bnkCodeMap.put("007", "007"); bnkCodeMap.put("008", "008");
-        bnkCodeMap.put("012", "012"); bnkCodeMap.put("019", "004");
-        bnkCodeMap.put("020", "020"); bnkCodeMap.put("023", "023");
-        bnkCodeMap.put("027", "027"); bnkCodeMap.put("032", "032");
-        bnkCodeMap.put("034", "034"); bnkCodeMap.put("035", "035");
-        bnkCodeMap.put("037", "037"); bnkCodeMap.put("039", "039");
-        bnkCodeMap.put("045", "045"); bnkCodeMap.put("047", "048");
-        bnkCodeMap.put("050", "050"); bnkCodeMap.put("064", "064");
-        bnkCodeMap.put("071", "071"); bnkCodeMap.put("081", "081");
-        bnkCodeMap.put("088", "088"); bnkCodeMap.put("089", "089");
-        bnkCodeMap.put("090", "090"); bnkCodeMap.put("092", "092");
-        bnkCodeMap.put("006", "004");   // 국민은행 (TB_XBANK 006 → PG 004)
-
-        // 3. MS DB 연결
-        String url = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
-                str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
-
-        try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
-        catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
-
-        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
-                url, str(erp.get("username")), str(erp.get("password")))) {
-
-            String sql =
-                    "SELECT"
-                            + " C.cltcd AS cltcd,"
-                            + " E6.actcd AS actcd,"
-                            + " E6.actnm AS member_name,"
-                            + " C.corpperclafi AS corpperclafi,"
-                            + " C.saupnum AS saupnum,"
-                            + " CASE"
-                            + "     WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.cmsrnum)), '-', ''), '') IS NOT NULL"
-                            + "          THEN REPLACE(LTRIM(RTRIM(C.cmsrnum)), '-', '')"
-                            + "     WHEN NULLIF(REPLACE(LTRIM(RTRIM(E1.cmsrnum)), '-', ''), '') IS NOT NULL"
-                            + "          THEN REPLACE(LTRIM(RTRIM(E1.cmsrnum)), '-', '')"
-                            + "     WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)), '-', ''), '') IS NOT NULL"
-                            + "          THEN REPLACE(LTRIM(RTRIM(C.saupnum)), '-', '')"
-                            + "     WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum))) = 13"
-                            + "          AND NULLIF(LTRIM(RTRIM(C.prenum)), '') IS NOT NULL"
-                            + "          THEN LTRIM(RTRIM(C.prenum))"
-                            + "     ELSE NULL"
-                            + " END AS id_number,"
-                            + " CASE"
-                            + "     WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum))) = 13"
-                            + "          AND NULLIF(LTRIM(RTRIM(C.prenum)), '') IS NOT NULL"
-                            + "          THEN LTRIM(RTRIM(C.prenum))"
-                            + "     WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)), '-', ''), '') IS NOT NULL"
-                            + "          THEN REPLACE(LTRIM(RTRIM(C.saupnum)), '-', '')"
-                            + "     ELSE NULL"
-                            + " END AS resident_no,"
-                            // ★ 계좌·은행 소스 = 원장(E101 우선, 없으면 XCLIENT).
-                            //   기존 CMS 프로시저(PROC_CMS_EB13_R)가 A.accnum/A.bankcd(원장)를 읽는 것과 동일.
-                            //   EB13.CMSACCNUM/BANKCD 는 "등록 신청 시점 스냅샷"이라 원장에서 계좌를 바꿔도
-                            //   갱신되지 않는다. 이걸 읽어서 84건 불일치가 발생했음. (2026-07-15 확인)
-                            //   계좌와 은행은 반드시 같은 소스에서 짝으로 가져와야 한다.
-                            + " CASE WHEN NULLIF(LTRIM(RTRIM(E1.accnum)), '') IS NOT NULL"
-                            + "      THEN LTRIM(RTRIM(COALESCE(B1.bnkcode, '')))"
-                            + "      ELSE LTRIM(RTRIM(COALESCE(B.bnkcode, ''))) END AS bank_code,"
-                            + " CASE WHEN NULLIF(LTRIM(RTRIM(E1.accnum)), '') IS NOT NULL"
-                            + "      THEN REPLACE(REPLACE(LTRIM(RTRIM(E1.accnum)), '-', ''), ' ', '')"
-                            + "      ELSE REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(C.accnum, ''))), '-', ''), ' ', '') END AS bank_account,"
-                            + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM, ''))), '-', ''), ' ', '') AS eb13_account,"
-                            + " C.hptelnum AS phone,"
-                            + " C.agneremail AS email,"
-                            + " C.cltadres AS adresa,"
-                            + " C.zipcd AS zipcd,"
-                            + " CASE"
-                            + "     WHEN E1.contyul IS NOT NULL AND E1.contyul > 0 AND E1.addyn = 0"
-                            + "          THEN E1.amt * (E1.contyul / 100.0) * 1.1"
-                            + "     WHEN E1.contyul IS NOT NULL AND E1.contyul > 0"
-                            + "          THEN E1.amt * (E1.contyul / 100.0)"
-                            + "     WHEN E1.addyn = 0"
-                            + "          THEN E1.amt * 1.1"
-                            + "     ELSE E1.amt"
-                            + " END AS deduct_amount_raw,"
-                            + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autodate)), ''), NULLIF(LTRIM(RTRIM(C.autodate)), '')) AS deduct_day,"
-                            + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autoflag)), ''), NULLIF(LTRIM(RTRIM(C.autoflag)), '')) AS auto_flag,"
-                            + " E1.stdate AS start_date,"
-                            + " E1.enddate AS end_date,"
-                            + " E1.accyn AS accyn,"
-                            + " EB.BANKCLTCD AS member_no,"
-                            + " EB.SPFLAG AS eb13_spflag,"
-                            + " EB.ENDFLAG AS eb13_endflag,"
-                            + " E1.delmon1, E1.delmon2, E1.delmon3, E1.delmon4,"
-                            + " E1.delmon5, E1.delmon6, E1.delmon7, E1.delmon8,"
-                            + " E1.delmon9, E1.delmon10, E1.delmon11, E1.delmon12"
-                            + " FROM TB_XCLIENT C WITH(NOLOCK)"
-                            + " LEFT JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd = B.bankcd"
-                            + " INNER JOIN TB_E601 E6 WITH(NOLOCK) ON C.cltcd = E6.cltcd AND C.custcd = E6.custcd"
-                            + " INNER JOIN TB_E101 E1 WITH(NOLOCK) ON E6.actcd = E1.actcd AND E6.custcd = E1.custcd"
-                            + " LEFT JOIN TB_CMSEB13 EB WITH(NOLOCK)"
-                            + "     ON EB.CLTCD = E6.actcd"
-                            + "     AND EB.CUSTCD = C.custcd"
-                            + "     AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(EB.BANKCLTCD))) = 0"
-                            + "     AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
-                            + "     AND EB.SPDATE = ("
-                            + "         SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
-                            + "         WHERE CLTCD = E6.actcd"
-                            + "         AND CUSTCD = C.custcd"
-                            + "         AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(BANKCLTCD))) = 0"
-                            + "         AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
-                            + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD = XB.bankcd"
-                            + " LEFT JOIN TB_XBANK B1 WITH(NOLOCK) ON E1.bankcd = B1.bankcd"
-                            + " WHERE C.custcd = ?"
-                            + " AND ("
-                            + "     (C.allchk = 1 AND (SELECT COUNT(*) FROM TB_E601 WITH(NOLOCK) WHERE cltcd = C.cltcd AND custcd = C.custcd) = 1)"
-                            + "     OR E1.cmsflag = 1"
-                            + " )"
-                            // ★ 계좌 존재 조건도 원장 기준. (EB13.CMSACCNUM 이 아니라 실제 쓸 계좌가 있어야 함)
-                            + " AND (NULLIF(LTRIM(RTRIM(E1.accnum)), '') IS NOT NULL"
-                            + "      OR NULLIF(LTRIM(RTRIM(C.accnum)), '') IS NOT NULL)"
-                            + " AND ("
-                            + "     (C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum)) != '')"
-                            + "     OR (C.saupnum IS NOT NULL AND LTRIM(RTRIM(C.saupnum)) != '')"
-                            + "     OR (C.prenum IS NOT NULL AND LTRIM(RTRIM(C.prenum)) != '' AND LEN(LTRIM(RTRIM(C.prenum))) = 13)"
-                            + "     OR (E1.cmsrnum IS NOT NULL AND LTRIM(RTRIM(E1.cmsrnum)) != '')"
-                            + " )"
-                            + " AND E1.enddate >= CONVERT(varchar(8), GETDATE(), 112)"
-                            + " AND E1.stdate <= CONVERT(varchar(8), GETDATE(), 112)"
-                            + " AND E1.stdate = (SELECT MAX(stdate) FROM TB_E101"
-                            + "     WHERE actcd = E6.actcd AND custcd = ?"
-                            + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
-                            + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))"
-                            + " AND E1.amt = (SELECT MAX(amt) FROM TB_E101"
-                            + "     WHERE actcd = E6.actcd AND custcd = ?"
-                            + "     AND stdate = E1.stdate"
-                            + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
-                            + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))"
-                            + " AND E1.enddate = (SELECT MAX(enddate) FROM TB_E101"
-                            + "     WHERE actcd = E6.actcd AND custcd = ?"
-                            + "     AND stdate = E1.stdate"
-                            + "     AND enddate >= CONVERT(varchar(8), GETDATE(), 112)"
-                            + "     AND stdate <= CONVERT(varchar(8), GETDATE(), 112))"
-
-                            // ─────────────────────────────────────────────────────────────
-                            // ② EB13 주도 경로 (allchk/XCLIENT 기반 회사: 예) KYOUNG)
-                            //    E101 계약이 없어도 EB13(유효 출금동의)만 있으면 납부자로 동기화.
-                            //    계좌·납부자번호·은행·예금주는 EB13에서, autoflag/약정일은 XCLIENT 보조.
-                            //    금액(deduct_amount)은 청구 시 미수(DA023)에서 잡으므로 NULL.
-                            //    ①에서 이미 잡힌 actcd(=EB13.CLTCD)는 제외해 중복 방지.
-                            + " UNION"
-                            + " SELECT"
-                            + "   EB.CLTCD AS cltcd,"
-                            + "   EB.CLTCD AS actcd,"
-                            + "   X.cltnm AS member_name,"
-                            + "   X.corpperclafi AS corpperclafi,"
-                            + "   X.saupnum AS saupnum,"
-                            + "   REPLACE(LTRIM(RTRIM(EB.SAUPNUM)), '-', '') AS id_number,"
-                            + "   CASE WHEN X.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(X.prenum)))=13"
-                            + "        THEN LTRIM(RTRIM(X.prenum))"
-                            + "        WHEN NULLIF(REPLACE(LTRIM(RTRIM(X.saupnum)),'-',''),'') IS NOT NULL"
-                            + "        THEN REPLACE(LTRIM(RTRIM(X.saupnum)),'-','')"
-                            + "        ELSE NULL END AS resident_no,"
-                            // ★ 계좌·은행 소스 = XCLIENT 원장. (EB.ACTCD 가 비어있는 경로 = 프로시저의 ACTCD IS NULL 분기)
-                            + "   LTRIM(RTRIM(COALESCE(XB2.bnkcode, ''))) AS bank_code,"
-                            + "   REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(X.accnum,''))),'-',''),' ','') AS bank_account,"
-                            + "   REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS eb13_account,"
-                            + "   X.hptelnum AS phone,"
-                            + "   X.agneremail AS email,"
-                            + "   X.cltadres AS adresa,"
-                            + "   X.zipcd AS zipcd,"
-                            + "   NULL AS deduct_amount_raw,"
-                            + "   NULLIF(LTRIM(RTRIM(X.autodate)), '') AS deduct_day,"
-                            + "   NULLIF(LTRIM(RTRIM(X.autoflag)), '') AS auto_flag,"
-                            + "   NULL AS start_date,"
-                            + "   NULL AS end_date,"
-                            + "   NULL AS accyn,"
-                            + "   EB.BANKCLTCD AS member_no,"
-                            + "   EB.SPFLAG AS eb13_spflag,"
-                            + "   EB.ENDFLAG AS eb13_endflag,"
-                            + "   NULL AS delmon1, NULL AS delmon2, NULL AS delmon3, NULL AS delmon4,"
-                            + "   NULL AS delmon5, NULL AS delmon6, NULL AS delmon7, NULL AS delmon8,"
-                            + "   NULL AS delmon9, NULL AS delmon10, NULL AS delmon11, NULL AS delmon12"
-                            + " FROM TB_CMSEB13 EB WITH(NOLOCK)"
-                            + " INNER JOIN TB_XCLIENT X WITH(NOLOCK)"
-                            + "     ON X.custcd = EB.CUSTCD AND X.cltcd = EB.CLTCD"
-                            + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD = XB.bankcd"
-                            + " LEFT JOIN TB_XBANK XB2 WITH(NOLOCK) ON X.bankcd = XB2.bankcd"
-                            + " WHERE EB.CUSTCD = ?"
-                            + "   AND EB.SPFLAG = '1' AND EB.ENDFLAG = 'Y'"
-                            + "   AND LEN(ISNULL(EB.ACTCD, '')) = 0"
-                            + "   AND NULLIF(LTRIM(RTRIM(X.accnum)), '') IS NOT NULL"
-                            + "   AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(EB.BANKCLTCD))) = 0"
-                            + "   AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
-                            + "   AND EB.SPDATE = ("
-                            + "       SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
-                            + "       WHERE CLTCD = EB.CLTCD AND CUSTCD = EB.CUSTCD AND ENDFLAG = 'Y'"
-                            + "       AND PATINDEX('%[^0-9]%', LTRIM(RTRIM(BANKCLTCD))) = 0"
-                            + "       AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
-                            + "   AND EB.CLTCD NOT IN ("
-                            + "       SELECT E6b.actcd FROM TB_E601 E6b WITH(NOLOCK)"
-                            + "       INNER JOIN TB_E101 E1b WITH(NOLOCK)"
-                            + "           ON E6b.actcd = E1b.actcd AND E6b.custcd = E1b.custcd"
-                            + "       WHERE E6b.custcd = EB.CUSTCD AND E1b.cmsflag = 1)";
-
-            try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, custcd);
-                ps.setString(2, custcd);
-                ps.setString(3, custcd);
-                ps.setString(4, custcd);
-                ps.setString(5, custcd);  // EB13 주도 경로 EB.CUSTCD
-
-                try (java.sql.ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        try {
-                            String cltcd        = rs.getString("cltcd");
-                            String actcd        = rs.getString("actcd");
-                            String memberName   = rs.getString("member_name");
-                            String idNumber     = rs.getString("id_number");
-                            String bnkCode      = rs.getString("bank_code");
-                            String bankCode     = bnkCodeMap.getOrDefault(bnkCode, bnkCode);
-                            String bankAccount  = rs.getString("bank_account");
-                            String residentNo   = rs.getString("resident_no");
-                            String phone        = rs.getString("phone");
-                            String email        = rs.getString("email");
-                            String adresa       = rs.getString("adresa");
-                            String zipcd2       = rs.getString("zipcd");
-                            double rawAmt       = rs.getDouble("deduct_amount_raw");
-                            Long   deductAmount = rs.wasNull() ? null : roundAmount(rawAmt, roundUnit);
-                            String startDate    = cleanDate(rs.getString("start_date"));
-                            String endDate      = cleanDate(rs.getString("end_date"));
-                            String accyn        = rs.getString("accyn");
-                            String erpMemberNo  = rs.getString("member_no");
-                            String saupnum      = rs.getString("saupnum");
-                            if ("null".equalsIgnoreCase(erpMemberNo)) erpMemberNo = null;
-
-                            // 동기화 예외 대상 스킵
-                            if (excludeSet.contains(actcd)) {
-                                log.info("[ERP동기화] 동기화 제외 대상 스킵: actcd={} member={}", actcd, memberName);
-                                skipped++;
-                                continue;
-                            }
-
-                            // EB13 인증완료 판정: SPFLAG='1'(신규) AND ENDFLAG='Y'(완료)일 때만 Y.
-                            // (해지건 SPFLAG='3'/ENDFLAG='Y' 를 인증완료로 오인하지 않도록)
-                            String eb13Spflag  = rs.getString("eb13_spflag");
-                            String eb13Endflag = rs.getString("eb13_endflag");
-                            String agreeYn = ("1".equals(eb13Spflag) && "Y".equals(eb13Endflag)) ? "Y" : "N";
-
-                            log.info("[ERP동기화] member확인: cltcd={} actcd={} erpMemberNo='{}' spflag='{}' endflag='{}' agreeYn={}",
-                                    cltcd, actcd, erpMemberNo, eb13Spflag, eb13Endflag, agreeYn);
-
-                            // deduct_day 처리
-                            String autoFlag  = rs.getString("auto_flag");
-                            String deductDay = rs.getString("deduct_day");
-
-                            if ("1".equals(autoFlag)) {
-                                deductDay = "99";
-                            } else if (deductDay == null || deductDay.trim().isEmpty()) {
-                                log.warn("[ERP동기화] deduct_day 없음 - 스킵: cltcd={} actcd={} member={}", cltcd, actcd, memberName);
-                                skipped++;
-                                continue;
-                            } else {
-                                try {
-                                    deductDay = String.format("%02d", Integer.parseInt(deductDay.trim()));
-                                } catch (NumberFormatException e) {
-                                    log.warn("[ERP동기화] deduct_day 파싱 실패 - 스킵: cltcd={} actcd={} deduct_day={}", cltcd, actcd, deductDay);
-                                    skipped++;
-                                    continue;
-                                }
-                            }
-
-                            log.info("[ERP동기화] deductDay확인: cltcd={} actcd={} autoFlag='{}' rawAutodate='{}' deductDay='{}'",
-                                    cltcd, actcd, autoFlag, rs.getString("deduct_day"), deductDay);
-
-                            if (endDate == null || endDate.isEmpty()) endDate = "99991231";
-                            if (bankAccount != null) bankAccount = bankAccount.replaceAll("-", "").trim();
-
-                            // cycle_months
-                            List<String> months = new java.util.ArrayList<>();
-                            for (int i = 1; i <= 12; i++) {
-                                String mon = rs.getString("delmon" + i);
-                                if (mon != null && !mon.trim().isEmpty()) {
-                                    months.add(String.valueOf(Integer.parseInt(mon.trim())));
-                                }
-                            }
-                            String cycleMonths = months.isEmpty() ? null : String.join(",", months);
-                            String cycleType   = (months.size() == 12) ? "REGULAR" : "IRREGULAR";
-                            String deductMonthType = "2".equals(autoFlag) ? "NEXT" : "CURRENT";
-                            if ("REGULAR".equals(cycleType)) cycleMonths = null;
-
-                            // actcd 기준으로 기존 member 조회
-                            Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
-                                    "SELECT id, member_no, _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :actcd",
-                                    new MapSqlParameterSource("spjangcd", spjangcd).addValue("actcd", actcd));
-
-                            String memberNo;
-                            if (existing != null && StringUtils.hasText(str(existing.get("member_no")))) {
-                                memberNo = str(existing.get("member_no"));
-                            } else if (StringUtils.hasText(erpMemberNo)) {
-                                memberNo = erpMemberNo;
-                            } else {
-                                // EB13(BANKCLTCD) 없는 신규 → 규칙으로 납부자번호 생성
-                                memberNo = generateMemberNo(spjangcd, bankCode, idNumber);
-                            }
-
-                            String corpperclafi = rs.getString("corpperclafi");
-                            String memberType;
-                            if (StringUtils.hasText(saupnum) && !saupnum.trim().isEmpty()) {
-                                memberType = "0".equals(corpperclafi) ? "S" : "C";
-                            } else if ("0".equals(corpperclafi) && StringUtils.hasText(idNumber) && idNumber.replaceAll("[^0-9]", "").length() == 13) {
-                                memberType = "P";
-                            } else {
-                                memberType = "S";
-                            }
-
-                            MapSqlParameterSource p = new MapSqlParameterSource();
-                            p.addValue("spjangcd",     spjangcd);
-                            p.addValue("memberNo",     memberNo);
-                            p.addValue("cltcd",        actcd);
-                            p.addValue("agreeYn",      agreeYn);
-                            p.addValue("memberName",   memberName);
-                            p.addValue("memberType",   memberType);
-                            p.addValue("idNumber",     idNumber);
-                            p.addValue("residentNo",   residentNo);
-                            p.addValue("bankCode",     bankCode);
-                            p.addValue("bankAccount",  bankAccount);
-                            p.addValue("phone",        phone);
-                            p.addValue("email",        email);
-                            p.addValue("adresa",       adresa);
-                            p.addValue("zipcd",        zipcd2);
-                            p.addValue("deductAmount", deductAmount);
-                            p.addValue("deductDay",    deductDay);
-                            p.addValue("startDate",    startDate);
-                            p.addValue("endDate",      endDate);
-                            p.addValue("cycleType",    cycleType);
-                            p.addValue("cycleMonths",  cycleMonths);
-                            p.addValue("deductMonthType", deductMonthType);
-                            p.addValue("userId",       userId);
-
-                            if (existing == null) {
-                                sqlRunner.execute(/* skip_tenant_check */
-                                        """
-                                        INSERT INTO cms_member (
-                                            spjangcd, member_no, member_type, member_name,
-                                            id_number, resident_no, bank_code, bank_account,
-                                            phone, email, adresa, zipcd,
-                                            deduct_amount, deduct_day,
-                                            start_date, end_date,
-                                            cycle_type, cycle_months,
-                                            deduct_month_type,
-                                            agree_yn, cltcd, status,
-                                            _creater_id, _created, _modifier_id, _modified
-                                        ) VALUES (
-                                            :spjangcd, :memberNo, :memberType, :memberName,
-                                            :idNumber, :residentNo, :bankCode, :bankAccount,
-                                            :phone, :email, :adresa, :zipcd,
-                                            :deductAmount, :deductDay,
-                                            :startDate, :endDate,
-                                            :cycleType, :cycleMonths,
-                                            :deductMonthType,
-                                            :agreeYn, :cltcd, 'ACTIVE',
-                                            :userId, NOW(), :userId, NOW()
-                                        )
-                                        """, p);
-                                inserted++;
-                            } else {
-                                // [C안] 기존 회원은 자동 덮어쓰기 금지.
-                                // 웹(cms_member)이 최신일 수 있어 ERP 값으로 되돌리면 안 됨.
-                                // 교정은 담당자가 previewSync/applySync에서 선택 반영.
-                                skipped++;
-                            }
-                        } catch (Exception e) {
-                            log.warn("[ERP동기화] 행 처리 실패: {}", e.getMessage());
-                            failed++;
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.error("[ERP동기화] 실패 spjangcd={}: {}", spjangcd, e.getMessage());
-            throw new IllegalStateException("MS DB 연결 또는 조회 실패: " + e.getMessage());
-        }
-
-        log.info("[ERP동기화] 완료 spjangcd={} 신규={} 수정={} 스킵={} 실패={}", spjangcd, inserted, updated, skipped, failed);
-        return Map.of("inserted", inserted, "updated", updated, "skipped", skipped, "failed", failed);
-    }
 
     /**
      * ERP에서 동기화 대상 행을 계산해 반환 — DB 쓰기 없음.
@@ -1184,20 +828,112 @@ public class CmsMemberService {
         bnkCodeMap.put("047","048"); bnkCodeMap.put("050","050"); bnkCodeMap.put("064","064");
         bnkCodeMap.put("071","071"); bnkCodeMap.put("081","081"); bnkCodeMap.put("088","088");
         bnkCodeMap.put("089","089"); bnkCodeMap.put("090","090"); bnkCodeMap.put("092","092");
+        bnkCodeMap.put("006","004");   // 국민은행 (TB_XBANK 006 → PG 004)
+
+        // ─────────────────────────────────────────────────────────────
+        // ERP 프로시저 PROC_CMS_R(mode=01) 구조를 그대로 따른다.
+        //
+        //   src_path=1  A. 거래처 단위 (TB_XCLIENT.allchk=1)
+        //                  키=cltcd, 이름=cltnm, 약정일=XCLIENT.autodate
+        //                  납부자번호 = bnkcode + (rnumchk=1 ? prenum(1,6) : saupnum(6,5)) + '01'
+        //   src_path=2  B. 현장 단위 (TB_E101.cmsflag=1, contg<>'04')
+        //                  키=actcd, 이름=actnm, 약정일=E101.autodate
+        //                  납부자번호 = bnkcode + E101.cmsnumber + '01'
+        //   src_path=3  C. EB13 주도 (계약도 현장도 없는 거래처 구제)
+        //                  키=cltcd, 이름=cltnm
+        //
+        // ★ actcd 와 cltcd 는 서로 다른 코드 체계이고 번호대가 겹친다(JUWON 73건 전부 상이).
+        //   경로를 섞으면 남의 인증정보·납부자번호가 붙는다.
+        // ★ 출금액은 매출(TB_DA023 미수)에서 잡으므로 deduct_amount 는 참고값이다.
+        // ─────────────────────────────────────────────────────────────
+        String today = "CONVERT(varchar(8),GETDATE(),112)";
 
         String sql =
-                "SELECT C.cltcd AS cltcd, E6.actcd AS actcd, E6.actnm AS member_name,"
+                // ══════════ A. 거래처 단위 (allchk=1) ══════════
+                "SELECT 1 AS src_path, C.cltcd AS cltcd, NULL AS actcd, C.cltnm AS member_name,"
                         + " C.corpperclafi AS corpperclafi, C.saupnum AS saupnum,"
-                        + " LTRIM(RTRIM(COALESCE(EB.SAUPNUM,''))) AS id_number,"
+                        + " C.rnumchk AS rnumchk, LTRIM(RTRIM(COALESCE(C.prenum,''))) AS prenum,"
                         + " CASE"
-                        + "     WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum)))=13"
-                        + "          AND NULLIF(LTRIM(RTRIM(C.prenum)),'') IS NOT NULL"
-                        + "          THEN LTRIM(RTRIM(C.prenum))"
-                        + "     WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),'') IS NOT NULL"
-                        + "          THEN REPLACE(LTRIM(RTRIM(C.saupnum)),'-','')"
-                        + "     ELSE NULL"
-                        + " END AS resident_no,"
-                        // ★ 계좌·은행 소스 = 원장(E101 우선, 없으면 XCLIENT). syncFromErp ① 경로와 동일.
+                        + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-',''),'') IS NOT NULL"
+                        + "        THEN REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-','')"
+                        + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.cmsrnum)),'-',''),'') IS NOT NULL"
+                        + "        THEN REPLACE(LTRIM(RTRIM(C.cmsrnum)),'-','')"
+                        + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),'') IS NOT NULL"
+                        + "        THEN REPLACE(LTRIM(RTRIM(C.saupnum)),'-','')"
+                        + "   WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum)))=13"
+                        + "        THEN LTRIM(RTRIM(C.prenum))"
+                        + "   ELSE NULL END AS id_number,"
+                        + " CASE WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum)))=13"
+                        + "      THEN LTRIM(RTRIM(C.prenum))"
+                        + "      WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),'') IS NOT NULL"
+                        + "      THEN REPLACE(LTRIM(RTRIM(C.saupnum)),'-','')"
+                        + "      ELSE NULL END AS resident_no,"
+                        + " LTRIM(RTRIM(COALESCE(B.bnkcode,''))) AS bank_code,"
+                        + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(C.accnum,''))),'-',''),' ','') AS bank_account,"
+                        + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS eb13_account,"
+                        + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(C.accnum,''))),'-',''),' ','') AS xclient_account,"
+                        + " C.hptelnum AS phone, C.agneremail AS email,"
+                        + " C.cltadres AS adresa, C.zipcd AS zipcd,"
+                        + " NULL AS deduct_amount_raw,"
+                        + " NULLIF(LTRIM(RTRIM(C.autodate)),'') AS deduct_day,"
+                        + " NULLIF(LTRIM(RTRIM(C.autoflag)),'') AS auto_flag,"
+                        + " K.stdate AS start_date, K.enddate AS end_date,"
+                        + " EB.BANKCLTCD AS member_no,"
+                        + " EB.SPFLAG AS eb13_spflag, EB.ENDFLAG AS eb13_endflag,"
+                        + " NULL AS e101_cmsflag, NULL AS cmsnumber,"
+                        + " K.delmon1,K.delmon2,K.delmon3,K.delmon4,K.delmon5,K.delmon6,"
+                        + " K.delmon7,K.delmon8,K.delmon9,K.delmon10,K.delmon11,K.delmon12"
+                        + " FROM TB_XCLIENT C WITH(NOLOCK)"
+                        + " LEFT JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd=B.bankcd"
+                        // 소속 현장 중 유효한 계약 1건(만료일 최장 → 금액 최대)에서 기간·주기를 취한다.
+                        + " OUTER APPLY ("
+                        + "     SELECT TOP 1 E1.stdate, E1.enddate,"
+                        + "            E1.delmon1,E1.delmon2,E1.delmon3,E1.delmon4,E1.delmon5,E1.delmon6,"
+                        + "            E1.delmon7,E1.delmon8,E1.delmon9,E1.delmon10,E1.delmon11,E1.delmon12"
+                        + "       FROM TB_E601 E6 WITH(NOLOCK)"
+                        + "       INNER JOIN TB_E101 E1 WITH(NOLOCK)"
+                        + "           ON E1.actcd=E6.actcd AND E1.custcd=E6.custcd"
+                        + "      WHERE E6.cltcd=C.cltcd AND E6.custcd=C.custcd"
+                        + "        AND E1.enddate >= " + today
+                        + "        AND E1.stdate  <= " + today
+                        + "      ORDER BY E1.enddate DESC, E1.amt DESC) K"
+                        // EB13 은 거래처 단위 등록분만 (ACTCD IS NULL)
+                        + " LEFT JOIN TB_CMSEB13 EB WITH(NOLOCK)"
+                        + "     ON EB.CUSTCD=C.custcd AND EB.ACTCD IS NULL AND EB.CLTCD=C.cltcd"
+                        + "     AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(EB.BANKCLTCD)))=0"
+                        + "     AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
+                        + "     AND EB.SPDATE=(SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
+                        + "         WHERE CUSTCD=C.custcd AND ACTCD IS NULL AND CLTCD=C.cltcd"
+                        + "         AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(BANKCLTCD)))=0"
+                        + "         AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
+                        + " WHERE C.custcd=? AND C.allchk=1"
+                        + "   AND K.enddate IS NOT NULL"          // 유효 계약이 있는 거래처만
+                        + "   AND NULLIF(LTRIM(RTRIM(C.accnum)),'') IS NOT NULL"
+                        + "   AND ((C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum))!='')"
+                        + "     OR (C.saupnum IS NOT NULL AND LTRIM(RTRIM(C.saupnum))!='')"
+                        + "     OR (C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum)))=13))"
+
+                        // ══════════ B. 현장 단위 (cmsflag=1) ══════════
+                        + " UNION ALL"
+                        + " SELECT 2 AS src_path, C.cltcd AS cltcd, E6.actcd AS actcd, E6.actnm AS member_name,"
+                        + " C.corpperclafi AS corpperclafi, C.saupnum AS saupnum,"
+                        + " C.rnumchk AS rnumchk, LTRIM(RTRIM(COALESCE(C.prenum,''))) AS prenum,"
+                        + " CASE"
+                        + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-',''),'') IS NOT NULL"
+                        + "        THEN REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-','')"
+                        + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(E1.cmsrnum)),'-',''),'') IS NOT NULL"
+                        + "        THEN REPLACE(LTRIM(RTRIM(E1.cmsrnum)),'-','')"
+                        + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.cmsrnum)),'-',''),'') IS NOT NULL"
+                        + "        THEN REPLACE(LTRIM(RTRIM(C.cmsrnum)),'-','')"
+                        + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),'') IS NOT NULL"
+                        + "        THEN REPLACE(LTRIM(RTRIM(C.saupnum)),'-','')"
+                        + "   ELSE NULL END AS id_number,"
+                        + " CASE WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum)))=13"
+                        + "      THEN LTRIM(RTRIM(C.prenum))"
+                        + "      WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),'') IS NOT NULL"
+                        + "      THEN REPLACE(LTRIM(RTRIM(C.saupnum)),'-','')"
+                        + "      ELSE NULL END AS resident_no,"
+                        // 계좌·은행은 같은 소스에서 짝으로 (E101 원장 우선, 없으면 XCLIENT)
                         + " CASE WHEN NULLIF(LTRIM(RTRIM(E1.accnum)),'') IS NOT NULL"
                         + "      THEN LTRIM(RTRIM(COALESCE(B1.bnkcode,'')))"
                         + "      ELSE LTRIM(RTRIM(COALESCE(B.bnkcode,''))) END AS bank_code,"
@@ -1214,66 +950,54 @@ public class CmsMemberService {
                         + "     WHEN E1.contyul IS NOT NULL AND E1.contyul>0"
                         + "          THEN E1.amt*(E1.contyul/100.0)"
                         + "     WHEN E1.addyn=0 THEN E1.amt*1.1"
-                        + "     ELSE E1.amt"
-                        + " END AS deduct_amount_raw,"
+                        + "     ELSE E1.amt END AS deduct_amount_raw,"
                         + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autodate)),''),NULLIF(LTRIM(RTRIM(C.autodate)),'')) AS deduct_day,"
                         + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autoflag)),''),NULLIF(LTRIM(RTRIM(C.autoflag)),'')) AS auto_flag,"
                         + " E1.stdate AS start_date, E1.enddate AS end_date,"
                         + " EB.BANKCLTCD AS member_no,"
-                        + " EB.SPFLAG AS eb13_spflag,"
-                        + " EB.ENDFLAG AS eb13_endflag,"
-                        + " E1.delmon1,E1.delmon2,E1.delmon3,E1.delmon4,"
-                        + " E1.delmon5,E1.delmon6,E1.delmon7,E1.delmon8,"
-                        + " E1.delmon9,E1.delmon10,E1.delmon11,E1.delmon12"
-                        + " FROM TB_XCLIENT C WITH(NOLOCK)"
-                        + " LEFT JOIN TB_XBANK B WITH(NOLOCK) ON C.bankcd=B.bankcd"
-                        + " INNER JOIN TB_E601 E6 WITH(NOLOCK) ON C.cltcd=E6.cltcd AND C.custcd=E6.custcd"
-                        + " INNER JOIN TB_E101 E1 WITH(NOLOCK) ON E6.actcd=E1.actcd AND E6.custcd=E1.custcd"
+                        + " EB.SPFLAG AS eb13_spflag, EB.ENDFLAG AS eb13_endflag,"
+                        + " E1.cmsflag AS e101_cmsflag,"
+                        + " LTRIM(RTRIM(COALESCE(E1.cmsnumber,''))) AS cmsnumber,"
+                        + " E1.delmon1,E1.delmon2,E1.delmon3,E1.delmon4,E1.delmon5,E1.delmon6,"
+                        + " E1.delmon7,E1.delmon8,E1.delmon9,E1.delmon10,E1.delmon11,E1.delmon12"
+                        + " FROM TB_E101 E1 WITH(NOLOCK)"
+                        + " INNER JOIN TB_E601 E6 WITH(NOLOCK) ON E6.actcd=E1.actcd AND E6.custcd=E1.custcd"
+                        + " INNER JOIN TB_XCLIENT C WITH(NOLOCK) ON C.cltcd=E6.cltcd AND C.custcd=E6.custcd"
+                        + " LEFT JOIN TB_XBANK B  WITH(NOLOCK) ON C.bankcd=B.bankcd"
+                        + " LEFT JOIN TB_XBANK B1 WITH(NOLOCK) ON E1.bankcd=B1.bankcd"
+                        // EB13 은 현장 단위 등록분만 (ACTCD IS NOT NULL, CLTCD=actcd)
                         + " LEFT JOIN TB_CMSEB13 EB WITH(NOLOCK)"
-                        + "     ON EB.CLTCD=E6.actcd AND EB.CUSTCD=C.custcd"
+                        + "     ON EB.CUSTCD=C.custcd AND EB.ACTCD IS NOT NULL AND EB.CLTCD=E6.actcd"
                         + "     AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(EB.BANKCLTCD)))=0"
                         + "     AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
-                        + "     AND EB.SPDATE=("
-                        + "         SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
-                        + "         WHERE CLTCD=E6.actcd AND CUSTCD=C.custcd"
+                        + "     AND EB.SPDATE=(SELECT MAX(SPDATE) FROM TB_CMSEB13 WITH(NOLOCK)"
+                        + "         WHERE CUSTCD=C.custcd AND ACTCD IS NOT NULL AND CLTCD=E6.actcd"
                         + "         AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(BANKCLTCD)))=0"
                         + "         AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
-                        + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD=XB.bankcd"
-                        + " LEFT JOIN TB_XBANK B1 WITH(NOLOCK) ON E1.bankcd=B1.bankcd"
-                        + " WHERE C.custcd=?"
-                        + " AND ((C.allchk=1 AND (SELECT COUNT(*) FROM TB_E601 WITH(NOLOCK)"
-                        + "       WHERE cltcd=C.cltcd AND custcd=C.custcd)=1) OR E1.cmsflag=1)"
-                        + " AND (NULLIF(LTRIM(RTRIM(E1.accnum)),'') IS NOT NULL"
-                        + "      OR NULLIF(LTRIM(RTRIM(C.accnum)),'') IS NOT NULL)"
-                        + " AND ((C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum))!='')"
-                        + "   OR (C.saupnum IS NOT NULL AND LTRIM(RTRIM(C.saupnum))!='')"
-                        + "   OR (C.prenum IS NOT NULL AND LTRIM(RTRIM(C.prenum))!='' AND LEN(LTRIM(RTRIM(C.prenum)))=13)"
-                        + "   OR (E1.cmsrnum IS NOT NULL AND LTRIM(RTRIM(E1.cmsrnum))!=''))"
-                        + " AND E1.enddate>=CONVERT(varchar(8),GETDATE(),112)"
-                        + " AND E1.stdate<=CONVERT(varchar(8),GETDATE(),112)"
-                        + " AND E1.stdate=(SELECT MAX(stdate) FROM TB_E101"
-                        + "     WHERE actcd=E6.actcd AND custcd=?"
-                        + "     AND enddate>=CONVERT(varchar(8),GETDATE(),112)"
-                        + "     AND stdate<=CONVERT(varchar(8),GETDATE(),112))"
-                        + " AND E1.amt=(SELECT MAX(amt) FROM TB_E101"
-                        + "     WHERE actcd=E6.actcd AND custcd=? AND stdate=E1.stdate"
-                        + "     AND enddate>=CONVERT(varchar(8),GETDATE(),112)"
-                        + "     AND stdate<=CONVERT(varchar(8),GETDATE(),112))"
-                        + " AND E1.enddate=(SELECT MAX(enddate) FROM TB_E101"
-                        + "     WHERE actcd=E6.actcd AND custcd=? AND stdate=E1.stdate"
-                        + "     AND enddate>=CONVERT(varchar(8),GETDATE(),112)"
-                        + "     AND stdate<=CONVERT(varchar(8),GETDATE(),112))"
-                        // ② EB13 주도 경로 (allchk/XCLIENT 기반 회사)
-                        + " UNION"
-                        + " SELECT EB.CLTCD AS cltcd, EB.CLTCD AS actcd, X.cltnm AS member_name,"
+                        + " WHERE E1.custcd=? AND E1.cmsflag=1 AND ISNULL(E1.contg,'')<>'04'"
+                        + "   AND E1.enddate >= " + today
+                        + "   AND E1.stdate  <= " + today
+                        + "   AND (NULLIF(LTRIM(RTRIM(E1.accnum)),'') IS NOT NULL"
+                        + "     OR NULLIF(LTRIM(RTRIM(C.accnum)),'') IS NOT NULL)"
+                        + "   AND ((E1.cmsrnum IS NOT NULL AND LTRIM(RTRIM(E1.cmsrnum))!='')"
+                        + "     OR (C.cmsrnum IS NOT NULL AND LTRIM(RTRIM(C.cmsrnum))!='')"
+                        + "     OR (C.saupnum IS NOT NULL AND LTRIM(RTRIM(C.saupnum))!=''))"
+                        // 같은 actcd 에 계약이 여러 건이면 만료일이 가장 늦은 1건만
+                        + "   AND E1.enddate=(SELECT MAX(enddate) FROM TB_E101 WITH(NOLOCK)"
+                        + "       WHERE actcd=E1.actcd AND custcd=E1.custcd"
+                        + "       AND enddate >= " + today + " AND stdate <= " + today + ")"
+
+                        // ══════════ C. EB13 주도 (현장이 아예 없는 거래처) ══════════
+                        + " UNION ALL"
+                        + " SELECT 3 AS src_path, X.cltcd AS cltcd, NULL AS actcd, X.cltnm AS member_name,"
                         + " X.corpperclafi AS corpperclafi, X.saupnum AS saupnum,"
-                        + " REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-','') AS id_number,"
+                        + " X.rnumchk AS rnumchk, LTRIM(RTRIM(COALESCE(X.prenum,''))) AS prenum,"
+                        + " REPLACE(LTRIM(RTRIM(COALESCE(EB.SAUPNUM,''))),'-','') AS id_number,"
                         + " CASE WHEN X.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(X.prenum)))=13"
                         + "      THEN LTRIM(RTRIM(X.prenum))"
                         + "      WHEN NULLIF(REPLACE(LTRIM(RTRIM(X.saupnum)),'-',''),'') IS NOT NULL"
                         + "      THEN REPLACE(LTRIM(RTRIM(X.saupnum)),'-','')"
                         + "      ELSE NULL END AS resident_no,"
-                        // ★ 계좌·은행 소스 = XCLIENT 원장. syncFromErp ② 경로와 동일.
                         + " LTRIM(RTRIM(COALESCE(XB2.bnkcode,''))) AS bank_code,"
                         + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(X.accnum,''))),'-',''),' ','') AS bank_account,"
                         + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS eb13_account,"
@@ -1285,18 +1009,16 @@ public class CmsMemberService {
                         + " NULLIF(LTRIM(RTRIM(X.autoflag)),'') AS auto_flag,"
                         + " NULL AS start_date, NULL AS end_date,"
                         + " EB.BANKCLTCD AS member_no,"
-                        + " EB.SPFLAG AS eb13_spflag,"
-                        + " EB.ENDFLAG AS eb13_endflag,"
+                        + " EB.SPFLAG AS eb13_spflag, EB.ENDFLAG AS eb13_endflag,"
+                        + " NULL AS e101_cmsflag, NULL AS cmsnumber,"
                         + " NULL AS delmon1,NULL AS delmon2,NULL AS delmon3,NULL AS delmon4,"
                         + " NULL AS delmon5,NULL AS delmon6,NULL AS delmon7,NULL AS delmon8,"
                         + " NULL AS delmon9,NULL AS delmon10,NULL AS delmon11,NULL AS delmon12"
                         + " FROM TB_CMSEB13 EB WITH(NOLOCK)"
                         + " INNER JOIN TB_XCLIENT X WITH(NOLOCK) ON X.custcd=EB.CUSTCD AND X.cltcd=EB.CLTCD"
-                        + " LEFT JOIN TB_XBANK XB WITH(NOLOCK) ON EB.BANKCD=XB.bankcd"
                         + " LEFT JOIN TB_XBANK XB2 WITH(NOLOCK) ON X.bankcd=XB2.bankcd"
-                        + " WHERE EB.CUSTCD=?"
-                        + "   AND EB.SPFLAG='1' AND EB.ENDFLAG='Y'"
-                        + "   AND LEN(ISNULL(EB.ACTCD,''))=0"
+                        + " WHERE EB.CUSTCD=? AND EB.SPFLAG='1' AND EB.ENDFLAG='Y'"
+                        + "   AND EB.ACTCD IS NULL"
                         + "   AND NULLIF(LTRIM(RTRIM(X.accnum)),'') IS NOT NULL"
                         + "   AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(EB.BANKCLTCD)))=0"
                         + "   AND LEN(LTRIM(RTRIM(EB.BANKCLTCD))) BETWEEN 10 AND 13"
@@ -1304,18 +1026,32 @@ public class CmsMemberService {
                         + "       WHERE CLTCD=EB.CLTCD AND CUSTCD=EB.CUSTCD AND ENDFLAG='Y'"
                         + "       AND PATINDEX('%[^0-9]%',LTRIM(RTRIM(BANKCLTCD)))=0"
                         + "       AND LEN(LTRIM(RTRIM(BANKCLTCD))) BETWEEN 10 AND 13)"
-                        + "   AND EB.CLTCD NOT IN (SELECT E6b.actcd FROM TB_E601 E6b WITH(NOLOCK)"
-                        + "       INNER JOIN TB_E101 E1b WITH(NOLOCK) ON E6b.actcd=E1b.actcd AND E6b.custcd=E1b.custcd"
-                        + "       WHERE E6b.custcd=EB.CUSTCD AND E1b.cmsflag=1)";
+                        // A/B 경로에서 이미 잡히는 거래처는 제외
+                        + "   AND NOT EXISTS (SELECT 1 FROM TB_E601 E6b WITH(NOLOCK)"
+                        + "       WHERE E6b.custcd=EB.CUSTCD AND E6b.cltcd=EB.CLTCD)"
+                        + "   AND NOT EXISTS (SELECT 1 FROM TB_E601 E6c WITH(NOLOCK)"
+                        + "       WHERE E6c.custcd=EB.CUSTCD AND E6c.actcd=EB.CLTCD)";
+
+        // ★ 한 거래처(cltcd)에 CMS 대상 현장(actcd)이 여럿이면 EB13 인증이 공유되어
+        //   같은 BANKCLTCD가 여러 회원에게 붙는다. (예: 지원에셋플러스 00811 → 00756/00779,
+        //   윤득선 00839 → 00764/00765) 납부자번호가 중복되면 은행이 A016(이중신청)으로 거절하므로,
+        //   먼저 잡힌 한 건만 EB13 번호를 쓰고 나머지는 규칙으로 새 번호를 만든다.
+        Set<String> usedPayerNo = new java.util.HashSet<>();
 
         List<Map<String, Object>> result = new java.util.ArrayList<>();
         try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, custcd); ps.setString(2, custcd);
-            ps.setString(3, custcd); ps.setString(4, custcd);
-            ps.setString(5, custcd);
+            ps.setString(1, custcd);   // A. 거래처 단위
+            ps.setString(2, custcd);   // B. 현장 단위
+            ps.setString(3, custcd);   // C. EB13 주도
             try (java.sql.ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    String actcd = rs.getString("actcd");
+                    // ★ 회원 식별 키
+                    //   src_path=2(현장 단위)만 actcd 를 쓰고, 1(거래처)/3(EB13주도)은 cltcd 를 쓴다.
+                    //   두 코드 체계는 번호대가 겹치므로 경로를 반드시 구분해야 한다.
+                    int    srcPath  = rs.getInt("src_path");
+                    String rowActcd = (srcPath == 2) ? rs.getString("actcd") : null;
+                    String rowCltcd = rs.getString("cltcd");
+                    String actcd    = StringUtils.hasText(rowActcd) ? rowActcd : rowCltcd;  // = syncKey
                     if (excludeSet.contains(actcd)) continue;
 
                     String autoFlag  = rs.getString("auto_flag");
@@ -1365,9 +1101,44 @@ public class CmsMemberService {
                     String eb13Endflag = rs.getString("eb13_endflag");
                     String agreeYn = ("1".equals(eb13Spflag) && "Y".equals(eb13Endflag)) ? "Y" : "N";
 
-                    // EB13(BANKCLTCD) 없는 신규 → 규칙으로 납부자번호 생성
+                    // ★ 현장 단위 CMS(cmsflag=1)는 납부자번호 규칙이 다르다.
+                    //   bnkcode(3) + E101.cmsnumber(5) + '01'  (PROC_CMS_R mode=01 B분기)
+                    //   예) CS메디컬프라자: 020 + 24001 + 01 = 0202400101
                     if (!StringUtils.hasText(erpMemberNo)) {
-                        erpMemberNo = generateMemberNo(spjangcd, bankCode, idNumber);
+                        String cmsNumber = rs.getString("cmsnumber");
+                        if (srcPath == 2 && StringUtils.hasText(cmsNumber)) {
+                            String bank3 = (bankCode != null && bankCode.length() >= 3)
+                                    ? bankCode.substring(0, 3) : "000";
+                            erpMemberNo = bank3 + cmsNumber.trim() + "01";
+                        }
+                    }
+
+                    // 같은 EB13 번호를 이미 다른 현장이 가져갔으면 공유 불가 → 새로 생성
+                    if (StringUtils.hasText(erpMemberNo) && !usedPayerNo.add(erpMemberNo)) {
+                        log.warn("[ERP동기화] 납부자번호 중복(거래처 공유 EB13) key={} name={} payer={} → 신규 생성",
+                                actcd, rs.getString("member_name"), erpMemberNo);
+                        erpMemberNo = null;
+                    }
+
+                    // EB13(BANKCLTCD) 없는 신규 → 규칙으로 납부자번호 생성.
+                    // 식별번호가 없어 생성이 불가하면 null로 두고 행 자체는 살린다.
+                    // (미리보기에 노출은 하되, 반영 시 담당자가 식별번호를 채우도록)
+                    if (!StringUtils.hasText(erpMemberNo)) {
+                        try {
+                            String gen = generateMemberNo(spjangcd, bankCode, idNumber,
+                                    "1".equals(rs.getString("rnumchk")), rs.getString("prenum"));
+                            // 같은 실행 안에서 또 겹치면 순번을 올려 회피
+                            int guard = 0;
+                            while (!usedPayerNo.add(gen) && guard++ < 90) {
+                                int seq = Integer.parseInt(gen.substring(gen.length() - 2)) + 1;
+                                gen = gen.substring(0, gen.length() - 2) + String.format("%02d", seq);
+                            }
+                            erpMemberNo = gen;
+                        } catch (Exception e) {
+                            log.warn("[ERP동기화] 납부자번호 생성 실패 key={} name={}: {}",
+                                    actcd, rs.getString("member_name"), e.getMessage());
+                            erpMemberNo = null;
+                        }
                     }
 
                     String memberType;
@@ -1381,7 +1152,10 @@ public class CmsMemberService {
                     }
 
                     Map<String, Object> row = new java.util.LinkedHashMap<>();
-                    row.put("cltcd",         actcd);
+                    row.put("sync_key",      actcd);     // 화면/선택 식별용 표시 키 (매칭은 erp_actcd/erp_cltcd로)
+                    row.put("cltcd",         actcd);     // 하위호환(화면 표시용). 실제 cltcd는 erp_cltcd 참조
+                    row.put("erp_actcd",     rowActcd);  // ②경로는 null
+                    row.put("erp_cltcd",     rowCltcd);  // 항상 실제 XCLIENT.cltcd
                     row.put("member_name",   rs.getString("member_name"));
                     row.put("member_type",   memberType);
                     row.put("id_number",     idNumber);
@@ -1437,10 +1211,13 @@ public class CmsMemberService {
 
         // cms_member 현재값
         List<Map<String, Object>> members = sqlRunner.getRows(/* skip_tenant_check */
-                "SELECT id, cltcd, member_no, member_name, member_type, id_number, resident_no, bank_code, bank_account, deduct_amount, deduct_day, agree_yn, sync_confirmed_ref FROM cms_member WHERE spjangcd = :spjangcd",
+                "SELECT id, cltcd, actcd, member_no, member_name, member_type, id_number, resident_no, bank_code, bank_account, deduct_amount, deduct_day, agree_yn, sync_confirmed_ref FROM cms_member WHERE spjangcd = :spjangcd AND status <> 'INACTIVE'",
                 new MapSqlParameterSource("spjangcd", spjangcd));
-        Map<String, Map<String, Object>> memberMap = new java.util.HashMap<>();
-        for (Map<String, Object> m : members) memberMap.put(str(m.get("cltcd")), m);
+        // ★ 해지 회원은 제외한다. INACTIVE 행이 키를 점유하면 같은 코드의 신규가 영원히 가려진다.
+        //   (2026-07-23 중복적재 건이 actcd 00882를 점유해 웨스턴팰리스호텔이 안 보이던 사고)
+        List<Map<String, Map<String, Object>>> idx = indexMembers(members);
+        Map<String, Map<String, Object>> byActcd = idx.get(0);
+        Map<String, Map<String, Object>> byCltcd = idx.get(1);
 
         // 최근 billing result_code + 실패 계좌 (실패계좌 배제 추천용)
         List<Map<String, Object>> billingRows = sqlRunner.getRows(/* skip_tenant_check */
@@ -1484,21 +1261,24 @@ public class CmsMemberService {
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
                 url, str(erp.get("username")), str(erp.get("password")))) {
 
-            // EB13 행 → cltcd 키 맵 구성 (제안값 참조용)
-            Map<String, Map<String, Object>> erpRowMap = new java.util.LinkedHashMap<>();
+            // ERP 행을 회원별로 짝지어 둔다.
+            //  ★ ①경로는 actcd끼리, ②경로는 cltcd끼리만 비교한다. (indexMembers 주석 참고)
+            Map<Long, Map<String, Object>> erpByMemberId = new java.util.HashMap<>();
             for (Map<String, Object> erpRow : fetchErpSyncRows(conn, spjangcd, custcd, roundUnit, excludeSet)) {
-                erpRowMap.put(str(erpRow.get("cltcd")), erpRow);
-            }
-
-            // [1] 신규: ERP 활성이지만 cms_member에 없는 계정
-            for (Map.Entry<String, Map<String, Object>> e : erpRowMap.entrySet()) {
-                if (!memberMap.containsKey(e.getKey())) newRows.add(e.getValue());
+                Map<String, Object> matched = matchMember(erpRow, byActcd, byCltcd);
+                if (matched == null) {
+                    // [1] 신규: ERP 활성이지만 cms_member에 없는 계정
+                    newRows.add(erpRow);
+                    continue;
+                }
+                Long mid = ((Number) matched.get("id")).longValue();
+                erpByMemberId.put(mid, erpRow);
             }
 
             // [2] 기존 cms_member 분류 — 최근 청구 결과가 진실의 기준
-            for (Map.Entry<String, Map<String, Object>> e : memberMap.entrySet()) {
-                String cltcd              = e.getKey();
-                Map<String, Object> existing = e.getValue();
+            for (Map<String, Object> existing : members) {
+                String cltcd = str(existing.get("actcd"));
+                if (!StringUtils.hasText(cltcd)) cltcd = str(existing.get("cltcd"));
 
                 Object midObj         = existing.get("id");
                 Long   memberId       = midObj != null ? ((Number) midObj).longValue() : null;
@@ -1512,7 +1292,7 @@ public class CmsMemberService {
 
                 // [2-0] 담당자가 이미 확인/확정했고, 그 이후 ERP값이 안 바뀌었으면 제외
                 //       (ERP값이 또 바뀌면 ref가 달라져 다시 노출됨)
-                Map<String, Object> erpRowChk = erpRowMap.get(cltcd);
+                Map<String, Object> erpRowChk = memberId != null ? erpByMemberId.get(memberId) : null;
                 String confirmedRef = str(existing.get("sync_confirmed_ref"));
                 if (erpRowChk != null && !confirmedRef.isEmpty()
                         && confirmedRef.equals(syncRef(erpRowChk))) {
@@ -1523,15 +1303,20 @@ public class CmsMemberService {
                 // [2-2] 청구 이력 없음 → 수동 검증 대상
                 if (lastResultCode == null) {
                     Map<String, Object> uRow = new java.util.LinkedHashMap<>();
-                    uRow.put("cltcd",       cltcd);
-                    uRow.put("member_name", existing.get("member_name"));
-                    uRow.put("has_eb13",    erpRowMap.containsKey(cltcd));
+                    // ★ ERP 상호를 함께 실어야 이름 불일치를 화면에서 즉시 발견할 수 있다.
+                    //   (cms_member "인스타" ↔ ERP "N27039웨스턴팰리스호텔" 같은 키 충돌 사례)
+                    Map<String, Object> uErp = memberId != null ? erpByMemberId.get(memberId) : null;
+                    uRow.put("cltcd",           cltcd);
+                    uRow.put("member_name",     existing.get("member_name"));
+                    uRow.put("erp_member_name", uErp != null ? uErp.get("member_name") : null);
+                    uRow.put("in_erp",          uErp != null);
+                    uRow.put("has_eb13",        uErp != null && "Y".equals(str(uErp.get("agree_yn"))));
                     unverifiedRows.add(uRow);
                     continue;
                 }
 
                 // [2-3] 값문제 실패(0017/0012/0013/0014 등) → 교정 대상
-                Map<String, Object> erpRow = erpRowMap.get(cltcd);
+                Map<String, Object> erpRow = memberId != null ? erpByMemberId.get(memberId) : null;
 
                 // ERP CMS 대상에 없는 회원(웹 인증분 등)은 비교/반영 대상 아님 → 패스
                 if (erpRow == null) {
@@ -1769,13 +1554,17 @@ public class CmsMemberService {
                 url, str(erp.get("username")), str(erp.get("password")))) {
 
             for (Map<String, Object> erpRow : fetchErpSyncRows(conn, spjangcd, custcd, roundUnit, excludeSet)) {
-                String actcd = str(erpRow.get("cltcd"));
+                String actcd = str(erpRow.get("sync_key"));
                 if (selected != null && !selected.contains(actcd)) { skipped++; continue; }
 
                 try {
                     Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
-                            "SELECT id, member_no, _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :actcd",
-                            new MapSqlParameterSource("spjangcd", spjangcd).addValue("actcd", actcd));
+                            "SELECT id, member_no, _modified FROM cms_member "
+                                    + "WHERE spjangcd = :spjangcd AND status <> 'INACTIVE' AND "
+                                    + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) )",
+                            new MapSqlParameterSource("spjangcd", spjangcd)
+                                    .addValue("mActcd", erpRow.get("erp_actcd"))
+                                    .addValue("mCltcd", erpRow.get("erp_cltcd")));
 
                     String erpMemberNo = (String) erpRow.get("erp_member_no");
                     String memberNo = (existing != null && StringUtils.hasText(str(existing.get("member_no"))))
@@ -1784,7 +1573,10 @@ public class CmsMemberService {
                     MapSqlParameterSource p = new MapSqlParameterSource();
                     p.addValue("spjangcd",     spjangcd);
                     p.addValue("memberNo",     memberNo);
-                    p.addValue("cltcd",        actcd);
+                    p.addValue("actcd",        erpRow.get("erp_actcd"));
+                    p.addValue("cltcd",        erpRow.get("erp_cltcd"));
+                    p.addValue("mActcd",       erpRow.get("erp_actcd"));
+                    p.addValue("mCltcd",       erpRow.get("erp_cltcd"));
                     p.addValue("agreeYn",      erpRow.get("agree_yn"));
                     p.addValue("memberName",   erpRow.get("member_name"));
                     p.addValue("memberType",   erpRow.get("member_type"));
@@ -1813,14 +1605,14 @@ public class CmsMemberService {
                                     id_number, resident_no, bank_code, bank_account,
                                     phone, email, adresa, zipcd,
                                     deduct_amount, deduct_day, start_date, end_date,
-                                    cycle_type, cycle_months, deduct_month_type, agree_yn, cltcd, status,
+                                    cycle_type, cycle_months, deduct_month_type, agree_yn, actcd, cltcd, status,
                                     _creater_id, _created, _modifier_id, _modified
                                 ) VALUES (
                                     :spjangcd, :memberNo, :memberType, :memberName,
                                     :idNumber, :residentNo, :bankCode, :bankAccount,
                                     :phone, :email, :adresa, :zipcd,
                                     :deductAmount, :deductDay, :startDate, :endDate,
-                                    :cycleType, :cycleMonths, :deductMonthType, :agreeYn, :cltcd, 'ACTIVE',
+                                    :cycleType, :cycleMonths, :deductMonthType, :agreeYn, :actcd, :cltcd, 'ACTIVE',
                                     :userId, NOW(), :userId, NOW()
                                 )
                                 """, p);
@@ -1840,6 +1632,8 @@ public class CmsMemberService {
                                  start_date     = :startDate,     end_date       = :endDate,
                                  cycle_type     = :cycleType,     cycle_months   = :cycleMonths,
                                  agree_yn       = CASE WHEN :agreeYn='Y' THEN 'Y' ELSE agree_yn END,
+                                 actcd          = COALESCE(actcd, :actcd),
+                                 cltcd          = COALESCE(cltcd, :cltcd),
                                  _modifier_id   = CASE WHEN (
                                      COALESCE(member_type,'')   != COALESCE(:memberType,'')   OR
                                      COALESCE(member_name,'')   != COALESCE(:memberName,'')   OR
@@ -1876,12 +1670,15 @@ public class CmsMemberService {
                                      COALESCE(cycle_type,'')    != COALESCE(:cycleType,'')    OR
                                      COALESCE(cycle_months,'')  != COALESCE(:cycleMonths,'')
                                  ) THEN NOW() ELSE _modified END
-                                WHERE spjangcd = :spjangcd AND cltcd = :cltcd
+                                WHERE spjangcd = :spjangcd AND ( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) )
                                 """, p);
 
                         Map<String, Object> after = sqlRunner.getRow(/* skip_tenant_check */
-                                "SELECT _modified FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :cltcd",
-                                new MapSqlParameterSource("spjangcd", spjangcd).addValue("cltcd", actcd));
+                                "SELECT _modified FROM cms_member WHERE spjangcd = :spjangcd AND "
+                                        + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) )",
+                                new MapSqlParameterSource("spjangcd", spjangcd)
+                                        .addValue("mActcd", erpRow.get("erp_actcd"))
+                                        .addValue("mCltcd", erpRow.get("erp_cltcd")));
                         if (!before.equals(after != null ? str(after.get("_modified")) : "")) updated++;
                         else skipped++;
                     }
@@ -1951,12 +1748,13 @@ public class CmsMemberService {
         try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
         catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
 
-        // ERP 행을 cltcd로 인덱싱
+        // ERP 행 인덱싱. 키는 미리보기가 화면에 내려준 값(sync_key)과 동일해야 한다.
+        //  실제 회원 매칭은 아래에서 erp_actcd/erp_cltcd 로 필드별로 수행한다.
         Map<String, Map<String, Object>> erpRowMap = new java.util.HashMap<>();
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
                 url, str(erp.get("username")), str(erp.get("password")))) {
             for (Map<String, Object> r : fetchErpSyncRows(conn, spjangcd, custcd, roundUnit, excludeSet)) {
-                String c = str(r.get("cltcd"));
+                String c = str(r.get("sync_key"));
                 if (wanted.contains(c)) erpRowMap.put(c, r);
             }
         } catch (Exception e) {
@@ -1976,8 +1774,12 @@ public class CmsMemberService {
 
             try {
                 Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
-                        "SELECT id FROM cms_member WHERE spjangcd = :spjangcd AND cltcd = :cltcd",
-                        new MapSqlParameterSource("spjangcd", spjangcd).addValue("cltcd", cltcd));
+                        "SELECT id FROM cms_member "
+                                + "WHERE spjangcd = :spjangcd AND status <> 'INACTIVE' AND "
+                                + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) )",
+                        new MapSqlParameterSource("spjangcd", spjangcd)
+                                .addValue("mActcd", erpRow.get("erp_actcd"))
+                                .addValue("mCltcd", erpRow.get("erp_cltcd")));
 
                 // 신규 회원: cms_member에 없으면 ERP 값 통짜 INSERT (필드선택 무의미)
                 if (existing == null) {
@@ -1996,19 +1798,20 @@ public class CmsMemberService {
                     ip.addValue("deductDay",    erpRow.get("deduct_day"));
                     ip.addValue("agreeYn",      erpRow.get("agree_yn"));
                     ip.addValue("confRef",      syncRef(erpRow));
-                    ip.addValue("cltcd",        cltcd);
+                    ip.addValue("actcd",        erpRow.get("erp_actcd"));
+                    ip.addValue("cltcd",        erpRow.get("erp_cltcd"));
                     ip.addValue("monthType",    erpRow.get("deduct_month_type"));
                     ip.addValue("userId",       userId);
                     sqlRunner.execute(/* skip_tenant_check */
                             """
                             INSERT INTO cms_member (
                                 spjangcd, member_no, member_type, member_name, id_number, resident_no,
-                                bank_code, bank_account, deduct_amount, deduct_day, deduct_month_type, agree_yn, cltcd, status,
+                                bank_code, bank_account, deduct_amount, deduct_day, deduct_month_type, agree_yn, actcd, cltcd, status,
                                 sync_confirmed_at, sync_confirmed_ref,
                                 _creater_id, _created, _modifier_id, _modified
                             ) VALUES (
                                 :spjangcd, :memberNo, :memberType, :memberName, :idNumber, :residentNo,
-                                :bankCode, :bankAccount, :deductAmount, :deductDay, :monthType, :agreeYn, :cltcd, 'ACTIVE',
+                                :bankCode, :bankAccount, :deductAmount, :deductDay, :monthType, :agreeYn, :actcd, :cltcd, 'ACTIVE',
                                 NOW(), :confRef,
                                 :userId, NOW(), :userId, NOW()
                             )
@@ -2021,7 +1824,10 @@ public class CmsMemberService {
                 StringBuilder set = new StringBuilder();
                 MapSqlParameterSource p = new MapSqlParameterSource();
                 p.addValue("spjangcd", spjangcd);
-                p.addValue("cltcd",    cltcd);
+                p.addValue("actcd",    erpRow.get("erp_actcd"));
+                p.addValue("cltcd",    erpRow.get("erp_cltcd"));
+                p.addValue("mActcd",   erpRow.get("erp_actcd"));
+                p.addValue("mCltcd",   erpRow.get("erp_cltcd"));
                 p.addValue("userId",   userId);
 
                 // 계좌 반영 시 previewSync와 동일한 추천계좌(실패계좌 배제 + XCLIENT 우선)를 사용.
@@ -2048,9 +1854,10 @@ public class CmsMemberService {
                 p.addValue("confRef", syncRef(erpRow));
                 String sql = "UPDATE cms_member SET " + set
                         + "sync_confirmed_at = NOW(), sync_confirmed_ref = :confRef, "
+                        + "actcd = COALESCE(actcd, :actcd), cltcd = COALESCE(cltcd, :cltcd), "
                         + "_modifier_id = :userId, "
                         + "_modified = CASE WHEN :hasField THEN NOW() ELSE _modified END "
-                        + "WHERE spjangcd = :spjangcd AND cltcd = :cltcd";
+                        + "WHERE spjangcd = :spjangcd AND ( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) )";
                 p.addValue("hasField", !erpFields.isEmpty());
                 sqlRunner.execute(/* skip_tenant_check */ sql, p);
 
@@ -2127,11 +1934,23 @@ public class CmsMemberService {
 
         // 2. cms_member 현재값 로드 (id 포함)
         List<Map<String, Object>> members = sqlRunner.getRows(/* skip_tenant_check */
-                "SELECT id, cltcd, member_no, member_name, id_number, bank_code, bank_account, agree_yn FROM cms_member WHERE spjangcd = :spjangcd ORDER BY cltcd",
+                "SELECT id, cltcd, actcd, member_no, member_name, id_number, bank_code, bank_account, agree_yn "
+                        + "FROM cms_member WHERE spjangcd = :spjangcd AND status <> 'INACTIVE' "
+                        + "ORDER BY COALESCE(actcd, cltcd)",  // 표시 정렬용
                 new MapSqlParameterSource("spjangcd", spjangcd));
 
         Map<String, Map<String, Object>> memberMap = new java.util.LinkedHashMap<>();
-        for (Map<String, Object> m : members) memberMap.put(str(m.get("cltcd")), m);
+        // TB_CMSEB13.CLTCD 는 ①경로에서 E601.actcd 와 조인되므로 실제로는 actcd 값이고,
+        //  ②경로(ACTCD 비어있음)에서는 XCLIENT.cltcd 다. 따라서 양쪽 다 키로 등록하되
+        //  번호대 충돌 시 actcd 가 이기도록 actcd 를 나중에 덮어쓴다.
+        for (Map<String, Object> m : members) {
+            String c = str(m.get("cltcd"));
+            if (StringUtils.hasText(c)) memberMap.put(c, m);
+        }
+        for (Map<String, Object> m : members) {
+            String a = str(m.get("actcd"));
+            if (StringUtils.hasText(a)) memberMap.put(a, m);
+        }
 
         // 3. 최근 billing result_code per member_id (DISTINCT ON: PostgreSQL)
         List<Map<String, Object>> billingRows = sqlRunner.getRows(/* skip_tenant_check */
