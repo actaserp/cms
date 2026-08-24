@@ -75,7 +75,8 @@ public class CmsBillingService {
 
         String dataSql =
                 "SELECT b.id, b.billing_ym, b.billing_seq, b.member_id, b.member_name," +
-                        "       m.member_no, m.id_number, b.bank_code, bc.bank_name, b.bank_account," +
+                        "       m.member_no, m.id_number, m.biz_no, m.resident_no," +
+                        "       b.bank_code, bc.bank_name, b.bank_account," +
                         "       b.account_holder, b.billing_amount, b.deduct_day, b.deduct_date," +
                         "       b.send_date, b.status, b.result_code, b.result_msg, b.result_date," +
                         "       b.memo, b._created, b._modified," +
@@ -88,7 +89,10 @@ public class CmsBillingService {
                         "                    AND rb.memo LIKE '%불능 / 재청구%' AND rb.deduct_date > b.deduct_date) )" +
                         "       ) THEN 'Y' ELSE 'N' END AS recharged_yn" +
                         baseWhere + filters +
-                        " ORDER BY b.billing_seq LIMIT :pgSize OFFSET :pgOffset";
+                        // 같은 출금일자끼리는 납부자명 가나다순. 한글 완성형은 유니코드 코드포인트
+                        // 순서가 곧 가나다순이라 별도 COLLATE 없이 정렬된다. 동명이인은 청구번호로 확정.
+                        " ORDER BY b.deduct_date, b.member_name, b.billing_seq" +
+                        " LIMIT :pgSize OFFSET :pgOffset";
 
         param.addValue("pgSize",   size);
         param.addValue("pgOffset", (long) page * size);
@@ -1055,7 +1059,7 @@ public class CmsBillingService {
         long successDepositAmount  = aggRow != null ? ((Number) aggRow.get("success_deposit_amount")).longValue() : 0L;
 
         String dataSql =
-                "SELECT b.id, b.billing_seq, b.member_name, m.id_number," +
+                "SELECT b.id, b.billing_seq, b.member_name, m.id_number, m.biz_no, m.resident_no," +
                         "       b.bank_code, bc.bank_name, b.bank_account, b.billing_amount," +
                         "       b.deduct_date, b.status, b.result_code, b.result_msg, b.result_date," +
                         "       b.fee_request, b.fee_success," +

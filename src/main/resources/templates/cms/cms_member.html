@@ -425,8 +425,8 @@
                                 </tr>
                                 <tr>
                                     <th style="padding:5px; border:1px solid #ddd; text-align:center;"
-                                        id="idNumberLabel"><span class="eq">*</span>사업자번호/생년월일<span class="help-ico"
-                                                                                                    data-tip="출금계좌 등록 시 은행에 신고한 번호입니다. 회원이 아니라 ‘예금주’ 기준이므로, 법인이라도 대표자 개인계좌를 쓰면 회사 사업자번호가 아니라 대표자 생년월일 6자리를 넣습니다.">?</span>
+                                        id="idNumberLabel"><span class="eq">*</span>식별번호(출금용)<span class="help-ico"
+                                                                                                   data-tip="CMS 출금이체·계좌조회에 그대로 사용됩니다. 회원이 아니라 ‘예금주’ 기준이므로, 법인이라도 대표자 개인계좌를 쓰면 대표자 생년월일 6자리를 넣습니다. 아래 사업자번호·주민번호와는 별개이며, 이 칸이 틀리면 식별번호 오류(0014)가 납니다.">?</span>
                                     </th>
                                     <td style="padding:5px; border:1px solid #ddd;">
                                         <input type="text" id="id_number" name="id_number"
@@ -443,12 +443,21 @@
                                     <td style="padding:5px; border:1px solid #ddd;">
                                         <input type="text" id="email" name="email">
                                     </td>
-                                    <th style="padding:5px; border:1px solid #ddd; text-align:center;">주민번호<span class="help-ico"
-                                                                                                                 data-tip="회원 본인의 번호입니다. 내부 보관용이며 금결원에 전송되지 않습니다. 출금신청에 쓰이는 번호는 왼쪽 ‘사업자번호/생년월일’ 칸입니다.">?</span></th>
+                                    <th style="padding:5px; border:1px solid #ddd; text-align:center;">사업자번호<span class="help-ico"
+                                                                                                                  data-tip="회원 본인의 사업자번호입니다. 내부 보관·ERP 대조용이며 금결원에 전송되지 않습니다. 출금에 쓰이는 번호는 위 ‘식별번호(출금용)’ 칸입니다.">?</span></th>
                                     <td style="padding:5px; border:1px solid #ddd;">
-                                        <input type="text" id="resident_no" name="resident_no"
+                                        <input type="text" id="biz_no" name="biz_no"
                                                class="ph-sm"
-                                               placeholder="주민번호 13자리 또는 사업자번호 10자리">
+                                               placeholder="사업자번호 10자리" maxlength="12">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th style="padding:5px; border:1px solid #ddd; text-align:center;">주민번호<span class="help-ico"
+                                                                                                                 data-tip="개인 회원 본인의 주민등록번호 13자리입니다. 내부 보관용이며 금결원에 전송되지 않습니다.">?</span></th>
+                                    <td colspan="3" style="padding:5px; border:1px solid #ddd;">
+                                        <input type="text" id="resident_no" name="resident_no"
+                                               class="ph-sm" maxlength="14"
+                                               placeholder="주민번호 13자리">
                                     </td>
                                 </tr>
                                 <tr>
@@ -1151,7 +1160,7 @@
             if (type === 'P') {
                 $('#id_number').attr('placeholder', '생년월일 6자리 (예: 620614)').attr('maxlength', '10');
             } else {
-                $('#id_number').attr('placeholder', '사업자번호 10자리 또는 생년월일 6자리').attr('maxlength', '10');
+                $('#id_number').attr('placeholder', '사업자 10자리 / 개인 생년월일 6자리').attr('maxlength', '10');
             }
         }
 
@@ -1281,6 +1290,7 @@
             $('#phone').val(item.phone || '');
             $('#email').val(item.email || '');
             $('#resident_no').val(item.resident_no || '');
+            $('#biz_no').val(item.biz_no || '');
             $('#zipcd').val(item.zipcd || '');
             $('#adresa').val(item.adresa || '');
             $('#adresb').val(item.adresb || '');
@@ -1415,14 +1425,14 @@
             // 납부자번호 형식 체크 앞에 삽입
             var idNumber = ($('#id_number').val() || '').replace(/[^0-9]/g, '');
             if (!idNumber) {
-                Alert.alert('', '사업자번호/생년월일을 입력해주세요.\n\n'
+                Alert.alert('', '식별번호(출금용)를 입력해주세요.\n\n'
                     + '금결원 출금이체 신청 시 예금주 실명확인에 사용되는 필수 항목입니다.\n'
                     + '비워두면 신청이 불능(9998) 처리됩니다.');
                 $('#id_number').focus();
                 return;
             }
             if (idNumber.length !== 10 && idNumber.length !== 6) {
-                Alert.alert('', '사업자번호는 10자리, 생년월일은 6자리로 입력해주세요.\n'
+                Alert.alert('', '식별번호는 사업자 10자리, 개인 생년월일 6자리입니다.\n'
                     + '(생년월일은 YYMMDD 6자리 — 8자리 아님)');
                 $('#id_number').focus();
                 return;
@@ -2198,8 +2208,9 @@
             'member_no': '납부자번호',
             // ※ id_number(식별번호) ≠ member_no(납부자번호). 금결원 규격상 별개 필드임.
             //   담당자가 알아보기 쉬운 기존 CMS 화면 용어로 표기.
-            'id_number': '사업자번호/생년월일',
+            'id_number': '식별번호(출금용)',
             'resident_no': '주민번호',
+            'biz_no': '사업자번호',
             'member_name': '납부자명',
             // 실제 출금액은 매출(미수)에서 잡으므로 이 값은 참고용이다.
             'deduct_amount': '출금금액(참고)',

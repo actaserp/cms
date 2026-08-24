@@ -65,6 +65,7 @@ public class CmsMemberService {
                      , m.member_no
                      , m.id_number
                      , m.resident_no
+                     , m.biz_no
                      , m.phone
                      , m.email
                      , m.zipcd
@@ -146,6 +147,7 @@ public class CmsMemberService {
                      , m.member_no
                      , m.id_number
                      , m.resident_no
+                     , m.biz_no
                      , m.phone
                      , m.email
                      , m.zipcd
@@ -181,7 +183,7 @@ public class CmsMemberService {
      * 납부자 저장 (신규/수정)
      */
     public Long saveMember(Long id, String memberType, String memberName, String memberNo,
-                           String idNumber, String residentNo, String phone, String email,
+                           String idNumber, String residentNo, String bizNo, String phone, String email,
                            String zipcd, String adresa, String adresb,
                            String bankCode, String bankAccount, String accountHolder,
                            String deductDay, Long deductAmount,
@@ -245,7 +247,7 @@ public class CmsMemberService {
             String insertSql = """
                     INSERT INTO cms_member (
                         spjangcd, member_type, member_name, member_no,
-                        id_number, resident_no, phone, email,
+                        id_number, resident_no, biz_no, phone, email,
                         zipcd, adresa, adresb,
                         bank_code, bank_account, account_holder,
                         deduct_day, deduct_amount,
@@ -257,7 +259,7 @@ public class CmsMemberService {
                         _creater_id, _created, _modifier_id, _modified
                     ) VALUES (
                         :spjangcd, :memberType, :memberName, :memberNo,
-                        :idNumber, :residentNo, :phone, :email,
+                        :idNumber, :residentNo, :bizNo, :phone, :email,
                         :zipcd, :adresa, :adresb,
                         :bankCode, :bankAccount, :accountHolder,
                         :deductDay, :deductAmount,
@@ -329,6 +331,7 @@ public class CmsMemberService {
                         member_name    = :memberName,
                         id_number      = :idNumber,
                         resident_no    = :residentNo,
+                        biz_no         = :bizNo,
                         phone          = :phone,
                         email          = :email,
                         zipcd          = :zipcd,
@@ -819,16 +822,14 @@ public class CmsMemberService {
             java.sql.Connection conn, String spjangcd, String custcd, int roundUnit,
             Set<String> excludeSet) throws Exception {
 
+        // ★ 은행코드: TB_XBANK.bankcd = MS 내부코드(01,14,17...), bnkcode = 금결원 표준코드(088,004,012...).
+        //   내부코드 체계는 ERP DB/법인마다 다르다(KYOUNG 17=카카오, TAEWON 17=농협중앙회).
+        //   따라서 XCLIENT/E101 의 bankcd 로 TB_XBANK 를 조인해 bnkcode(표준)를 얻어야 한다.
+        //   bankcd 는 유일키라 조인해도 행 복제 없음.
         Map<String, String> bnkCodeMap = new java.util.HashMap<>();
-        bnkCodeMap.put("002","002"); bnkCodeMap.put("003","003"); bnkCodeMap.put("007","007");
-        bnkCodeMap.put("008","008"); bnkCodeMap.put("012","012"); bnkCodeMap.put("019","004");
-        bnkCodeMap.put("020","020"); bnkCodeMap.put("023","023"); bnkCodeMap.put("027","027");
-        bnkCodeMap.put("032","032"); bnkCodeMap.put("034","034"); bnkCodeMap.put("035","035");
-        bnkCodeMap.put("037","037"); bnkCodeMap.put("039","039"); bnkCodeMap.put("045","045");
-        bnkCodeMap.put("047","048"); bnkCodeMap.put("050","050"); bnkCodeMap.put("064","064");
-        bnkCodeMap.put("071","071"); bnkCodeMap.put("081","081"); bnkCodeMap.put("088","088");
-        bnkCodeMap.put("089","089"); bnkCodeMap.put("090","090"); bnkCodeMap.put("092","092");
-        bnkCodeMap.put("006","004");   // 국민은행 (TB_XBANK 006 → PG 004)
+        bnkCodeMap.put("047","048");   // 신협 (TB_XBANK 047 → PG 048)
+        bnkCodeMap.put("019","004");
+        bnkCodeMap.put("006","004");   // 국민은행
 
         // ─────────────────────────────────────────────────────────────
         // ERP 프로시저 PROC_CMS_R(mode=01) 구조를 그대로 따른다.
@@ -854,20 +855,20 @@ public class CmsMemberService {
                         + " C.corpperclafi AS corpperclafi, C.saupnum AS saupnum,"
                         + " C.rnumchk AS rnumchk, LTRIM(RTRIM(COALESCE(C.prenum,''))) AS prenum,"
                         + " CASE"
-                        + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-',''),'') IS NOT NULL"
-                        + "        THEN REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-','')"
                         + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.cmsrnum)),'-',''),'') IS NOT NULL"
                         + "        THEN REPLACE(LTRIM(RTRIM(C.cmsrnum)),'-','')"
                         + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),'') IS NOT NULL"
                         + "        THEN REPLACE(LTRIM(RTRIM(C.saupnum)),'-','')"
                         + "   WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum)))=13"
                         + "        THEN LTRIM(RTRIM(C.prenum))"
+                        + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-',''),'') IS NOT NULL"
+                        + "        THEN REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-','')"
                         + "   ELSE NULL END AS id_number,"
+                        // resident_no = 주민번호 전용(13자리). 사업자번호는 biz_no 로 분리한다.
                         + " CASE WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum)))=13"
                         + "      THEN LTRIM(RTRIM(C.prenum))"
-                        + "      WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),'') IS NOT NULL"
-                        + "      THEN REPLACE(LTRIM(RTRIM(C.saupnum)),'-','')"
                         + "      ELSE NULL END AS resident_no,"
+                        + " NULLIF(REPLACE(LTRIM(RTRIM(COALESCE(C.saupnum,''))),'-',''),'') AS biz_no,"
                         + " LTRIM(RTRIM(COALESCE(B.bnkcode,''))) AS bank_code,"
                         + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(C.accnum,''))),'-',''),' ','') AS bank_account,"
                         + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS eb13_account,"
@@ -919,20 +920,21 @@ public class CmsMemberService {
                         + " C.corpperclafi AS corpperclafi, C.saupnum AS saupnum,"
                         + " C.rnumchk AS rnumchk, LTRIM(RTRIM(COALESCE(C.prenum,''))) AS prenum,"
                         + " CASE"
-                        + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-',''),'') IS NOT NULL"
-                        + "        THEN REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-','')"
-                        + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(E1.cmsrnum)),'-',''),'') IS NOT NULL"
-                        + "        THEN REPLACE(LTRIM(RTRIM(E1.cmsrnum)),'-','')"
-                        + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.cmsrnum)),'-',''),'') IS NOT NULL"
-                        + "        THEN REPLACE(LTRIM(RTRIM(C.cmsrnum)),'-','')"
-                        + "   WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),'') IS NOT NULL"
-                        + "        THEN REPLACE(LTRIM(RTRIM(C.saupnum)),'-','')"
-                        + "   ELSE NULL END AS id_number,"
+                        + "   WHEN NULLIF(LTRIM(RTRIM(E1.accnum)),'') IS NOT NULL THEN"
+                        + "     COALESCE(NULLIF(REPLACE(LTRIM(RTRIM(E1.cmsrnum)),'-',''),''),"
+                        + "              NULLIF(REPLACE(LTRIM(RTRIM(C.cmsrnum)),'-',''),''),"
+                        + "              NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),''),"
+                        + "              NULLIF(REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-',''),''))"
+                        + "   ELSE"
+                        + "     COALESCE(NULLIF(REPLACE(LTRIM(RTRIM(C.cmsrnum)),'-',''),''),"
+                        + "              NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),''),"
+                        + "              NULLIF(REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-',''),''))"
+                        + "   END AS id_number,"
+                        // resident_no = 주민번호 전용(13자리). 사업자번호는 biz_no 로 분리한다.
                         + " CASE WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum)))=13"
                         + "      THEN LTRIM(RTRIM(C.prenum))"
-                        + "      WHEN NULLIF(REPLACE(LTRIM(RTRIM(C.saupnum)),'-',''),'') IS NOT NULL"
-                        + "      THEN REPLACE(LTRIM(RTRIM(C.saupnum)),'-','')"
                         + "      ELSE NULL END AS resident_no,"
+                        + " NULLIF(REPLACE(LTRIM(RTRIM(COALESCE(C.saupnum,''))),'-',''),'') AS biz_no,"
                         // 계좌·은행은 같은 소스에서 짝으로 (E101 원장 우선, 없으면 XCLIENT)
                         + " CASE WHEN NULLIF(LTRIM(RTRIM(E1.accnum)),'') IS NOT NULL"
                         + "      THEN LTRIM(RTRIM(COALESCE(B1.bnkcode,'')))"
@@ -992,12 +994,14 @@ public class CmsMemberService {
                         + " SELECT 3 AS src_path, X.cltcd AS cltcd, NULL AS actcd, X.cltnm AS member_name,"
                         + " X.corpperclafi AS corpperclafi, X.saupnum AS saupnum,"
                         + " X.rnumchk AS rnumchk, LTRIM(RTRIM(COALESCE(X.prenum,''))) AS prenum,"
-                        + " REPLACE(LTRIM(RTRIM(COALESCE(EB.SAUPNUM,''))),'-','') AS id_number,"
+                        + " COALESCE(NULLIF(REPLACE(LTRIM(RTRIM(X.cmsrnum)),'-',''),''),"
+                        + "          NULLIF(REPLACE(LTRIM(RTRIM(X.saupnum)),'-',''),''),"
+                        + "          NULLIF(REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-',''),'')) AS id_number,"
+                        // resident_no = 주민번호 전용(13자리). 사업자번호는 biz_no 로 분리한다.
                         + " CASE WHEN X.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(X.prenum)))=13"
                         + "      THEN LTRIM(RTRIM(X.prenum))"
-                        + "      WHEN NULLIF(REPLACE(LTRIM(RTRIM(X.saupnum)),'-',''),'') IS NOT NULL"
-                        + "      THEN REPLACE(LTRIM(RTRIM(X.saupnum)),'-','')"
                         + "      ELSE NULL END AS resident_no,"
+                        + " NULLIF(REPLACE(LTRIM(RTRIM(COALESCE(X.saupnum,''))),'-',''),'') AS biz_no,"
                         + " LTRIM(RTRIM(COALESCE(XB2.bnkcode,''))) AS bank_code,"
                         + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(X.accnum,''))),'-',''),' ','') AS bank_account,"
                         + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(EB.CMSACCNUM,''))),'-',''),' ','') AS eb13_account,"
@@ -1160,6 +1164,7 @@ public class CmsMemberService {
                     row.put("member_type",   memberType);
                     row.put("id_number",     idNumber);
                     row.put("resident_no",   rs.getString("resident_no"));
+                    row.put("biz_no",        rs.getString("biz_no"));
                     row.put("bank_code",     bankCode);
                     row.put("bank_account",  bankAccount);
                     row.put("xclient_account", rs.getString("xclient_account"));
@@ -1211,7 +1216,7 @@ public class CmsMemberService {
 
         // cms_member 현재값
         List<Map<String, Object>> members = sqlRunner.getRows(/* skip_tenant_check */
-                "SELECT id, cltcd, actcd, member_no, member_name, member_type, id_number, resident_no, bank_code, bank_account, deduct_amount, deduct_day, agree_yn, sync_confirmed_ref FROM cms_member WHERE spjangcd = :spjangcd AND status <> 'INACTIVE'",
+                "SELECT id, cltcd, actcd, member_no, member_name, member_type, id_number, resident_no, biz_no, bank_code, bank_account, deduct_amount, deduct_day, agree_yn, sync_confirmed_ref FROM cms_member WHERE spjangcd = :spjangcd AND status <> 'INACTIVE'",
                 new MapSqlParameterSource("spjangcd", spjangcd));
         // ★ 해지 회원은 제외한다. INACTIVE 행이 키를 점유하면 같은 코드의 신규가 영원히 가려진다.
         //   (2026-07-23 중복적재 건이 actcd 00882를 점유해 웨스턴팰리스호텔이 안 보이던 사고)
@@ -1582,6 +1587,7 @@ public class CmsMemberService {
                     p.addValue("memberType",   erpRow.get("member_type"));
                     p.addValue("idNumber",     erpRow.get("id_number"));
                     p.addValue("residentNo",   erpRow.get("resident_no"));
+                    p.addValue("bizNo",        erpRow.get("biz_no"));
                     p.addValue("bankCode",     erpRow.get("bank_code"));
                     p.addValue("bankAccount",  erpRow.get("bank_account"));
                     p.addValue("phone",        erpRow.get("phone"));
@@ -1602,14 +1608,14 @@ public class CmsMemberService {
                                 """
                                 INSERT INTO cms_member (
                                     spjangcd, member_no, member_type, member_name,
-                                    id_number, resident_no, bank_code, bank_account,
+                                    id_number, resident_no, biz_no, bank_code, bank_account,
                                     phone, email, adresa, zipcd,
                                     deduct_amount, deduct_day, start_date, end_date,
                                     cycle_type, cycle_months, deduct_month_type, agree_yn, actcd, cltcd, status,
                                     _creater_id, _created, _modifier_id, _modified
                                 ) VALUES (
                                     :spjangcd, :memberNo, :memberType, :memberName,
-                                    :idNumber, :residentNo, :bankCode, :bankAccount,
+                                    :idNumber, :residentNo, :bizNo, :bankCode, :bankAccount,
                                     :phone, :email, :adresa, :zipcd,
                                     :deductAmount, :deductDay, :startDate, :endDate,
                                     :cycleType, :cycleMonths, :deductMonthType, :agreeYn, :actcd, :cltcd, 'ACTIVE',
@@ -1625,6 +1631,7 @@ public class CmsMemberService {
                                  member_name    = :memberName,    member_type    = :memberType,
                                  member_no      = COALESCE(:memberNo, member_no),
                                  id_number      = :idNumber,      resident_no    = :residentNo,
+                                 biz_no         = COALESCE(:bizNo, biz_no),
                                  bank_code      = :bankCode,      bank_account   = :bankAccount,
                                  phone          = :phone,         email          = :email,
                                  adresa         = :adresa,        zipcd          = :zipcd,
@@ -1639,6 +1646,7 @@ public class CmsMemberService {
                                      COALESCE(member_name,'')   != COALESCE(:memberName,'')   OR
                                      COALESCE(id_number,'')     != COALESCE(:idNumber,'')     OR
                                      COALESCE(resident_no,'')   != COALESCE(:residentNo,'')   OR
+                                     COALESCE(biz_no,'')        != COALESCE(:bizNo,'')        OR
                                      COALESCE(bank_code,'')     != COALESCE(:bankCode,'')     OR
                                      COALESCE(bank_account,'')  != COALESCE(:bankAccount,'')  OR
                                      COALESCE(phone,'')         != COALESCE(:phone,'')        OR
@@ -1657,6 +1665,7 @@ public class CmsMemberService {
                                      COALESCE(member_name,'')   != COALESCE(:memberName,'')   OR
                                      COALESCE(id_number,'')     != COALESCE(:idNumber,'')     OR
                                      COALESCE(resident_no,'')   != COALESCE(:residentNo,'')   OR
+                                     COALESCE(biz_no,'')        != COALESCE(:bizNo,'')        OR
                                      COALESCE(bank_code,'')     != COALESCE(:bankCode,'')     OR
                                      COALESCE(bank_account,'')  != COALESCE(:bankAccount,'')  OR
                                      COALESCE(phone,'')         != COALESCE(:phone,'')        OR
@@ -1792,6 +1801,7 @@ public class CmsMemberService {
                     ip.addValue("memberName",   erpRow.get("member_name"));
                     ip.addValue("idNumber",     erpRow.get("id_number"));
                     ip.addValue("residentNo",   erpRow.get("resident_no"));
+                    ip.addValue("bizNo",        erpRow.get("biz_no"));
                     ip.addValue("bankCode",     erpRow.get("bank_code"));
                     ip.addValue("bankAccount",  resolveRecommendedAccount(spjangcd, null, erpRow));
                     ip.addValue("deductAmount", erpRow.get("deduct_amount"));
@@ -1805,12 +1815,12 @@ public class CmsMemberService {
                     sqlRunner.execute(/* skip_tenant_check */
                             """
                             INSERT INTO cms_member (
-                                spjangcd, member_no, member_type, member_name, id_number, resident_no,
+                                spjangcd, member_no, member_type, member_name, id_number, resident_no, biz_no,
                                 bank_code, bank_account, deduct_amount, deduct_day, deduct_month_type, agree_yn, actcd, cltcd, status,
                                 sync_confirmed_at, sync_confirmed_ref,
                                 _creater_id, _created, _modifier_id, _modified
                             ) VALUES (
-                                :spjangcd, :memberNo, :memberType, :memberName, :idNumber, :residentNo,
+                                :spjangcd, :memberNo, :memberType, :memberName, :idNumber, :residentNo, :bizNo,
                                 :bankCode, :bankAccount, :deductAmount, :deductDay, :monthType, :agreeYn, :actcd, :cltcd, 'ACTIVE',
                                 NOW(), :confRef,
                                 :userId, NOW(), :userId, NOW()
