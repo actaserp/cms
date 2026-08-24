@@ -356,12 +356,6 @@
             {binding: 'billing_seq',  header: '청구번호',  width: 130, align: 'center'},
             {binding: 'member_name',  header: '납부자명',  width: 140, align: 'left'},
             {binding: 'id_number',    header: '식별번호',   width: 110, align: 'center'},
-            {binding: 'biz_no',       header: '사업자번호', width: 130, align: 'center'},
-            {binding: 'resident_no',  header: '주민번호',   width: 140, align: 'center',
-                cellTemplate: function(ctx) {
-                    var v = ctx.value ? String(ctx.value).replace(/-/g, '') : '';
-                    return v.length === 13 ? v.substring(0,6) + '-' + v.substring(6) : v;
-                }},
             {binding: 'bank_name',    header: '은행',      width: 80,  align: 'center'},
             {binding: 'bank_account', header: '계좌번호',  width: 150, align: 'center'},
             {binding: 'billing_amount', header: '청구금액', width: 110, align: 'right',
@@ -412,6 +406,18 @@
                     return '';
                 }},
         ];
+
+        // 엑셀 전용 컬럼 — 사업자번호·주민번호는 화면에 상시 노출하지 않고
+        // 다운로드 파일에만 포함한다(개인정보 노출 최소화).
+        var EXPORT_EXTRA_COLUMNS = [
+            { binding: 'biz_no',      header: '사업자번호', width: 130, align: 'center' },
+            { binding: 'resident_no', header: '주민번호',   width: 140, align: 'center' }
+        ];
+        function buildExportColumns() {
+            return columns.filter(function (c) { return c.binding !== 'selected'; })
+                .concat(EXPORT_EXTRA_COLUMNS);
+        }
+
 
         document.readyState === 'complete' ? init() : window.onload = init;
 
@@ -753,7 +759,7 @@
                     host.style.width = '1200px'; host.style.height = '400px';
                     document.body.appendChild(host);
                     var tmp = new wijmo.grid.FlexGrid(host, {
-                        autoGenerateColumns: false, columns: columns, isReadOnly: true,
+                        autoGenerateColumns: false, columns: buildExportColumns(), isReadOnly: true,
                         itemsSource: new wijmo.collections.CollectionView(rows)
                     });
                     var cleanup = function () { try { tmp.dispose(); } catch (e) {} if (host.parentNode) host.parentNode.removeChild(host); };
