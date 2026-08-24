@@ -220,6 +220,7 @@ public class CmsMemberService {
             param.addValue("memberNo",      memberNo);
             param.addValue("idNumber",      idNumber);
             param.addValue("residentNo",    residentNo);
+            param.addValue("bizNo",         bizNo);
             param.addValue("phone",         phone);
             param.addValue("email",         email);
             param.addValue("zipcd",         zipcd);
@@ -299,6 +300,7 @@ public class CmsMemberService {
             param.addValue("memberName",    memberName);
             param.addValue("idNumber",      idNumber);
             param.addValue("residentNo",    residentNo);
+            param.addValue("bizNo",         bizNo);
             param.addValue("phone",         phone);
             param.addValue("email",         email);
             param.addValue("zipcd",         zipcd);
