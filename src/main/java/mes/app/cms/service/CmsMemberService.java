@@ -720,7 +720,11 @@ public class CmsMemberService {
             String a = str(m.get("actcd"));
             String c = str(m.get("cltcd"));
             if (StringUtils.hasText(a)) byActcd.put(a, m);
-            if (StringUtils.hasText(c)) byCltcd.put(c, m);
+            // ★ 현장 회원(actcd 보유)은 cltcd 맵에 넣지 않는다.
+            //   현장 회원도 소속 거래처의 cltcd 를 함께 갖고 있어서, 그대로 담으면
+            //   같은 거래처의 ②경로(거래처 단위) 동기화가 현장 회원을 자기 것으로 착각해
+            //   계좌·납부자번호를 덮어쓴다. (CS메디컬프라자 ← 지원에셋플러스 사고)
+            if (StringUtils.hasText(c) && !StringUtils.hasText(a)) byCltcd.put(c, m);
         }
         return List.of(byActcd, byCltcd);
     }
@@ -1348,18 +1352,27 @@ public class CmsMemberService {
                 String curAcc     = str(existing.get("bank_account")).replaceAll("[^0-9]", "");
                 String failedAcc  = memberId != null ? failedAcctMap.get(memberId) : null;
 
-                // 추천 우선순위: XCLIENT(원장) → EB13. 단 실패한 계좌면 건너뜀.
+                // 추천 우선순위: 거래처 회원은 XCLIENT(원장) → EB13.
+                //  ★ 현장 단위 회원(erp_actcd 보유)은 반대로 EB13 → XCLIENT.
+                //    현장의 xclient_account 는 '소속 거래처'의 계좌라, 그대로 쓰면 같은 거래처의
+                //    다른 회원과 계좌가 같아져 엉뚱한 곳에서 출금된다.
+                boolean isSite = StringUtils.hasText(str(erpRow.get("erp_actcd")));
+                String[] accOrder = isSite ? new String[]{ eb13Acc, xclientAcc }
+                        : new String[]{ xclientAcc, eb13Acc };
+
                 String recommendedAcc = null;
-                for (String cand : new String[]{ xclientAcc, eb13Acc }) {
+                for (String cand : accOrder) {
                     if (cand == null || cand.isEmpty()) continue;
                     if (failedAcc != null && cand.equals(failedAcc)) continue; // 실패계좌 배제
                     recommendedAcc = cand;
                     break;
                 }
-                // 후보가 다 실패계좌뿐이면(=배제할 게 없으면) XCLIENT>EB13 순으로라도 채움
+                // 후보가 다 실패계좌뿐이면(=배제할 게 없으면) 같은 우선순위로라도 채움
                 if (recommendedAcc == null) {
-                    recommendedAcc = !xclientAcc.isEmpty() ? xclientAcc
-                            : (!eb13Acc.isEmpty() ? eb13Acc : curAcc);
+                    for (String cand : accOrder) {
+                        if (cand != null && !cand.isEmpty()) { recommendedAcc = cand; break; }
+                    }
+                    if (recommendedAcc == null) recommendedAcc = curAcc;
                 }
 
                 List<Map<String, Object>> keyChanges  = new java.util.ArrayList<>();
@@ -1568,7 +1581,7 @@ public class CmsMemberService {
                     Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
                             "SELECT id, member_no, _modified FROM cms_member "
                                     + "WHERE spjangcd = :spjangcd AND status <> 'INACTIVE' AND "
-                                    + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) )",
+                                    + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND actcd IS NULL AND cltcd = :mCltcd) )",
                             new MapSqlParameterSource("spjangcd", spjangcd)
                                     .addValue("mActcd", erpRow.get("erp_actcd"))
                                     .addValue("mCltcd", erpRow.get("erp_cltcd")));
@@ -1681,12 +1694,12 @@ public class CmsMemberService {
                                      COALESCE(cycle_type,'')    != COALESCE(:cycleType,'')    OR
                                      COALESCE(cycle_months,'')  != COALESCE(:cycleMonths,'')
                                  ) THEN NOW() ELSE _modified END
-                                WHERE spjangcd = :spjangcd AND ( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) )
+                                WHERE spjangcd = :spjangcd AND ( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND actcd IS NULL AND cltcd = :mCltcd) )
                                 """, p);
 
                         Map<String, Object> after = sqlRunner.getRow(/* skip_tenant_check */
                                 "SELECT _modified FROM cms_member WHERE spjangcd = :spjangcd AND "
-                                        + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) )",
+                                        + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND actcd IS NULL AND cltcd = :mCltcd) )",
                                 new MapSqlParameterSource("spjangcd", spjangcd)
                                         .addValue("mActcd", erpRow.get("erp_actcd"))
                                         .addValue("mCltcd", erpRow.get("erp_cltcd")));
@@ -1787,7 +1800,7 @@ public class CmsMemberService {
                 Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
                         "SELECT id FROM cms_member "
                                 + "WHERE spjangcd = :spjangcd AND status <> 'INACTIVE' AND "
-                                + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) )",
+                                + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND actcd IS NULL AND cltcd = :mCltcd) )",
                         new MapSqlParameterSource("spjangcd", spjangcd)
                                 .addValue("mActcd", erpRow.get("erp_actcd"))
                                 .addValue("mCltcd", erpRow.get("erp_cltcd")));
@@ -1869,7 +1882,7 @@ public class CmsMemberService {
                         + "actcd = COALESCE(actcd, :actcd), cltcd = COALESCE(cltcd, :cltcd), "
                         + "_modifier_id = :userId, "
                         + "_modified = CASE WHEN :hasField THEN NOW() ELSE _modified END "
-                        + "WHERE spjangcd = :spjangcd AND ( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) )";
+                        + "WHERE spjangcd = :spjangcd AND ( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND actcd IS NULL AND cltcd = :mCltcd) )";
                 p.addValue("hasField", !erpFields.isEmpty());
                 sqlRunner.execute(/* skip_tenant_check */ sql, p);
 
@@ -1914,13 +1927,25 @@ public class CmsMemberService {
             }
         }
 
-        for (String cand : new String[]{ xclientAcc, eb13Acc }) {
+        // ★ 현장 단위 회원(erp_actcd 보유)은 XCLIENT(거래처 원장) 계좌를 쓰면 안 된다.
+        //   현장의 xclient_account 는 '소속 거래처'의 계좌이므로, 같은 거래처의 다른 현장·
+        //   거래처 회원과 계좌가 동일해져 엉뚱한 곳에서 출금된다.
+        //   (CS메디컬프라자가 지원에셋플러스 계좌로 등록된 사고)
+        //   현장은 자기 계약(E101)/자기 EB13 등록분인 eb13Acc 를 우선한다.
+        boolean isSite = StringUtils.hasText(str(erpRow.get("erp_actcd")));
+        String[] order = isSite ? new String[]{ eb13Acc, xclientAcc }
+                : new String[]{ xclientAcc, eb13Acc };
+
+        for (String cand : order) {
             if (cand == null || cand.isEmpty()) continue;
             if (failedAcc != null && cand.equals(failedAcc)) continue;
             return cand;
         }
-        // 후보가 다 실패계좌뿐이면 XCLIENT>EB13 순
-        return !xclientAcc.isEmpty() ? xclientAcc : eb13Acc;
+        // 후보가 다 실패계좌뿐이면 위와 같은 우선순위로라도 채운다.
+        for (String cand : order) {
+            if (cand != null && !cand.isEmpty()) return cand;
+        }
+        return "";
     }
 
     /**

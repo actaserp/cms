@@ -1062,6 +1062,7 @@ public class CmsBillingService {
                 "SELECT b.id, b.billing_seq, b.member_name, m.id_number, m.biz_no, m.resident_no," +
                         "       b.bank_code, bc.bank_name, b.bank_account, b.billing_amount," +
                         "       b.deduct_date, b.status, b.result_code, b.result_msg, b.result_date," +
+                        "       b.memo," +
                         "       b.fee_request, b.fee_success," +
                         "       CASE WHEN b.status='SUCCESS' THEN b.fee_request+b.fee_success" +
                         "            WHEN b.status='FAIL'    THEN b.fee_request ELSE 0 END AS fee_total," +
