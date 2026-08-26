@@ -79,7 +79,7 @@ public class CmsBillingService {
                         "       b.bank_code, bc.bank_name, b.bank_account," +
                         "       b.account_holder, b.billing_amount, b.deduct_day, b.deduct_date," +
                         "       b.send_date, b.status, b.result_code, b.result_msg, b.result_date," +
-                        "       b.memo, b._created, b._modified," +
+                        "       b.memo, b.print_suffix, b._created, b._modified," +
                         "       CASE WHEN EXISTS (" +
                         "           SELECT 1 FROM cms_billing rb" +
                         "           WHERE rb.spjangcd = b.spjangcd AND rb.id > b.id" +
@@ -102,6 +102,11 @@ public class CmsBillingService {
         result.put("data", rows);
         result.put("totalCount",  totalCount);
         result.put("totalAmount", totalAmount);
+        // 통장기재내용 앞부분(결제원 신고 문구). 화면에서 남은 바이트를 계산하는 데 쓴다.
+        Map<String, Object> cms = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT cms_description FROM tb_xa012_cms WHERE spjangcd = :spjangcd LIMIT 1",
+                new MapSqlParameterSource("spjangcd", spjangcd));
+        result.put("cmsDescription", cms != null ? str(cms.get("cms_description")) : "");
         return result;
     }
 
@@ -2107,6 +2112,72 @@ public class CmsBillingService {
                 new MapSqlParameterSource()
                         .addValue("sendDate", actualSendDate)
                         .addValue("ids", billingIds.toArray(new Long[0])));
+    }
+
+    /**
+     * 통장기재내용 접미어 저장.
+     * EB21 통장기재내용(16bytes)은 [기관 등록문구 + 접미어] 로 만들어진다.
+     * 등록문구는 결제원에 신고된 값이라 바꿀 수 없으므로, 남는 바이트에만 접미어를 넣는다.
+     *  - 전송 전(PENDING) 건만 수정 가능. 이미 나간 건은 바꿔도 통장에 반영되지 않는다.
+     *  - 빈 값이면 NULL 로 지워 기본 문구만 나가게 한다.
+     */
+    @Transactional
+    public int changePrintSuffix(String ids, String printSuffix) {
+        String spjangcd = TenantContext.get();
+        List<Long> idList = Arrays.stream(ids.split(","))
+                .map(String::trim).map(Long::parseLong).collect(Collectors.toList());
+
+        // ★ 통장기재내용이 한글모드(H)면 숫자·영문·공백도 2바이트(전각)여야 한다.
+        //   반각이 섞이면 은행이 불능코드 0087(한글전용 필드에 이외의 값)로 거부한다.
+        //   화면에서도 변환하지만, API 직접 호출 등을 대비해 서버에서 한 번 더 강제한다.
+        String suffix = StringUtils.hasText(printSuffix) ? toFullWidth(printSuffix.trim()) : null;
+
+        // 기관 등록문구 + 접미어가 16바이트(EUC-KR)를 넘으면 은행에서 잘리거나 불능될 수 있다.
+        if (suffix != null) {
+            Map<String, Object> cms = sqlRunner.getRow(/* skip_tenant_check */
+                    "SELECT cms_description FROM tb_xa012_cms WHERE spjangcd = :spjangcd LIMIT 1",
+                    new MapSqlParameterSource("spjangcd", spjangcd));
+            String desc = cms != null ? str(cms.get("cms_description")) : "";
+            int used = eucKrLength(desc) + eucKrLength(suffix);
+            if (used > 16) {
+                throw new IllegalArgumentException(
+                        "통장기재내용이 16바이트를 초과합니다. (기본문구 " + eucKrLength(desc)
+                                + "바이트 + 입력 " + eucKrLength(suffix) + "바이트)");
+            }
+        }
+
+        return sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_billing
+                SET print_suffix = :suffix,
+                    _modified    = NOW()
+                WHERE id = ANY(:ids::BIGINT[])
+                  AND spjangcd = :spjangcd
+                  AND status = 'PENDING'
+                """,
+                new MapSqlParameterSource()
+                        .addValue("ids", idList.toArray(new Long[0]))
+                        .addValue("suffix", suffix)
+                        .addValue("spjangcd", spjangcd));
+    }
+
+    /** 반각 영숫자·공백을 전각으로 변환 (통장기재내용 한글모드 대응) */
+    private String toFullWidth(String s) {
+        if (s == null || s.isEmpty()) return s;
+        StringBuilder sb = new StringBuilder(s.length());
+        for (char c : s.toCharArray()) {
+            if (c == ' ')                  sb.append('\u3000');
+            else if (c >= '!' && c <= '~')  sb.append((char) (c + 0xFEE0));
+            else                            sb.append(c);
+        }
+        return sb.toString();
+    }
+
+    /** EUC-KR 기준 바이트 길이 (한글·전각 2, 영숫자 1) */
+    private int eucKrLength(String s) {
+        if (s == null || s.isEmpty()) return 0;
+        try { return s.getBytes("EUC-KR").length; }
+        catch (java.io.UnsupportedEncodingException e) { return s.length() * 2; }
     }
 
     public int changeDeductDate(String ids, String deductDate) {

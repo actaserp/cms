@@ -593,6 +593,21 @@ public class CmsBillingController {
         return result;
     }
 
+    /** 통장기재내용 접미어 저장 (전송 전 건만) */
+    @PostMapping("/change-print-suffix")
+    public AjaxResult changePrintSuffix(
+            @RequestParam String ids,
+            @RequestParam(required = false) String print_suffix) {
+        AjaxResult result = new AjaxResult();
+        try {
+            result.data = cmsBillingService.changePrintSuffix(ids, print_suffix);
+        } catch (IllegalArgumentException e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
     @PostMapping("/change-deduct-date")
     public AjaxResult changeDeductDate(
             @RequestParam String ids,

@@ -467,6 +467,49 @@
     </div>
 
     <!-- 엑셀 업로드 미리보기/결과 모달 -->
+    <!-- 통장기재내용 접미어 -->
+    <div id="modalPrintSuffix" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+     background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:20px 24px; width:460px; max-width:94vw;
+             box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 12px; font-size:15px;">통장기재내용</h3>
+            <div style="font-size:12px; color:#555; line-height:1.7; background:#f7f9fc;
+                 border:1px solid #e3e8f0; border-radius:6px; padding:10px 12px; margin-bottom:12px;">
+                <div>납부자 통장에 찍히는 문구입니다. <strong>총 16바이트</strong>(한글·전각 2, 영숫자 1)까지 들어갑니다.</div>
+                <div>앞부분 <strong id="psPrefix"></strong>(<span id="psPrefixBytes">0</span>바이트)는 결제원 신고 문구라 바꿀 수 없고,
+                    남는 <strong id="psRemain">0</strong>바이트에만 입력할 수 있어요.</div>
+                <div style="color:#888;">· 은행에 따라 뒷부분이 표시되지 않을 수 있습니다.</div>
+            </div>
+
+            <div style="margin-bottom:10px;">
+                <label style="font-size:12px; color:#555;">덧붙일 문구 (선택 <span id="psCount">0</span>건 적용)</label>
+                <input type="text" id="psInput" maxlength="8"
+                       style="width:100%; padding:6px 8px; border:1px solid #dde0ea; border-radius:4px; font-size:14px;"
+                       placeholder="예) ８">
+                <div style="font-size:11px; color:#888; margin-top:4px;">
+                    숫자·영문은 자동으로 전각(８)으로 바뀝니다. 반각을 쓰면 은행에서 거부됩니다(0087).
+                </div>
+            </div>
+
+            <div style="font-size:12px; color:#555; margin-bottom:6px;">
+                사용 <strong id="psUsed">0</strong> / 16 바이트
+            </div>
+            <div style="background:#f5f6fa; border:1px solid #dde0ea; border-radius:4px;
+                 padding:8px 10px; font-size:15px; letter-spacing:1px; margin-bottom:6px;">
+                <span id="psPreview" style="font-family:monospace;"></span>
+            </div>
+            <div id="psWarn" style="display:none; color:#e04b4b; font-size:12px; margin-bottom:6px;">
+                16바이트를 초과했습니다. 문구를 줄여주세요.
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+                <button type="button" class="btn-default" id="btnPsSave"
+                        style="background:#4a6cf7; color:#fff;">저장</button>
+                <button type="button" class="btn-default" id="btnPsCancel">닫기</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modalExcelUpload" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
      background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
         <div style="background:#fff; border-radius:8px; padding:20px 24px; width:860px; max-width:94vw;
@@ -549,15 +592,28 @@
                 isReadOnly: false,
                 dataType: 'Boolean'
             },
-            {binding: 'billing_seq',    header: '청구번호', width: 120, align: 'center'},
+            {binding: 'billing_seq',    header: '청구번호', width: 110, align: 'center'},
             {binding: 'member_name',    header: '납부자명', width: 130, align: 'left'},
-            {binding: 'member_no',      header: '납부자번호', width: 120, align: 'center'},
+            {binding: 'member_no',      header: '납부자번호', width: 100, align: 'center'},
             {binding: 'id_number',      header: '식별번호',   width: 110, align: 'center'},
             {binding: 'bank_name',      header: '은행',    width: 80,  align: 'center'},
-            {binding: 'bank_account',   header: '계좌번호', width: 150, align: 'center'},
-            {binding: 'deduct_day',     header: '약정일',  width: 70,  align: 'center',
+            {binding: 'bank_account',   header: '계좌번호', width: 130, align: 'center'},
+            {binding: 'deduct_day',     header: '약정일',  width: 60,  align: 'center',
                 cellTemplate: function(ctx) {
                     return ctx.value === '99' ? '말일' : (ctx.value ? ctx.value + '일' : '');
+                }},
+            // 통장기재내용 접미어. 셀을 클릭하면 모달이 열린다.
+            //  값이 있으면 그대로, 없으면 회색 '설정' → 변경한 건과 안 한 건이 한눈에 구분된다.
+            {binding: 'print_suffix', header: '통장기재', width: 70, align: 'center',
+                cssClass: 'cell-print-suffix',
+                cellTemplate: function (ctx) {
+                    var v = ctx.value || '';
+                    var pre = (window.CMS_DESCRIPTION || '');
+                    if (!v) {
+                        return '<span style="color:#bbb; cursor:pointer;" title="' + pre + '">설정</span>';
+                    }
+                    return '<span style="color:#4a6cf7; cursor:pointer; font-weight:600;" title="'
+                        + (pre + v).replace(/"/g, '&quot;') + '">' + v + '</span>';
                 }},
             {binding: 'deduct_date', header: '출금일자', width: 100, align: 'center',
                 cellTemplate: function(ctx) {
@@ -600,7 +656,13 @@
                     }
                     return '';
                 }},
-            {binding: 'memo',    header: '메모', width: 90,  align: 'center'},
+            // 메모는 길어서 셀에서 잘리므로 마우스를 올리면 전문이 보이도록 title 을 단다.
+            {binding: 'memo',    header: '메모', width: 90,  align: 'left',
+                cellTemplate: function (ctx) {
+                    var v = ctx.value || '';
+                    if (!v) return '';
+                    return '<span title="' + String(v).replace(/"/g, '&quot;') + '">' + v + '</span>';
+                }},
         ];
 
         // 엑셀 전용 컬럼 — 사업자번호·주민번호는 화면에 상시 노출하지 않고
@@ -1194,6 +1256,8 @@
                 success: function(result) {
                     if (result.success) {
                         var d = result.data;
+                        // 통장기재내용 앞부분(결제원 신고 문구) — 접미어 입력 시 남은 바이트 계산에 사용
+                        if (d.cmsDescription !== undefined) window.CMS_DESCRIPTION = d.cmsDescription || '';
                         if (theGrid) theGrid.dispose();
                         bindGrid(d.data || []);
                         updatePagination(d.totalCount || 0);
@@ -1223,6 +1287,7 @@
                 success: function(result) {
                     if (result && result.success) {
                         var d = result.data || {};
+                        if (d.cmsDescription !== undefined) window.CMS_DESCRIPTION = d.cmsDescription || '';
                         var rows = d.data || [];
                         rows.forEach(function(item) { item.selected = false; });
 
@@ -1367,6 +1432,101 @@
                 var item = theGrid.selectedItems[0];
                 if (!item) return;
                 fillForm(item);
+            });
+
+            // 통장기재 셀 클릭 → 접미어 입력 모달
+            theGrid.hostElement.addEventListener('click', function (e) {
+                var ht = theGrid.hitTest(e);
+                if (!ht || ht.cellType !== wijmo.grid.CellType.Cell) return;
+                var col = theGrid.columns[ht.col];
+                if (!col || col.binding !== 'print_suffix') return;
+                var item = theGrid.rows[ht.row] && theGrid.rows[ht.row].dataItem;
+                if (!item) return;
+                if (item.status !== 'PENDING') {
+                    Alert.alert('', '전송 전(청구대기) 건만 통장기재내용을 수정할 수 있습니다.');
+                    return;
+                }
+                openPrintSuffixModal([item]);
+            });
+        }
+
+        // ── 통장기재내용 ─────────────────────────────────────────────
+        //  EB21 통장기재내용은 EUC-KR 기준 16바이트 고정이고, 앞부분에는 결제원에 신고한
+        //  기관 문구가 반드시 들어가야 한다. 그래서 남는 바이트에만 접미어를 붙인다.
+        var printSuffixTargets = [];
+
+        function eucKrLen(str) {
+            var n = 0;
+            for (var i = 0; i < str.length; i++) {
+                n += (str.charCodeAt(i) > 127) ? 2 : 1;
+            }
+            return n;
+        }
+
+        // ★ 통장기재내용이 한글모드(H)면 숫자·영문·공백도 반드시 2바이트(전각)여야 한다.
+        //   반각을 섞으면 은행에서 불능코드 0087(한글전용 필드에 이외의 값)로 거부된다.
+        //   사용자가 반각으로 쳐도 자동으로 전각으로 바꿔준다.
+        function toFullWidth(str) {
+            return (str || '').replace(/[!-~]/g, function (ch) {
+                return String.fromCharCode(ch.charCodeAt(0) + 0xFEE0);
+            }).replace(/ /g, '\u3000');
+        }
+
+        function openPrintSuffixModal(items) {
+            printSuffixTargets = items || [];
+            if (!printSuffixTargets.length) return;
+
+            var pre = window.CMS_DESCRIPTION || '';
+            $('#psPrefix').text(pre || '(기관 문구 없음)');
+            $('#psPrefixBytes').text(eucKrLen(pre));
+            $('#psRemain').text(Math.max(0, 16 - eucKrLen(pre)));
+            $('#psCount').text(printSuffixTargets.length);
+            $('#psInput').val(printSuffixTargets.length === 1 ? (printSuffixTargets[0].print_suffix || '') : '');
+            updatePrintSuffixPreview();
+            $('#modalPrintSuffix').css('display', 'flex');
+        }
+
+        function updatePrintSuffixPreview() {
+            var pre = window.CMS_DESCRIPTION || '';
+            var val = $('#psInput').val() || '';
+            // 입력 중 반각이 들어오면 즉시 전각으로 치환 (커서 위치 유지)
+            var full = toFullWidth(val);
+            if (full !== val) {
+                var pos = $('#psInput')[0].selectionStart;
+                $('#psInput').val(full);
+                try { $('#psInput')[0].setSelectionRange(pos, pos); } catch (e) {}
+                val = full;
+            }
+            var total = eucKrLen(pre) + eucKrLen(val);
+            $('#psUsed').text(total);
+            $('#psPreview').text(pre + val);
+            var over = total > 16;
+            $('#psUsed').css('color', over ? '#e04b4b' : '#333');
+            $('#psWarn').toggle(over);
+            $('#btnPsSave').prop('disabled', over);
+        }
+
+        function savePrintSuffix() {
+            var ids = printSuffixTargets.map(function (i) { return i.id; }).join(',');
+            if (!ids) return;
+            $.ajax({
+                url: withCtx('/api/cms/billing/change-print-suffix'),
+                type: 'POST',
+                data: {
+                    ids: ids,
+                    print_suffix: toFullWidth($('#psInput').val() || ''),
+                    _csrf: $('[name=_csrf]').val()
+                },
+                success: function (result) {
+                    if (result && result.success === false) {
+                        Alert.alert('', result.message || '저장 실패');
+                        return;
+                    }
+                    $('#modalPrintSuffix').hide();
+                    Alert.alert('', (result.data || 0) + '건 저장했습니다.');
+                    searchList(currentPage);
+                },
+                error: function () { Alert.alert('오류', '통장기재내용 저장 실패'); }
             });
         }
 
@@ -2061,6 +2221,14 @@
             });
             $('#btnExcelUploadConfirm').click(submitExcelUpload);
             $('#btnExcelUploadCancel').click(function () { $('#modalExcelUpload').hide(); });
+
+            // 통장기재내용 모달
+            $('#psInput').on('input', updatePrintSuffixPreview);
+            $('#btnPsSave').click(savePrintSuffix);
+            $('#btnPsCancel').click(function () { $('#modalPrintSuffix').hide(); });
+            $('#modalPrintSuffix').click(function (e) {
+                if ($(e.target).is('#modalPrintSuffix')) $('#modalPrintSuffix').hide();
+            });
             $('#btnChangeDate').click(openChangeDateModal);
             $('#btnChangeDateConfirm').click(doChangeDate);
             $('#btnChangeDateCancel').click(function () {

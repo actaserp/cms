@@ -116,6 +116,7 @@ public class CmsEb21SendService {
         List<Map<String, Object>> billings = sqlRunner.getRows(/* skip_tenant_check */
                 """
                 SELECT b.id, b.bank_code, b.bank_account, b.account_holder, b.billing_amount,
+                       b.print_suffix,
                        m.id_number, m.member_no, m.phone
                 FROM cms_billing b
                 LEFT JOIN cms_member m ON m.id = b.member_id
@@ -417,7 +418,11 @@ public class CmsEb21SendService {
             r.write(anBytes(resolvePayerNo(str(b.get("id_number"))),     13));  // 생년월일/사업자번호
             r.write(anBytes(" ",                                          1));  // 출금여부 (Space)
             r.write(anBytes("    ",                                       4));  // 불능코드 (Space)
-            r.write(descBytes(spjang != null ? str(spjang.get("cms_description")) : "")); // 통장기재내용 (16bytes)
+            // 통장기재내용 = 기관 등록문구 + 청구건별 접미어(없으면 등록문구만).
+            //  등록문구는 결제원 신고값이라 반드시 포함되어야 하므로 앞에 두고, 남는 자리에만 붙인다.
+            r.write(descBytes(buildDescription(
+                    spjang != null ? str(spjang.get("cms_description")) : "",
+                    str(b.get("print_suffix")))));                              // 통장기재내용 (16bytes)
             r.write(anBytes("  ",                                         2));  // 자금종류
             r.write(anBytes(str(b.get("member_no")),                     20));  // 납부자번호
             r.write(anBytes("     ",                                      5));  // 기관사용영역
@@ -470,19 +475,57 @@ public class CmsEb21SendService {
         return result;
     }
 
-    /** 통장기재내용: EUC-KR 바이트 기준 16바이트, 우측 공백 패딩 */
+    /**
+     * 통장기재내용 조합: [기관 등록문구] + [청구건별 접미어].
+     * 16바이트를 넘으면 접미어를 버리고 등록문구만 쓴다.
+     *  (등록문구는 결제원 신고값이라 반드시 포함되어야 하고, 잘라내면 규정 위반이 된다)
+     */
+    private String buildDescription(String desc, String suffix) {
+        if (!StringUtils.hasText(suffix)) return desc;
+        String merged = desc + suffix;
+        if (merged.getBytes(EUC_KR).length > 16) {
+            log.warn("[EB21] 통장기재내용 16바이트 초과 - 접미어 무시: desc={} suffix={}", desc, suffix);
+            return desc;
+        }
+        return merged;
+    }
+
+    /**
+     * 통장기재내용: EUC-KR 기준 16바이트 고정.
+     *
+     * ★ 남는 자리는 문구의 모드에 맞춰 채운다.
+     *   - 순수 2바이트 문자(한글모드 H)이고 남는 자리가 짝수 → 전각 공백(0xA1A1)
+     *   - 그 외(영숫자 혼용 등) → 반각 공백
+     *   예전에는 무조건 전각 공백으로 깔고 앞을 덮어써서, 문구가 홀수 바이트로 끝나면
+     *   전각 공백이 반쪽(0xA1)만 남아 깨진 문자가 되었다(불능코드 0087 소지).
+     */
     private byte[] descBytes(String desc) {
         byte[] result = new byte[16];
-        // 전각 공백(EUC-KR 0xA1A1)으로 초기화
-        for (int i = 0; i < 8; i++) {
-            result[i * 2]     = (byte) 0xA1;
-            result[i * 2 + 1] = (byte) 0xA1;
-        }
-        if (StringUtils.hasText(desc)) {
-            byte[] src = desc.getBytes(EUC_KR);
-            System.arraycopy(src, 0, result, 0, Math.min(src.length, 16));
+        byte[] src = StringUtils.hasText(desc) ? desc.getBytes(EUC_KR) : new byte[0];
+        int len = Math.min(src.length, 16);
+        System.arraycopy(src, 0, result, 0, len);
+
+        int rest = 16 - len;
+        if (rest == 0) return result;
+
+        if (rest % 2 == 0 && isAllWide(src, len)) {
+            for (int i = 0; i < rest / 2; i++) {
+                result[len + i * 2]     = (byte) 0xA1;
+                result[len + i * 2 + 1] = (byte) 0xA1;
+            }
+        } else {
+            Arrays.fill(result, len, 16, (byte) ' ');
         }
         return result;
+    }
+
+    /** 앞 len 바이트가 모두 2바이트 문자(EUC-KR 상위비트 세트)인지 */
+    private boolean isAllWide(byte[] src, int len) {
+        if (len == 0) return true;
+        for (int i = 0; i < len; i++) {
+            if ((src[i] & 0x80) == 0) return false;
+        }
+        return true;
     }
 
     /** 공백 바이트 배열 */
