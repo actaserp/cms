@@ -189,12 +189,24 @@
             <div class="container-fluid">
                 <div id="theGrid"></div>
                 <div style="padding:6px 0;"><button type="button" class="btn-default" id="btnExcel" style="background:#217346; color:#fff; width:120px;">엑셀 다운로드</button></div>
-                <div id="paginationBar" style="display:flex; align-items:center; gap:6px; margin:6px 0;">
-                    <button onclick="searchList(0)"             style="padding:2px 8px;">◀◀</button>
-                    <button onclick="searchList(currentPage-1)" style="padding:2px 8px;" id="btnPrevPage">◀</button>
-                    <span id="pageInfo" style="font-size:13px;"></span>
-                    <button onclick="searchList(currentPage+1)" style="padding:2px 8px;" id="btnNextPage">▶</button>
-                    <button onclick="searchList(totalPages-1)"  style="padding:2px 8px;" id="btnLastPage">▶▶</button>
+                <div id="listBar" style="display:flex; align-items:center; gap:6px; margin:6px 0;">
+                    <span id="paginationBar" style="display:flex; align-items:center; gap:6px;">
+                        <button onclick="searchList(0)"             style="padding:2px 8px;">◀◀</button>
+                        <button onclick="searchList(currentPage-1)" style="padding:2px 8px;" id="btnPrevPage">◀</button>
+                        <span id="pageInfo" style="font-size:13px;"></span>
+                        <button onclick="searchList(currentPage+1)" style="padding:2px 8px;" id="btnNextPage">▶</button>
+                        <button onclick="searchList(totalPages-1)"  style="padding:2px 8px;" id="btnLastPage">▶▶</button>
+                    </span>
+                    <span id="infiniteBar" style="display:none; align-items:center; gap:8px; font-size:13px;">
+                        <span id="infInfo" style="color:#555;"></span>
+                        <button type="button" id="btnInfMore" style="padding:2px 10px;">더 보기</button>
+                        <span id="infLoadingMsg" style="display:none; color:#4a6cf7;">불러오는 중…</span>
+                    </span>
+                    <!-- 보기 방식 전환: 아이콘만. 설명은 툴팁(title)으로 -->
+                    <button type="button" id="btnToggleViewMode" title="스크롤해서 이어보기"
+                            style="margin-left:4px; padding:1px 8px; font-size:14px; line-height:20px;
+                                   border:1px solid #dde0ea; border-radius:4px;
+                                   background:#f5f6fa; cursor:pointer;">☰</button>
                 </div>
                 <div class="grid-summary">
                     <div>전체: <span id="summaryTotal">0</span>건 &nbsp; 페이지 합계: <span id="summaryPageAmt">0</span>원</div>
@@ -215,6 +227,16 @@
         var theGrid;
         var viewdata;
         var currentPage = 0, totalPages = 1;
+
+        // ── 목록 표시 모드: 'page'(페이징) / 'infinite'(무한스크롤) ──────────
+        var PAGE_SIZE = 10;      // 페이징 1페이지 건수
+        var INF_SIZE  = 50;      // 무한스크롤 1회 로드 건수
+        var viewMode  = 'page';
+        var infRows   = [];      // 무한스크롤 누적 행
+        var infPage   = 0;       // 다음에 불러올 페이지
+        var infLoading = false;  // 중복 요청 방지
+        var infEnd    = false;   // 더 없음
+        var infScrollBound = false;
 
         var STATUS_MAP = {
             PENDING:   '대기',
@@ -323,35 +345,47 @@
         }
 
         /* ── 검색 ── */
-        function searchList(page) {
-            if (page < 0 || page >= totalPages) return;
-            currentPage = page;
+        // 검색 파라미터 단일 진입점. 목록/엑셀이 같은 조건을 쓰도록 한 곳에서 만든다.
+        function buildSearchParams(page, size) {
+            return {
+                start_date:   ($('#srchStartDate').val() || '').replace(/-/g, ''),
+                end_date:     ($('#srchEndDate').val()   || '').replace(/-/g, ''),
+                billing_type: $('#srchBillingType').val(),
+                recharge_filter: false,
+                status:       $('#srchStatus').val() || 'SUCCESS,FAIL',
+                member_name:  $('#srchMemberName').val(),
+                page: page,
+                size: size
+            };
+        }
 
+        // 조회 조건 유효성 검사. 통과하면 true.
+        function validateSearch() {
             var startDate = $('#srchStartDate').val();
             var endDate   = $('#srchEndDate').val();
-
             if (!startDate || !endDate) {
                 Alert.alert('', '출금기간을 선택하세요.');
-                return;
+                return false;
             }
             if (startDate > endDate) {
                 Alert.alert('', '시작일이 종료일보다 클 수 없습니다.');
-                return;
+                return false;
             }
+            return true;
+        }
+
+        // 목록 조회 진입점. 외부에서는 searchList(0)로만 부르면 모드에 맞게 동작한다.
+        function searchList(page) {
+            if (viewMode === 'infinite') { loadInfinite(true); return; }
+            if (page < 0 || page >= totalPages) return;
+            currentPage = page;
+
+            if (!validateSearch()) return;
 
             $.ajax({
                 url: withCtx('/api/cms/billing/history/list'),
                 type: 'GET',
-                data: {
-                    start_date:   startDate.replace(/-/g, ''),
-                    end_date:     endDate.replace(/-/g, ''),
-                    billing_type: $('#srchBillingType').val(),
-                    recharge_filter: false,
-                    status:       $('#srchStatus').val() || 'SUCCESS,FAIL',
-                    member_name:  $('#srchMemberName').val(),
-                    page: currentPage,
-                    size: 10
-                },
+                data: buildSearchParams(currentPage, PAGE_SIZE),
                 success: function(result) {
                     if (result.success) {
                         var d = result.data;
@@ -364,11 +398,96 @@
         }
 
         function updatePagination(totalCount) {
-            totalPages = Math.max(1, Math.ceil(totalCount / 10));
+            totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
             $('#pageInfo').text((currentPage + 1) + ' / ' + totalPages);
             $('#btnPrevPage').prop('disabled', currentPage <= 0);
             $('#btnNextPage').prop('disabled', currentPage >= totalPages - 1);
             $('#btnLastPage').prop('disabled', currentPage >= totalPages - 1);
+        }
+
+        // 무한스크롤 로드. reset=true면 처음부터 다시.
+        function loadInfinite(reset) {
+            if (infLoading) return;
+            if (reset) { infRows = []; infPage = 0; infEnd = false; }
+            if (infEnd) return;
+            if (!validateSearch()) return;
+
+            infLoading = true;
+            $('#infLoadingMsg').show();
+            $('#btnInfMore').prop('disabled', true);
+
+            $.ajax({
+                url: withCtx('/api/cms/billing/history/list'),
+                type: 'GET',
+                data: buildSearchParams(infPage, INF_SIZE),
+                success: function(result) {
+                    if (result && result.success) {
+                        var d    = result.data || {};
+                        var rows = d.data || [];
+
+                        if (reset || !theGrid) {
+                            infRows = rows.slice();
+                            bindGrid(infRows);
+                            bindInfiniteScroll();
+                        } else {
+                            // 그리드를 다시 만들지 않고 누적 — 스크롤 위치가 유지된다.
+                            rows.forEach(function(r) { infRows.push(r); });
+                            viewdata.refresh();
+                        }
+
+                        infPage++;
+                        if (rows.length < INF_SIZE || infRows.length >= (d.totalCount || 0)) infEnd = true;
+
+                        // 하단 요약은 누적분 기준, 상단 카드는 서버 전체 집계 기준
+                        var dd = {}; for (var k in d) dd[k] = d[k];
+                        dd.data = infRows;
+                        updateSummary(dd);
+                        updateInfiniteInfo(d.totalCount || 0);
+                    }
+                },
+                complete: function() {
+                    infLoading = false;
+                    $('#infLoadingMsg').hide();
+                    $('#btnInfMore').prop('disabled', infEnd);
+                }
+            });
+        }
+
+        // 그리드 하단 도달 시 자동 로드
+        function bindInfiniteScroll() {
+            if (!theGrid || infScrollBound) return;
+            theGrid.scrollPositionChanged.addHandler(function(s) {
+                if (viewMode !== 'infinite' || infLoading || infEnd) return;
+                if (s.viewRange.bottomRow >= s.rows.length - 1) loadInfinite(false);
+            });
+            infScrollBound = true;
+        }
+
+        function updateInfiniteInfo(totalCount) {
+            $('#infInfo').text(infRows.length.toLocaleString() + ' / ' + (totalCount || 0).toLocaleString() + '건'
+                + (infEnd ? ' (전체 표시)' : ''));
+        }
+
+        // 모드 전환 — 그리드는 새로 만들고 첫 화면부터 다시 조회
+        function setViewMode(mode) {
+            viewMode = mode;
+            infScrollBound = false;
+            if (theGrid) { theGrid.dispose(); theGrid = null; }
+
+            if (mode === 'infinite') {
+                $('#paginationBar').hide();
+                $('#infiniteBar').css('display', 'flex');
+                $('#btnToggleViewMode').text('❐').attr('title', '페이지 나눠보기');
+                $('#theGrid').css({ height: '560px', overflow: 'hidden' });
+                loadInfinite(true);
+            } else {
+                $('#infiniteBar').hide();
+                $('#paginationBar').css('display', 'flex');
+                $('#btnToggleViewMode').text('☰').attr('title', '스크롤해서 이어보기');
+                $('#theGrid').css({ height: '', overflow: '' });
+                totalPages = 1;
+                searchList(0);
+            }
         }
 
         /* ── 그리드 ── */
@@ -427,16 +546,11 @@
         }
 
         /* ── 이벤트 바인딩 ── */
+        // 엑셀은 화면 로드분이 아니라 '검색조건 전체'를 다시 조회해서 만든다.
+        var EXPORT_SIZE = 1000000;
+
         function exportExcel() {
-            var params = {
-                start_date: ($('#srchStartDate').val() || '').replace(/-/g, ''),
-                end_date: ($('#srchEndDate').val() || '').replace(/-/g, ''),
-                billing_type: $('#srchBillingType').val(),
-                status: $('#srchStatus').val() || 'SUCCESS,FAIL',
-                member_name: $('#srchMemberName').val()
-            };
-            params.page = 0;
-            params.size = 1000000;
+            var params = buildSearchParams(0, EXPORT_SIZE);
             $.ajax({
                 url: withCtx('/api/cms/billing/history/list'),
                 type: 'GET',
@@ -468,6 +582,10 @@
             $('#btnSearch').click(function() { searchList(0); });
             $('#btnExcel').click(exportExcel);
             $('#srchMemberName').keypress(function(e) { if (e.which === 13) searchList(0); });
+            $('#btnInfMore').click(function () { loadInfinite(false); });
+            $('#btnToggleViewMode').click(function () {
+                setViewMode(viewMode === 'page' ? 'infinite' : 'page');
+            });
 
             $('#btnThisMonth').click(function () {
                 setThisMonth();

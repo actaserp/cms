@@ -1610,22 +1610,33 @@ public class CmsBillingService {
 
                         if (billingAmount <= 0) continue;
 
-                        Map<String, Object> member = sqlRunner.getRow(/* skip_tenant_check */
+                        // ERP의 actcd(현장코드)/cltcd(거래처코드)는 서로 다른 코드 체계다.
+                        // 예전에는 cms_member.cltcd 한 컬럼에 두 값을 함께 대조(cltcd IN (:actcd,:cltcd))했는데,
+                        // A회사의 cltcd 와 B현장의 actcd 값이 겹치면 전혀 다른 납부자가 매칭되고
+                        // 정렬(cltcd = :actcd 우선)이 오히려 그 오답을 1순위로 끌어올렸다.
+                        // → 각 코드를 자기 컬럼끼리만 대조하고, 현장코드 정확매칭을 우선한다.
+                        List<Map<String, Object>> memberCands = sqlRunner.getRows(/* skip_tenant_check */
                                 """
                                         SELECT id, member_name, member_no, bank_code, bank_account,
                                                        account_holder, deduct_day, agree_yn, deduct_month_type
                                                 FROM cms_member
                                                 WHERE spjangcd = :spjangcd
-                                                  AND cltcd IN (:actcd, :cltcd)
                                                   AND status = 'ACTIVE'
-                                                ORDER BY CASE WHEN cltcd = :actcd THEN 0 ELSE 1 END,
+                                                  AND ( (NULLIF(:actcd, '') IS NOT NULL AND actcd = :actcd)
+                                                     OR (NULLIF(:cltcd, '') IS NOT NULL AND cltcd = :cltcd) )
+                                                ORDER BY CASE WHEN actcd = :actcd THEN 0 ELSE 1 END,
                                                          CASE WHEN agree_yn = 'Y' THEN 0 ELSE 1 END,
                                                          id
-                                                LIMIT 1
+                                                LIMIT 2
                                 """,
                                 new MapSqlParameterSource("spjangcd", spjangcd)
                                         .addValue("actcd", actcd)
                                         .addValue("cltcd", cltcd));
+
+                        Map<String, Object> member = memberCands.isEmpty() ? null : memberCands.get(0);
+                        // 후보가 2건 이상이면 어느 쪽인지 단정할 수 없다.
+                        // 조용히 1건을 고르면 엉뚱한 계좌로 출금되므로 화면에서 확인받는다.
+                        boolean ambiguous = memberCands.size() > 1;
 
                         // 당월/익월 판단: cms_member.deduct_month_type 우선, 없으면 ERP XCLIENT.autoflag 폴백
                         //  익월(NEXT / autoflag=2) → 전월 발생 미수를 이번 달 청구, 그 외 → 당월 미수
@@ -1648,6 +1659,13 @@ public class CmsBillingService {
 
                         if (existingMisKeys.contains(misKey)) {
                             rowStatus = "DUP";
+                        } else if (ambiguous) {
+                            // 생성 단계에서 OK 가 아니면 스킵되므로 여기서 막힌다.
+                            rowStatus = "AMBIGUOUS";
+                            memberId  = member.get("id");
+                            log.warn("[ERP청구-preview] 납부자 매칭 모호 - 생성 제외 spjangcd={} actcd={} cltcd={} erpName={} 후보={}",
+                                    spjangcd, actcd, cltcd, memberName,
+                                    memberCands.stream().map(x -> str(x.get("id")) + ":" + str(x.get("member_name"))).toList());
                         } else if (!"Y".equals(str(member.get("agree_yn")))) {
                             rowStatus = "NOT_AGREED";
                             memberId  = member.get("id");

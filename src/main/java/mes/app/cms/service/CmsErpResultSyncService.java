@@ -90,13 +90,12 @@ public class CmsErpResultSyncService {
             conn.setAutoCommit(true);
 
             for (SyncItem item : items) {
-                // TB_BANK_CMSSAVE.cltcd 는 ERP 원장(TB_XCLIENT.cltcd) 기준이다.
-                // 비어 있으면 ERP에서 미분류 수납으로 쌓이므로 넣지 않고 실패로 표면화한다.
+                // TB_BANK_CMSSAVE.cltcd 는 ERP 원장(TB_XCLIENT.cltcd) 기준이지만 필수는 아니다.
+                // ERP에서 적요(print_content)로 거래처를 식별하므로, 비어 있어도 INSERT 한다.
+                // 누락시키는 것보다 미분류로라도 수납내역을 남기는 편이 안전하다.
                 if (item.getCltcd() == null || item.getCltcd().isBlank()) {
-                    failed++;
-                    log.error("[CmsErpSync] cltcd 없음 - INSERT 스킵 memberNo={} name={}",
+                    log.warn("[CmsErpSync] cltcd 없음 - 미분류로 INSERT memberNo={} name={}",
                             item.getMemberNo(), item.getMemberName());
-                    continue;
                 }
                 if (!item.isSuccess()) {
                     log.info("[CmsErpSync] 출금실패 INSERT 스킵 memberNo={} disableCd={}",

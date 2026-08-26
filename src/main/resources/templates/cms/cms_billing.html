@@ -688,17 +688,14 @@
             });
         }
 
+        // 엑셀은 화면 로드분이 아니라 '검색조건 전체'를 다시 조회해서 만든다.
+        // 검색 파라미터는 searchList와 동일한 buildSearchParams를 재사용한다(조건 추가시 자동 반영).
+        var EXPORT_SIZE = 1000000;
+
         function exportExcel() {
-            var ymVal = $('#srchBillingYm').val() || '';
-            var params = {
-                billing_ym: ymVal.replace('-', ''),
-                send_date_from: ($('#srchSendDateFrom').val() || '').replace(/-/g, ''),
-                send_date_to: ($('#srchSendDateTo').val() || '').replace(/-/g, ''),
-                member_name: $('#srchMemberName').val(),
-                status: $('#srchStatus').val()
-            };
-            params.page = 0;
-            params.size = 1000000;
+            var ymVal  = $('#srchBillingYm').val() || '';
+            var params = buildSearchParams(0, EXPORT_SIZE);
+            if (!params) { Alert.alert('', '청구년월을 선택하세요.'); return; }
             $.ajax({
                 url: withCtx('/api/cms/billing/list'),
                 type: 'GET',
@@ -1321,7 +1318,8 @@
             theGrid.rowHeaders.columns.splice(0, 1);
 
             new FlexGridContextMenu(this.theGrid);
-            this.theGrid.downloadFileName = '수납 청구 관리';
+            // 우클릭 컨텍스트 메뉴의 엑셀 저장은 itemsSource(=화면 로드분)만 저장하므로 쓰지 않는다.
+            // 전체 다운로드는 상단 [엑셀 다운로드] 버튼(exportExcel)을 사용한다.
 
             // 헤더 체크박스
             theGrid.formatItem.addHandler(function(s, e) {
