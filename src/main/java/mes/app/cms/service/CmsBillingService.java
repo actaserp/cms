@@ -1635,6 +1635,14 @@ public class CmsBillingService {
                    OR NULLIF(LTRIM(RTRIM(E.accnum)),'')  IS NOT NULL )
                 AND ( NULLIF(LTRIM(RTRIM(C.cmsrnum)),'') IS NOT NULL
                    OR NULLIF(LTRIM(RTRIM(E.cmsrnum)),'') IS NOT NULL )
+                -- ★ ERP에서 CMS 자동이체를 쓰는 건만 청구 대상이다.
+                --   거래처 단위는 XCLIENT.allchk=1, 현장 단위는 E101.cmsflag=1.
+                --   이 조건이 없으면 ERP에서 CMS 를 끔 거래처도 cms_member 가 남아 있는 한
+                --   계속 추천돼 생성된다. (미르에셋·효진기공·헤리티지1 사례)
+                AND ( ISNULL(C.allchk, 0) = 1
+                   OR EXISTS (SELECT 1 FROM TB_E101 e2 WITH(NOLOCK)
+                               WHERE e2.custcd = A.custcd AND e2.actcd = A.actcd
+                                 AND e2.cmsflag = 1 AND ISNULL(e2.contg,'') <> '04') )
                 ORDER BY A.cltcd, A.misdate
                 """;
 
