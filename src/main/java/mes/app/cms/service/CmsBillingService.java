@@ -110,6 +110,49 @@ public class CmsBillingService {
         return result;
     }
 
+    /**
+     * 검색조건에 해당하는 '전체' 청구 id 목록.
+     * 그리드 전체선택은 화면에 로드된 행(페이징 10건 / 무한스크롤 누적분)만 잡히므로,
+     * 조건에 맞는 대상 전체를 잡으려면 서버에서 id 를 받아와야 한다.
+     * 액션(재전송·출금일 변경·통장기재)은 PENDING 만 대상이라 여기서도 같은 기준으로 거른다.
+     */
+    public List<Long> getBillingIds(String billingYm, String sendDateFrom, String sendDateTo,
+                                    String memberName, String status, String deductType) {
+        String spjangcd = TenantContext.get();
+        var param = new MapSqlParameterSource();
+        param.addValue("spjangcd", spjangcd);
+        param.addValue("deductType", deductType != null ? deductType : "EB");
+
+        String sql = "SELECT b.id FROM cms_billing b"
+                + " WHERE b.spjangcd = :spjangcd AND b.deduct_type = :deductType"
+                + " AND b.status = 'PENDING'";
+
+        if (StringUtils.hasText(sendDateFrom) && StringUtils.hasText(sendDateTo)) {
+            sql += " AND b.send_date BETWEEN :sendDateFrom AND :sendDateTo";
+            param.addValue("sendDateFrom", sendDateFrom);
+            param.addValue("sendDateTo",   sendDateTo);
+        } else if (StringUtils.hasText(sendDateFrom)) {
+            sql += " AND b.send_date >= :sendDateFrom";
+            param.addValue("sendDateFrom", sendDateFrom);
+        } else if (StringUtils.hasText(sendDateTo)) {
+            sql += " AND b.send_date <= :sendDateTo";
+            param.addValue("sendDateTo", sendDateTo);
+        }
+        if (StringUtils.hasText(memberName)) {
+            sql += " AND b.member_name LIKE '%' || :memberName || '%'";
+            param.addValue("memberName", memberName);
+        }
+        if (StringUtils.hasText(billingYm)) {
+            sql += " AND b.billing_ym = :billingYm";
+            param.addValue("billingYm", billingYm);
+        }
+        sql += " ORDER BY b.id";
+
+        return sqlRunner.getRows(/* skip_tenant_check */ sql, param).stream()
+                .map(r -> ((Number) r.get("id")).longValue())
+                .collect(Collectors.toList());
+    }
+
     /** 청구 단건 조회 */
     public Map<String, Object> getBilling(Long id) {
         String spjangcd = TenantContext.get();
@@ -1499,6 +1542,10 @@ public class CmsBillingService {
      * ※ cms_member 미등록 건(구 NO_MEMBER)은 목록에서 제외한다.
      */
     public List<Map<String, Object>> previewErpBilling(String billingYm) {
+        return previewErpBilling(billingYm, "REP");
+    }
+
+    public List<Map<String, Object>> previewErpBilling(String billingYm, String nameTypeParam) {
         String spjangcd = TenantContext.get();
 
         Map<String, Object> erp = sqlRunner.getRow(/* skip_tenant_check */
@@ -1510,8 +1557,9 @@ public class CmsBillingService {
         String dbUrl = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
                 str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
 
-        // 기관별 기본 표시명(SITE=현장명 / REP=대표거래처명). 컬럼 없거나 미설정이면 REP.
-        String nameType = "REP";
+        // 표시명(SITE=현장명 / REP=대표거래처명). 화면에서 고른 값을 그대로 쓴다.
+        //  예전에는 "REP" 하드코딩이라 화면에서 현장명을 골라도 거래처명이 저장됐다.
+        String nameType = "SITE".equalsIgnoreCase(nameTypeParam) ? "SITE" : "REP";
 
 
         try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
@@ -1591,6 +1639,30 @@ public class CmsBillingService {
                 """;
 
             String prevYm = prevYyyymm(billingYm);
+
+            // ★ 회원은 한 번만 읽어 메모리 인덱스로 쓴다.
+            //   예전에는 ERP 미수 한 건마다 cms_member 를 조회해서, 미수가 수백 건이면
+            //   그만큼 쿼리가 나가 미리보기가 느렸다.
+            //   actcd(현장) / cltcd(거래처) 는 코드 체계가 달라 번호대가 겹치므로 맵을 분리한다.
+            //   현장 회원은 소속 거래처의 cltcd 도 갖고 있으니 byCltcd 에는 넣지 않는다.
+            Map<String, Map<String, Object>> memberByActcd = new HashMap<>();
+            Map<String, Map<String, Object>> memberByCltcd = new HashMap<>();
+            for (Map<String, Object> m : sqlRunner.getRows(/* skip_tenant_check */
+                    """
+                    SELECT id, member_name, member_no, bank_code, bank_account,
+                           account_holder, deduct_day, agree_yn, deduct_month_type,
+                           actcd, cltcd
+                    FROM cms_member
+                    WHERE spjangcd = :spjangcd AND status = 'ACTIVE'
+                    ORDER BY CASE WHEN agree_yn = 'Y' THEN 0 ELSE 1 END, id
+                    """,
+                    new MapSqlParameterSource("spjangcd", spjangcd))) {
+                String mAct = str(m.get("actcd"));
+                String mClt = str(m.get("cltcd"));
+                if (StringUtils.hasText(mAct))       memberByActcd.putIfAbsent(mAct, m);
+                else if (StringUtils.hasText(mClt))  memberByCltcd.putIfAbsent(mClt, m);
+            }
+
             try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, custcd);
                 ps.setString(2, custcd);
@@ -1616,33 +1688,13 @@ public class CmsBillingService {
 
                         if (billingAmount <= 0) continue;
 
-                        // ERP의 actcd(현장코드)/cltcd(거래처코드)는 서로 다른 코드 체계다.
-                        // 예전에는 cms_member.cltcd 한 컬럼에 두 값을 함께 대조(cltcd IN (:actcd,:cltcd))했는데,
-                        // A회사의 cltcd 와 B현장의 actcd 값이 겹치면 전혀 다른 납부자가 매칭되고
-                        // 정렬(cltcd = :actcd 우선)이 오히려 그 오답을 1순위로 끌어올렸다.
-                        // → 각 코드를 자기 컬럼끼리만 대조하고, 현장코드 정확매칭을 우선한다.
-                        List<Map<String, Object>> memberCands = sqlRunner.getRows(/* skip_tenant_check */
-                                """
-                                        SELECT id, member_name, member_no, bank_code, bank_account,
-                                                       account_holder, deduct_day, agree_yn, deduct_month_type
-                                                FROM cms_member
-                                                WHERE spjangcd = :spjangcd
-                                                  AND status = 'ACTIVE'
-                                                  AND ( (NULLIF(:actcd, '') IS NOT NULL AND actcd = :actcd)
-                                                     OR (NULLIF(:cltcd, '') IS NOT NULL AND cltcd = :cltcd) )
-                                                ORDER BY CASE WHEN actcd = :actcd THEN 0 ELSE 1 END,
-                                                         CASE WHEN agree_yn = 'Y' THEN 0 ELSE 1 END,
-                                                         id
-                                                LIMIT 2
-                                """,
-                                new MapSqlParameterSource("spjangcd", spjangcd)
-                                        .addValue("actcd", actcd)
-                                        .addValue("cltcd", cltcd));
-
-                        Map<String, Object> member = memberCands.isEmpty() ? null : memberCands.get(0);
-                        // 후보가 2건 이상이면 어느 쪽인지 단정할 수 없다.
-                        // 조용히 1건을 고르면 엉뚱한 계좌로 출금되므로 화면에서 확인받는다.
-                        boolean ambiguous = memberCands.size() > 1;
+                        // 현장(actcd) 우선 → 없으면 거래처(cltcd).
+                        //  한 거래처 밑에 현장이 여럿일 수 있고(지원에셋 00811 ← CS메디컬 00779 +
+                        //  검단센트럴시티 00756), 현장에 CMS 회원이 있으면 그 회원이,
+                        //  없으면(cmsflag 미사용) 거래처가 대납하는 구조다.
+                        Map<String, Object> member = null;
+                        if (StringUtils.hasText(actcd)) member = memberByActcd.get(actcd);
+                        if (member == null && StringUtils.hasText(cltcd)) member = memberByCltcd.get(cltcd);
 
                         // 당월/익월 판단: cms_member.deduct_month_type 우선, 없으면 ERP XCLIENT.autoflag 폴백
                         //  익월(NEXT / autoflag=2) → 전월 발생 미수를 이번 달 청구, 그 외 → 당월 미수
@@ -1663,15 +1715,15 @@ public class CmsBillingService {
                         //   (생성 대상이 아니므로 제외해도 결과는 동일하다.)
                         if (member == null) continue;
 
+                        // ★ 표시명은 실제 청구가 들어갈 납부자(cms_member) 기준으로 낸다.
+                        //   ERP 원본명(거래처/현장)을 그대로 쓰면, 한 거래처 밑 현장이 여럿일 때
+                        //   서로 다른 납부자로 나가는 건이 같은 이름으로 보여 구분이 안 된다.
+                        if (StringUtils.hasText(str(member.get("member_name")))) {
+                            dispName = str(member.get("member_name"));
+                        }
+
                         if (existingMisKeys.contains(misKey)) {
                             rowStatus = "DUP";
-                        } else if (ambiguous) {
-                            // 생성 단계에서 OK 가 아니면 스킵되므로 여기서 막힌다.
-                            rowStatus = "AMBIGUOUS";
-                            memberId  = member.get("id");
-                            log.warn("[ERP청구-preview] 납부자 매칭 모호 - 생성 제외 spjangcd={} actcd={} cltcd={} erpName={} 후보={}",
-                                    spjangcd, actcd, cltcd, memberName,
-                                    memberCands.stream().map(x -> str(x.get("id")) + ":" + str(x.get("member_name"))).toList());
                         } else if (!"Y".equals(str(member.get("agree_yn")))) {
                             rowStatus = "NOT_AGREED";
                             memberId  = member.get("id");
@@ -1731,6 +1783,17 @@ public class CmsBillingService {
     public Map<String, Object> createErpBilling(String billingYm, String sendDate,
                                                 List<String> selectedKeys,
                                                 String deductDateOverride, String userId) {
+        return createErpBilling(billingYm, sendDate, selectedKeys, deductDateOverride, userId, "REP");
+    }
+
+    /**
+     * @param nameTypeParam 청구건에 저장할 표시명. SITE=현장명, REP=대표거래처명(기본).
+     */
+    @Transactional
+    public Map<String, Object> createErpBilling(String billingYm, String sendDate,
+                                                List<String> selectedKeys,
+                                                String deductDateOverride, String userId,
+                                                String nameTypeParam) {
         String spjangcd = TenantContext.get();
         int inserted = 0, skipped = 0;
         List<Map<String, String>> notFound = new ArrayList<>();
@@ -1752,7 +1815,7 @@ public class CmsBillingService {
         Set<String> wanted = new HashSet<>(selectedKeys);
 
         // preview로 후보를 다시 만들어 선택분만 신뢰성 있게 생성 (금액/회원 재검증)
-        List<Map<String, Object>> candidates = previewErpBilling(billingYm);
+        List<Map<String, Object>> candidates = previewErpBilling(billingYm, nameTypeParam);
 
         for (Map<String, Object> c : candidates) {
             String misKey = str(c.get("erp_mis_key"));

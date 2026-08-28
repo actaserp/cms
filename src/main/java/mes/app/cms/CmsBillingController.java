@@ -521,10 +521,11 @@ public class CmsBillingController {
     @GetMapping("/erp-preview")
     public AjaxResult erpPreview(
             @RequestParam("billing_ym") String billingYm,
+            @RequestParam(value = "name_type", required = false) String nameType,
             Authentication auth) {
         AjaxResult result = new AjaxResult();
         try {
-            result.data = cmsBillingService.previewErpBilling(billingYm);
+            result.data = cmsBillingService.previewErpBilling(billingYm, nameType);
         } catch (Exception e) {
             result.success = false;
             result.message = e.getMessage();
@@ -539,6 +540,7 @@ public class CmsBillingController {
             @RequestParam("send_date")  String sendDate,
             @RequestParam("keys")       String keysStr,
             @RequestParam(value = "deduct_date", required = false) String deductDate,
+            @RequestParam(value = "name_type",   required = false) String nameType,
             Authentication auth) {
         AjaxResult result = new AjaxResult();
         User user = (User) auth.getPrincipal();
@@ -549,7 +551,7 @@ public class CmsBillingController {
 
         try {
             result.data = cmsBillingService.createErpBilling(
-                    billingYm, sendDate, selectedKeys, deductDate, user.getUsername());
+                    billingYm, sendDate, selectedKeys, deductDate, user.getUsername(), nameType);
         } catch (Exception e) {
             result.success = false;
             result.message = e.getMessage();
@@ -594,6 +596,21 @@ public class CmsBillingController {
     }
 
     /** 통장기재내용 접미어 저장 (전송 전 건만) */
+    /** 검색조건 전체의 청구 id 목록 (그리드 전체선택용, PENDING 만) */
+    @GetMapping("/ids")
+    public AjaxResult billingIds(
+            @RequestParam(value = "billing_ym",     required = false) String billingYm,
+            @RequestParam(value = "send_date_from", required = false) String sendDateFrom,
+            @RequestParam(value = "send_date_to",   required = false) String sendDateTo,
+            @RequestParam(value = "member_name",    required = false) String memberName,
+            @RequestParam(value = "status",         required = false) String status,
+            @RequestParam(value = "deduct_type",    required = false) String deductType) {
+        AjaxResult result = new AjaxResult();
+        result.data = cmsBillingService.getBillingIds(
+                billingYm, sendDateFrom, sendDateTo, memberName, status, deductType);
+        return result;
+    }
+
     @PostMapping("/change-print-suffix")
     public AjaxResult changePrintSuffix(
             @RequestParam String ids,

@@ -125,6 +125,10 @@
                 <div class="container-fluid">
                     <div id="theGrid"></div>
                     <div id="listBar" style="display:flex; align-items:center; gap:6px; margin:6px 0;">
+                        <!-- 전체선택 시 실제 대상 건수 안내 (화면 로드분이 아님을 알리는 용도) -->
+                        <span id="selectAllInfo" style="display:none; font-size:12px; color:#4a6cf7;
+                              background:#eef2ff; border:1px solid #dbe3ff; border-radius:4px;
+                              padding:2px 8px; margin-right:4px;"></span>
                         <span id="paginationBar" style="display:flex; align-items:center; gap:6px;">
                             <button onclick="searchList(0)"             style="padding:2px 8px;">◀◀</button>
                             <button onclick="searchList(currentPage-1)" style="padding:2px 8px;" id="btnPrevPage">◀</button>
@@ -396,10 +400,10 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
                 <div style="display:flex; align-items:center; gap:12px;">
                     <span id="erpSummary" style="font-size:12px; color:#888;"></span>
-                    <span style="font-size:12px; color:#555;">표시명:
-                        <label style="cursor:pointer; margin-left:4px;"><input type="radio" name="erpNameType" value="REP" checked> 대표거래처명</label>
-                        <label style="cursor:pointer; margin-left:6px;"><input type="radio" name="erpNameType" value="SITE"> 현장명</label>
-                    </span>
+                    <label style="font-size:12px; color:#555; cursor:pointer;">
+                        <input type="checkbox" id="erpShowSkipped"> 생성 불가 건도 보기
+                        <span id="erpSkippedCnt" style="color:#888;"></span>
+                    </label>
                 </div>
                 <div style="display:flex; gap:8px;">
                     <button type="button" id="btnErpConfirm"
@@ -594,17 +598,20 @@
             },
             {binding: 'billing_seq',    header: '청구번호', width: 110, align: 'center'},
             {binding: 'member_name',    header: '납부자명', width: 130, align: 'left'},
-            {binding: 'member_no',      header: '납부자번호', width: 100, align: 'center'},
-            {binding: 'id_number',      header: '식별번호',   width: 110, align: 'center'},
-            {binding: 'bank_name',      header: '은행',    width: 80,  align: 'center'},
-            {binding: 'bank_account',   header: '계좌번호', width: 130, align: 'center'},
-            {binding: 'deduct_day',     header: '약정일',  width: 60,  align: 'center',
-                cellTemplate: function(ctx) {
+            {binding: 'member_no', header: '납부자번호', width: 100, align: 'center'},
+            {binding: 'id_number', header: '식별번호', width: 110, align: 'center'},
+            {binding: 'bank_name', header: '은행', width: 80, align: 'center'},
+            {binding: 'bank_account', header: '계좌번호', width: 130, align: 'center'},
+            {
+                binding: 'deduct_day', header: '약정일', width: 60, align: 'center',
+                cellTemplate: function (ctx) {
                     return ctx.value === '99' ? '말일' : (ctx.value ? ctx.value + '일' : '');
-                }},
+                }
+            },
             // 통장기재내용 접미어. 셀을 클릭하면 모달이 열린다.
             //  값이 있으면 그대로, 없으면 회색 '설정' → 변경한 건과 안 한 건이 한눈에 구분된다.
-            {binding: 'print_suffix', header: '통장기재', width: 70, align: 'center',
+            {
+                binding: 'print_suffix', header: '통장기재', width: 70, align: 'center',
                 cssClass: 'cell-print-suffix',
                 cellTemplate: function (ctx) {
                     var v = ctx.value || '';
@@ -614,68 +621,85 @@
                     }
                     return '<span style="color:#4a6cf7; cursor:pointer; font-weight:600;" title="'
                         + (pre + v).replace(/"/g, '&quot;') + '">' + v + '</span>';
-                }},
-            {binding: 'deduct_date', header: '출금일자', width: 100, align: 'center',
-                cellTemplate: function(ctx) {
+                }
+            },
+            {
+                binding: 'deduct_date', header: '출금일자', width: 100, align: 'center',
+                cellTemplate: function (ctx) {
                     if (!ctx.value) return '-';
                     var v = String(ctx.value);
                     return v.length === 8
-                        ? v.substring(0,4) + '-' + v.substring(4,6) + '-' + v.substring(6,8)
+                        ? v.substring(0, 4) + '-' + v.substring(4, 6) + '-' + v.substring(6, 8)
                         : v;
-                }},
-            {binding: 'send_date',      header: '청구신청일',  width: 100, align: 'center',
-                cellTemplate: function(ctx) {
+                }
+            },
+            {
+                binding: 'send_date', header: '청구신청일', width: 100, align: 'center',
+                cellTemplate: function (ctx) {
                     if (!ctx.value) return '-';
                     var v = String(ctx.value);
                     return v.length === 8
-                        ? v.substring(0,4) + '-' + v.substring(4,6) + '-' + v.substring(6,8)
+                        ? v.substring(0, 4) + '-' + v.substring(4, 6) + '-' + v.substring(6, 8)
                         : v;
-                }},
-            {binding: 'billing_amount', header: '청구금액', width: 110, align: 'right',
-                cellTemplate: function(ctx) {
+                }
+            },
+            {
+                binding: 'billing_amount', header: '청구금액', width: 110, align: 'right',
+                cellTemplate: function (ctx) {
                     return ctx.value != null ? Number(ctx.value).toLocaleString() : '';
-                }},
-            {binding: 'status',         header: '상태',    width: 75,  align: 'center',
-                cellTemplate: function(ctx) {
+                }
+            },
+            {
+                binding: 'status', header: '상태', width: 75, align: 'center',
+                cellTemplate: function (ctx) {
                     var label = STATUS_MAP[ctx.value] || ctx.value || '';
                     return '<span class="status-badge status-' + ctx.value + '">' + label + '</span>';
-                }},
-            {binding: 'result_date',      header: '처리일자',  width: 100, align: 'center',
-                cellTemplate: function(ctx) {
+                }
+            },
+            {
+                binding: 'result_date', header: '처리일자', width: 100, align: 'center',
+                cellTemplate: function (ctx) {
                     if (!ctx.value) return '-';
                     var v = String(ctx.value);
                     return v.length === 8
-                        ? v.substring(0,4) + '-' + v.substring(4,6) + '-' + v.substring(6,8)
+                        ? v.substring(0, 4) + '-' + v.substring(4, 6) + '-' + v.substring(6, 8)
                         : v;
-                }},
-            {binding: 'recharged_yn', header: '재청구', width: 80, align: 'center',
-                cellTemplate: function(ctx) {
+                }
+            },
+            {
+                binding: 'recharged_yn', header: '재청구', width: 80, align: 'center',
+                cellTemplate: function (ctx) {
                     var item = ctx.row.dataItem;
                     if (ctx.value === 'Y' && item.status === 'FAIL') {
                         return '<span style="background:#e8f4fd; color:#4a90d9; padding:2px 7px; border-radius:8px; font-size:11px; font-weight:600;">재청구</span>';
                     }
                     return '';
-                }},
+                }
+            },
             // 메모는 길어서 셀에서 잘리므로 마우스를 올리면 전문이 보이도록 title 을 단다.
-            {binding: 'memo',    header: '메모', width: 90,  align: 'left',
+            {
+                binding: 'memo', header: '메모', width: 90, align: 'left',
                 cellTemplate: function (ctx) {
                     var v = ctx.value || '';
                     if (!v) return '';
                     return '<span title="' + String(v).replace(/"/g, '&quot;') + '">' + v + '</span>';
-                }},
+                }
+            },
         ];
 
         // 엑셀 전용 컬럼 — 사업자번호·주민번호는 화면에 상시 노출하지 않고
         // 다운로드 파일에만 포함한다(개인정보 노출 최소화).
         var EXPORT_EXTRA_COLUMNS = [
-            { binding: 'biz_no',      header: '사업자번호', width: 130, align: 'center' },
-            { binding: 'resident_no', header: '주민번호',   width: 140, align: 'center' }
+            {binding: 'biz_no', header: '사업자번호', width: 130, align: 'center'},
+            {binding: 'resident_no', header: '주민번호', width: 140, align: 'center'}
         ];
+
         function buildExportColumns() {
-            return columns.filter(function (c) { return c.binding !== 'selected'; })
+            return columns.filter(function (c) {
+                return c.binding !== 'selected';
+            })
                 .concat(EXPORT_EXTRA_COLUMNS);
         }
-
 
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -685,7 +709,7 @@
             bindAmountFormat();
 
             var now = new Date();
-            var ym  = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+            var ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
             var isAfter17 = now.getHours() >= 17;
 
             // 익일출금: 17시 이전→내일부터, 17시 이후→모레부터
@@ -695,19 +719,21 @@
                 + String(minDate.getMonth() + 1).padStart(2, '0') + '-'
                 + String(minDate.getDate()).padStart(2, '0');
 
-            checkAndSetBusinessDay(minDateStr, function(adjustedDate) {
+            checkAndSetBusinessDay(minDateStr, function (adjustedDate) {
                 $('#deduct_date').attr('min', minDateStr).val(adjustedDate);
                 var compact = adjustedDate.replace(/-/g, '');
                 $.ajax({
                     url: withCtx('/api/cms/billing/send-date'),
                     type: 'GET',
-                    data: { deduct_date: compact },
-                    success: function(result) {
+                    data: {deduct_date: compact},
+                    success: function (result) {
                         $('#send_date').val(fmtDate8(
                             (result.success && result.data) ? result.data.send_date : calcSimplePrevDay(compact)
                         ));
                     },
-                    error: function() { $('#send_date').val(fmtDate8(calcSimplePrevDay(compact))); }
+                    error: function () {
+                        $('#send_date').val(fmtDate8(calcSimplePrevDay(compact)));
+                    }
                 });
             }, true);
 
@@ -724,7 +750,7 @@
 
             $.ajax({
                 url: withCtx('/api/workplace/detail/'),
-                success: function(res) {
+                success: function (res) {
                     if (res.data && res.data.erp) {
                         $('#btnErpImport').show();
                     } else {
@@ -737,14 +763,14 @@
         function fmtDate8(v) {
             if (!v) return '';
             var s = String(v).replace(/-/g, '');
-            return s.length === 8 ? s.substring(0,4) + '-' + s.substring(4,6) + '-' + s.substring(6,8) : v;
+            return s.length === 8 ? s.substring(0, 4) + '-' + s.substring(4, 6) + '-' + s.substring(6, 8) : v;
         }
 
         function loadMembers() {
             $.ajax({
                 url: withCtx('/api/cms/member/list'),
                 type: 'GET',
-                success: function(result) {
+                success: function (result) {
                     if (result.success) memberList = result.data;
                 }
             });
@@ -755,33 +781,61 @@
         var EXPORT_SIZE = 1000000;
 
         function exportExcel() {
-            var ymVal  = $('#srchBillingYm').val() || '';
+            var ymVal = $('#srchBillingYm').val() || '';
             var params = buildSearchParams(0, EXPORT_SIZE);
-            if (!params) { Alert.alert('', '청구년월을 선택하세요.'); return; }
+            if (!params) {
+                Alert.alert('', '청구년월을 선택하세요.');
+                return;
+            }
             $.ajax({
                 url: withCtx('/api/cms/billing/list'),
                 type: 'GET',
                 data: params,
                 success: function (result) {
-                    if (!result || result.success === false) { Alert.alert('', '엑셀 조회 실패: ' + ((result && result.message) || '')); return; }
+                    if (!result || result.success === false) {
+                        Alert.alert('', '엑셀 조회 실패: ' + ((result && result.message) || ''));
+                        return;
+                    }
                     var rows = (result.data && result.data.data) ? result.data.data : (result.data || []);
-                    if (!rows.length) { Alert.alert('', '다운로드할 데이터가 없습니다.'); return; }
+                    if (!rows.length) {
+                        Alert.alert('', '다운로드할 데이터가 없습니다.');
+                        return;
+                    }
                     var host = document.createElement('div');
-                    host.style.position = 'absolute'; host.style.left = '-99999px'; host.style.top = '0';
-                    host.style.width = '1200px'; host.style.height = '400px';
+                    host.style.position = 'absolute';
+                    host.style.left = '-99999px';
+                    host.style.top = '0';
+                    host.style.width = '1200px';
+                    host.style.height = '400px';
                     document.body.appendChild(host);
                     var tmp = new wijmo.grid.FlexGrid(host, {
                         autoGenerateColumns: false, columns: buildExportColumns(), isReadOnly: true,
                         itemsSource: new wijmo.collections.CollectionView(rows)
                     });
-                    var cleanup = function () { try { tmp.dispose(); } catch (e) {} if (host.parentNode) host.parentNode.removeChild(host); };
+                    var cleanup = function () {
+                        try {
+                            tmp.dispose();
+                        } catch (e) {
+                        }
+                        if (host.parentNode) host.parentNode.removeChild(host);
+                    };
                     wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
-                        tmp, {includeColumnHeaders: true, includeCellStyles: false}, '수납청구_' + (ymVal.replace('-', '') || '전체') + '.xlsx',
-                        function () { cleanup(); },
-                        function () { cleanup(); Alert.alert('', '엑셀 생성 실패'); }
+                        tmp, {
+                            includeColumnHeaders: true,
+                            includeCellStyles: false
+                        }, '수납청구_' + (ymVal.replace('-', '') || '전체') + '.xlsx',
+                        function () {
+                            cleanup();
+                        },
+                        function () {
+                            cleanup();
+                            Alert.alert('', '엑셀 생성 실패');
+                        }
                     );
                 },
-                error: function () { Alert.alert('오류', '엑셀 다운로드 조회 실패'); }
+                error: function () {
+                    Alert.alert('오류', '엑셀 다운로드 조회 실패');
+                }
             });
         }
 
@@ -798,39 +852,102 @@
 
         // 업로드 양식 컬럼 (계좌/은행/예금주 없음 — 엑셀로 수정 불가)
         var TEMPLATE_COLUMNS = [
-            { binding: 'billing_seq',    header: '청구번호',   width: 110 },
-            { binding: 'member_name',    header: '납부자명',   width: 110 },
-            { binding: 'member_no',      header: '납부자번호', width: 100 },
-            { binding: 'billing_amount', header: '청구금액',   width: 90 },
-            { binding: 'deduct_date',    header: '출금일자',   width: 100 },
-            { binding: 'memo',           header: '메모',       width: 460 }
+            {binding: 'billing_seq', header: '청구번호', width: 110},
+            {binding: 'member_name', header: '납부자명', width: 110},
+            {binding: 'member_no', header: '납부자번호', width: 100},
+            {binding: 'billing_amount', header: '청구금액', width: 90},
+            {binding: 'deduct_date', header: '출금일자', width: 100},
+            {binding: 'memo', header: '메모', width: 460}
         ];
 
         function downloadTemplate() {
             // 안내행([안내])·예시행은 업로드 전 삭제. 지우지 않아도 실제 회원과 매칭되지 않아
             // "실패"로 걸러지므로 잘못 등록되지 않는다.
             var sample = [
-                { billing_seq: '[안내]', member_name: '', member_no: '', billing_amount: '', deduct_date: '', memo: '↓ [안내]·(예시) 행은 실제 업로드 전에 모두 삭제하세요.' },
-                { billing_seq: '[안내]', member_name: '', member_no: '', billing_amount: '', deduct_date: '', memo: '신규 등록: 납부자명 · 청구금액 · 출금일자(YYYY-MM-DD)는 필수입니다.' },
-                { billing_seq: '[안내]', member_name: '', member_no: '', billing_amount: '', deduct_date: '', memo: '납부자번호: 알면 입력, 모르면 비워두세요. 동명이인일 때만 특정용으로 사용합니다(번호를 넣으면 이름보다 번호가 우선).' },
-                { billing_seq: '[안내]', member_name: '', member_no: '', billing_amount: '', deduct_date: '', memo: '수정: 청구번호가 있으면 청구금액 · 출금일자 · 메모만 반영됩니다(대기 상태만).' },
-                { billing_seq: '[안내]', member_name: '', member_no: '', billing_amount: '', deduct_date: '', memo: '계좌 · 은행 · 예금주는 엑셀로 수정할 수 없습니다 — 회원 등록 계좌에서 자동 적용됩니다.' },
-                { billing_seq: '',            member_name: '홍길동(예시)', member_no: '', billing_amount: 50000, deduct_date: '2026-07-25', memo: '(예시) 신규 — 이 행은 삭제 후 사용' },
-                { billing_seq: '202607-0001', member_name: '',           member_no: '', billing_amount: 60000, deduct_date: '2026-07-26', memo: '(예시) 수정 — 청구번호를 실제 값으로. 이 행은 삭제 후 사용' }
+                {
+                    billing_seq: '[안내]',
+                    member_name: '',
+                    member_no: '',
+                    billing_amount: '',
+                    deduct_date: '',
+                    memo: '↓ [안내]·(예시) 행은 실제 업로드 전에 모두 삭제하세요.'
+                },
+                {
+                    billing_seq: '[안내]',
+                    member_name: '',
+                    member_no: '',
+                    billing_amount: '',
+                    deduct_date: '',
+                    memo: '신규 등록: 납부자명 · 청구금액 · 출금일자(YYYY-MM-DD)는 필수입니다.'
+                },
+                {
+                    billing_seq: '[안내]',
+                    member_name: '',
+                    member_no: '',
+                    billing_amount: '',
+                    deduct_date: '',
+                    memo: '납부자번호: 알면 입력, 모르면 비워두세요. 동명이인일 때만 특정용으로 사용합니다(번호를 넣으면 이름보다 번호가 우선).'
+                },
+                {
+                    billing_seq: '[안내]',
+                    member_name: '',
+                    member_no: '',
+                    billing_amount: '',
+                    deduct_date: '',
+                    memo: '수정: 청구번호가 있으면 청구금액 · 출금일자 · 메모만 반영됩니다(대기 상태만).'
+                },
+                {
+                    billing_seq: '[안내]',
+                    member_name: '',
+                    member_no: '',
+                    billing_amount: '',
+                    deduct_date: '',
+                    memo: '계좌 · 은행 · 예금주는 엑셀로 수정할 수 없습니다 — 회원 등록 계좌에서 자동 적용됩니다.'
+                },
+                {
+                    billing_seq: '',
+                    member_name: '홍길동(예시)',
+                    member_no: '',
+                    billing_amount: 50000,
+                    deduct_date: '2026-07-25',
+                    memo: '(예시) 신규 — 이 행은 삭제 후 사용'
+                },
+                {
+                    billing_seq: '202607-0001',
+                    member_name: '',
+                    member_no: '',
+                    billing_amount: 60000,
+                    deduct_date: '2026-07-26',
+                    memo: '(예시) 수정 — 청구번호를 실제 값으로. 이 행은 삭제 후 사용'
+                }
             ];
             var host = document.createElement('div');
-            host.style.position = 'absolute'; host.style.left = '-99999px'; host.style.top = '0';
-            host.style.width = '900px'; host.style.height = '300px';
+            host.style.position = 'absolute';
+            host.style.left = '-99999px';
+            host.style.top = '0';
+            host.style.width = '900px';
+            host.style.height = '300px';
             document.body.appendChild(host);
             var tmp = new wijmo.grid.FlexGrid(host, {
                 autoGenerateColumns: false, columns: TEMPLATE_COLUMNS, isReadOnly: true,
                 itemsSource: new wijmo.collections.CollectionView(sample)
             });
-            var cleanup = function () { try { tmp.dispose(); } catch (e) {} if (host.parentNode) host.parentNode.removeChild(host); };
+            var cleanup = function () {
+                try {
+                    tmp.dispose();
+                } catch (e) {
+                }
+                if (host.parentNode) host.parentNode.removeChild(host);
+            };
             wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
-                tmp, { includeColumnHeaders: true, includeCellStyles: false }, '수납청구_업로드양식.xlsx',
-                function () { cleanup(); },
-                function () { cleanup(); Alert.alert('', '양식 생성 실패'); }
+                tmp, {includeColumnHeaders: true, includeCellStyles: false}, '수납청구_업로드양식.xlsx',
+                function () {
+                    cleanup();
+                },
+                function () {
+                    cleanup();
+                    Alert.alert('', '양식 생성 실패');
+                }
             );
         }
 
@@ -857,17 +974,24 @@
 
         // 엑셀 파서: SheetJS(XLSX). 없으면 CDN에서 로드.
         function ensureXLSX(cb) {
-            if (window.XLSX) { cb(); return; }
+            if (window.XLSX) {
+                cb();
+                return;
+            }
             var s = document.createElement('script');
             s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-            s.onload = function () { cb(); };
+            s.onload = function () {
+                cb();
+            };
             s.onerror = function () {
                 Alert.alert('오류', '엑셀 파서를 불러오지 못했습니다.\n(네트워크/보안정책 차단 가능 — 관리자에게 SheetJS(xlsx) 포함을 요청하세요.)');
             };
             document.head.appendChild(s);
         }
 
-        function pad2(n) { return String(n).padStart(2, '0'); }
+        function pad2(n) {
+            return String(n).padStart(2, '0');
+        }
 
         // 엑셀 날짜 serial(숫자) → YYYY-MM-DD (JS Date 로컬타임 거치지 않아 타임존 오차 없음)
         function excelSerialToISO(n) {
@@ -898,7 +1022,10 @@
                 var a = +m[1], b = +m[2], y = +m[3];
                 if (y < 100) y += 2000;
                 var mo = a, d = b;
-                if (a > 12 && b <= 12) { mo = b; d = a; }                     // 첫 숫자가 12 초과면 일/월로 간주
+                if (a > 12 && b <= 12) {
+                    mo = b;
+                    d = a;
+                }                     // 첫 숫자가 12 초과면 일/월로 간주
                 return y + '-' + pad2(mo) + '-' + pad2(d);
             }
             return s; // 알 수 없으면 원본 그대로 (서버에서 실패로 표시)
@@ -907,17 +1034,25 @@
         // 시트의 2차원 배열(aoa)을 헤더 매핑으로 행 객체 목록으로 변환
         function aoaToRows(aoa) {
             if (!aoa || !aoa.length) return [];
-            var header = (aoa[0] || []).map(function (h) { return (h == null ? '' : ('' + h)).trim(); });
-            var idxToField = header.map(function (h) { return UPLOAD_HEADER_MAP[h] || null; });
+            var header = (aoa[0] || []).map(function (h) {
+                return (h == null ? '' : ('' + h)).trim();
+            });
+            var idxToField = header.map(function (h) {
+                return UPLOAD_HEADER_MAP[h] || null;
+            });
             var out = [];
             for (var r = 1; r < aoa.length; r++) {
-                var row = aoa[r] || []; var obj = {}; var has = false;
+                var row = aoa[r] || [];
+                var obj = {};
+                var has = false;
                 for (var c = 0; c < header.length; c++) {
-                    var f = idxToField[c]; if (!f) continue;
+                    var f = idxToField[c];
+                    if (!f) continue;
                     var raw = row[c];
                     var v = (f === 'deduct_date') ? normalizeDateCell(raw)
                         : ((raw == null) ? '' : ('' + raw).trim());
-                    obj[f] = v; if (v !== '') has = true;
+                    obj[f] = v;
+                    if (v !== '') has = true;
                 }
                 if (has) out.push(obj);
             }
@@ -929,19 +1064,24 @@
             reader.onload = function (e) {
                 try {
                     var data = new Uint8Array(e.target.result);
-                    var wb = XLSX.read(data, { type: 'array' });
+                    var wb = XLSX.read(data, {type: 'array'});
                     var ws = wb.Sheets[wb.SheetNames[0]];
                     // raw:true → 날짜셀은 엑셀 serial(숫자), 숫자는 숫자, 텍스트는 문자열. 날짜는 normalizeDateCell에서 변환.
-                    var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+                    var aoa = XLSX.utils.sheet_to_json(ws, {header: 1, raw: true, defval: ''});
                     var rows = aoaToRows(aoa);
-                    if (!rows.length) { Alert.alert('', '읽을 데이터가 없습니다. 헤더 행이 있는지 확인하세요.'); return; }
+                    if (!rows.length) {
+                        Alert.alert('', '읽을 데이터가 없습니다. 헤더 행이 있는지 확인하세요.');
+                        return;
+                    }
                     parsedUploadRows = rows;
                     renderUploadPreview(rows);
                 } catch (err) {
                     Alert.alert('오류', '엑셀 파싱 실패: ' + (err && err.message ? err.message : err));
                 }
             };
-            reader.onerror = function () { Alert.alert('', '파일을 읽지 못했습니다.'); };
+            reader.onerror = function () {
+                Alert.alert('', '파일을 읽지 못했습니다.');
+            };
             reader.readAsArrayBuffer(file);
         }
 
@@ -962,9 +1102,13 @@
                     Alert.alert('', '올바른 엑셀 파일이 아니에요(CSV·다른 형식이거나 손상됨).\n엑셀에서 .xlsx로 저장한 파일을 올려주세요.');
                     return;
                 }
-                ensureXLSX(function () { parseWithSheetJS(file); });
+                ensureXLSX(function () {
+                    parseWithSheetJS(file);
+                });
             };
-            sniff.onerror = function () { Alert.alert('', '파일을 읽지 못했습니다.'); };
+            sniff.onerror = function () {
+                Alert.alert('', '파일을 읽지 못했습니다.');
+            };
             sniff.readAsArrayBuffer(file.slice(0, 8));
         }
 
@@ -978,9 +1122,11 @@
             var out = [];
             var rc = grid.rows.length;
             for (var r = 0; r < rc; r++) {
-                var obj = {}; var hasVal = false;
+                var obj = {};
+                var hasVal = false;
                 for (var c2 = 0; c2 < cols.length; c2++) {
-                    var f = idxToField[c2]; if (!f) continue;
+                    var f = idxToField[c2];
+                    if (!f) continue;
                     var v = grid.getCellData(r, c2, false);
                     v = (v == null) ? '' : ('' + v).trim();
                     obj[f] = v;
@@ -991,7 +1137,9 @@
             return out;
         }
 
-        function upTd(v) { return '<td style="border:1px solid #eee;padding:4px 6px;white-space:nowrap;">' + (v == null ? '' : v) + '</td>'; }
+        function upTd(v) {
+            return '<td style="border:1px solid #eee;padding:4px 6px;white-space:nowrap;">' + (v == null ? '' : v) + '</td>';
+        }
 
         function renderUploadPreview(rows) {
             $('#excelDropzone').hide();
@@ -1002,7 +1150,9 @@
             $('#btnExcelReselect').show();
             $('#btnExcelUploadConfirm').show().prop('disabled', false);
 
-            var newCnt = rows.filter(function (r) { return !r.billing_seq; }).length;
+            var newCnt = rows.filter(function (r) {
+                return !r.billing_seq;
+            }).length;
             var updCnt = rows.length - newCnt;
             $('#excelPreviewInfo').html(
                 '읽은 데이터 <strong>' + rows.length + '</strong>건 · 신규 <strong>' + newCnt + '</strong>건 · 수정 <strong>' + updCnt + '</strong>건'
@@ -1019,11 +1169,13 @@
                     url: withCtx('/api/cms/billing/bulk-upload'),
                     type: 'POST',
                     contentType: 'application/json',
-                    headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() },
-                    data: JSON.stringify({ rows: parsedUploadRows, billing_ym: ymVal, deduct_type: 'EB' }),
+                    headers: {'X-CSRF-TOKEN': $('[name=_csrf]').val()},
+                    data: JSON.stringify({rows: parsedUploadRows, billing_ym: ymVal, deduct_type: 'EB'}),
                     success: function (result) {
                         renderUploadResult(result);
-                        if (result && result.success) { searchList(0); }
+                        if (result && result.success) {
+                            searchList(0);
+                        }
                     },
                     error: function (xhr) {
                         $('#btnExcelUploadConfirm').prop('disabled', false);
@@ -1051,7 +1203,9 @@
                     + '건이 있어 반영되지 않았습니다. 아래 오류를 수정 후 다시 업로드하세요.</div>';
                 $('#btnExcelUploadConfirm').prop('disabled', false);
             }
-            var problems = details.filter(function (d) { return d.result === 'FAILED' || d.result === 'SKIPPED'; });
+            var problems = details.filter(function (d) {
+                return d.result === 'FAILED' || d.result === 'SKIPPED';
+            });
             var shown = problems.slice(0, 100);
             var probRows = shown
                 .map(function (d) {
@@ -1076,38 +1230,44 @@
 
         var memberHighlightIndex = -1;
 
-        $('#member_search').on('focus', function() {
+        $('#member_search').on('focus', function () {
             loadMembers();
         });
 
-        $('#member_search').on('input', function() {
+        $('#member_search').on('input', function () {
             memberHighlightIndex = -1;
             var keyword = $(this).val().trim().toLowerCase();
-            if (!keyword) { $('#member_dropdown').hide(); return; }
+            if (!keyword) {
+                $('#member_dropdown').hide();
+                return;
+            }
 
-            var filtered = memberList.filter(function(m) {
+            var filtered = memberList.filter(function (m) {
                 return m.member_name.toLowerCase().indexOf(keyword) >= 0
                     || (m.member_no && m.member_no.toLowerCase().indexOf(keyword) >= 0);
             });
 
-            if (filtered.length === 0) { $('#member_dropdown').hide(); return; }
+            if (filtered.length === 0) {
+                $('#member_dropdown').hide();
+                return;
+            }
 
-            var html = filtered.slice(0, 20).map(function(m) {
+            var html = filtered.slice(0, 20).map(function (m) {
                 return '<div class="member-option" data-id="' + m.id + '"'
                     + ' data-name="' + m.member_name + '"'
-                    + ' data-bank-code="' + (m.bank_code||'') + '"'
-                    + ' data-bank-account="' + (m.bank_account||'') + '"'
-                    + ' data-account-holder="' + (m.account_holder||'') + '"'
-                    + ' data-bank-name="' + (m.bank_name||'') + '"'
+                    + ' data-bank-code="' + (m.bank_code || '') + '"'
+                    + ' data-bank-account="' + (m.bank_account || '') + '"'
+                    + ' data-account-holder="' + (m.account_holder || '') + '"'
+                    + ' data-bank-name="' + (m.bank_name || '') + '"'
                     + ' style="padding:8px 12px; cursor:pointer; font-size:13px;">'
-                    + m.member_name + ' <span style="color:#888; font-size:11px;">(' + (m.member_no||'') + ')</span>'
+                    + m.member_name + ' <span style="color:#888; font-size:11px;">(' + (m.member_no || '') + ')</span>'
                     + '</div>';
             }).join('');
 
             $('#member_dropdown').html(html).show();
         });
 
-        $('#member_search').on('keydown', function(e) {
+        $('#member_search').on('keydown', function (e) {
             var $items = $('#member_dropdown .member-option:visible');
             if (!$items.length) return;
 
@@ -1148,13 +1308,13 @@
             }
         });
 
-        $(document).on('mouseover', '.member-option', function() {
+        $(document).on('mouseover', '.member-option', function () {
             $('#member_dropdown .member-option').css('background', '');
             $(this).css('background', '#f0f2ff');
             memberHighlightIndex = $('#member_dropdown .member-option').index(this);
         });
 
-        $(document).on('click', '.member-option', function() {
+        $(document).on('click', '.member-option', function () {
             var $t = $(this);
             $('#member_id').val($t.data('id'));
             $('#member_search').val($t.data('name'));
@@ -1169,31 +1329,36 @@
         });
 
         // 외부 클릭 시 드롭다운 닫기
-        $(document).on('click', function(e) {
+        $(document).on('click', function (e) {
             if (!$(e.target).closest('#member_search, #member_dropdown').length) {
                 $('#member_dropdown').hide();
             }
         });
 
         // 출금일자 변경 시 D-1 신청일 자동계산
-        $('#deduct_date').on('change', function() {
+        $('#deduct_date').on('change', function () {
             var val = $(this).val();
-            if (!val) { $('#send_date').val(''); return; }
+            if (!val) {
+                $('#send_date').val('');
+                return;
+            }
 
-            checkAndSetBusinessDay(val, function(adjustedDate) {
+            checkAndSetBusinessDay(val, function (adjustedDate) {
                 $('#deduct_date').val(adjustedDate);
                 var compact = adjustedDate.replace(/-/g, '');
                 // 기존 send_date 계산 로직
                 $.ajax({
                     url: withCtx('/api/cms/billing/send-date'),
                     type: 'GET',
-                    data: { deduct_date: compact },
-                    success: function(result) {
+                    data: {deduct_date: compact},
+                    success: function (result) {
                         $('#send_date').val(fmtDate8(
                             (result.success && result.data) ? result.data.send_date : calcSimplePrevDay(compact)
                         ));
                     },
-                    error: function() { $('#send_date').val(fmtDate8(calcSimplePrevDay(compact))); }
+                    error: function () {
+                        $('#send_date').val(fmtDate8(calcSimplePrevDay(compact)));
+                    }
                 });
             });
         });
@@ -1201,14 +1366,14 @@
         // 단순 D-1 (fallback)
         function calcSimplePrevDay(yyyymmdd) {
             var dt = new Date(
-                parseInt(yyyymmdd.substring(0,4)),
-                parseInt(yyyymmdd.substring(4,6)) - 1,
-                parseInt(yyyymmdd.substring(6,8))
+                parseInt(yyyymmdd.substring(0, 4)),
+                parseInt(yyyymmdd.substring(4, 6)) - 1,
+                parseInt(yyyymmdd.substring(6, 8))
             );
             dt.setDate(dt.getDate() - 1);
             return dt.getFullYear()
-                + String(dt.getMonth() + 1).padStart(2,'0')
-                + String(dt.getDate()).padStart(2,'0');
+                + String(dt.getMonth() + 1).padStart(2, '0')
+                + String(dt.getDate()).padStart(2, '0');
         }
 
         function clearMemberFields() {
@@ -1221,9 +1386,62 @@
         }
 
         function bindAmountFormat() {
-            $('#billing_amount').on('input', function() {
+            $('#billing_amount').on('input', function () {
                 var raw = $(this).val().replace(/[^0-9]/g, '');
                 $(this).val(raw ? Number(raw).toLocaleString() : '');
+            });
+        }
+
+        // ── 전체선택 ────────────────────────────────────────────────
+        //  그리드 헤더 체크박스는 화면에 로드된 행(페이징 10건 / 무한스크롤 누적분)만 잡는다.
+        //  '전체'는 말 그대로 검색조건에 해당하는 모든 건이어야 하므로, 서버에서 id 목록을 받아 둔다.
+        var selectAllMode = false;   // 전체선택 상태
+        var selectAllIds = [];      // 검색조건 전체의 PENDING id
+
+        function clearSelectAll() {
+            selectAllMode = false;
+            selectAllIds = [];
+            $('#selectAllInfo').hide().text('');
+        }
+
+        // 액션(삭제·취소·출금일변경·통장기재)이 쓰는 대상 id.
+        //  전체선택이면 서버에서 받은 전체 id, 아니면 화면에서 체크한 행.
+        function getSelectedPendingIds() {
+            if (selectAllMode) return selectAllIds.slice();
+            return (viewdata ? viewdata.items : [])
+                .filter(function (i) {
+                    return i.selected && i.status === 'PENDING';
+                })
+                .map(function (i) {
+                    return i.id;
+                });
+        }
+
+        // 검색조건 전체의 PENDING id 를 받아 전체선택 상태로 만든다.
+        function loadSelectAllIds(cb) {
+            var p = buildSearchParams(0, 1);
+            if (!p) return;
+            delete p.page;
+            delete p.size;
+            $.ajax({
+                url: withCtx('/api/cms/billing/ids'),
+                type: 'GET',
+                data: p,
+                success: function (result) {
+                    if (!result || !result.success) {
+                        Alert.alert('', '전체 선택 실패');
+                        return;
+                    }
+                    selectAllIds = result.data || [];
+                    selectAllMode = selectAllIds.length > 0;
+                    $('#selectAllInfo')
+                        .text('검색된 전체 ' + selectAllIds.length.toLocaleString() + '건 선택됨')
+                        .toggle(selectAllMode);
+                    if (cb) cb();
+                },
+                error: function () {
+                    Alert.alert('오류', '전체 선택 조회 실패');
+                }
             });
         }
 
@@ -1232,11 +1450,11 @@
             var ymVal = $('#srchBillingYm').val();
             if (!ymVal) return null;
             return {
-                billing_ym:  ymVal.replace('-', ''),
+                billing_ym: ymVal.replace('-', ''),
                 send_date_from: ($('#srchSendDateFrom').val() || '').replace(/-/g, ''),
-                send_date_to:   ($('#srchSendDateTo').val()   || '').replace(/-/g, ''),
+                send_date_to: ($('#srchSendDateTo').val() || '').replace(/-/g, ''),
                 member_name: $('#srchMemberName').val(),
-                status:      $('#srchStatus').val(),
+                status: $('#srchStatus').val(),
                 page: page,
                 size: size
             };
@@ -1244,16 +1462,23 @@
 
         // 목록 조회 진입점. 외부에서는 searchList(0)로만 부르면 모드에 맞게 동작한다.
         function searchList(page) {
-            if (viewMode === 'infinite') { loadInfinite(true); return; }
+            clearSelectAll();   // 조건이 바뀌면 이전 전체선택은 무효
+            if (viewMode === 'infinite') {
+                loadInfinite(true);
+                return;
+            }
             if (page < 0 || page >= totalPages) return;
             currentPage = page;
             var params = buildSearchParams(currentPage, PAGE_SIZE);
-            if (!params) { Alert.alert('', '청구년월을 선택하세요.'); return; }
+            if (!params) {
+                Alert.alert('', '청구년월을 선택하세요.');
+                return;
+            }
             $.ajax({
                 url: withCtx('/api/cms/billing/list'),
                 type: 'GET',
                 data: params,
-                success: function(result) {
+                success: function (result) {
                     if (result.success) {
                         var d = result.data;
                         // 통장기재내용 앞부분(결제원 신고 문구) — 접미어 입력 시 남은 바이트 계산에 사용
@@ -1270,11 +1495,18 @@
         // 무한스크롤 로드. reset=true면 처음부터 다시.
         function loadInfinite(reset) {
             if (infLoading) return;
-            if (reset) { infRows = []; infPage = 0; infEnd = false; }
+            if (reset) {
+                infRows = [];
+                infPage = 0;
+                infEnd = false;
+            }
             if (infEnd) return;
 
             var params = buildSearchParams(infPage, INF_SIZE);
-            if (!params) { Alert.alert('', '청구년월을 선택하세요.'); return; }
+            if (!params) {
+                Alert.alert('', '청구년월을 선택하세요.');
+                return;
+            }
 
             infLoading = true;
             $('#infLoadingMsg').show();
@@ -1284,12 +1516,14 @@
                 url: withCtx('/api/cms/billing/list'),
                 type: 'GET',
                 data: params,
-                success: function(result) {
+                success: function (result) {
                     if (result && result.success) {
                         var d = result.data || {};
                         if (d.cmsDescription !== undefined) window.CMS_DESCRIPTION = d.cmsDescription || '';
                         var rows = d.data || [];
-                        rows.forEach(function(item) { item.selected = false; });
+                        rows.forEach(function (item) {
+                            item.selected = false;
+                        });
 
                         if (reset || !theGrid) {
                             infRows = rows.slice();
@@ -1298,7 +1532,9 @@
                             bindInfiniteScroll();
                         } else {
                             // 그리드를 다시 만들지 않고 누적 — 스크롤 위치가 유지된다.
-                            rows.forEach(function(r) { infRows.push(r); });
+                            rows.forEach(function (r) {
+                                infRows.push(r);
+                            });
                             viewdata.refresh();
                         }
 
@@ -1307,7 +1543,7 @@
                         updateInfiniteInfo(d.totalCount || 0, d.totalAmount || 0);
                     }
                 },
-                complete: function() {
+                complete: function () {
                     infLoading = false;
                     $('#infLoadingMsg').hide();
                     $('#btnInfMore').prop('disabled', infEnd);
@@ -1318,7 +1554,7 @@
         // 그리드 하단 도달 시 자동 로드
         function bindInfiniteScroll() {
             if (!theGrid || infScrollBound) return;
-            theGrid.scrollPositionChanged.addHandler(function(s) {
+            theGrid.scrollPositionChanged.addHandler(function (s) {
                 if (viewMode !== 'infinite' || infLoading || infEnd) return;
                 if (s.viewRange.bottomRow >= s.rows.length - 1) loadInfinite(false);
             });
@@ -1326,7 +1562,9 @@
         }
 
         function updateInfiniteInfo(totalCount, totalAmount) {
-            var amt = infRows.reduce(function(s, i) { return s + (Number(i.billing_amount) || 0); }, 0);
+            var amt = infRows.reduce(function (s, i) {
+                return s + (Number(i.billing_amount) || 0);
+            }, 0);
             $('#infInfo').text(infRows.length.toLocaleString() + ' / ' + (totalCount || 0).toLocaleString() + '건'
                 + (infEnd ? ' (전체 표시)' : ''));
             $('#summaryTotal').text((totalCount || 0).toLocaleString());
@@ -1339,20 +1577,23 @@
         function setViewMode(mode) {
             viewMode = mode;
             infScrollBound = false;
-            if (theGrid) { theGrid.dispose(); theGrid = null; }
+            if (theGrid) {
+                theGrid.dispose();
+                theGrid = null;
+            }
 
             if (mode === 'infinite') {
                 $('#paginationBar').hide();
                 $('#infiniteBar').css('display', 'flex');
                 $('#btnToggleViewMode').text('❐').attr('title', '페이지 나눠보기');
                 // 스크롤이 생기도록 고정 높이 부여
-                $('#theGrid').css({ height: '560px', overflow: 'hidden' });
+                $('#theGrid').css({height: '560px', overflow: 'hidden'});
                 loadInfinite(true);
             } else {
                 $('#infiniteBar').hide();
                 $('#paginationBar').css('display', 'flex');
                 $('#btnToggleViewMode').text('☰').attr('title', '스크롤해서 이어보기');
-                $('#theGrid').css({ height: '', overflow: '' });
+                $('#theGrid').css({height: '', overflow: ''});
                 totalPages = 1;
                 searchList(0);
             }
@@ -1368,7 +1609,7 @@
 
         function bindGrid(data) {
             // PENDING만 selected 초기화
-            data.forEach(function(item) {
+            data.forEach(function (item) {
                 item.selected = false;  // 디폴트 해제
             });
 
@@ -1387,21 +1628,33 @@
             // 전체 다운로드는 상단 [엑셀 다운로드] 버튼(exportExcel)을 사용한다.
 
             // 헤더 체크박스
-            theGrid.formatItem.addHandler(function(s, e) {
+            theGrid.formatItem.addHandler(function (s, e) {
                 var col = s.columns[e.col];
                 if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader && col.binding === 'selected') {
                     e.cell.innerHTML = '<input type="checkbox" id="chkAll">';
                     var chkAll = e.cell.querySelector('#chkAll');
                     if (chkAll) {
-                        chkAll.checked = viewdata.items.length > 0
-                            && viewdata.items.every(function(r) { return r.selected; });
-                        chkAll.onclick = function(ev) {
+                        chkAll.checked = selectAllMode || (viewdata.items.length > 0
+                            && viewdata.items.every(function (r) {
+                                return r.selected;
+                            }));
+                        chkAll.onclick = function (ev) {
                             var checked = ev.target.checked;
-                            viewdata.items.forEach(function(r) {
+                            // 화면 로드분은 즉시 체크 표시
+                            viewdata.items.forEach(function (r) {
                                 if (r.status === 'PENDING') r.selected = checked;
                             });
                             theGrid.refresh();
-                            updateResendBtn();
+                            // ★ '전체'는 로드분이 아니라 검색조건 전체를 뜻한다.
+                            //   서버에서 id 를 받아 두고, 액션은 그 목록을 대상으로 실행한다.
+                            if (checked) {
+                                loadSelectAllIds(function () {
+                                    updateResendBtn();
+                                });
+                            } else {
+                                clearSelectAll();
+                                updateResendBtn();
+                            }
                         };
                     }
                 }
@@ -1418,17 +1671,19 @@
                 }
 
                 // 행 체크박스 change 이벤트
-                $('#theGrid').on('change', '.row-check', function() {
+                $('#theGrid').on('change', '.row-check', function () {
                     var row = theGrid.hitTest(this).row;
                     if (row >= 0) {
                         var item = viewdata.items[row];
                         if (item) item.selected = $(this).is(':checked');
                     }
+                    // 개별로 손대면 '전체선택'은 더 이상 유효하지 않다.
+                    if (selectAllMode) clearSelectAll();
                     updateResendBtn();
                 });
             });
 
-            theGrid.hostElement.addEventListener('dblclick', function() {
+            theGrid.hostElement.addEventListener('dblclick', function () {
                 var item = theGrid.selectedItems[0];
                 if (!item) return;
                 fillForm(item);
@@ -1453,7 +1708,7 @@
         // ── 통장기재내용 ─────────────────────────────────────────────
         //  EB21 통장기재내용은 EUC-KR 기준 16바이트 고정이고, 앞부분에는 결제원에 신고한
         //  기관 문구가 반드시 들어가야 한다. 그래서 남는 바이트에만 접미어를 붙인다.
-        var printSuffixTargets = [];
+        var printSuffixTargets = [];   // 대상 id 배열
 
         function eucKrLen(str) {
             var n = 0;
@@ -1473,15 +1728,22 @@
         }
 
         function openPrintSuffixModal(items) {
-            printSuffixTargets = items || [];
+            // 전체선택 상태면 검색조건 전체를, 아니면 넘겨받은 행을 대상으로 한다.
+            printSuffixTargets = selectAllMode
+                ? selectAllIds.slice()
+                : (items || []).map(function (i) {
+                    return i.id;
+                });
             if (!printSuffixTargets.length) return;
+
+            var single = (!selectAllMode && items && items.length === 1) ? items[0] : null;
 
             var pre = window.CMS_DESCRIPTION || '';
             $('#psPrefix').text(pre || '(기관 문구 없음)');
             $('#psPrefixBytes').text(eucKrLen(pre));
             $('#psRemain').text(Math.max(0, 16 - eucKrLen(pre)));
             $('#psCount').text(printSuffixTargets.length);
-            $('#psInput').val(printSuffixTargets.length === 1 ? (printSuffixTargets[0].print_suffix || '') : '');
+            $('#psInput').val(single ? (single.print_suffix || '') : '');
             updatePrintSuffixPreview();
             $('#modalPrintSuffix').css('display', 'flex');
         }
@@ -1494,7 +1756,10 @@
             if (full !== val) {
                 var pos = $('#psInput')[0].selectionStart;
                 $('#psInput').val(full);
-                try { $('#psInput')[0].setSelectionRange(pos, pos); } catch (e) {}
+                try {
+                    $('#psInput')[0].setSelectionRange(pos, pos);
+                } catch (e) {
+                }
                 val = full;
             }
             var total = eucKrLen(pre) + eucKrLen(val);
@@ -1507,7 +1772,7 @@
         }
 
         function savePrintSuffix() {
-            var ids = printSuffixTargets.map(function (i) { return i.id; }).join(',');
+            var ids = printSuffixTargets.join(',');
             if (!ids) return;
             $.ajax({
                 url: withCtx('/api/cms/billing/change-print-suffix'),
@@ -1526,13 +1791,17 @@
                     Alert.alert('', (result.data || 0) + '건 저장했습니다.');
                     searchList(currentPage);
                 },
-                error: function () { Alert.alert('오류', '통장기재내용 저장 실패'); }
+                error: function () {
+                    Alert.alert('오류', '통장기재내용 저장 실패');
+                }
             });
         }
 
         function updateSummary(d) {
             var data = d.data || [];
-            var pageAmt = data.reduce(function(s, i) { return s + (Number(i.billing_amount) || 0); }, 0);
+            var pageAmt = data.reduce(function (s, i) {
+                return s + (Number(i.billing_amount) || 0);
+            }, 0);
             $('#summaryTotal').text((d.totalCount || 0).toLocaleString());
             $('#summaryTotalAmt').text((d.totalAmount || 0).toLocaleString());
             $('#summaryPageCount').text(data.length.toLocaleString());
@@ -1542,7 +1811,7 @@
         function fillForm(item) {
             $('#id').val(item.id || '');
             var ym = item.billing_ym || '';
-            $('#billing_ym_input').val(ym.length === 6 ? ym.substring(0,4) + '-' + ym.substring(4,6) : '');
+            $('#billing_ym_input').val(ym.length === 6 ? ym.substring(0, 4) + '-' + ym.substring(4, 6) : '');
             $('#billing_seq').val(item.billing_seq || '');
             $('#member_id').val(item.member_id || '');
             $('#member_search').val(item.member_name || '');
@@ -1555,10 +1824,10 @@
             $('#member_name').val(item.member_name || '');
             $('#billing_amount').val(item.billing_amount != null ? Number(item.billing_amount).toLocaleString() : '');
             var dd = item.deduct_date || '';
-            if (dd.length === 8) dd = dd.substring(0,4) + '-' + dd.substring(4,6) + '-' + dd.substring(6,8);
+            if (dd.length === 8) dd = dd.substring(0, 4) + '-' + dd.substring(4, 6) + '-' + dd.substring(6, 8);
             $('#deduct_date').val(dd);
             var sd = item.send_date || item.deduct_date || '';
-            if (sd.length === 8) sd = sd.substring(0,4) + '-' + sd.substring(4,6) + '-' + sd.substring(6,8);
+            if (sd.length === 8) sd = sd.substring(0, 4) + '-' + sd.substring(4, 6) + '-' + sd.substring(6, 8);
             $('#send_date').val(sd);
             $('#deduct_day').val(item.deduct_day || '');
             applyStatusField(item.status || 'PENDING');
@@ -1598,28 +1867,35 @@
 
         function saveBilling() {
             var ymInput = $('#billing_ym_input').val();
-            if (!ymInput) { Alert.alert('', '청구년월을 입력하세요.'); return; }
-            if (!$('#member_id').val() && !$('#member_name').val()) {
-                Alert.alert('', '납부자를 선택하세요.'); return;
+            if (!ymInput) {
+                Alert.alert('', '청구년월을 입력하세요.');
+                return;
             }
-            if (!$('#billing_amount').val()) { Alert.alert('', '청구금액을 입력하세요.'); return; }
+            if (!$('#member_id').val() && !$('#member_name').val()) {
+                Alert.alert('', '납부자를 선택하세요.');
+                return;
+            }
+            if (!$('#billing_amount').val()) {
+                Alert.alert('', '청구금액을 입력하세요.');
+                return;
+            }
 
             var data = FormUtil.extractForm($('#billingForm'));
             console.log('data:', JSON.stringify(data));
             data.billing_ym = $('#billing_ym_input').val().replace(/-/g, '');
             data.billing_amount = (data.billing_amount || '').replace(/,/g, '');
-            data.deduct_date    = (data.deduct_date || '').replace(/-/g, '');
+            data.deduct_date = (data.deduct_date || '').replace(/-/g, '');
             if ($('#statusHidden').val()) data.status = $('#statusHidden').val();
 
-            Alert.confirm('', '저장하시겠습니까?', function() {
-                AjaxUtil.postAsyncData('/api/cms/billing/save', data, function(result) {
+            Alert.confirm('', '저장하시겠습니까?', function () {
+                AjaxUtil.postAsyncData('/api/cms/billing/save', data, function (result) {
                     if (result.success) {
                         Alert.alert('', '저장되었습니다.');
                         searchList(0);
                     } else {
                         // ⭐ 수정: 중지 기간 경고 메시지 처리 추가
                         if (result.message && result.message.includes('중지 기간')) {
-                            Alert.confirm('경고', result.message, function() {
+                            Alert.confirm('경고', result.message, function () {
                                 forceSaveBilling(data);
                             });
                         } else {
@@ -1631,7 +1907,7 @@
         }
 
         function forceSaveBilling(data) {
-            AjaxUtil.postAsyncData('/api/cms/billing/save-force', data, function(result) {
+            AjaxUtil.postAsyncData('/api/cms/billing/save-force', data, function (result) {
                 if (result.success) {
                     Alert.alert('', '청구가 등록되었습니다.');
                     searchList(0);
@@ -1643,28 +1919,26 @@
         }
 
         function deleteBilling() {
-            var pendingIds = (viewdata ? viewdata.items : [])
-                .filter(function(i) { return i.selected && i.status === 'PENDING'; })
-                .map(function(i) { return i.id; });
+            var pendingIds = getSelectedPendingIds();
 
             if (pendingIds.length === 0) {
                 Alert.alert('', '대기 상태만 삭제 가능합니다.');
                 return;
             }
 
-            Alert.confirm('', pendingIds.length + '건을 삭제하시겠습니까?', function() {
-                var promises = pendingIds.map(function(id) {
+            Alert.confirm('', pendingIds.length + '건을 삭제하시겠습니까?', function () {
+                var promises = pendingIds.map(function (id) {
                     return $.ajax({
                         url: withCtx('/api/cms/billing/' + id),
                         type: 'DELETE',
-                        headers: { 'X-CSRF-TOKEN': $('[name=_csrf]').val() }
+                        headers: {'X-CSRF-TOKEN': $('[name=_csrf]').val()}
                     });
                 });
-                $.when.apply($, promises).then(function() {
+                $.when.apply($, promises).then(function () {
                     Alert.alert('', pendingIds.length + '건이 삭제되었습니다.');
                     clearForm();
                     searchList(0);
-                }).fail(function() {
+                }).fail(function () {
                     Alert.alert('삭제 실패', '일부 항목 삭제 중 오류가 발생했습니다.');
                     searchList(0);
                 });
@@ -1673,11 +1947,14 @@
 
         function generateBilling() {
             var ymVal = $('#srchBillingYm').val();
-            if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
-            Alert.confirm('', '[' + ymVal + '] 청구를 자동생성하시겠습니까?\n이미 생성된 건은 건너뜁니다.', function() {
+            if (!ymVal) {
+                Alert.alert('', '청구년월을 선택하세요.');
+                return;
+            }
+            Alert.confirm('', '[' + ymVal + '] 청구를 자동생성하시겠습니까?\n이미 생성된 건은 건너뜁니다.', function () {
                 AjaxUtil.postAsyncData('/api/cms/billing/generate',
-                    { billing_ym: ymVal.replace('-', '') },
-                    function(result) {
+                    {billing_ym: ymVal.replace('-', '')},
+                    function (result) {
                         if (result.success) {
                             var d = result.data || {};
                             var cnt = d.count || 0;
@@ -1695,7 +1972,7 @@
 
         }
 
-        var todayCompact = (function() {
+        var todayCompact = (function () {
             var n = new Date();
             return n.getFullYear()
                 + String(n.getMonth() + 1).padStart(2, '0')
@@ -1704,13 +1981,16 @@
 
         function sendNow() {
             var ymVal = $('#srchBillingYm').val();
-            if (!ymVal) { Alert.alert('', '청구년월을 선택하세요.'); return; }
+            if (!ymVal) {
+                Alert.alert('', '청구년월을 선택하세요.');
+                return;
+            }
 
             $.ajax({
                 url: withCtx('/api/cms/billing/sendable-dates'),
                 type: 'GET',
-                data: { billing_ym: ymVal.replace('-', ''), deduct_type: 'EB' },
-                success: function(result) {
+                data: {billing_ym: ymVal.replace('-', ''), deduct_type: 'EB'},
+                success: function (result) {
                     if (!result.success || !result.data || result.data.length === 0) {
                         Alert.alert('', '전송 가능한 건이 없습니다.');
                         return;
@@ -1723,7 +2003,7 @@
 
         function renderSendNowModal(rows) {
             var html = '';
-            rows.forEach(function(row) {
+            rows.forEach(function (row) {
                 var deductDate = String(row.deduct_date);
                 var sendDate = String(row.send_date || '');
                 var isToday = sendDate === todayCompact;
@@ -1876,7 +2156,7 @@
 
             // 구분(EB/EC) 변경 시 재청구 출금일 기본값 조정 (EC=당일, EB=익일)
             $('#rechargeRows').off('change', '.recharge-type').on('change', '.recharge-type', function () {
-                var $row  = $(this).closest('tr');
+                var $row = $(this).closest('tr');
                 var $date = $row.find('.recharge-date');
                 $date.val($(this).val() === 'EC' ? todayStr : tomorrowStr);
             });
@@ -1923,13 +2203,7 @@
         }
 
         function cancelBilling() {
-            var pendingIds = (viewdata ? viewdata.items : [])
-                .filter(function (i) {
-                    return i.selected && i.status === 'PENDING';
-                })
-                .map(function (i) {
-                    return i.id;
-                });
+            var pendingIds = getSelectedPendingIds();
 
             if (pendingIds.length === 0) {
                 Alert.alert('', '취소할 대기 건을 체크하세요.');
@@ -2088,10 +2362,7 @@
         }
 
         function openChangeDateModal() {
-            var pendingIds = (viewdata ? viewdata.items : [])
-                .filter(function (i) {
-                    return i.selected && i.status === 'PENDING';
-                });
+            var pendingIds = getSelectedPendingIds();
 
             if (pendingIds.length === 0) {
                 Alert.alert('', '출금일을 변경할 대기 건을 체크하세요.');
@@ -2118,19 +2389,14 @@
                 return;
             }
 
-            var pendingItems = (viewdata ? viewdata.items : [])
-                .filter(function (i) {
-                    return i.selected && i.status === 'PENDING';
-                });
+            var pendingItems = getSelectedPendingIds();
 
             if (pendingItems.length === 0) {
                 Alert.alert('', '변경할 건이 없습니다.');
                 return;
             }
 
-            var ids = pendingItems.map(function (i) {
-                return i.id;
-            }).join(',');
+            var ids = pendingItems.join(',');
             var compact = newDate.replace(/-/g, '');
 
             // 휴일 체크 후 변경
@@ -2191,7 +2457,9 @@
                 $('#excelMenuDropdown').toggle();
             });
             // 메뉴 항목 선택 또는 바깥 클릭 시 닫기
-            $('.excel-menu-item').click(function () { $('#excelMenuDropdown').hide(); });
+            $('.excel-menu-item').click(function () {
+                $('#excelMenuDropdown').hide();
+            });
             $(document).on('click', function (e) {
                 if (!$(e.target).closest('.excel-menu').length) $('#excelMenuDropdown').hide();
             });
@@ -2201,16 +2469,19 @@
             $('#btnExcelReselect').click(pickExcelFile);
             $('#excelDropzone').on('click', pickExcelFile);
             $('#excelDropzone').on('dragover', function (e) {
-                e.preventDefault(); e.stopPropagation();
-                $(this).css({ background: '#eef4ff', borderColor: '#4a6cf7' });
+                e.preventDefault();
+                e.stopPropagation();
+                $(this).css({background: '#eef4ff', borderColor: '#4a6cf7'});
             });
             $('#excelDropzone').on('dragleave', function (e) {
-                e.preventDefault(); e.stopPropagation();
-                $(this).css({ background: '#fbfcfe', borderColor: '#b7c2d6' });
+                e.preventDefault();
+                e.stopPropagation();
+                $(this).css({background: '#fbfcfe', borderColor: '#b7c2d6'});
             });
             $('#excelDropzone').on('drop', function (e) {
-                e.preventDefault(); e.stopPropagation();
-                $(this).css({ background: '#fbfcfe', borderColor: '#b7c2d6' });
+                e.preventDefault();
+                e.stopPropagation();
+                $(this).css({background: '#fbfcfe', borderColor: '#b7c2d6'});
                 var dt = e.originalEvent.dataTransfer;
                 var f = dt && dt.files && dt.files[0];
                 if (f) handleExcelFile(f);
@@ -2220,12 +2491,16 @@
                 if (f) handleExcelFile(f);
             });
             $('#btnExcelUploadConfirm').click(submitExcelUpload);
-            $('#btnExcelUploadCancel').click(function () { $('#modalExcelUpload').hide(); });
+            $('#btnExcelUploadCancel').click(function () {
+                $('#modalExcelUpload').hide();
+            });
 
             // 통장기재내용 모달
             $('#psInput').on('input', updatePrintSuffixPreview);
             $('#btnPsSave').click(savePrintSuffix);
-            $('#btnPsCancel').click(function () { $('#modalPrintSuffix').hide(); });
+            $('#btnPsCancel').click(function () {
+                $('#modalPrintSuffix').hide();
+            });
             $('#modalPrintSuffix').click(function (e) {
                 if ($(e.target).is('#modalPrintSuffix')) $('#modalPrintSuffix').hide();
             });
@@ -2318,7 +2593,7 @@
             $('#erpChkAll').prop('checked', false);
 
             AjaxUtil.getAsyncData('/api/cms/billing/erp-preview',
-                {billing_ym: erpBillingYm},
+                {billing_ym: erpBillingYm, name_type: curErpNameType()},
                 function (result) {
                     if (result.success) {
                         renderErpModal(result.data || []);
@@ -2391,10 +2666,28 @@
             }
         }
 
+        var erpAllRows = [];   // 서버에서 받은 원본(필터 전)
+
         function renderErpModal(rows) {
             warnPastDeductDate(rows);
+            erpAllRows = rows || [];
+
+            // 생성 가능한 건(OK)만 기본 노출.
+            //  DUP/AMBIGUOUS/NOT_AGREED 는 어차피 생성에서 제외되는데 목록만 길어져
+            //  정작 확인해야 할 건이 묻힌다. 필요하면 체크박스로 펼쳐 본다.
+            var skipped = erpAllRows.filter(function (r) { return r.row_status !== 'OK'; });
+            $('#erpSkippedCnt').text(skipped.length ? '(' + skipped.length + '건)' : '');
+            if (!$('#erpShowSkipped').is(':checked')) {
+                rows = erpAllRows.filter(function (r) { return r.row_status === 'OK'; });
+            } else {
+                rows = erpAllRows.slice();
+            }
+
             if (!rows.length) {
-                $('#erpRows').html('<tr><td colspan="5" style="padding:20px; text-align:center; color:#888;">가져올 미수금이 없습니다.</td></tr>');
+                var msg = erpAllRows.length
+                    ? '생성 가능한 건이 없습니다. (제외 ' + skipped.length + '건 — 위 체크박스로 확인)'
+                    : '가져올 미수금이 없습니다.';
+                $('#erpRows').html('<tr><td colspan="5" style="padding:20px; text-align:center; color:#888;">' + msg + '</td></tr>');
                 $('#erpSummary').text('');
                 return;
             }
@@ -2444,9 +2737,9 @@
                     + (canSelect ? ' checked' : ' disabled') + '>'
                     + '</td>'
                     + '<td style="padding:6px 8px; border:1px solid #eee; text-align:left; padding-left:22px;">'
-                    +   '<span class="erp-name" data-rep="' + escAttr(r.member_name_rep || r.member_name || '') + '" data-site="' + escAttr(r.member_name_site || r.member_name || '') + '">'
-                    +     ((curErpNameType() === 'SITE' ? (r.member_name_site || r.member_name) : (r.member_name_rep || r.member_name)) || '')
-                    +   '</span>'
+                    + '<span class="erp-name" title="' + escAttr('ERP 거래처: ' + (r.member_name_rep || '-') + ' / 현장: ' + (r.member_name_site || '-')) + '">'
+                    + escAttr(r.member_name || '')
+                    + '</span>'
                     + '</td>'
                     + '<td style="padding:6px 8px; border:1px solid #eee; text-align:right;">' + Number(r.billing_amount || 0).toLocaleString() + '</td>'
                     + '<td class="erp-dd" style="padding:6px 8px; border:1px solid #eee; text-align:center;">' + ddDisp + '</td>'
@@ -2458,26 +2751,22 @@
 
             $('#erpRows').html(html);
             $('#erpChkAll').prop('checked', okCount > 0);
-            $('#erpSummary').text('생성가능 ' + okCount + '건 / 전체 ' + rows.length + '건');
+            $('#erpSummary').text('생성가능 ' + okCount + '건 / 전체 ' + erpAllRows.length + '건');
         }
 
-        // 현재 선택된 표시명 타입 (REP=대표거래처명 / SITE=현장명)
-        function curErpNameType() {
-            var v = $('input[name="erpNameType"]:checked').val();
-            return v === 'SITE' ? 'SITE' : 'REP';
-        }
+        // 표시명은 매칭된 납부자(cms_member) 이름을 쓰므로 화면 선택이 없다.
+        //  서버 폴백(회원명이 비었을 때)용으로 기본값만 넘긴다.
+        function curErpNameType() { return 'REP'; }
+
         function escAttr(v) {
             return String(v == null ? '' : v)
                 .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
                 .replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
-        // 표시명 토글: 재조회 없이 이름 셀만 즉시 교체
-        $(document).on('change', 'input[name="erpNameType"]', function () {
-            var t = curErpNameType();
-            $('#erpRows span.erp-name').each(function () {
-                var $s = $(this);
-                $s.text(t === 'SITE' ? ($s.data('site') || $s.data('rep')) : ($s.data('rep') || $s.data('site')));
-            });
+
+        // 생성 불가 건 보기 토글 — 서버 재조회 없이 다시 그린다.
+        $(document).on('change', '#erpShowSkipped', function () {
+            if (erpAllRows.length) renderErpModal(erpAllRows);
         });
 
         function confirmErpImport() {
@@ -2509,7 +2798,9 @@
                     billing_ym: erpBillingYm,
                     send_date: sendDate.replace(/-/g, ''),
                     deduct_date: ($('#erpDeductDate').val() || '').replace(/-/g, ''),
-                    keys: keys.join(',')
+                    keys: keys.join(','),
+                    // 화면에서 고른 표시명(REP=대표거래처명 / SITE=현장명)을 그대로 저장한다.
+                    name_type: curErpNameType()
                 },
                 function (result) {
                     if (result.success) {

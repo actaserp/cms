@@ -73,8 +73,14 @@ public class CmsErpResultSyncService {
         try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
         catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
 
+        // 같은 납부자·같은 출금일 건이 이미 있는지 (bnkcode 가 아니라 실제 거래 기준으로 판단)
         String existSql = "SELECT COUNT(*) FROM TB_BANK_CMSSAVE WITH(NOLOCK) "
-                + "WHERE custcd = ? AND spjangcd = ? AND bnkcode = ?";
+                + "WHERE custcd = ? AND spjangcd = ? AND tran_date = ? AND cmsnum = ?";
+
+        // 그날 이미 쓰인 bnkcode 의 마지막 일련번호(뒤 4자리) — 다음 번호부터 채번한다.
+        String maxSeqSql = "SELECT MAX(CAST(RIGHT(bnkcode, 4) AS INT)) "
+                + "FROM TB_BANK_CMSSAVE WITH(NOLOCK) "
+                + "WHERE custcd = ? AND spjangcd = ? AND tran_date = ?";
         String insertSql = """
                 INSERT INTO TB_BANK_CMSSAVE (
                     custcd, spjangcd, bnkcode, cmsnum, bank_tran_id,
@@ -88,6 +94,22 @@ public class CmsErpResultSyncService {
 
             // 건별 즉시 확정(autocommit) → 한 건 실패가 나머지를 롤백하지 않음
             conn.setAutoCommit(true);
+
+            // ★ bnkcode 채번을 line_seq 에 의존하지 않는다.
+            //   line_seq 는 '파일 안에서의 순번'이라 같은 출금일에 파일이 둘 이상이면
+            //   (EB21 + EC21, 또는 EB21 재생성) 서로 다른 납부자가 같은 bnkcode 를 갖게 되고,
+            //   먼저 들어간 건 때문에 뒤의 건이 '이미 존재'로 조용히 스킵된다.
+            //   (2026-08-27 신흥빌리지(EC) seq1 이 자리를 차지해 궁전아파트(EB) seq1 이 누락)
+            //   → 그날 MSSQL 에 실제로 들어간 마지막 번호 다음부터 이어서 채번한다.
+            int nextSeq = 0;
+            try (java.sql.PreparedStatement mx = conn.prepareStatement(maxSeqSql)) {
+                mx.setString(1, custcd);
+                mx.setString(2, msSpjangcd);
+                mx.setString(3, tranDate);
+                try (java.sql.ResultSet rs = mx.executeQuery()) {
+                    if (rs.next()) nextSeq = rs.getInt(1); // 없으면 0
+                }
+            }
 
             for (SyncItem item : items) {
                 // TB_BANK_CMSSAVE.cltcd 는 ERP 원장(TB_XCLIENT.cltcd) 기준이지만 필수는 아니다.
@@ -104,24 +126,26 @@ public class CmsErpResultSyncService {
                 }
                 successTargets++;
 
-                // bnkcode = YYMMDD + line_seq(4자리)  (예: 2607010001)
-                String bnkcode = reqDate + String.format("%04d", item.getLineSeq());
-
+                String bnkcode = null;
                 try {
-                    // 1) 이미 있으면 스킵 (멱등)
+                    // 1) 이미 있으면 스킵 (멱등) — 같은 출금일·같은 납부자 기준
                     try (java.sql.PreparedStatement chk = conn.prepareStatement(existSql)) {
                         chk.setString(1, custcd);
                         chk.setString(2, msSpjangcd);
-                        chk.setString(3, bnkcode);
+                        chk.setString(3, tranDate);
+                        chk.setString(4, item.getMemberNo());
                         try (java.sql.ResultSet rs = chk.executeQuery()) {
                             if (rs.next() && rs.getInt(1) > 0) {
                                 skipped++;
-                                log.info("[CmsErpSync] 이미 존재 스킵 bnkcode={} memberNo={}",
-                                        bnkcode, item.getMemberNo());
+                                log.info("[CmsErpSync] 이미 존재 스킵 tranDate={} memberNo={}",
+                                        tranDate, item.getMemberNo());
                                 continue;
                             }
                         }
                     }
+
+                    // bnkcode = YYMMDD + 그날 일련번호(4자리)  (예: 2607010001)
+                    bnkcode = reqDate + String.format("%04d", ++nextSeq);
 
                     // 2) INSERT
                     try (java.sql.PreparedStatement ps = conn.prepareStatement(insertSql)) {
