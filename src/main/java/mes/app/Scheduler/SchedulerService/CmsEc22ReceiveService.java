@@ -139,8 +139,9 @@ public class CmsEc22ReceiveService {
         }
 
         // EC22 파싱 (불능건만 추출)
-        Map<String, String> failMap = parseEc22(fileBytes);
-        log.info("[CmsEc22Receive] 불능 건수 spjangcd={}: {}", spjangcd, failMap.size());
+        FailInfo failInfo = parseEc22(fileBytes);
+        log.info("[CmsEc22Receive] 불능 건수 spjangcd={}: {} (레코드 {}건, 일련번호 {}건)",
+                spjangcd, failInfo.remainByNo.size(), failInfo.recordCount, failInfo.bySeq.size());
 
         // 청구 목록 조회
         List<Map<String, Object>> requestedBillings = sqlRunner.getRows(/* skip_tenant_check */
@@ -174,6 +175,21 @@ public class CmsEc22ReceiveService {
         long totalAmount  = 0;
         String resultDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
 
+        // ★ 일련번호 매칭을 쓸 수 있는지 사전 검증.
+        //   파일의 모든 일련번호가 이번 청구목록의 line_seq 안에 존재해야 신뢰할 수 있다.
+        //   하나라도 벗어나면(파일 포맷 상이/재전송 등) 납부자번호 건수차감 방식으로 폴백한다.
+        Set<Integer> lineSeqSet = new HashSet<>();
+        for (Map<String, Object> b : requestedBillings) {
+            lineSeqSet.add(((Number) b.get("line_seq")).intValue());
+        }
+        boolean useSeqMatch = !failInfo.bySeq.isEmpty()
+                && failInfo.bySeq.size() == failInfo.recordCount
+                && lineSeqSet.containsAll(failInfo.bySeq.keySet());
+        if (!useSeqMatch) {
+            log.warn("[CmsEc22Receive] 일련번호 매칭 불가 - 납부자번호 건수차감 방식으로 폴백 "
+                    + "(파일 seq={}, 청구 seq={})", failInfo.bySeq.keySet(), lineSeqSet);
+        }
+
         // 1단계: 성공/실패 분류
         for (Map<String, Object> b : requestedBillings) {
             long   billingId     = ((Number) b.get("id")).longValue();
@@ -184,12 +200,14 @@ public class CmsEc22ReceiveService {
             int    lineSeq       = ((Number) b.get("line_seq")).intValue();
             String cltcd = str(b.get("cltcd"));
 
-            if (failMap.containsKey(memberNo)) {
-                String resultCode = failMap.get(memberNo);
+            String resultCode = resolveFailCode(failInfo, useSeqMatch, lineSeq, memberNo);
+
+            if (resultCode != null) {
+                final String resultCodeF = resultCode;
                 failBillings.add(new java.util.HashMap<String, Object>() {{
                     put("billingId", billingId);
-                    put("resultCode", resultCode);
-                    put("resultMsg", resolveFailMsg(resultCode));
+                    put("resultCode", resultCodeF);
+                    put("resultMsg", resolveFailMsg(resultCodeF));
                     put("memberNo", memberNo);
                     put("memberName", memberName);
                     put("bankAccount", bankAccount);
@@ -341,8 +359,23 @@ public class CmsEc22ReceiveService {
      *   pos 90-91  : 자금종류 (2)
      *   pos 92-111 : 납부자번호 (20)
      */
-    private Map<String, String> parseEc22(byte[] fileBytes) {
-        Map<String, String> failMap = new LinkedHashMap<>();
+    /**
+     * 불능 파일 파싱 결과.
+     *
+     * bySeq        : 일련번호 -> 불능코드 (1차 매칭 기준)
+     * remainByNo   : 납부자번호 -> 남은 불능 건수 (2차 폴백용, 소비하면서 차감)
+     * codeByNo     : 납부자번호 -> 불능코드 (폴백 시 사용)
+     * recordCount  : R레코드 총 건수 (검증용)
+     */
+    static class FailInfo {
+        final Map<Integer, String>  bySeq       = new LinkedHashMap<>();
+        final Map<String, Integer>  remainByNo  = new LinkedHashMap<>();
+        final Map<String, String>   codeByNo    = new LinkedHashMap<>();
+        int recordCount = 0;
+    }
+
+    private FailInfo parseEc22(byte[] fileBytes) {
+        FailInfo info = new FailInfo();
         int recordLen = 150;
         for (int i = 0; i + recordLen <= fileBytes.length; i += recordLen) {
             byte[] lineBytes = Arrays.copyOfRange(fileBytes, i, i + recordLen);
@@ -353,11 +386,28 @@ public class CmsEc22ReceiveService {
             String resultCode  = resultField.length() >= 4 ? resultField.substring(1) : resultField;
 
             String memberNo = new String(Arrays.copyOfRange(lineBytes, 91, 111), EUC_KR).trim();
+            String seqStr   = new String(Arrays.copyOfRange(lineBytes, 1, 9), EUC_KR).trim();
+
+            info.recordCount++;
+
+            // ★ 일련번호 기준 매칭 (EB21/EC21 전송 시의 line_seq 와 1:1 대응)
+            //   납부자번호(계좌)만으로 매칭하면, 같은 납부자에 청구가 여러 건일 때
+            //   Map 이 1개 엔트리로 덮어써져 '실패 1건'이 '전건 실패'로 번진다.
+            //   (2026-08-28 아포리빌라 나동: 파일 불능 4건인데 청구 5건 전부 FAIL 처리됨)
+            if (!seqStr.isEmpty()) {
+                try {
+                    info.bySeq.put(Integer.parseInt(seqStr), resultCode);
+                } catch (NumberFormatException e) {
+                    log.warn("[CmsEc22Receive] 일련번호 파싱 실패 seq='{}' memberNo={}", seqStr, memberNo);
+                }
+            }
+
             if (!memberNo.isEmpty()) {
-                failMap.put(memberNo, resultCode);
+                info.remainByNo.merge(memberNo, 1, Integer::sum);
+                info.codeByNo.put(memberNo, resultCode);
             }
         }
-        return failMap;
+        return info;
     }
 
     private byte[] sftpDownloadWithApiCredential(String fileName, String targetDate, String spjangcd) throws Exception {
@@ -402,6 +452,22 @@ public class CmsEc22ReceiveService {
             try { channel.disconnect(); } catch (Exception ignored) {}
             try { session.disconnect(); } catch (Exception ignored) {}
         }
+    }
+
+    /**
+     * 이 청구건이 불능인지 판정하고, 불능이면 결과코드를 반환한다. 성공이면 null.
+     *
+     * 1순위: 일련번호(line_seq) 정확 매칭
+     * 2순위: 납부자번호별 불능 '건수'를 차감하며 소비 (같은 납부자 다건 청구 대응)
+     */
+    private String resolveFailCode(FailInfo info, boolean useSeqMatch, int lineSeq, String memberNo) {
+        if (useSeqMatch) {
+            return info.bySeq.get(lineSeq);
+        }
+        Integer remain = info.remainByNo.get(memberNo);
+        if (remain == null || remain <= 0) return null;
+        info.remainByNo.put(memberNo, remain - 1);
+        return info.codeByNo.get(memberNo);
     }
 
     private String resolveFailMsg(String code) {

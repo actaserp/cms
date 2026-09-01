@@ -967,6 +967,7 @@ public class CmsBillingService {
               AND deduct_type = :deductType
               AND deduct_date = :deductDate
               AND status IN ('PENDING','REQUESTED','SUCCESS')
+              AND COALESCE(is_recharge, 'N') <> 'Y'
             LIMIT 1
             """,
                     new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
@@ -1242,19 +1243,22 @@ public class CmsBillingService {
                     .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
             pIns.addValue("sendDate", todaySendDate);
             pIns.addValue("erpMisKey", misKey);
+            // ★ 재청구 건 표시. 정기/수동 청구생성의 중복 판정에서 제외되어야 한다.
+            //   (같은 출금일에 재청구가 먼저 있으면 그 달 정기분이 스킵되어 조용히 누락됨)
+            pIns.addValue("isRecharge", "Y");
 
             sqlRunner.execute("""
                 INSERT INTO cms_billing (
                     spjangcd, billing_ym, billing_seq,
                     member_id, member_name, bank_code, bank_account, account_holder,
                     billing_amount, deduct_day, deduct_date, send_date,
-                    deduct_type, status, memo, erp_mis_key,
+                    deduct_type, status, memo, erp_mis_key, is_recharge,
                     _creater_id, _created, _modifier_id, _modified
                 ) VALUES (
                     :spjangcd, :billingYm, :billingSeq,
                     :memberId, :memberName, :bankCode, :bankAccount, :accountHolder,
                     :billingAmount, :deductDay, :deductDate, :sendDate,
-                    :deductType, 'PENDING', :memo, :erpMisKey,
+                    :deductType, 'PENDING', :memo, :erpMisKey, :isRecharge,
                     :userId, NOW(), :userId, NOW()
                 )
                 """, pIns);
@@ -1985,6 +1989,7 @@ public class CmsBillingService {
               AND deduct_type = :deductType
               AND deduct_date = :deductDate
               AND status IN ('PENDING','REQUESTED','SUCCESS')
+              AND COALESCE(is_recharge, 'N') <> 'Y'
             LIMIT 1
             """,
                     new MapSqlParameterSource()
@@ -2121,6 +2126,7 @@ public class CmsBillingService {
               AND deduct_type = :deductType
               AND deduct_date = :deductDate
               AND status IN ('PENDING','REQUESTED','SUCCESS')
+              AND COALESCE(is_recharge, 'N') <> 'Y'
             LIMIT 1
             """,
                     new MapSqlParameterSource()

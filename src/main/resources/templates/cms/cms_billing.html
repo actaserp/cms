@@ -334,6 +334,15 @@
      background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
         <div style="background:#fff; border-radius:8px; padding:24px 28px; min-width:720px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
             <h3 style="margin:0 0 8px; font-size:15px;">재청구</h3>
+            <!-- 조회 청구년월: 상단 검색월과 별개로 모달에서 바꿀 수 있어야 한다.
+                 (9/1 에 8/31 실패건을 재청구하려면 8월로 조회해야 함) -->
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding:8px 10px; background:#fff8ec; border:1px solid #f0e0c0; border-radius:4px; font-size:13px;">
+                <label style="white-space:nowrap; color:#555;">조회 청구년월</label>
+                <input type="month" id="rechargeSrchYm" style="border:1px solid #dde0ea; border-radius:4px; padding:3px 7px; font-size:13px;">
+                <button type="button" id="btnRechargeSearch"
+                        style="background:#7f8c9a; color:#fff; border:none; border-radius:4px; padding:4px 12px; font-size:12px; cursor:pointer;">조회</button>
+                <span id="rechargeRangeLabel" style="color:#888; font-size:12px;"></span>
+            </div>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; padding:8px 10px; background:#f5f6fa; border-radius:4px; font-size:13px;">
                 <label style="white-space:nowrap; color:#555;">전체 출금일 일괄적용</label>
                 <input type="date" id="rechargeAllDate" style="border:1px solid #dde0ea; border-radius:4px; padding:3px 7px; font-size:13px;">
@@ -2076,9 +2085,22 @@
         }
 
         function openRechargeModal() {
+            // 상단 검색월을 기본값으로 넣되, 모달 안에서 다른 달로 바꿔 조회할 수 있다.
+            // (월초에 전월 실패건을 재청구해야 하는 경우가 있다: 9/1 에 8/31 불능건)
             var ymVal = $('#srchBillingYm').val();
             if (!ymVal) {
-                Alert.alert('', '청구년월을 선택하세요.');
+                var now = new Date();
+                ymVal = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+            }
+            $('#rechargeSrchYm').val(ymVal);
+            loadRechargeList(ymVal);
+        }
+
+        // 청구년월 기준으로 재청구 대상(실패건) 조회.
+        // 결과가 없어도 모달은 열어둔다 — 사용자가 바로 다른 달로 바꿔 다시 조회할 수 있게.
+        function loadRechargeList(ymVal) {
+            if (!ymVal) {
+                Alert.alert('', '조회 청구년월을 선택하세요.');
                 return;
             }
 
@@ -2086,6 +2108,8 @@
             var lastDay = new Date(ym[0], ym[1], 0).getDate(); // 해당 월 말일
             var startStr = ymVal.replace('-', '') + '01';
             var endStr = ymVal.replace('-', '') + String(lastDay).padStart(2, '0');
+
+            $('#rechargeRangeLabel').text(ymVal + ' 실패건 · 재청구 출금일은 행별로 지정');
 
             $.ajax({
                 url: withCtx('/api/cms/billing/history/list'),
@@ -2099,7 +2123,10 @@
                 },
                 success: function (result) {
                     if (!result.success || !result.data || result.data.length === 0) {
-                        Alert.alert('', '재청구할 실패 건이 없습니다.');
+                        $('#rechargeRows').html(
+                            '<tr><td colspan="7" style="padding:16px; text-align:center; color:#888;">'
+                            + ymVal + ' 재청구 대상 실패건이 없습니다.</td></tr>');
+                        $('#modalRecharge').css('display', 'flex');
                         return;
                     }
                     renderRechargeModal(result.data);
@@ -2435,6 +2462,10 @@
             $('#btnGenerate').click(openGenerateModal);
             $('#btnCancel').click(cancelBilling);
             $('#btnResend').click(openRechargeModal);
+            // 모달 안 조회 버튼 — 청구년월을 바꿔 다른 달 실패건을 불러온다.
+            $('#btnRechargeSearch').click(function () {
+                loadRechargeList($('#rechargeSrchYm').val());
+            });
             $('#btnNew').click(clearForm);
             $('#btnSave').click(saveBilling);
             $('#btnDel').click(deleteBilling);

@@ -1579,9 +1579,14 @@ public class CmsMemberService {
 
                 try {
                     Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
+                            // 거래처 경로(:mActcd IS NULL)에서 actcd IS NULL 을 강제하면,
+                            //  actcd 가 채워진 기존 회원을 못 찾아 신규로 생성해버린다.
+                            //  (2026-08-24 6W 60건 중복 생성 사고)
+                            //  → cltcd 로 찾되, 같은 cltcd 에 현장 회원이 섞여 있으면
+                            //    거래처 회원(actcd 없음)을 우선해 1건만 잡는다.
                             "SELECT id, member_no, _modified FROM cms_member "
                                     + "WHERE spjangcd = :spjangcd AND status <> 'INACTIVE' AND "
-                                    + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND actcd IS NULL AND cltcd = :mCltcd) )",
+                                    + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) ) ORDER BY CASE WHEN actcd IS NULL THEN 0 ELSE 1 END, id LIMIT 1",
                             new MapSqlParameterSource("spjangcd", spjangcd)
                                     .addValue("mActcd", erpRow.get("erp_actcd"))
                                     .addValue("mCltcd", erpRow.get("erp_cltcd")));
@@ -1597,6 +1602,9 @@ public class CmsMemberService {
                     p.addValue("cltcd",        erpRow.get("erp_cltcd"));
                     p.addValue("mActcd",       erpRow.get("erp_actcd"));
                     p.addValue("mCltcd",       erpRow.get("erp_cltcd"));
+                    // 위에서 찾은 회원 id 로 직접 갱신한다.
+                    //  조건식을 UPDATE 에서 다시 평가하면 같은 cltcd 의 다른 회원까지 덮어쓸 수 있다.
+                    p.addValue("mid",          existing != null ? existing.get("id") : null);
                     p.addValue("agreeYn",      erpRow.get("agree_yn"));
                     p.addValue("memberName",   erpRow.get("member_name"));
                     p.addValue("memberType",   erpRow.get("member_type"));
@@ -1694,15 +1702,12 @@ public class CmsMemberService {
                                      COALESCE(cycle_type,'')    != COALESCE(:cycleType,'')    OR
                                      COALESCE(cycle_months,'')  != COALESCE(:cycleMonths,'')
                                  ) THEN NOW() ELSE _modified END
-                                WHERE spjangcd = :spjangcd AND ( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND actcd IS NULL AND cltcd = :mCltcd) )
+                                WHERE id = :mid
                                 """, p);
 
                         Map<String, Object> after = sqlRunner.getRow(/* skip_tenant_check */
-                                "SELECT _modified FROM cms_member WHERE spjangcd = :spjangcd AND "
-                                        + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND actcd IS NULL AND cltcd = :mCltcd) )",
-                                new MapSqlParameterSource("spjangcd", spjangcd)
-                                        .addValue("mActcd", erpRow.get("erp_actcd"))
-                                        .addValue("mCltcd", erpRow.get("erp_cltcd")));
+                                "SELECT _modified FROM cms_member WHERE id = :mid",
+                                new MapSqlParameterSource("mid", existing.get("id")));
                         if (!before.equals(after != null ? str(after.get("_modified")) : "")) updated++;
                         else skipped++;
                     }
@@ -1798,9 +1803,11 @@ public class CmsMemberService {
 
             try {
                 Map<String, Object> existing = sqlRunner.getRow(/* skip_tenant_check */
+                        // 거래처 경로는 cltcd 로 찾고, 같은 cltcd 에 현장 회원이 있으면
+                        //  거래처 회원(actcd 없음)을 우선한다. (중복 생성 방지)
                         "SELECT id FROM cms_member "
                                 + "WHERE spjangcd = :spjangcd AND status <> 'INACTIVE' AND "
-                                + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND actcd IS NULL AND cltcd = :mCltcd) )",
+                                + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) ) ORDER BY CASE WHEN actcd IS NULL THEN 0 ELSE 1 END, id LIMIT 1",
                         new MapSqlParameterSource("spjangcd", spjangcd)
                                 .addValue("mActcd", erpRow.get("erp_actcd"))
                                 .addValue("mCltcd", erpRow.get("erp_cltcd")));
@@ -1853,6 +1860,7 @@ public class CmsMemberService {
                 p.addValue("cltcd",    erpRow.get("erp_cltcd"));
                 p.addValue("mActcd",   erpRow.get("erp_actcd"));
                 p.addValue("mCltcd",   erpRow.get("erp_cltcd"));
+                p.addValue("mid",      existing.get("id"));
                 p.addValue("userId",   userId);
 
                 // 계좌 반영 시 previewSync와 동일한 추천계좌(실패계좌 배제 + XCLIENT 우선)를 사용.
@@ -1882,7 +1890,7 @@ public class CmsMemberService {
                         + "actcd = COALESCE(actcd, :actcd), cltcd = COALESCE(cltcd, :cltcd), "
                         + "_modifier_id = :userId, "
                         + "_modified = CASE WHEN :hasField THEN NOW() ELSE _modified END "
-                        + "WHERE spjangcd = :spjangcd AND ( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND actcd IS NULL AND cltcd = :mCltcd) )";
+                        + "WHERE id = :mid";
                 p.addValue("hasField", !erpFields.isEmpty());
                 sqlRunner.execute(/* skip_tenant_check */ sql, p);
 
