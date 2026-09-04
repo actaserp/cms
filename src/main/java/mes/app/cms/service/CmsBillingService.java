@@ -1592,6 +1592,7 @@ public class CmsBillingService {
             //  - 유지보수(관리) 매출만  : gubun IN (TB_DA020 where jgubun='1')
             //  - 이미 입금된 건 제외    : TB_DA026 수납분 제외 + 잔액>0(부분입금 반영)
             //  - 파워빌더 CMS 출금 성공분 제외 : TB_CMSEB21 / TB_CMSEC21 ENDFLAG='Y'
+            //    → 이 둘만 SQL 이 아니라 아래에서 키셋으로 미리 읽어 자바에서 거른다(사유는 pbPaidKeys).
             //    (병행 가동 중이라 현재도 유효한 조건. 2026-08 이후분만 387건 걸린다.)
             //
             //  ※ 성능: 제외 3건은 예전에 `A.misdate + A.misnum NOT IN (SELECT misdate+misnum ...)`
@@ -1625,7 +1626,7 @@ public class CmsBillingService {
                 OUTER APPLY (
                     SELECT TOP 1 e.accnum, e.cmsrnum, e.autoflag
                     FROM TB_E101 e WITH(NOLOCK)
-                    WHERE e.custcd = A.custcd AND e.actcd = A.actcd
+                    WHERE e.custcd = A.custcd AND e.spjangcd = A.spjangcd AND e.actcd = A.actcd
                       AND e.contg <> '04'
                       AND NULLIF(LTRIM(RTRIM(e.accnum)),'') IS NOT NULL
                     ORDER BY e.stdate DESC
@@ -1637,16 +1638,6 @@ public class CmsBillingService {
                                  WHERE D.custcd  = A.custcd
                                    AND D.misdate = A.misdate
                                    AND D.misnum  = A.misnum)
-                AND NOT EXISTS (SELECT 1 FROM TB_CMSEB21 B21 WITH(NOLOCK)
-                                 WHERE B21.custcd  = A.custcd
-                                   AND B21.MISDATE = A.misdate
-                                   AND B21.MISNUM  = A.misnum
-                                   AND B21.ENDFLAG = 'Y')
-                AND NOT EXISTS (SELECT 1 FROM TB_CMSEC21 C21 WITH(NOLOCK)
-                                 WHERE C21.custcd  = A.custcd
-                                   AND C21.MISDATE = A.misdate
-                                   AND C21.MISNUM  = A.misnum
-                                   AND C21.ENDFLAG = 'Y')
                 AND (A.bemisdate + A.bemisnum IS NULL OR LEN(A.bemisdate + A.bemisnum) = 0)
                 AND (A.sangdate IS NULL OR LEN(ISNULL(A.sangdate,'')) = 0)
                 AND (A.misamt - ISNULL(A.bamt,0)   - ISNULL(A.jamt,0)  - ISNULL(A.sunamt,0)
@@ -1662,7 +1653,8 @@ public class CmsBillingService {
                 --   계속 추천돼 생성된다. (미르에셋·효진기공·헤리티지1 사례)
                 AND ( ISNULL(C.allchk, 0) = 1
                    OR EXISTS (SELECT 1 FROM TB_E101 e2 WITH(NOLOCK)
-                               WHERE e2.custcd = A.custcd AND e2.actcd = A.actcd
+                               WHERE e2.custcd = A.custcd AND e2.spjangcd = A.spjangcd
+                                 AND e2.actcd = A.actcd
                                  AND e2.cmsflag = 1 AND ISNULL(e2.contg,'') <> '04') )
                 ORDER BY A.cltcd, A.misdate
                 """;
@@ -1672,6 +1664,34 @@ public class CmsBillingService {
             // 컬럼에 함수를 씌우지 않아야 misdate 인덱스를 시크로 쓴다.
             String misFrom = prevYm + "01";                     // 포함
             String misTo   = nextYyyymm(billingYm) + "01";      // 미포함
+
+            // ★ 파워빌더 CMS 출금 성공분(EB21/EC21) 은 SQL 의 NOT EXISTS 로 걸지 않고
+            //   해당 기간 키만 한 번 읽어 메모리에서 거른다.
+            //   TB_CMSEB21 은 PK 가 (custcd, spjangcd, REQDATE, REQCUSTCD, BANKCLTCD, REQNUM)
+            //   이라 MISDATE/MISNUM 에 인덱스가 없다. 상관 서브쿼리로 두면 미수 한 건마다
+            //   3만 행을 스캔해서 이 조건 하나로 6초가 나갔다.
+            //   여기서는 스캔이 기간당 한 번뿐이고 결과도 수백 건이라 부담이 없다.
+            //   (ERP DB 에 인덱스를 추가하지 않기 위한 선택. 인덱스를 넣을 수 있게 되면
+            //    NOT EXISTS 로 되돌리는 편이 생성 경로까지 함께 단순해진다.)
+            Set<String> pbPaidKeys = new HashSet<>();
+            String pbSql = """
+                SELECT MISDATE, MISNUM FROM TB_CMSEB21 WITH(NOLOCK)
+                 WHERE custcd = ? AND ENDFLAG = 'Y'
+                   AND MISDATE >= ? AND MISDATE < ?
+                UNION
+                SELECT MISDATE, MISNUM FROM TB_CMSEC21 WITH(NOLOCK)
+                 WHERE custcd = ? AND ENDFLAG = 'Y'
+                   AND MISDATE >= ? AND MISDATE < ?
+                """;
+            try (java.sql.PreparedStatement pbPs = conn.prepareStatement(pbSql)) {
+                pbPs.setString(1, custcd);  pbPs.setString(2, misFrom);  pbPs.setString(3, misTo);
+                pbPs.setString(4, custcd);  pbPs.setString(5, misFrom);  pbPs.setString(6, misTo);
+                try (java.sql.ResultSet pbRs = pbPs.executeQuery()) {
+                    while (pbRs.next()) {
+                        pbPaidKeys.add(str(pbRs.getString("MISDATE")) + str(pbRs.getString("MISNUM")));
+                    }
+                }
+            }
 
             // ★ 회원은 한 번만 읽어 메모리 인덱스로 쓴다.
             //   예전에는 ERP 미수 한 건마다 cms_member 를 조회해서, 미수가 수백 건이면
@@ -1709,6 +1729,8 @@ public class CmsBillingService {
                         String misdate       = rs.getString("misdate");
                         String misnum        = rs.getString("misnum");
                         String misKey        = misdate + misnum;
+                        // 파워빌더 CMS 로 이미 걷은 건 (기존 SQL 의 EB21/EC21 NOT EXISTS 대체)
+                        if (pbPaidKeys.contains(misKey)) continue;
                         long   billingAmount = rs.getLong("billing_amount");   // DA023 잔액(부분입금 차감 후)
                         String autoflag      = str(rs.getString("autoflag"));
                         String misYm         = (misdate != null && misdate.length() >= 6) ? misdate.substring(0, 6) : "";
