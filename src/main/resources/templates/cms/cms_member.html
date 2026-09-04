@@ -1516,28 +1516,69 @@
         }
 
         function deleteMember() {
-            var item = theGrid && theGrid.selectedItems[0];
-            if (!item || !item.id) {
-                Alert.alert('', '삭제할 대상을 그리드에서 선택하세요.');
-                return;
-            }
-            var id = item.id;
-
-            Alert.confirm('', '납부자와 관련된 청구/인증 이력이 함께 삭제됩니다.\n정말 삭제하시겠습니까?', function () {
-                $.ajax({
-                    url: withCtx('/api/cms/member/' + id),
-                    type: 'DELETE',
-                    headers: {'X-CSRF-TOKEN': $('[name=_csrf]').val()},
-                    success: function (result) {
-                        if (result.success) {
-                            Alert.alert('', '삭제되었습니다.');
-                            clearForm();
-                            searchList();
-                        } else {
-                            Alert.alert('삭제 실패', result.message);
-                        }
-                    }
+            // 체크된 행 우선 — 없으면 그리드 선택행 1건으로 폴백
+            var checked = getCheckedMembers();
+            var targets = checked
+                .filter(function (m) { return m && m.id; })
+                .map(function (m) {
+                    return { id: m.id, name: m.member_name || m.memberName || '' };
                 });
+
+            if (targets.length === 0) {
+                var item = theGrid && theGrid.selectedItems && theGrid.selectedItems[0];
+                if (!item || !item.id) {
+                    Alert.alert('', '삭제할 대상을 체크하거나 그리드에서 선택하세요.');
+                    return;
+                }
+                targets = [{ id: item.id, name: item.member_name || '' }];
+            }
+
+            var names = targets.slice(0, 5).map(function (t) { return t.name; }).join(', ');
+            if (targets.length > 5) names += ' 외 ' + (targets.length - 5) + '건';
+
+            var msg = '[' + names + ']\n\n'
+                + '총 ' + targets.length + '건을 삭제합니다.\n'
+                + '납부자와 관련된 청구/인증 이력이 함께 삭제되며 복구할 수 없습니다.\n'
+                + '정말 삭제하시겠습니까?';
+
+            Alert.confirm('', msg, function () {
+                var ok = 0;
+                var fail = [];
+
+                // 순차 처리 — 동시 요청 시 cms_file 고아정리 쿼리가 서로 물릴 수 있음
+                (function next(i) {
+                    if (i >= targets.length) {
+                        selectedMembers = {};
+                        clearForm();
+                        searchList();
+
+                        if (fail.length === 0) {
+                            Alert.alert('', ok + '건 삭제되었습니다.');
+                        } else {
+                            var f = fail.slice(0, 5).map(function (x) { return x.name || x.id; }).join(', ');
+                            if (fail.length > 5) f += ' 외 ' + (fail.length - 5) + '건';
+                            Alert.alert('삭제 결과',
+                                '성공 ' + ok + '건 / 실패 ' + fail.length + '건\n실패: ' + f);
+                        }
+                        return;
+                    }
+
+                    var t = targets[i];
+                    $.ajax({
+                        url: withCtx('/api/cms/member/' + t.id),
+                        type: 'DELETE',
+                        headers: {'X-CSRF-TOKEN': $('[name=_csrf]').val()},
+                        success: function (result) {
+                            if (result && result.success) ok++;
+                            else fail.push(t);
+                            next(i + 1);
+                        },
+                        error: function () {
+                            fail.push(t);
+                            next(i + 1);
+                        }
+                    });
+                })(0);
             });
         }
 
