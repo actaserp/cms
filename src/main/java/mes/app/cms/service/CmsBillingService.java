@@ -1591,7 +1591,16 @@ public class CmsBillingService {
             // 기준 테이블: TB_DA023(미수 원장). 파워빌더 PROC_CMS_R mode 03/04 와 동일 조건.
             //  - 유지보수(관리) 매출만  : gubun IN (TB_DA020 where jgubun='1')
             //  - 이미 입금된 건 제외    : TB_DA026 수납분 제외 + 잔액>0(부분입금 반영)
-            //  - 이관 전 CMS 출금 성공분 제외 : TB_CMSEB21 / TB_CMSEC21 ENDFLAG='Y'
+            //  - 파워빌더 CMS 출금 성공분 제외 : TB_CMSEB21 / TB_CMSEC21 ENDFLAG='Y'
+            //    (병행 가동 중이라 현재도 유효한 조건. 2026-08 이후분만 387건 걸린다.)
+            //
+            //  ※ 성능: 제외 3건은 예전에 `A.misdate + A.misnum NOT IN (SELECT misdate+misnum ...)`
+            //    이었다. 문자열 연결이라 인덱스를 못 쓰고 custcd 조건도 없어서 전 법인 데이터를
+            //    매번 통째로 훑었다. 컬럼별 NOT EXISTS + custcd 로 바꿔 TB_DA026 PK
+            //    (custcd, spjangcd, cltcd, misdate, misnum) 선두를 타게 한다.
+            //    NOT IN 은 서브쿼리에 NULL 이 하나만 섞여도 결과가 통째로 0건이 되는 함정도 있었다.
+            //    기간도 LEFT(misdate,6) IN (?,?) 대신 범위 조건으로 줘 IX_TB_DA023(misdate,...)
+            //    를 시크로 쓴다.
             //  - 이월(bemisdate)/상계(sangdate) 건 제외
             String sql = """
                 SELECT
@@ -1622,14 +1631,22 @@ public class CmsBillingService {
                     ORDER BY e.stdate DESC
                 ) E
                 WHERE A.custcd = ?
-                AND LEFT(A.misdate, 6) IN (?, ?)
+                AND A.misdate >= ? AND A.misdate < ?
                 AND A.gubun IN (SELECT artcd FROM TB_DA020 WITH(NOLOCK) WHERE jgubun = '1')
-                AND A.misdate + A.misnum NOT IN (
-                        SELECT misdate + misnum FROM TB_DA026 WITH(NOLOCK))
-                AND A.misdate + A.misnum NOT IN (
-                        SELECT misdate + misnum FROM TB_CMSEB21 WITH(NOLOCK) WHERE ENDFLAG = 'Y')
-                AND A.misdate + A.misnum NOT IN (
-                        SELECT misdate + misnum FROM TB_CMSEC21 WITH(NOLOCK) WHERE ENDFLAG = 'Y')
+                AND NOT EXISTS (SELECT 1 FROM TB_DA026 D WITH(NOLOCK)
+                                 WHERE D.custcd  = A.custcd
+                                   AND D.misdate = A.misdate
+                                   AND D.misnum  = A.misnum)
+                AND NOT EXISTS (SELECT 1 FROM TB_CMSEB21 B21 WITH(NOLOCK)
+                                 WHERE B21.custcd  = A.custcd
+                                   AND B21.MISDATE = A.misdate
+                                   AND B21.MISNUM  = A.misnum
+                                   AND B21.ENDFLAG = 'Y')
+                AND NOT EXISTS (SELECT 1 FROM TB_CMSEC21 C21 WITH(NOLOCK)
+                                 WHERE C21.custcd  = A.custcd
+                                   AND C21.MISDATE = A.misdate
+                                   AND C21.MISNUM  = A.misnum
+                                   AND C21.ENDFLAG = 'Y')
                 AND (A.bemisdate + A.bemisnum IS NULL OR LEN(A.bemisdate + A.bemisnum) = 0)
                 AND (A.sangdate IS NULL OR LEN(ISNULL(A.sangdate,'')) = 0)
                 AND (A.misamt - ISNULL(A.bamt,0)   - ISNULL(A.jamt,0)  - ISNULL(A.sunamt,0)
@@ -1651,6 +1668,10 @@ public class CmsBillingService {
                 """;
 
             String prevYm = prevYyyymm(billingYm);
+            // 기간은 [전월 1일, 익월 1일) 반개구간으로 준다. LEFT(misdate,6) 처럼
+            // 컬럼에 함수를 씌우지 않아야 misdate 인덱스를 시크로 쓴다.
+            String misFrom = prevYm + "01";                     // 포함
+            String misTo   = nextYyyymm(billingYm) + "01";      // 미포함
 
             // ★ 회원은 한 번만 읽어 메모리 인덱스로 쓴다.
             //   예전에는 ERP 미수 한 건마다 cms_member 를 조회해서, 미수가 수백 건이면
@@ -1678,8 +1699,8 @@ public class CmsBillingService {
             try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, custcd);
                 ps.setString(2, custcd);
-                ps.setString(3, billingYm);
-                ps.setString(4, prevYm);
+                ps.setString(3, misFrom);
+                ps.setString(4, misTo);
 
                 try (java.sql.ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
@@ -1916,6 +1937,18 @@ public class CmsBillingService {
     private String str(Object v) { return v != null ? v.toString() : ""; }
 
     /** YYYYMM의 전월 YYYYMM 반환 (익월 청구 거래처의 전월 미수 조회용) */
+    private String nextYyyymm(String yyyymm) {
+        if (yyyymm == null || yyyymm.length() < 6) return yyyymm;
+        try {
+            int y = Integer.parseInt(yyyymm.substring(0, 4));
+            int m = Integer.parseInt(yyyymm.substring(4, 6));
+            m++; if (m == 13) { m = 1; y++; }
+            return String.format("%04d%02d", y, m);
+        } catch (NumberFormatException e) {
+            return yyyymm;
+        }
+    }
+
     private String prevYyyymm(String yyyymm) {
         if (yyyymm == null || yyyymm.length() < 6) return yyyymm;
         try {

@@ -884,7 +884,11 @@ public class CmsMemberService {
                         + " NULL AS deduct_amount_raw,"
                         + " NULLIF(LTRIM(RTRIM(C.autodate)),'') AS deduct_day,"
                         + " NULLIF(LTRIM(RTRIM(C.autoflag)),'') AS auto_flag,"
-                        + " K.stdate AS start_date, K.enddate AS end_date,"
+                        // 계약기간은 ERP(E101)를 진실로 두고 CMS는 보관하지 않는다.
+                        // 청구는 ERP 매출로 생성되므로 계약 종료 판정은 매출 유무가 대신한다.
+                        // 여기서 실제 계약일을 넣으면 갱신 입력이 늦어질 때마다 CMS가 만료로
+                        // 판정해 정상 청구를 막는다(한원빌딩 사례). 열어두고 고정한다.
+                        + " '19000101' AS start_date, '99991231' AS end_date,"
                         + " EB.BANKCLTCD AS member_no,"
                         + " EB.SPFLAG AS eb13_spflag, EB.ENDFLAG AS eb13_endflag,"
                         + " NULL AS e101_cmsflag, NULL AS cmsnumber,"
@@ -961,7 +965,8 @@ public class CmsMemberService {
                         + "     ELSE E1.amt END AS deduct_amount_raw,"
                         + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autodate)),''),NULLIF(LTRIM(RTRIM(C.autodate)),'')) AS deduct_day,"
                         + " COALESCE(NULLIF(LTRIM(RTRIM(E1.autoflag)),''),NULLIF(LTRIM(RTRIM(C.autoflag)),'')) AS auto_flag,"
-                        + " E1.stdate AS start_date, E1.enddate AS end_date,"
+                        // 계약기간 고정 — 사유는 A경로 주석 참조
+                        + " '19000101' AS start_date, '99991231' AS end_date,"
                         + " EB.BANKCLTCD AS member_no,"
                         + " EB.SPFLAG AS eb13_spflag, EB.ENDFLAG AS eb13_endflag,"
                         + " E1.cmsflag AS e101_cmsflag,"
@@ -1017,7 +1022,10 @@ public class CmsMemberService {
                         + " NULL AS deduct_amount_raw,"
                         + " NULLIF(LTRIM(RTRIM(X.autodate)),'') AS deduct_day,"
                         + " NULLIF(LTRIM(RTRIM(X.autoflag)),'') AS auto_flag,"
-                        + " NULL AS start_date, NULL AS end_date,"
+                        // C경로는 현장(E601)이 없어 E101 계약 자체가 존재하지 않는다.
+                        // 기존에는 NULL 이라 start_date 조건이 걸린 화면에서 회원이 통째로
+                        // 누락됐다(SQL 에서 NULL 비교는 UNKNOWN). A/B 와 같은 값으로 맞춘다.
+                        + " '19000101' AS start_date, '99991231' AS end_date,"
                         + " EB.BANKCLTCD AS member_no,"
                         + " EB.SPFLAG AS eb13_spflag, EB.ENDFLAG AS eb13_endflag,"
                         + " NULL AS e101_cmsflag, NULL AS cmsnumber,"
@@ -1081,6 +1089,9 @@ public class CmsMemberService {
 
                     String startDate = cleanDate(rs.getString("start_date"));
                     String endDate   = cleanDate(rs.getString("end_date"));
+                    // 쿼리에서 리터럴로 고정하므로 아래 보정은 실제로는 타지 않는다.
+                    // 수동 등록·엑셀 업로드 등 다른 경로와 값을 맞추기 위한 안전장치로 남긴다.
+                    if (startDate == null || startDate.isEmpty()) startDate = "19000101";
                     if (endDate == null || endDate.isEmpty()) endDate = "99991231";
 
                     String bnkCode     = rs.getString("bank_code");
