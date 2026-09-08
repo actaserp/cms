@@ -879,7 +879,7 @@
                     등록 여부는 EB14 결과 또는 청구 결과코드로 별도 확인하세요.
                 </div>
                 <div style="margin-top:8px; font-size:11px; color:#999; line-height:1.5;">
-                    조회 1건당 수수료가 발생합니다(약 114~240원). 조회한 계좌는 결과가 저장됩니다.
+                    조회 1건당 금융기관별 수수료(100~200원, 부가세 없음)가 발생합니다. 조회한 계좌는 결과가 저장되어 재조회 없이 확인할 수 있습니다.
                 </div>
             </div>
 
@@ -1001,6 +1001,8 @@
                     var map = {
                         '인증완료': '#d4edda|#155724',
                         '인증대기': '#cce5ff|#004085',
+                        '신청대기': '#fff3cd|#a06a00',
+                        '변경신청중': '#ffe0cc|#a04000',
                         '인증거절': '#f0d0ff|#6a0dad',
                         '인증실패': '#f8d7da|#721c24',
                         '미신청': '#f5f6fa|#888'
@@ -1332,6 +1334,8 @@
             var styles = {
                 '인증완료': {bg: '#d4edda', color: '#155724'},
                 '인증대기': {bg: '#cce5ff', color: '#004085'},
+                '신청대기': {bg: '#fff3cd', color: '#a06a00'},
+                '변경신청중': {bg: '#ffe0cc', color: '#a04000'},
                 '인증거절': {bg: '#f0d0ff', color: '#6a0dad'},
                 '미신청': {bg: '#f5f6fa', color: '#888'}
             };
@@ -1340,12 +1344,20 @@
                 .text(item.agree_status || '미신청')
                 .css({background: s.bg, color: s.color});
 
-            if (item.agree_status === '미신청' || item.agree_status === '인증거절' || item.agree_status === '인증실패') {
+            // 강제 동의 처리 — 아직 CMS 인증이 끝나지 않은 상태 전부.
+            //   인증대기(EB13 송신 후 EB14 대기)도 포함한다. 결과가 늦거나 유실될 때
+            //   담당자가 ERP 동의 확인 근거로 직접 인증완료 처리할 수단이 필요하다.
+            if (item.agree_status === '미신청' || item.agree_status === '인증거절'
+                || item.agree_status === '인증실패' || item.agree_status === '인증대기'
+                || item.agree_status === '신청대기') {
                 $('#btnManualAgree').show().data('memberId', item.id);
             } else {
                 $('#btnManualAgree').hide();
             }
-            if (item.status === 'ACTIVE') {
+            // 해지 신청 — 인증완료(은행 원장에 등록된) 회원만.
+            //   인증대기 상태로 해지(apply_type='3')를 보내면 등록되지 않은 계좌라
+            //   금결원에서 거절된다. 취소하려면 '출금이체 인증 관리'의 신청취소를 쓴다.
+            if (item.status === 'ACTIVE' && item.agree_status === '인증완료') {
                 $('#btnCancelMember').show().data('memberId', item.id);
             } else {
                 $('#btnCancelMember').hide();
@@ -1519,9 +1531,11 @@
             // 체크된 행 우선 — 없으면 그리드 선택행 1건으로 폴백
             var checked = getCheckedMembers();
             var targets = checked
-                .filter(function (m) { return m && m.id; })
+                .filter(function (m) {
+                    return m && m.id;
+                })
                 .map(function (m) {
-                    return { id: m.id, name: m.member_name || m.memberName || '' };
+                    return {id: m.id, name: m.member_name || m.memberName || ''};
                 });
 
             if (targets.length === 0) {
@@ -1530,10 +1544,12 @@
                     Alert.alert('', '삭제할 대상을 체크하거나 그리드에서 선택하세요.');
                     return;
                 }
-                targets = [{ id: item.id, name: item.member_name || '' }];
+                targets = [{id: item.id, name: item.member_name || ''}];
             }
 
-            var names = targets.slice(0, 5).map(function (t) { return t.name; }).join(', ');
+            var names = targets.slice(0, 5).map(function (t) {
+                return t.name;
+            }).join(', ');
             if (targets.length > 5) names += ' 외 ' + (targets.length - 5) + '건';
 
             var msg = '[' + names + ']\n\n'
@@ -1555,7 +1571,9 @@
                         if (fail.length === 0) {
                             Alert.alert('', ok + '건 삭제되었습니다.');
                         } else {
-                            var f = fail.slice(0, 5).map(function (x) { return x.name || x.id; }).join(', ');
+                            var f = fail.slice(0, 5).map(function (x) {
+                                return x.name || x.id;
+                            }).join(', ');
                             if (fail.length > 5) f += ' 외 ' + (fail.length - 5) + '건';
                             Alert.alert('삭제 결과',
                                 '성공 ' + ok + '건 / 실패 ' + fail.length + '건\n실패: ' + f);
@@ -1741,7 +1759,19 @@
             $('#btnManualAgree').click(function () {
                 var memberId = $(this).data('memberId');
                 if (!memberId) return;
-                Alert.confirm('', 'ERP에서 동의 확인된 납부자로 처리하시겠습니까?', function () {
+                var st = $('#agreeYnDisplay').text();
+                var warn = '';
+                if (st === '인증대기') {
+                    // EB13 을 이미 보낸 건 — 결과를 무시하고 앞질러 확정하는 셈이다.
+                    warn = '\n\n※ 금결원 결과(EB14)를 기다리는 중입니다.\n'
+                        + '   실제 등록이 거절되면 인증완료 표시와 실제 상태가 어긋납니다.';
+                } else if (st === '신청대기') {
+                    // 아직 안 보낸 건 — 신청행을 닫고 끝낸다.
+                    warn = '\n\n※ 아직 신청하지 않은 건입니다.\n'
+                        + '   금결원 신청 없이 인증완료로 처리하며,\n'
+                        + '   \'출금이체 인증 관리\'의 대기 건은 삭제됩니다.';
+                }
+                Alert.confirm('', 'ERP에서 동의 확인된 납부자로 처리하시겠습니까?' + warn, function () {
                     AjaxUtil.postAsyncData('/api/cms/member/manual-agree',
                         {member_id: memberId},
                         function (result) {
@@ -2006,7 +2036,7 @@
                                 '이미 조회한 계좌입니다.\n\n'
                                 + '  예금주 : ' + c.inquiry_holder_name + '\n'
                                 + '  조회일 : ' + (c.inquiry_at || '') + '\n\n'
-                                + '다시 조회할까요? (수수료 발생)',
+                                + '다시 조회할까요? (수수료 100~200원)',
                                 function () {
                                     callInquiry($btn, bankCode, accountNo, idNo, formHolder);
                                 },
@@ -2020,7 +2050,7 @@
                                 });
                         } else {
                             Alert.confirm('',
-                                '금결원에 계좌조회를 요청합니다. (수수료 발생)\n\n조회하시겠습니까?',
+                                '금결원에 계좌조회를 요청합니다. (수수료 100~200원, 금융기관별)\n\n조회하시겠습니까?',
                                 function () {
                                     callInquiry($btn, bankCode, accountNo, idNo, formHolder);
                                 });
@@ -2117,20 +2147,24 @@
                 }
 
                 // ACTIVE 아닌 건 미리 걸러 안내
-                var active = checked.filter(function (m) {
-                    return m.status === 'ACTIVE';
-                });
+                // 해지는 은행 원장에 등록된 건만 가능하다(agree_yn='Y').
+                var isCancelable = function (m) {
+                    return m.status === 'ACTIVE'
+                        && 'Y' === String(m.agree_yn || '').toUpperCase();
+                };
+                var active = checked.filter(isCancelable);
                 var inactive = checked.filter(function (m) {
-                    return m.status !== 'ACTIVE';
+                    return !isCancelable(m);
                 });
 
                 if (active.length === 0) {
-                    Alert.alert('', '선택한 건 중 해지 가능한(활성) 회원이 없습니다.');
+                    Alert.alert('', '선택한 건 중 해지 가능한 회원이 없습니다.\n'
+                        + '활성 상태이면서 인증완료된 회원만 해지 신청할 수 있습니다.');
                     return;
                 }
 
                 var warn = inactive.length > 0
-                    ? '<div style="color:#c0392b; font-size:12px; margin-top:8px;">※ 활성 아님 ' + inactive.length + '건은 제외됩니다.</div>'
+                    ? '<div style="color:#c0392b; font-size:12px; margin-top:8px;">※ 비활성 또는 인증 미완료 ' + inactive.length + '건은 제외됩니다.</div>'
                     : '';
 
                 ccActive = active;   // 페이징 대상 저장
@@ -2144,7 +2178,8 @@
             // 확인 모달 - 실행
             $('#btnCancelConfirmDo').click(function () {
                 var active = getCheckedMembers().filter(function (m) {
-                    return m.status === 'ACTIVE';
+                    return m.status === 'ACTIVE'
+                        && 'Y' === String(m.agree_yn || '').toUpperCase();
                 });
                 var ids = active.map(function (m) {
                     return m.id;

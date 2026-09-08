@@ -91,17 +91,25 @@ public class CmsMemberService {
                      , m.memo
                      , m._created
                      , m._modified
+                     -- 인증대기 / 신청대기 구분
+                     --   같은 status='PENDING' 이라도 EB13 을 이미 보낸 건(=금결원 결과 대기)과
+                     --   행만 만들어두고 아직 안 보낸 건(=담당자 신청 대기)은 취해야 할 조치가 다르다.
+                     --   전자는 기다리는 것, 후자는 인증 관리 화면에서 신청하는 것.
                      , CASE
                            WHEN m.agree_yn = 'Y'        THEN '인증완료'
                            WHEN r.status = 'REJECTED'   THEN '인증거절'
-                           WHEN r.status IN ('PENDING')  THEN '인증대기'
                            WHEN r.status = 'FAILED'     THEN '인증실패'
+                           WHEN r.status = 'PENDING' AND r.eb13_status = 'SENT' THEN '인증대기'
+                           -- 계좌변경 세트(해지행+신규행)는 따로 표시한다.
+                           -- 수동 동의로 끝낼 수 있는 건이 아니다. 구계좌 해지가 나가야 한다.
+                           WHEN r.status = 'PENDING' AND r.change_flag = 'Y'    THEN '변경신청중'
+                           WHEN r.status = 'PENDING'                            THEN '신청대기'
                            ELSE '미신청'
                        END AS agree_status
                 FROM cms_member m
                 LEFT JOIN cms_bank_code b ON b.bank_code = m.bank_code
                 LEFT JOIN LATERAL (
-                    SELECT status FROM cms_account_register
+                    SELECT status, eb13_status, change_flag FROM cms_account_register
                     WHERE member_id = m.id AND spjangcd = m.spjangcd
                     ORDER BY _created DESC LIMIT 1
                 ) r ON true
@@ -352,7 +360,10 @@ public class CmsMemberService {
                         pause_start_date = :pauseStartDate,
                         pause_end_date   = :pauseEndDate,
                         pause_reason     = :pauseReason,
-                        agree_yn       = :agreeYn,
+                        -- agree_yn 은 여기서 건드리지 않는다.
+                        --   인증 상태는 EB14 수신 / manualAgree / changeAccount 가 소유한다.
+                        --   폼의 hidden 값을 되돌려 쓰면, 폼을 열어둔 사이에 인증이 끝나거나
+                        --   파라미터가 누락됐을 때 인증완료 회원이 미신청으로 되돌아간다.
                         agree_method   = :agreeMethod,
                         status         = :status,
                         memo           = :memo,
@@ -2501,8 +2512,44 @@ public class CmsMemberService {
                         + (skipped.isEmpty() ? "" : " (제외 " + skipped.size() + "건)"));
     }
 
+    /**
+     * 강제(수동) 동의 처리 — ERP 등에서 동의가 확인된 납부자를 인증완료로 올린다.
+     *
+     * cms_member 만 바꾸면 cms_account_register 에 미전송 신청행이 남아,
+     * '출금이체 인증 관리'에서 그 행이 그대로 신청 대상으로 잡힌다.
+     * 이미 인증완료된 회원에게 EI13/EB13 이 나가고, 납부자번호를 재사용하므로
+     * 금결원에서 A016(이중신청)으로 거절된다. 그래서 미전송 행을 같이 닫는다.
+     *
+     *  · 아직 안 보낸 행(eb13_status != 'SENT')만 삭제한다.
+     *    금결원에 나간 적이 없는 행이라 이력으로 남길 것이 없고, cms_file_register 매핑도
+     *    전송 시점에 만들어지므로 참조가 깨지지 않는다. cancelPending 과 같은 방식이다.
+     *    (APPROVED 로 남기면 목록에 '승인완료'로 뜨고 승인 건수에 섞여 실제 승인과 구분되지 않는다.)
+     *  · 이미 보낸 행은 건드리지 않는다. EB14 수신이 그 행을 기준으로 결과를 물기 때문에
+     *    여기서 지우거나 상태를 바꾸면 수신 처리가 대상을 잃는다.
+     *  · 계좌변경 세트(change_flag='Y')는 아래에서 아예 거부한다.
+     */
     public void manualAgree(Long memberId, String userId) {
         String spjangcd = TenantContext.get();
+
+        // ★ 계좌변경 세트는 수동 동의로 끝낼 수 없다.
+        //   해지행+신규행을 함께 닫아버리면 구계좌 해지가 나가지 않은 채
+        //   회원만 인증완료가 되어, 은행 원장(구계좌 유효)과 시스템(신계좌 인증완료)이 어긋난다.
+        //   취소하려면 '출금이체 인증 관리'의 신청취소를 써야 한다(구계좌로 원복까지 처리됨).
+        Map<String, Object> chg = sqlRunner.getRow(/* skip_tenant_check */
+                """
+                SELECT COUNT(*) AS cnt FROM cms_account_register
+                WHERE member_id = :memberId AND spjangcd = :spjangcd
+                  AND status = 'PENDING' AND change_flag = 'Y'
+                """,
+                new MapSqlParameterSource()
+                        .addValue("memberId", memberId)
+                        .addValue("spjangcd", spjangcd));
+        if (chg != null && ((Number) chg.get("cnt")).longValue() > 0) {
+            throw new IllegalStateException(
+                    "계좌변경 신청이 진행 중입니다. 수동 동의 처리할 수 없습니다.\n"
+                            + "'출금이체 인증 관리'에서 신청하거나 신청취소하세요.");
+        }
+
         sqlRunner.execute(/* skip_tenant_check */
                 """
                 UPDATE cms_member SET
@@ -2517,6 +2564,27 @@ public class CmsMemberService {
                         .addValue("memberId", memberId)
                         .addValue("spjangcd", spjangcd)
                         .addValue("userId", userId));
+
+        int removed = sqlRunner.execute(/* skip_tenant_check */
+                """
+                DELETE FROM cms_account_register
+                WHERE member_id = :memberId
+                  AND spjangcd  = :spjangcd
+                  AND status    = 'PENDING'
+                  AND COALESCE(eb13_status, 'PENDING') <> 'SENT'
+                  AND COALESCE(change_flag, 'N') <> 'Y'
+                  -- 해지 신청행은 지우지 않는다. 지우면 회원이 PENDING_CANCEL 로 남은 채
+                  -- 해지 근거만 사라져 어느 화면에서도 처리할 수 없는 상태가 된다.
+                  AND COALESCE(apply_type, '1') <> '3'
+                """,
+                new MapSqlParameterSource()
+                        .addValue("memberId", memberId)
+                        .addValue("spjangcd", spjangcd));
+
+        if (removed > 0) {
+            log.info("[CmsMember] 수동 동의 처리 memberId={} 미전송 신청행 {}건 삭제 userId={}",
+                    memberId, removed, userId);
+        }
     }
 
     /**

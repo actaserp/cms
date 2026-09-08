@@ -312,13 +312,16 @@
             </div>
             <div style="padding:8px 16px; font-size:12px; color:#666; background:#faf8ff; border-bottom:1px solid #eee;">
                 파일(EB13) 전송과 달리 <b>즉시 결과가 확정</b>됩니다. 계좌변경은 해지 → 동의자료 → 계좌등록을 순서대로 자동 진행합니다.
+                <div style="margin-top:4px; color:#b7791f;">
+                    실시간 처리는 <b>건당 수수료(100~200원, 부가세 없음)</b>가 금융기관별로 부과됩니다.
+                    계좌변경은 해지·등록이 각각 부과됩니다. 급하지 않은 건은 파일 방식(인증 등록 신청)을 이용하세요.
+                </div>
             </div>
             <div style="flex:1; overflow:auto; padding:0 16px;">
                 <table style="width:100%; border-collapse:collapse; font-size:13px;">
                     <thead>
                     <tr style="background:#f7f8fa;">
-                        <th style="padding:6px; border:1px solid #eee; width:36px;">
-                            <input type="checkbox" id="rtChkAll"></th>
+                        <th style="padding:6px; border:1px solid #eee; width:44px;">처리</th>
                         <th style="padding:6px; border:1px solid #eee; width:70px;">구분</th>
                         <th style="padding:6px; border:1px solid #eee;">납부자명</th>
                         <th style="padding:6px; border:1px solid #eee; width:110px;">납부자번호</th>
@@ -885,7 +888,6 @@
             }
             $('#rtRows').html('<tr><td colspan="7" style="padding:20px; text-align:center; color:#888;">불러오는 중...</td></tr>');
             $('#rtSummary').text('');
-            $('#rtChkAll').prop('checked', false);
             $('#modalRealtime').css('display', 'flex');
 
             AjaxUtil.postAsyncData('/api/cms/account-register/realtime-targets',
@@ -933,14 +935,19 @@
                 }
 
                 // 계좌조회 — 등록될 계좌의 예금주를 미리 확인(선택 사항)
+                // 처리 여부 표시 — 선택은 목록에서 이미 끝났다. 여기서는 확인만 한다.
+                var mark = sel
+                    ? '<span style="color:#28a745; font-weight:700;">&#10003;</span>'
+                    : '<span style="color:#ccc;">&#8212;</span>';
+
                 var inqBtn = (r.job_type === 'CANCEL' || !sel) ? ''
                     : '<button type="button" class="btn-default rt-inq" data-id="' + r.id + '"'
                     + ' style="font-size:12px; padding:2px 8px;">예금주 조회</button>'
                     + '<div class="rt-inq-result" data-id="' + r.id + '" style="font-size:12px; margin-top:3px;"></div>';
 
-                html += '<tr>'
+                html += '<tr' + (sel ? '' : ' style="background:#fafafa;"') + '>'
                     + '<td style="padding:6px; border:1px solid #eee; text-align:center;">'
-                    +   (sel ? '<input type="checkbox" class="rt-chk" value="' + r.id + '" checked>' : '')
+                    +   mark
                     + '</td>'
                     + '<td style="padding:6px; border:1px solid #eee; text-align:center;">' + badge + '</td>'
                     + '<td style="padding:6px; border:1px solid #eee;">' + escHtml(r.member_name || '') + '</td>'
@@ -951,8 +958,14 @@
                     + '</tr>';
             });
             $('#rtRows').html(html);
-            $('#rtSummary').text('총 ' + rtTargets.length + '건 중 처리 가능 ' + okCnt + '건');
-            $('#btnRtConfirm').prop('disabled', okCnt === 0);
+            var skipCnt = rtTargets.length - okCnt;
+            $('#rtSummary').html('총 ' + rtTargets.length + '건 중 <b>' + okCnt + '건</b> 처리'
+                + (skipCnt > 0
+                    ? ' <span style="color:#c0392b;">· ' + skipCnt + '건 제외 (사유는 진행 단계 참고)</span>'
+                    : ''));
+            // 처리 가능 건이 없어도 버튼을 죽이지 않는다.
+            // disabled 로 두면 눌러도 아무 일이 없어 원인을 알 수 없다.
+            $('#btnRtConfirm').prop('disabled', false);
         }
 
         // 예금주 조회 — 등록 전에 계좌가 유효한지 담당자가 직접 확인.
@@ -974,11 +987,11 @@
                             '이미 조회한 계좌입니다.\n\n'
                             + '  예금주 : ' + c.inquiry_holder_name + '\n'
                             + '  조회일 : ' + (c.inquiry_at || '') + '\n\n'
-                            + '다시 조회할까요? (수수료 발생)',
+                            + '다시 조회할까요? (수수료 100~200원)',
                             function () { callRtInquiry(id, r, acct); });
                     } else {
                         Alert.confirm('',
-                            '금결원에 예금주 조회를 요청합니다. (수수료 발생)\n\n조회하시겠습니까?',
+                            '금결원에 예금주 조회를 요청합니다. (수수료 100~200원, 금융기관별)\n\n조회하시겠습니까?',
                             function () { callRtInquiry(id, r, acct); });
                     }
                 });
@@ -1017,25 +1030,31 @@
         }
 
         function confirmRealtime() {
-            var ids = $('.rt-chk:checked').map(function () { return $(this).val(); }).get();
-            if (!ids.length) {
-                Alert.alert('', '처리할 건을 선택하세요.');
+            // 대상 선택은 목록 화면에서 끝났다. 이 모달은 확인용이므로
+            // 서버가 처리 가능하다고 판정한 건(selectable)만 그대로 보낸다.
+            var picked = rtTargets.filter(function (r) { return r.selectable; });
+            if (!picked.length) {
+                var reasons = rtTargets.map(function (r) {
+                    return '· ' + (r.member_name || '') + ' : ' + (r.block_reason || '처리 불가');
+                }).join('\n');
+                Alert.alert('처리할 수 있는 건이 없습니다', reasons || '대상이 없습니다.');
                 return;
             }
-            var picked = rtTargets.filter(function (r) { return ids.indexOf(String(r.id)) >= 0; });
+            var ids = picked.map(function (r) { return String(r.id); });
 
             var msg = '선택한 ' + picked.length + '건을 실시간으로 처리합니다.\n\n';
             picked.forEach(function (r) {
                 msg += '· ' + r.member_name + ' [' + r.job_type_nm + '] '
                     + (r.steps || []).join(' → ') + '\n';
             });
-            msg += '\n즉시 은행 원장에 반영되며 되돌릴 수 없습니다. 계속하시겠습니까?';
+            msg += '\n건당 수수료(100~200원, 금융기관별)가 부과됩니다.\n'
+                + '즉시 은행 원장에 반영되며 되돌릴 수 없습니다. 계속하시겠습니까?';
 
             Alert.confirm('', msg, function () {
                 $('#btnRtConfirm').prop('disabled', true).text('처리 중...');
                 AjaxUtil.postAsyncData('/api/cms/account-register/realtime-process',
                     {ids: ids.join(',')}, function (result) {
-                        $('#btnRtConfirm').prop('disabled', false).text('선택 건 실시간 처리');
+                        $('#btnRtConfirm').prop('disabled', false).text('등록하기');
                         var d = result.data || {};
                         var txt = '성공 ' + (d.sent || 0) + '건, 실패 ' + (d.failed || 0) + '건';
                         if (d.message) txt += '\n\n' + d.message;
@@ -1311,9 +1330,6 @@
             $(document).on('mouseleave', '.more-item', function () { $(this).css('background', '#fff'); });
             $('#btnRtCancel').click(function () { $('#modalRealtime').hide(); });
             $('#btnRtConfirm').click(confirmRealtime);
-            $(document).on('change', '#rtChkAll', function () {
-                $('.rt-chk').prop('checked', $(this).prop('checked'));
-            });
             $('#btnCancelPending').click(cancelPending);
             $('#btnReceiveEb14').click(receiveEb14);
             $('#btnCreateFromErp').click(createFromErp);

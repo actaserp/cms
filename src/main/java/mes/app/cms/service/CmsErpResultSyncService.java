@@ -73,7 +73,12 @@ public class CmsErpResultSyncService {
         try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
         catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
 
-        // 같은 납부자·같은 출금일 건이 이미 있는지 (bnkcode 가 아니라 실제 거래 기준으로 판단)
+        // 같은 납부자·같은 출금일로 '몇 건'이 이미 들어가 있는지.
+        //   존재 여부(0/1)가 아니라 건수를 세는 이유:
+        //   비정기(IRREGULAR) 납부자는 같은 날 2건 이상을 정당하게 청구한다.
+        //   0/1 로 판단하면 첫 건 INSERT 직후(autocommit) 두 번째 건이
+        //   자기 자신에 걸려 '이미 존재'로 조용히 스킵된다.
+        //   (2026-07~09 스마일주택관리·삼송CN 등 매달 2~3건 ERP 누락)
         String existSql = "SELECT COUNT(*) FROM TB_BANK_CMSSAVE WITH(NOLOCK) "
                 + "WHERE custcd = ? AND spjangcd = ? AND tran_date = ? AND cmsnum = ?";
 
@@ -111,6 +116,12 @@ public class CmsErpResultSyncService {
                 }
             }
 
+            // 납부자별 기존 건수 캐시 — INSERT 시작 전 값으로 고정한다.
+            //   루프 중 다시 조회하면 방금 넣은 건이 포함돼 같은 문제가 재현된다.
+            Map<String, Integer> existingCnt = new java.util.HashMap<>();
+            // 이번 회차에서 그 납부자를 몇 번째 처리 중인지
+            Map<String, Integer> doneCnt = new java.util.HashMap<>();
+
             for (SyncItem item : items) {
                 // TB_BANK_CMSSAVE.cltcd 는 ERP 원장(TB_XCLIENT.cltcd) 기준이지만 필수는 아니다.
                 // ERP에서 적요(print_content)로 거래처를 식별하므로, 비어 있어도 INSERT 한다.
@@ -128,20 +139,34 @@ public class CmsErpResultSyncService {
 
                 String bnkcode = null;
                 try {
-                    // 1) 이미 있으면 스킵 (멱등) — 같은 출금일·같은 납부자 기준
-                    try (java.sql.PreparedStatement chk = conn.prepareStatement(existSql)) {
-                        chk.setString(1, custcd);
-                        chk.setString(2, msSpjangcd);
-                        chk.setString(3, tranDate);
-                        chk.setString(4, item.getMemberNo());
-                        try (java.sql.ResultSet rs = chk.executeQuery()) {
-                            if (rs.next() && rs.getInt(1) > 0) {
-                                skipped++;
-                                log.info("[CmsErpSync] 이미 존재 스킵 tranDate={} memberNo={}",
-                                        tranDate, item.getMemberNo());
-                                continue;
+                    String memberNo = item.getMemberNo();
+
+                    // 1) 멱등 판정 — '있으면 스킵'이 아니라 '기존 건수만큼만 스킵'.
+                    //    기존 2건 + 이번 2건 → 둘 다 스킵 (재실행 안전)
+                    //    기존 0건 + 이번 2건 → 둘 다 INSERT
+                    //    기존 1건 + 이번 2건 → 1건만 INSERT (중단분 이어받기)
+                    Integer already = existingCnt.get(memberNo);
+                    if (already == null) {
+                        already = 0;
+                        try (java.sql.PreparedStatement chk = conn.prepareStatement(existSql)) {
+                            chk.setString(1, custcd);
+                            chk.setString(2, msSpjangcd);
+                            chk.setString(3, tranDate);
+                            chk.setString(4, memberNo);
+                            try (java.sql.ResultSet rs = chk.executeQuery()) {
+                                if (rs.next()) already = rs.getInt(1);
                             }
                         }
+                        existingCnt.put(memberNo, already);
+                    }
+                    int idx = doneCnt.getOrDefault(memberNo, 0);
+                    doneCnt.put(memberNo, idx + 1);
+
+                    if (already > idx) {
+                        skipped++;
+                        log.info("[CmsErpSync] 이미 존재 스킵 tranDate={} memberNo={} ({}번째/기존 {}건)",
+                                tranDate, memberNo, idx + 1, already);
+                        continue;
                     }
 
                     // bnkcode = YYMMDD + 그날 일련번호(4자리)  (예: 2607010001)
@@ -152,7 +177,7 @@ public class CmsErpResultSyncService {
                         ps.setString(1, custcd);
                         ps.setString(2, msSpjangcd);
                         ps.setString(3, bnkcode);
-                        ps.setString(4, item.getMemberNo());
+                        ps.setString(4, memberNo);
                         ps.setString(5, tranDate + item.getMemberNo());
                         ps.setString(6, tranDate);
                         ps.setString(7, item.getMemberName());
@@ -162,7 +187,7 @@ public class CmsErpResultSyncService {
                         ps.execute();
                     }
                     inserted++;
-                    log.info("[CmsErpSync] INSERT 완료 bnkcode={} memberNo={}", bnkcode, item.getMemberNo());
+                    log.info("[CmsErpSync] INSERT 완료 bnkcode={} memberNo={}", bnkcode, memberNo);
 
                 } catch (Exception e) {
                     failed++;
