@@ -8,6 +8,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import lombok.extern.slf4j.Slf4j;
 import mes.app.notification.NotificationService;
 import mes.app.system.service.UserService;
 import mes.domain.entity.Notification;
@@ -27,11 +28,12 @@ import mes.domain.repository.SystemOptionRepository;
 
 
 @Controller
+@Slf4j
 public class HomeController {
-	
+
 	@Autowired
 	SystemOptionRepository systemOptionRepository;
-	
+
 	@Autowired
 	Settings settings;
 
@@ -42,7 +44,7 @@ public class HomeController {
 	NotificationService notificationService;
 
 	@RequestMapping(value= "/", method=RequestMethod.GET)
-    public ModelAndView pageIndex(HttpServletRequest request, HttpSession session, HttpServletResponse response) {
+	public ModelAndView pageIndex(HttpServletRequest request, HttpSession session, HttpServletResponse response) {
 
 		// User-Agent 확인
 		String userAgent = request.getHeader("User-Agent").toLowerCase();
@@ -61,30 +63,59 @@ public class HomeController {
 //			}
 //		}
 
-        SecurityContext sc = SecurityContextHolder.getContext();
-        Authentication auth = sc.getAuthentication();         
-        User user = (User)auth.getPrincipal();
-        String username = user.getUserProfile().getName();
+		SecurityContext sc = SecurityContextHolder.getContext();
+		Authentication auth = sc.getAuthentication();
+		User user = (User)auth.getPrincipal();
+		String username = user.getUserProfile().getName();
 		String userid = user.getUsername();
 		Integer groupid = user.getUserProfile().getUserGroup().getId();
 		String groupname = user.getUserProfile().getUserGroup().getName();
 		String groupCode = user.getUserProfile().getUserGroup().getCode();
 		String spjangcd = user.getSpjangcd();
-                
-        SystemOption sysOpt= this.systemOptionRepository.getByCode("LOGO_TITLE");
-        String logoTitle = sysOpt.getValue();
-        
-        //q = this.systemOptionRepository.getByCode("main_menu");        
+
+		SystemOption sysOpt= this.systemOptionRepository.getByCode("LOGO_TITLE");
+		String logoTitle = sysOpt.getValue();
+
+		//q = this.systemOptionRepository.getByCode("main_menu");
+
+		// ────────────────────────────────────────────────────────
+		// 사업장 결정
+		//
+		// 일반 사용자: 기존과 동일하게 본인 사업장으로 강제 고정한다.
+		//   세션에 다른 값이 들어있어도 무조건 덮어쓴다(오염 자동복구).
+		// 슈퍼유저: 전환된 사업장이 있으면 유지, 없으면 본인 사업장.
+		// ────────────────────────────────────────────────────────
+		boolean isSuperUser = Boolean.TRUE.equals(user.getSuperUser());
+		String ownSpjangcd = spjangcd;                     // 계정에 묶인 원래 사업장
+		String sessionSpjangcd = (String) session.getAttribute("spjangcd");
+
+		if (isSuperUser) {
+			if (sessionSpjangcd != null && !sessionSpjangcd.isBlank()) {
+				spjangcd = sessionSpjangcd;
+			}
+		} else {
+			if (sessionSpjangcd != null && !sessionSpjangcd.equals(ownSpjangcd)) {
+				// 정상 경로로는 발생할 수 없다. 발생하면 즉시 복구하고 표면화한다.
+				log.error("[테넌트 이상] 일반사용자 세션 불일치 - user={} session={} own={} → 강제복구",
+						userid, sessionSpjangcd, ownSpjangcd);
+			}
+			spjangcd = ownSpjangcd;
+		}
 
 		List<Map<String, Object>> spjangList = null;
-		if (groupid == 1){ //관리자
+		if (isSuperUser) { // 슈퍼유저만 전체 사업장 목록
 			spjangList = userService.getSpjangList();
 		} else {
-			spjangList = userService.getSpjang(spjangcd);
+			spjangList = userService.getSpjang(ownSpjangcd);
 		}
 
 		ModelAndView mv = new ModelAndView();
 		session.setAttribute("spjangList", spjangList);
+		// 화면의 사업장 셀렉트박스 노출 / 타사업장 경고배너 판단에 사용
+		mv.addObject("is_super_user", isSuperUser);
+		mv.addObject("spjang_list", spjangList);
+		mv.addObject("own_spjangcd", ownSpjangcd);
+		mv.addObject("current_spjangcd", spjangcd);
 		mv.addObject("username", username);
 		mv.addObject("userid", userid);
 		mv.addObject("groupname", groupname);
@@ -112,38 +143,38 @@ public class HomeController {
 		mv.addObject("unreadAlarmList", unreadList);
 
 		mv.setViewName(isMobile ? "mobile/mobile_main" : "index");
-		
+
 		return mv;
 	}
 
 	@RequestMapping(value= "/intro", method=RequestMethod.GET)
-    public ModelAndView pageIntro(HttpServletRequest request, HttpSession session) {
+	public ModelAndView pageIntro(HttpServletRequest request, HttpSession session) {
 		ModelAndView mv = new ModelAndView();
 		mv.setViewName("cms-intro");
 		return mv;
 	}
-	
+
 
 	@RequestMapping(value= "/setup", method=RequestMethod.GET)
 	public ModelAndView pageSetup(Authentication auth, HttpServletResponse response) throws IOException {
-		
+
 		// 로그아웃된 상태인 경우 로그인페이지로 이동
 		if (auth == null) {
-		    response.sendRedirect("/login");
+			response.sendRedirect("/login");
 			return null;
-		} 
-		
+		}
+
 		User user = (User)auth.getPrincipal();
 		String username = user.getUserProfile().getName();
-		
+
 		ModelAndView mv = new ModelAndView();
 		mv.addObject("username", username);
 		mv.addObject("userinfo", user);
-		
+
 		mv.setViewName("/system/setup");
 		return mv;
 	}
-	
-		
-	
+
+
+
 }

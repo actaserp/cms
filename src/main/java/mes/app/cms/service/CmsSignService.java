@@ -25,8 +25,11 @@ public class CmsSignService {
     @Autowired
     private SqlRunner sqlRunner;
 
-    // AES 키 (application.properties에 설정)
-    // cms.sign.aes-key=16자리 문자열
+    // AES 키 — 16바이트 문자열.
+    //   ★ 프로퍼티 파일에 평문으로 박지 말 것(Git 에 그대로 올라간다).
+    //   server.env 의 CMS_SIGN_AES_KEY 로 관리한다.
+    //   ※ 기존 서명 데이터가 이 키로 암호화되어 있으므로 값 자체를 바꾸면 안 된다.
+    //     위치만 옵긴다(같은 값 유지).
     @Value("${cms.sign.aes-key}")
     private String aesKey;
 
@@ -38,7 +41,15 @@ public class CmsSignService {
 
     @PostConstruct
     public void init() {
-        log.info("[CmsSignService] aesKey={}, length={}", aesKey, aesKey.length());
+        // ★ 키 값은 절대 로그에 남기지 않는다.
+        //   이전에는 aesKey 원문을 그대로 찍어서 기동 로그를 본 사람은 누구든
+        //   자동이체 동의 서명 토큰을 복호화/위조할 수 있었다.
+        //   설정 누락 감지를 위해 길이만 검증하고 틀리면 기동을 중단한다.
+        if (aesKey == null || aesKey.getBytes(java.nio.charset.StandardCharsets.UTF_8).length != 16) {
+            throw new IllegalStateException(
+                    "cms.sign.aes-key 가 설정되지 않았거나 16바이트가 아닙니다.");
+        }
+        log.info("[CmsSignService] 서명 AES 키 로드 완료");
     }
 
     // 토큰 유효기간 (시간)

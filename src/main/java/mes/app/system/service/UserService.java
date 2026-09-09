@@ -14,21 +14,21 @@ import mes.domain.services.SqlRunner;
 
 @Service
 public class UserService {
-	
+
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	// 사용자 리스트 조회
 	public List<Map<String, Object>> getUserList(boolean superUser, Integer group, String keyword, String username, Integer departId, String spjangcd){
-		
+
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
-        dicParam.addValue("group", group);
-        dicParam.addValue("keyword", keyword);
-        dicParam.addValue("username", username);
-        dicParam.addValue("departId", departId);
+		dicParam.addValue("group", group);
+		dicParam.addValue("keyword", keyword);
+		dicParam.addValue("username", username);
+		dicParam.addValue("departId", departId);
 		dicParam.addValue("spjangcd", spjangcd);
-        
-        String sql = """
+
+		String sql = """
 			select au.id
 			  , au.first_name
               , up."Name"
@@ -56,40 +56,40 @@ public class UserService {
             where is_superuser = false
             AND au.spjangcd = :spjangcd
 		    """;
-        
-        if (superUser != true) {
-        	sql += "  and ug.\"Code\" <> 'dev' ";
-        }
-        
-        if (group!=null){            	
-            sql+= " and ug.\"id\" = :group ";
-        }
-        
-        if (StringUtils.isEmpty(keyword)==false) {
-        	sql += " and up.\"Name\" like concat('%%', :keyword, '%%') ";
-        }
-        
-        if (StringUtils.isEmpty(username)==false) {
-        	sql += " and au.\"username\" = :username ";
-        }
-        if (departId != null) {
-        	sql += " and up.\"Depart_id\" = :departId ";
-        }
-        
-        sql += "order by ug.\"Name\", up.\"Name\"";
-        
-        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
-        
-        return items;
+
+		if (superUser != true) {
+			sql += "  and ug.\"Code\" <> 'dev' ";
+		}
+
+		if (group!=null){
+			sql+= " and ug.\"id\" = :group ";
+		}
+
+		if (StringUtils.isEmpty(keyword)==false) {
+			sql += " and up.\"Name\" like concat('%%', :keyword, '%%') ";
+		}
+
+		if (StringUtils.isEmpty(username)==false) {
+			sql += " and au.\"username\" = :username ";
+		}
+		if (departId != null) {
+			sql += " and up.\"Depart_id\" = :departId ";
+		}
+
+		sql += "order by ug.\"Name\", up.\"Name\"";
+
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
+
+		return items;
 	}
-	
+
 	// 사용자 상세정보 조회
 	public Map<String, Object> getUserDetail(Integer id){
-		
+
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
-        dicParam.addValue("id", id);
-        
-        String sql = """
+		dicParam.addValue("id", id);
+
+		String sql = """
 			select au.id
               , up."Name"
               , au.username as login_id
@@ -110,19 +110,19 @@ public class UserService {
             left join depart d on d.id = up."Depart_id"
             where au.id = :id
 		    """;
-        
-        Map<String, Object> item = this.sqlRunner.getRow(sql, dicParam);
-        
-        return item;
+
+		Map<String, Object> item = this.sqlRunner.getRow(sql, dicParam);
+
+		return item;
 	}
-	
+
 	// 사용자 그룹 조회
 	public List<Map<String, Object>> getUserGrpList(Integer id) {
 		String tenantId = TenantContext.get();
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
-        dicParam.addValue("id", id);
+		dicParam.addValue("id", id);
 		dicParam.addValue("spjangcd", tenantId);
-        String sql = """
+		String sql = """
         		select ug.id as grp_id
 	            , ug."Name" as grp_name
 	            ,rd."Char1" as grp_check
@@ -133,21 +133,46 @@ public class UserService {
 	            where coalesce(ug."Code",'') <> 'dev'
 	            and ug.spjangcd = :spjangcd
         		""";
-        
-        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
-        return items;
+
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
+		return items;
 	}
 
+	/**
+	 * 전체 사업장 목록 — 슈퍼유저 사업장 전환용.
+	 * 의도적인 크로스테넌트 조회이므로 skip_tenant_check 로 경고를 억제한다.
+	 */
 	public List<Map<String, Object>> getSpjangList() {
 
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 
 		String sql = """
-        		select spjangcd, spjangnm, saupnum from tb_xa012;
+        		/* skip_tenant_check */
+        		select spjangcd, spjangnm, saupnum, state
+        		  from tb_xa012
+        		 order by spjangnm
         		""";
 
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
 		return items;
+	}
+
+	/**
+	 * 사업장 전환 대상이 실재하는지 확인 (슈퍼유저 전환 API 검증용).
+	 * 존재하지 않는 코드로 세션이 오염되는 것을 막는다.
+	 */
+	public boolean existsSpjang(String spjangcd) {
+		if (spjangcd == null || spjangcd.isBlank()) return false;
+
+		MapSqlParameterSource dicParam = new MapSqlParameterSource();
+		dicParam.addValue("spjangcd", spjangcd);
+
+		String sql = """
+        		/* skip_tenant_check */
+        		select spjangcd from tb_xa012 where spjangcd = :spjangcd
+        		""";
+
+		return this.sqlRunner.getRow(sql, dicParam) != null;
 	}
 
 	public List<Map<String, Object>> getSpjang(String spjangcd) {
@@ -156,7 +181,8 @@ public class UserService {
 		dicParam.addValue("spjangcd", spjangcd);
 
 		String sql = """
-        		select spjangcd, spjangnm, saupnum from tb_xa012 where spjangcd = :spjangcd;
+        		select spjangcd, spjangnm, saupnum, state
+        		  from tb_xa012 where spjangcd = :spjangcd
         		""";
 
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);

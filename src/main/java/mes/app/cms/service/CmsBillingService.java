@@ -83,10 +83,11 @@ public class CmsBillingService {
                         "       CASE WHEN EXISTS (" +
                         "           SELECT 1 FROM cms_billing rb" +
                         "           WHERE rb.spjangcd = b.spjangcd AND rb.id > b.id" +
-                        "             AND rb.status NOT IN ('CANCEL', 'FAIL', 'ERROR')" +
+                        "             AND rb.status <> 'CANCEL'" +
                         "             AND ( (b.erp_mis_key IS NOT NULL AND rb.erp_mis_key = b.erp_mis_key)" +
                         "                OR (b.erp_mis_key IS NULL AND rb.member_id = b.member_id" +
-                        "                    AND rb.memo LIKE '%불능 / 재청구%' AND rb.deduct_date > b.deduct_date) )" +
+                        "                    AND rb.memo LIKE b.deduct_date || ' 불능 / 재청구%'" +
+                        "                    AND rb.deduct_date > b.deduct_date) )" +
                         "       ) THEN 'Y' ELSE 'N' END AS recharged_yn" +
                         baseWhere + filters +
                         // 같은 출금일자끼리는 납부자명 가나다순. 한글 완성형은 유니코드 코드포인트
@@ -1116,10 +1117,11 @@ public class CmsBillingService {
                         "       CASE WHEN b.status='SUCCESS' THEN b.fee_request+b.fee_success" +
                         "            WHEN b.status='FAIL'    THEN b.fee_request ELSE 0 END AS fee_total," +
                         "       CASE WHEN EXISTS (SELECT 1 FROM cms_billing rb WHERE rb.spjangcd=b.spjangcd" +
-                        "              AND rb.id > b.id AND rb.status NOT IN ('CANCEL','FAIL','ERROR')" +
+                        "              AND rb.id > b.id AND rb.status <> 'CANCEL'" +
                         "              AND ( (b.erp_mis_key IS NOT NULL AND rb.erp_mis_key = b.erp_mis_key)" +
                         "                 OR (b.erp_mis_key IS NULL AND rb.member_id=b.member_id" +
-                        "                     AND rb.memo LIKE '%불능 / 재청구%' AND rb.deduct_date > b.deduct_date) )" +
+                        "                     AND rb.memo LIKE b.deduct_date || ' 불능 / 재청구%'" +
+                        "                     AND rb.deduct_date > b.deduct_date) )" +
                         "              ) THEN 'Y' ELSE 'N' END AS recharged_yn" +
                         baseWhere + filters + " ORDER BY b.deduct_date DESC, b.billing_seq LIMIT :pgSize OFFSET :pgOffset";
 
@@ -1372,10 +1374,11 @@ public class CmsBillingService {
                         "       b.bank_code, bc.bank_name, b.bank_account, b.billing_amount, b.deduct_date," +
                         "       b.status, b.result_code, b.result_msg, b.result_date," +
                         "       CASE WHEN EXISTS (SELECT 1 FROM cms_billing rb WHERE rb.spjangcd=b.spjangcd" +
-                        "              AND rb.id > b.id AND rb.status NOT IN ('CANCEL','FAIL','ERROR')" +
+                        "              AND rb.id > b.id AND rb.status <> 'CANCEL'" +
                         "              AND ( (b.erp_mis_key IS NOT NULL AND rb.erp_mis_key = b.erp_mis_key)" +
                         "                 OR (b.erp_mis_key IS NULL AND rb.member_id=b.member_id" +
-                        "                     AND rb.memo LIKE '%불능 / 재청구%' AND rb.deduct_date > b.deduct_date) )" +
+                        "                     AND rb.memo LIKE b.deduct_date || ' 불능 / 재청구%'" +
+                        "                     AND rb.deduct_date > b.deduct_date) )" +
                         "              ) THEN 'Y' ELSE 'N' END AS recharged_yn," +
                         "       CASE WHEN b.status='SUCCESS' THEN b.fee_request+b.fee_success" +
                         "            WHEN b.status='FAIL'    THEN b.fee_request ELSE 0 END AS fee_total" +
@@ -1441,10 +1444,11 @@ public class CmsBillingService {
                   SELECT 1 FROM cms_billing rb
                   WHERE rb.spjangcd = b.spjangcd
                     AND rb.id > b.id
-                    AND rb.status NOT IN ('CANCEL', 'FAIL', 'ERROR')
+                    AND rb.status <> 'CANCEL'
                     AND ( (b.erp_mis_key IS NOT NULL AND rb.erp_mis_key = b.erp_mis_key)
                        OR (b.erp_mis_key IS NULL AND rb.member_id = b.member_id
-                           AND rb.memo LIKE '%불능 / 재청구%' AND rb.deduct_date > b.deduct_date) )
+                           AND rb.memo LIKE b.deduct_date || ' 불능 / 재청구%'
+                           AND rb.deduct_date > b.deduct_date) )
               ) THEN 'Y' ELSE 'N' END AS recharged_yn,
               CASE
                  WHEN b.status = 'SUCCESS' THEN b.fee_request + b.fee_success
@@ -1472,15 +1476,25 @@ public class CmsBillingService {
         }
 
         if (rechargeFilter) {
+            // 재청구 목록은 "재청구 체인의 마지막 건" 하나만 보여준다.
+            //
+            // 이전에는 후속 건 조건이 status NOT IN ('CANCEL','FAIL','ERROR') 였다.
+            // 그래서 재청구가 또 불능나면(FAIL) 후속 건으로 인정되지 않아 원본이 목록에
+            // 되살아났고, 같은 건이 원본 + 재청구 두 줄로 중복 노출됐다.
+            //   예) 9/5 청구 FAIL → 9/7 재청구 FAIL → 9/9 목록에 9/5, 9/7 둘 다 표시
+            //
+            // 재청구 행이 만들어졌다는 사실 자체로 원본을 제외해야 하므로 FAIL/ERROR를 뺐다.
+            // CANCEL만 남긴 이유: 재청구를 만들었다가 취소했다면 원본이 다시 떠야 한다.
             sql += """
                   AND NOT EXISTS (
                       SELECT 1 FROM cms_billing rb
                       WHERE rb.spjangcd  = b.spjangcd
                         AND rb.id > b.id
-                        AND rb.status NOT IN ('CANCEL', 'FAIL', 'ERROR')
+                        AND rb.status <> 'CANCEL'
                         AND ( (b.erp_mis_key IS NOT NULL AND rb.erp_mis_key = b.erp_mis_key)
                            OR (b.erp_mis_key IS NULL AND rb.member_id = b.member_id
-                               AND rb.memo LIKE '%불능 / 재청구%' AND rb.deduct_date > b.deduct_date) )
+                               AND rb.memo LIKE b.deduct_date || ' 불능 / 재청구%'
+                               AND rb.deduct_date > b.deduct_date) )
                   )
                 """;
         }
