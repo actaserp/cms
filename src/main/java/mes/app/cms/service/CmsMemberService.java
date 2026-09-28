@@ -393,6 +393,10 @@ public class CmsMemberService {
                   AND spjangcd  = :spjangcd
                   AND COALESCE(status,'') NOT IN ('APPROVED', 'CANCELLED')
                   AND NOT (eb13_status = 'SENT' AND eb14_received_at IS NULL)
+                  -- ★ 해지행('3')은 절대 갱신하지 않는다.
+                  --   해지는 금결원 원장에 등록된 기존 납부자번호·구계좌와 대조되므로,
+                  --   회원 정보(새 번호·새 계좌)로 덮으면 0017(원장에 없음)로 영구 불능이 된다.
+                  AND apply_type <> '3'
                 """, param);
 
             return id;
