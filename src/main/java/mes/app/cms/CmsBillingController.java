@@ -53,6 +53,7 @@ public class CmsBillingController {
             @RequestParam(value = "billing_ym"                       ) String billingYm,
             @RequestParam(value = "send_date_from", required = false) String sendDateFrom,
             @RequestParam(value = "send_date_to",   required = false) String sendDateTo,
+            @RequestParam(value = "date_type",      required = false) String dateType,
             @RequestParam(value = "member_name",    required = false) String memberName,
             @RequestParam(value = "status",         required = false) String status,
             @RequestParam(value = "deduct_type",    required = false) String deductType,
@@ -61,7 +62,7 @@ public class CmsBillingController {
             HttpServletRequest request) {
 
         AjaxResult result = new AjaxResult();
-        result.data = cmsBillingService.getBillingList(billingYm, sendDateFrom, sendDateTo, memberName, status, deductType, page, size);
+        result.data = cmsBillingService.getBillingList(billingYm, sendDateFrom, sendDateTo, dateType, memberName, status, deductType, page, size);
         return result;
     }
 
@@ -602,12 +603,13 @@ public class CmsBillingController {
             @RequestParam(value = "billing_ym",     required = false) String billingYm,
             @RequestParam(value = "send_date_from", required = false) String sendDateFrom,
             @RequestParam(value = "send_date_to",   required = false) String sendDateTo,
+            @RequestParam(value = "date_type",      required = false) String dateType,
             @RequestParam(value = "member_name",    required = false) String memberName,
             @RequestParam(value = "status",         required = false) String status,
             @RequestParam(value = "deduct_type",    required = false) String deductType) {
         AjaxResult result = new AjaxResult();
         result.data = cmsBillingService.getBillingIds(
-                billingYm, sendDateFrom, sendDateTo, memberName, status, deductType);
+                billingYm, sendDateFrom, sendDateTo, dateType, memberName, status, deductType);
         return result;
     }
 

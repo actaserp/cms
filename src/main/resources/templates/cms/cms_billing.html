@@ -55,7 +55,16 @@
                              현재월을 담는 hidden으로 유지한다(init에서 세팅). -->
                         <input type="hidden" id="srchBillingYm">
                         <dl>
-                            <dt><label>출금신청일</label></dt>
+                            <dt><label>기준</label></dt>
+                            <dd>
+                                <select class="form-control2" id="srchDateType" style="width:120px;">
+                                    <option value="SEND" selected>출금신청일</option>
+                                    <option value="DEDUCT">출금일</option>
+                                </select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><label>날짜</label></dt>
                             <dd>
                                 <div class="srch-box" style="display:flex; align-items:center; gap:4px;">
                                     <input type="date" class="form-control2" id="srchSendDateFrom" style="width:130px;">
@@ -94,7 +103,7 @@
                             <button type="button" class="btn-default" id="btnErpImport"
                                     style="background:#e67e22; color:#fff; width: 120px;display: none;">ERP 청구생성</button>
                             <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>
-                            <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>
+<!--                            <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>-->
                             <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;">재청구</button>
                             <button type="button" class="btn-default" id="btnSendNow"
                                     style="background:#27ae60; color:#fff;">즉시전송</button>
@@ -315,7 +324,6 @@
                     <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">출금일</th>
                     <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">건수</th>
                     <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">금액</th>
-                    <th style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">신청일</th>
                 </tr>
                 </thead>
                 <tbody id="sendNowRows"></tbody>
@@ -696,11 +704,10 @@
             },
         ];
 
-        // 엑셀 전용 컬럼 — 사업자번호·주민번호는 화면에 상시 노출하지 않고
+        // 엑셀 전용 컬럼 — 사업자번호(없으면 주민번호)는 화면에 상시 노출하지 않고
         // 다운로드 파일에만 포함한다(개인정보 노출 최소화).
         var EXPORT_EXTRA_COLUMNS = [
-            {binding: 'biz_no', header: '사업자번호', width: 130, align: 'center'},
-            {binding: 'resident_no', header: '주민번호', width: 140, align: 'center'}
+            {binding: 'biz_no', header: '사업자번호', width: 130, align: 'center'}  // 없으면 주민번호로 채움
         ];
 
         function buildExportColumns() {
@@ -789,6 +796,12 @@
         // 검색 파라미터는 searchList와 동일한 buildSearchParams를 재사용한다(조건 추가시 자동 반영).
         var EXPORT_SIZE = 1000000;
 
+        /** 번호 값 정리: 앞뒤 공백과 앞에 붙은 ' 제거, 남는 게 없으면 빈 값 */
+        function cleanExportNo(v) {
+            if (v === null || v === undefined) return '';
+            return String(v).trim().replace(/^'+/, '').trim();
+        }
+
         function exportExcel() {
             var ymVal = $('#srchBillingYm').val() || '';
             var params = buildSearchParams(0, EXPORT_SIZE);
@@ -810,6 +823,13 @@
                         Alert.alert('', '다운로드할 데이터가 없습니다.');
                         return;
                     }
+                    // 사업자번호가 없으면 주민번호로 채운다.
+                    // 원본에 남아 있는 엑셀 텍스트 표시용 ' 는 값으로 보지 않는다(' 만 있으면 빈 값).
+                    rows = rows.map(function (r) {
+                        var biz = cleanExportNo(r.biz_no);
+                        var res = cleanExportNo(r.resident_no);
+                        return $.extend({}, r, {biz_no: biz || res});
+                    });
                     var host = document.createElement('div');
                     host.style.position = 'absolute';
                     host.style.left = '-99999px';
@@ -1354,6 +1374,10 @@
 
             checkAndSetBusinessDay(val, function (adjustedDate) {
                 $('#deduct_date').val(adjustedDate);
+                // 신규 등록이면 청구년월 = 출금일의 년월 (9월에 10/1 출금건을 만들면 202610)
+                if (!$('#id').val()) {
+                    $('#billing_ym_input').val(adjustedDate.substring(0, 7));
+                }
                 var compact = adjustedDate.replace(/-/g, '');
                 // 기존 send_date 계산 로직
                 $.ajax({
@@ -1462,6 +1486,7 @@
                 billing_ym: ymVal.replace('-', ''),
                 send_date_from: ($('#srchSendDateFrom').val() || '').replace(/-/g, ''),
                 send_date_to: ($('#srchSendDateTo').val() || '').replace(/-/g, ''),
+                date_type: $('#srchDateType').val() || 'SEND',
                 member_name: $('#srchMemberName').val(),
                 status: $('#srchStatus').val(),
                 page: page,
@@ -2015,18 +2040,13 @@
             rows.forEach(function (row) {
                 var deductDate = String(row.deduct_date);
                 var sendDate = String(row.send_date || '');
+                // 화면은 출금일 기준. 오늘 신청분이 포함된 출금일만 기본 체크
                 var isToday = sendDate === todayCompact;
                 var checked = isToday ? ' checked' : '';
                 var highlight = isToday ? 'background:#f0f7ff;' : '';
                 var deductFmt = deductDate.length === 8
                     ? deductDate.substring(0, 4) + '-' + deductDate.substring(4, 6) + '-' + deductDate.substring(6, 8)
                     : deductDate;
-                var sendFmt = sendDate.length === 8
-                    ? sendDate.substring(0, 4) + '-' + sendDate.substring(4, 6) + '-' + sendDate.substring(6, 8)
-                    : sendDate;
-                var todayBadge = isToday
-                    ? '<span style="margin-left:4px; font-size:10px; background:#4a6cf7; color:#fff; padding:1px 5px; border-radius:8px;">오늘</span>'
-                    : '';
                 html += '<tr style="' + highlight + '">'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">'
                     + '<input type="checkbox" class="sendnow-check"' + checked + ' data-deduct-date="' + deductDate + '">'
@@ -2034,7 +2054,6 @@
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + deductFmt + '</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + Number(row.count).toLocaleString() + '건</td>'
                     + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:right;">' + Number(row.total_amount).toLocaleString() + '원</td>'
-                    + '<td style="padding:7px 8px; border:1px solid #dde0ea; text-align:center;">' + sendFmt + todayBadge + '</td>'
                     + '</tr>';
             });
             $('#sendNowRows').html(html);
@@ -2043,7 +2062,8 @@
         function doSendNow() {
             var deductDates = [];
             $('.sendnow-check:checked').each(function () {
-                deductDates.push($(this).data('deduct-date'));
+                var d = String($(this).data('deduct-date'));
+                if (deductDates.indexOf(d) < 0) deductDates.push(d);  // 같은 출금일 중복 전송 방지
             });
             if (deductDates.length === 0) {
                 Alert.alert('', '전송할 출금일을 선택하세요.');

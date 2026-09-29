@@ -32,6 +32,14 @@ public class CmsBillingService {
     public Map<String, Object> getBillingList(String billingYm, String sendDateFrom, String sendDateTo,
                                               String memberName, String status, String deductType,
                                               int page, int size) {
+        return getBillingList(billingYm, sendDateFrom, sendDateTo, null, memberName, status, deductType, page, size);
+    }
+
+    /** dateType: SEND(출금신청일, 기본) / DEDUCT(출금일) — 기간 검색 기준 컬럼 */
+    public Map<String, Object> getBillingList(String billingYm, String sendDateFrom, String sendDateTo, String dateType,
+                                              String memberName, String status, String deductType,
+                                              int page, int size) {
+        String dateCol = dateColumn(dateType);
         String spjangcd = TenantContext.get();
         var param = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
@@ -46,14 +54,14 @@ public class CmsBillingService {
 
         String filters = "";
         if (StringUtils.hasText(sendDateFrom) && StringUtils.hasText(sendDateTo)) {
-            filters += " AND b.send_date BETWEEN :sendDateFrom AND :sendDateTo";
+            filters += " AND b." + dateCol + " BETWEEN :sendDateFrom AND :sendDateTo";
             param.addValue("sendDateFrom", sendDateFrom);
             param.addValue("sendDateTo",   sendDateTo);
         } else if (StringUtils.hasText(sendDateFrom)) {
-            filters += " AND b.send_date >= :sendDateFrom";
+            filters += " AND b." + dateCol + " >= :sendDateFrom";
             param.addValue("sendDateFrom", sendDateFrom);
         } else if (StringUtils.hasText(sendDateTo)) {
-            filters += " AND b.send_date <= :sendDateTo";
+            filters += " AND b." + dateCol + " <= :sendDateTo";
             param.addValue("sendDateTo", sendDateTo);
         }
         if (StringUtils.hasText(memberName)) {
@@ -117,8 +125,19 @@ public class CmsBillingService {
      * 조건에 맞는 대상 전체를 잡으려면 서버에서 id 를 받아와야 한다.
      * 액션(재전송·출금일 변경·통장기재)은 PENDING 만 대상이라 여기서도 같은 기준으로 거른다.
      */
+    /** 목록 기간검색 기준 컬럼. 값은 고정 문자열만 반환(SQL 주입 방지) */
+    private static String dateColumn(String dateType) {
+        return "DEDUCT".equalsIgnoreCase(dateType) ? "deduct_date" : "send_date";
+    }
+
     public List<Long> getBillingIds(String billingYm, String sendDateFrom, String sendDateTo,
                                     String memberName, String status, String deductType) {
+        return getBillingIds(billingYm, sendDateFrom, sendDateTo, null, memberName, status, deductType);
+    }
+
+    public List<Long> getBillingIds(String billingYm, String sendDateFrom, String sendDateTo, String dateType,
+                                    String memberName, String status, String deductType) {
+        String dateCol = dateColumn(dateType);
         String spjangcd = TenantContext.get();
         var param = new MapSqlParameterSource();
         param.addValue("spjangcd", spjangcd);
@@ -129,14 +148,14 @@ public class CmsBillingService {
                 + " AND b.status = 'PENDING'";
 
         if (StringUtils.hasText(sendDateFrom) && StringUtils.hasText(sendDateTo)) {
-            sql += " AND b.send_date BETWEEN :sendDateFrom AND :sendDateTo";
+            sql += " AND b." + dateCol + " BETWEEN :sendDateFrom AND :sendDateTo";
             param.addValue("sendDateFrom", sendDateFrom);
             param.addValue("sendDateTo",   sendDateTo);
         } else if (StringUtils.hasText(sendDateFrom)) {
-            sql += " AND b.send_date >= :sendDateFrom";
+            sql += " AND b." + dateCol + " >= :sendDateFrom";
             param.addValue("sendDateFrom", sendDateFrom);
         } else if (StringUtils.hasText(sendDateTo)) {
-            sql += " AND b.send_date <= :sendDateTo";
+            sql += " AND b." + dateCol + " <= :sendDateTo";
             param.addValue("sendDateTo", sendDateTo);
         }
         if (StringUtils.hasText(memberName)) {
@@ -1535,20 +1554,21 @@ public class CmsBillingService {
         var param = new MapSqlParameterSource();
         param.addValue("spjangcd",   spjangcd);
         param.addValue("billingYm",  billingYm);
+        param.addValue("today",      todayStr);
         param.addValue("deductType", deductType != null ? deductType : "EB");
 
         return sqlRunner.getRows("""
         SELECT b.deduct_date,
-               b.send_date,
+               MAX(b.send_date)            AS send_date,
                COUNT(*)                    AS count,
                COALESCE(SUM(b.billing_amount), 0) AS total_amount
         FROM cms_billing b
         WHERE b.spjangcd    = :spjangcd
-          AND LEFT(b.deduct_date, 6) = :billingYm
+          AND b.deduct_date >= :today  -- 월 구분 없이 오늘 이후 출금건 전체 (월말 재청구가 다음달 출금이어도 표시)
           AND b.deduct_type = :deductType
           AND b.status      = 'PENDING'
           AND b.send_date  IS NOT NULL
-        GROUP BY b.deduct_date, b.send_date
+        GROUP BY b.deduct_date  -- 출금일 기준 (파일도 출금일 단위로 생성됨)
         ORDER BY b.deduct_date
         """, param);
     }

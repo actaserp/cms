@@ -45,6 +45,10 @@ public class CmsEb21SendService {
     private final NcpObjectStorageService storageService;
     private final CmsBillingService cmsBillingService;
 
+    /** 같은 사업장·같은 출금일 동시 전송 방지 (서버 1대 기준, 메모리 잠금) */
+    private final java.util.Set<String> runningKeys =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     @Value("${cms.sftp-host}")
     private String sftpHost;
 
@@ -95,7 +99,39 @@ public class CmsEb21SendService {
         return result;
     }
 
+    /**
+     * 중복 전송 가드.
+     *  - 같은 spjangcd + 출금일 전송이 진행 중이면 거부
+     *  - 같은 출금일 EB21 파일이 이미 SENT 상태면 거부 (추가 건은 기존 파일 취소 후 재전송)
+     */
     private long generateAndSend(String spjangcd, String targetDate) throws Exception {
+        String key = spjangcd + ":" + targetDate;
+        if (!runningKeys.add(key)) {
+            throw new IllegalStateException("이미 전송 진행 중입니다 (" + targetDate + ")");
+        }
+        try {
+            Map<String, Object> sentFile = sqlRunner.getRow(/* skip_tenant_check */
+                    """
+                    SELECT id FROM cms_file
+                    WHERE spjangcd    = :s
+                      AND file_type   = 'EB21'
+                      AND target_date = CAST(:td AS DATE)
+                      AND send_status = 'SENT'
+                    LIMIT 1
+                    """,
+                    new MapSqlParameterSource("s", spjangcd).addValue("td", targetDate));
+            if (sentFile != null) {
+                throw new IllegalStateException(
+                        "이미 전송된 파일이 있습니다 (file_id=" + sentFile.get("id")
+                                + "). 추가 건이 있으면 기존 파일을 취소한 뒤 다시 전송하세요.");
+            }
+            return doGenerateAndSend(spjangcd, targetDate);
+        } finally {
+            runningKeys.remove(key);
+        }
+    }
+
+    private long doGenerateAndSend(String spjangcd, String targetDate) throws Exception {
         // institutionCode 조회
         Map<String, Object> xa012Row = sqlRunner.getRow(/* skip_tenant_check */
                 "SELECT cms_code FROM tb_xa012_cms WHERE spjangcd=:s",
