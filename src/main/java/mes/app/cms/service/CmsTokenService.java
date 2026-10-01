@@ -26,6 +26,18 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CmsTokenService {
 
     private final Map<String, String>  tokenCache     = new ConcurrentHashMap<>();
+
+    /**
+     * 사업장별 SFTP 송신 잠금.
+     * 금결원 1회용 송신 계정은 기관당 하나라, 같은 사업장에서 동시에 발급받으면
+     * 먼저 받은 비밀번호가 무효가 되어 'Auth fail' 이 난다(EB21·EC21 공통).
+     * 그래서 '계정 발급 → 업로드' 를 사업장 단위로 한 번에 하나씩만 실행한다.
+     */
+    private final Map<String, Object> sftpLocks = new ConcurrentHashMap<>();
+
+    public Object sftpLock(String spjangcd) {
+        return sftpLocks.computeIfAbsent(spjangcd, k -> new Object());
+    }
     private final Map<String, Instant> tokenExpireMap = new ConcurrentHashMap<>();
 
     private final SqlRunner sqlRunner;

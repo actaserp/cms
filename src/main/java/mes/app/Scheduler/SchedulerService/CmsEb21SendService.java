@@ -380,8 +380,11 @@ public class CmsEb21SendService {
     // ── SFTP 1회용 계정 획득 + 전송 ───────────────────────────────────────────
 
     private void sftpSendWithApiCredential(byte[] fileBytes, String fileName, String targetDate, String spjangcd) throws Exception {
-        String[] cred = cmsTokenService.getSftpSendCredential(spjangcd, "EB21", targetDate);
-        sftpUpload(fileBytes, fileName, cred[0], cred[1]);
+        // 같은 사업장의 발급·업로드가 겹치면 먼저 받은 계정이 무효가 된다 → 사업장 단위 직렬화
+        synchronized (cmsTokenService.sftpLock(spjangcd)) {
+            String[] cred = cmsTokenService.getSftpSendCredential(spjangcd, "EB21", targetDate);
+            sftpUpload(fileBytes, fileName, cred[0], cred[1]);
+        }
     }
 
 
