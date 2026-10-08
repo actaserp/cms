@@ -808,6 +808,11 @@ public class CmsAccountRegisterService {
         return Long.parseLong(date + String.format("%04d", seq % 10000));
     }
 
+    /** 해지 완료 상태 — 실시간 성공(APPROVED) 또는 파일 EB14 해지 완료(CANCELLED) */
+    private static boolean isCancelDone(String status) {
+        return "APPROVED".equals(status) || "CANCELLED".equals(status);
+    }
+
     /** 응답이 성공인지 판정. data.response_code='0000' + TRANSACTION_COMPLETED */
     private boolean isRealtimeOk(JsonNode data) {
         return "0000".equals(data.path("response_code").asText(""))
@@ -860,10 +865,13 @@ public class CmsAccountRegisterService {
             boolean isSet    = r.get("cancel_id") != null;
             boolean evidenceDone = "SENT".equals(str(r.get("ei13_status")))
                     && Boolean.TRUE.equals(r.get("evidence_valid_today"));
+            // 짝 해지가 이미 끝났는지 — 실시간 성공은 APPROVED, 파일(EB14) 해지 완료는 CANCELLED 로 남는다.
+            // 둘 다 '해지 완료' 이므로 다시 해지 요청을 보내면 안 된다(0017 미신청계좌 불능 + 수수료).
+            boolean cancelDone = isSet && isCancelDone(str(r.get("cancel_status")));
 
             // 진행 단계 안내 — 이미 끝난 단계는 빼고 보여준다.
             List<String> steps = new java.util.ArrayList<>();
-            if (isSet && !"APPROVED".equals(str(r.get("cancel_status")))) steps.add("구계좌 해지");
+            if (isSet && !cancelDone) steps.add("구계좌 해지");
             if ("1".equals(applyType)) {
                 if (!evidenceDone) steps.add("동의자료 제출");
                 steps.add("계좌등록");
@@ -873,7 +881,7 @@ public class CmsAccountRegisterService {
 
             boolean selectable = true;
             String  blockReason = "";
-            if ("APPROVED".equals(status)) {
+            if ("APPROVED".equals(status) || "CANCELLED".equals(status)) {
                 selectable = false;
                 blockReason = "이미 완료된 건입니다.";
             } else if ("PENDING".equals(status) && "SENT".equals(str(r.get("eb13_status")))) {
@@ -890,6 +898,7 @@ public class CmsAccountRegisterService {
             m.put("job_type_nm",   isSet ? "계좌변경" : ("3".equals(applyType) ? "해지" : "신규"));
             m.put("steps",         steps);
             m.put("evidence_done", evidenceDone);
+            m.put("cancel_done",   cancelDone);
             m.put("selectable",    selectable);
             m.put("block_reason",  blockReason);
             out.add(m);
@@ -927,7 +936,7 @@ public class CmsAccountRegisterService {
             try {
                 // ── 1단계: 구계좌 해지 (계좌변경일 때만) ─────────────────
                 if ("CHANGE".equals(jobType)
-                        && !"APPROVED".equals(str(job.get("cancel_status")))) {
+                        && !Boolean.TRUE.equals(job.get("cancel_done"))) {
                     long cancelId = ((Number) job.get("cancel_id")).longValue();
                     long tracking = nextTrackingNo();
                     JsonNode res = cmsTokenService.realtimeAccountUnregistration(
