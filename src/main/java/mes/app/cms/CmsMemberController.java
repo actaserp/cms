@@ -269,19 +269,21 @@ public class CmsMemberController {
     }
 
     /** 계좌변경 신청 — 구계좌 해지 + 신계좌 신규를 세트로 생성 */
+    /** 계좌변경 신청 — 구계좌 해지 + 신계좌 신규를 세트로 생성 */
     @PostMapping("/change-account")
     @ResponseBody
     public AjaxResult changeAccount(@RequestParam Long member_id,
                                     @RequestParam String bank_code,
                                     @RequestParam String bank_account,
                                     @RequestParam(required = false) String account_holder,
+                                    @RequestParam(value = "id_number", required = false) String idNumber,
                                     Authentication auth) {
         User user = (User) auth.getPrincipal();
         String userId = String.valueOf(user.getId());
         AjaxResult result = new AjaxResult();
         try {
             Map<String, Object> res = cmsMemberService.changeAccount(
-                    member_id, bank_code, bank_account, account_holder, userId);
+                    member_id, bank_code, bank_account, account_holder, idNumber, userId);
             boolean ok = Boolean.TRUE.equals(res.get("success"));
             result.success = ok;
             result.message = (String) res.get("message");

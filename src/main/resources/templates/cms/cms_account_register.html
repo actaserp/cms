@@ -230,7 +230,11 @@
                             style="background:#4a6cf7; color:#fff; width: 120px;" disabled>인증 등록 신청
                     </button>
                     <button type="button" class="btn-default" id="btnCancelPending"
-                            style="background:#e74c3c; color:#fff;" disabled>신청취소
+                            style="background:#e74c3c; color:#fff;" disabled>삭제
+                    </button>
+                    <button type="button" class="btn-default" id="btnForceApprove"
+                            style="background:#6c757d; color:#fff;" disabled
+                            title="다른 곳에서 이미 등록/해지가 끝난 건을 완료로 맞춥니다">강제완료
                     </button>
                     <button type="button" class="btn-default" id="btnReceiveEb14"
                             style="background:#17a2b8; color:#fff;">결과수신</button>
@@ -368,6 +372,54 @@
                 <button type="button" id="btnEb14Cancel"
                         style="background:#f5f6fa; color:#333; padding:6px 18px;
                            border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 미인증 불러오기 모달 -->
+    <div id="modalErpPick" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+         background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:22px 26px; width:820px; max-width:95vw; max-height:85vh;
+             display:flex; flex-direction:column; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 8px; font-size:15px;">미인증 불러오기</h3>
+            <div style="font-size:12px; color:#555; margin-bottom:10px; line-height:1.6;">
+                미인증 상태이고 아직 등록 신청이 없는 납부자입니다. 가져올 납부자를 체크하세요.
+                <span style="color:#888;">(계좌·식별번호가 없는 납부자는 납부자 관리에서 먼저 채워야 합니다)</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <input type="text" id="erpPickKeyword" placeholder="납부자명 / 납부자번호 / 계좌 검색"
+                       style="flex:1; padding:5px 8px; border:1px solid #dde0ea; border-radius:4px; font-size:13px;">
+                <label style="font-size:12px; color:#555; cursor:pointer; white-space:nowrap;">
+                    <input type="checkbox" id="erpPickShowBlocked"> 생성 불가 건도 보기
+                    <span id="erpPickBlockedCnt" style="color:#888;"></span>
+                </label>
+            </div>
+            <div style="overflow-y:auto; flex:1; border:1px solid #eee;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                    <tr style="background:#f5f6fa; color:#555; position:sticky; top:0;">
+                        <th style="padding:7px; border:1px solid #dde0ea; width:36px; text-align:center;">
+                            <input type="checkbox" id="erpPickAll">
+                        </th>
+                        <th style="padding:7px; border:1px solid #dde0ea; text-align:left;">납부자명</th>
+                        <th style="padding:7px; border:1px solid #dde0ea; text-align:center;">납부자번호</th>
+                        <th style="padding:7px; border:1px solid #dde0ea; text-align:left;">계좌</th>
+                        <th style="padding:7px; border:1px solid #dde0ea; text-align:center;">예금주</th>
+                        <th style="padding:7px; border:1px solid #dde0ea; text-align:center;">식별번호</th>
+                        <th style="padding:7px; border:1px solid #dde0ea; text-align:center;">상태</th>
+                    </tr>
+                    </thead>
+                    <tbody id="erpPickRows"></tbody>
+                </table>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+                <span id="erpPickSummary" style="font-size:12px; color:#555;"></span>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" id="btnErpPickConfirm"
+                            style="background:#28a745; color:#fff; padding:6px 18px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">가져오기</button>
+                    <button type="button" id="btnErpPickCancel"
+                            style="background:#f5f6fa; color:#333; padding:6px 18px; border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">닫기</button>
+                </div>
             </div>
         </div>
     </div>
@@ -804,7 +856,7 @@
             // 보낼 수 없는 건 딱 둘 — 이미 끝난 건(승인/해지완료)과 금결원 계류 중인 건.
             var canRegister = selected.some(isSendable);
 
-            // 신청취소: 아직 금결원에 안 나간 대기건만. eb13_status='SENT' 면 이미 나가서 취소 불가.
+            // 삭제: 아직 금결원에 안 나간 대기건만. eb13_status='SENT' 면 이미 나가서 삭제 불가.
             var cancelables = selected.filter(function (i) {
                 return i.status === 'PENDING' && i.eb13_status === 'PENDING';
             });
@@ -813,8 +865,14 @@
                 .prop('disabled', !canCancel)
                 .css('opacity', canCancel ? 1 : 0.5)
                 .attr('title', selected.length === 0
-                    ? '취소할 대기건을 선택하세요.'
-                    : (canCancel ? '' : '이미 전송된 건은 취소할 수 없습니다. 결과(EB14) 수신 후 다시 신청하세요.'));
+                    ? '삭제할 대기건을 선택하세요.'
+                    : (canCancel ? '' : '이미 전송된 건은 삭제할 수 없습니다. 결과(EB14) 수신 후 다시 신청하세요.'));
+
+            // 강제완료: 끝나지 않았고 금결원 결과 대기 중이 아닌 건
+            var canForce = selected.some(isSendable);
+            $('#btnForceApprove')
+                .prop('disabled', !canForce)
+                .css('opacity', canForce ? 1 : 0.5);
 
             $('#btnRegister')
                 .prop('disabled', !canRegister)
@@ -826,17 +884,17 @@
 
         }
 
-        // 신청취소 — 대기건 삭제 + cms_member 원복
+        // 삭제 — 대기건 삭제 + cms_member 원복
         function cancelPending() {
             var items = getSelectedItems().filter(function (i) {
                 return i.status === 'PENDING' && i.eb13_status === 'PENDING';
             });
             if (!items.length) {
-                Alert.alert('', '취소할 수 있는 대기건이 없습니다.');
+                Alert.alert('', '삭제할 수 있는 대기건이 없습니다.');
                 return;
             }
 
-            // 계좌변경 건이 섞였는지 — 세트로 함께 취소된다는 걸 미리 알려준다
+            // 계좌변경 건이 섞였는지 — 세트로 함께 삭제된다는 걸 미리 알려준다
             var hasChange = items.some(function (i) {
                 return i.change_flag === 'Y';
             });
@@ -847,17 +905,18 @@
                     return a.indexOf(v) === idx;
                 });
 
-            var msg = '선택한 ' + items.length + '건의 신청을 취소합니다.\n\n'
+            var msg = '선택한 ' + items.length + '건의 신청을 삭제합니다.\n\n'
                 + '대상: ' + names.join(', ') + '\n\n'
-                + '· 신청 내역은 삭제됩니다(복구 불가)\n'
+                + '· 금결원에 보내지 않은 대기건만 삭제되며, 은행 등록·해지에는 영향이 없습니다\n'
+                + '· 신청 내역은 복구할 수 없습니다\n'
                 + '· 해지신청 건은 납부자가 다시 \u2018활성\u2019 으로 돌아갑니다\n';
             if (hasChange) {
-                msg += '· 계좌변경 건은 해지+신규가 한 세트라 함께 취소되고, 동의상태가 \u2018인증완료\u2019 로 복구됩니다\n';
+                msg += '· 계좌변경 건은 해지+신규가 한 세트라 함께 삭제되고, 계좌·동의상태가 변경 전으로 복구됩니다\n';
             }
             msg += '\n계속하시겠습니까?';
 
             Alert.confirm('', msg, function () {
-                // 병합행이면 해지행(pair_id)도 함께 취소 대상에 넣는다
+                // 병합행이면 해지행(pair_id)도 함께 삭제 대상에 넣는다
                 var ids = [];
                 items.forEach(function (i) {
                     ids.push(i.id);
@@ -869,7 +928,49 @@
                 AjaxUtil.postAsyncData('/api/cms/account-register/cancel',
                     {ids: ids.join(',')},
                     function (result) {
-                        Alert.alert('', result.message || (result.success ? '취소되었습니다.' : '취소 실패'));
+                        Alert.alert('', result.message || (result.success ? '삭제되었습니다.' : '삭제 실패'));
+                        selectedRows = {};
+                        searchList(currentPage);
+                    });
+            });
+        }
+
+        // 강제완료 — 다른 곳(타 시스템·은행 창구)에서 이미 처리된 건을 여기서도 완료로 맞춘다.
+        //  금결원에는 아무것도 보내지 않는다. 은행 원장 확인은 담당자 책임이므로 사유를 남긴다.
+        function forceApprove() {
+            var items = getSelectedItems().filter(isSendable);
+            if (!items.length) {
+                Alert.alert('', '완료 처리할 수 있는 건이 없습니다.\n(이미 끝난 건, 금결원 결과 대기 중인 건은 제외)');
+                return;
+            }
+            var names = items.map(function (i) { return i.member_name; })
+                .filter(function (v, idx, a) { return a.indexOf(v) === idx; });
+            var hasChange = items.some(function (i) { return i.change_flag === 'Y'; });
+
+            var reason = prompt('강제완료 사유를 입력하세요. (예: 타 시스템에서 등록 완료)', '타 시스템에서 처리 완료');
+            if (reason === null) return;
+
+            var msg = '선택한 ' + items.length + '건을 강제 완료 처리합니다.\n\n'
+                + '대상: ' + names.join(', ') + '\n\n'
+                + '· 금결원에는 아무것도 전송하지 않습니다\n'
+                + '· 신규건은 승인완료, 납부자는 \u2018인증완료\u2019 로 바뀝니다\n'
+                + '· 해지건은 해지완료로 바뀝니다\n';
+            if (hasChange) {
+                msg += '· 계좌변경 건은 해지+신규를 함께 완료 처리합니다 (구계좌 해지도 끝났는지 확인하세요)\n';
+            }
+            msg += '\n은행에 실제로 등록/해지된 것을 확인하셨나요?';
+
+            Alert.confirm('', msg, function () {
+                var ids = [];
+                items.forEach(function (i) {
+                    ids.push(i.id);
+                    if (i.pair_id) ids.push(i.pair_id);
+                });
+                ids = ids.filter(function (v, ix, a) { return a.indexOf(v) === ix; });
+                AjaxUtil.postAsyncData('/api/cms/account-register/force-approve',
+                    {ids: ids.join(','), reason: reason},
+                    function (result) {
+                        Alert.alert('', result.message || (result.success ? '완료 처리되었습니다.' : '완료 처리 실패'));
                         selectedRows = {};
                         searchList(currentPage);
                     });
@@ -1294,17 +1395,114 @@
             });
         }
 
+        // ── 미인증 불러오기: 후보를 먼저 보여주고 체크한 납부자만 가져온다 ──
+        var erpPickAll = [];          // 서버 후보 전체
+        var erpPickChecked = {};      // 체크 상태 (member id → true). 검색/필터로 다시 그려도 유지
+
         function createFromErp() {
-            Alert.confirm('', '미인증 납부자의 계좌등록 신청을 생성하시겠습니까?', function () {
-                AjaxUtil.postAsyncData('/api/cms/account-register/create-from-erp', {}, function (result) {
-                    if (result.success) {
-                        var d = result.data || {};
-                        Alert.alert('', '생성 완료: ' + (d.created || 0) + '건');
-                    } else {
-                        Alert.alert('실패', result.message);
-                    }
-                    searchList(0);
-                });
+            $('#erpPickRows').html('<tr><td colspan="7" style="padding:20px; text-align:center; color:#888;">불러오는 중...</td></tr>');
+            $('#erpPickSummary').text('');
+            $('#erpPickKeyword').val('');
+            $('#erpPickShowBlocked').prop('checked', false);
+            $('#modalErpPick').css('display', 'flex');
+
+            AjaxUtil.getAsyncData('/api/cms/account-register/erp-candidates', {}, function (result) {
+                if (!result.success) {
+                    $('#erpPickRows').html('<tr><td colspan="7" style="padding:20px; text-align:center; color:#c00;">'
+                        + escHtml(result.message || '조회 실패') + '</td></tr>');
+                    return;
+                }
+                erpPickAll = result.data || [];
+                erpPickChecked = {};
+                // 기본값: 생성 가능한 건 전부 체크
+                erpPickAll.forEach(function (r) { if (r.creatable) erpPickChecked[r.id] = true; });
+                renderErpPick();
+            });
+        }
+
+        function renderErpPick() {
+            var kw = ($('#erpPickKeyword').val() || '').trim().toLowerCase();
+            var showBlocked = $('#erpPickShowBlocked').is(':checked');
+            var blocked = erpPickAll.filter(function (r) { return !r.creatable; });
+            $('#erpPickBlockedCnt').text(blocked.length ? '(' + blocked.length + '건)' : '');
+
+            var rows = erpPickAll.filter(function (r) {
+                if (!showBlocked && !r.creatable) return false;
+                if (!kw) return true;
+                return [r.member_name, r.member_no, r.bank_account, r.account_holder]
+                    .some(function (v) { return String(v || '').toLowerCase().indexOf(kw) >= 0; });
+            });
+
+            if (!erpPickAll.length) {
+                $('#erpPickRows').html('<tr><td colspan="7" style="padding:20px; text-align:center; color:#888;">가져올 미인증 납부자가 없습니다.</td></tr>');
+            } else if (!rows.length) {
+                $('#erpPickRows').html('<tr><td colspan="7" style="padding:20px; text-align:center; color:#888;">조건에 맞는 납부자가 없습니다.</td></tr>');
+            } else {
+                $('#erpPickRows').html(rows.map(function (r) {
+                    var ok = r.creatable;
+                    var badge = ok
+                        ? '<span style="color:#155724; background:#d4edda; padding:2px 8px; border-radius:10px; font-size:11px;">가능</span>'
+                        : '<span style="color:#721c24; background:#f8d7da; padding:2px 8px; border-radius:10px; font-size:11px;">' + escHtml(r.block_reason) + '</span>';
+                    var td = 'padding:6px; border:1px solid #eee;';
+                    return '<tr' + (ok ? '' : ' style="color:#aaa; background:#fafafa;"') + '>'
+                        + '<td style="' + td + ' text-align:center;">'
+                        + '<input type="checkbox" class="erp-pick" data-id="' + r.id + '"'
+                        + (ok ? (erpPickChecked[r.id] ? ' checked' : '') : ' disabled') + '></td>'
+                        + '<td style="' + td + '">' + escHtml(r.member_name || '') + '</td>'
+                        + '<td style="' + td + ' text-align:center;">' + escHtml(r.member_no || '') + '</td>'
+                        + '<td style="' + td + '">' + escHtml(r.bank_name || r.bank_code || '') + ' ' + escHtml(r.bank_account || '') + '</td>'
+                        + '<td style="' + td + ' text-align:center;">' + escHtml(r.account_holder || '') + '</td>'
+                        + '<td style="' + td + ' text-align:center;">' + escHtml(r.id_number || '') + '</td>'
+                        + '<td style="' + td + ' text-align:center;">' + badge + '</td>'
+                        + '</tr>';
+                }).join(''));
+            }
+            syncErpPickAll(rows);
+        }
+
+        function syncErpPickAll(rows) {
+            rows = rows || [];
+            var selectable = rows.filter(function (r) { return r.creatable; });
+            var allOn = selectable.length > 0 && selectable.every(function (r) { return erpPickChecked[r.id]; });
+            $('#erpPickAll').prop('checked', allOn);
+            var cnt = Object.keys(erpPickChecked).length;
+            var total = erpPickAll.filter(function (r) { return r.creatable; }).length;
+            $('#erpPickSummary').html('선택 <b>' + cnt + '</b>건 / 생성 가능 ' + total + '건');
+        }
+
+        function visibleErpPickRows() {
+            var kw = ($('#erpPickKeyword').val() || '').trim().toLowerCase();
+            var showBlocked = $('#erpPickShowBlocked').is(':checked');
+            return erpPickAll.filter(function (r) {
+                if (!showBlocked && !r.creatable) return false;
+                if (!kw) return true;
+                return [r.member_name, r.member_no, r.bank_account, r.account_holder]
+                    .some(function (v) { return String(v || '').toLowerCase().indexOf(kw) >= 0; });
+            });
+        }
+
+        function confirmErpPick() {
+            var ids = Object.keys(erpPickChecked);
+            if (!ids.length) {
+                Alert.alert('', '가져올 납부자를 선택하세요.');
+                return;
+            }
+            Alert.confirm('', ids.length + '명의 계좌등록 신청을 생성합니다.\n(금결원에는 아직 보내지 않습니다)\n\n계속하시겠습니까?', function () {
+                $('#btnErpPickConfirm').prop('disabled', true);
+                AjaxUtil.postAsyncData('/api/cms/account-register/create-from-erp',
+                    {member_ids: ids.join(',')}, function (result) {
+                        $('#btnErpPickConfirm').prop('disabled', false);
+                        if (result.success) {
+                            var d = result.data || {};
+                            var msg = '생성 완료: ' + (d.created || 0) + '건';
+                            if (d.skipped) msg += ' (제외 ' + d.skipped + '건 — 계좌·식별번호 누락 또는 이미 처리됨)';
+                            Alert.alert('', msg);
+                            $('#modalErpPick').hide();
+                        } else {
+                            Alert.alert('실패', result.message);
+                        }
+                        searchList(0);
+                    });
             });
         }
 
@@ -1331,8 +1529,27 @@
             $('#btnRtCancel').click(function () { $('#modalRealtime').hide(); });
             $('#btnRtConfirm').click(confirmRealtime);
             $('#btnCancelPending').click(cancelPending);
+            $('#btnForceApprove').click(forceApprove);
             $('#btnReceiveEb14').click(receiveEb14);
             $('#btnCreateFromErp').click(createFromErp);
+            $('#btnErpPickConfirm').click(confirmErpPick);
+            $('#btnErpPickCancel').click(function () { $('#modalErpPick').hide(); });
+            $('#erpPickKeyword').on('input', renderErpPick);
+            $('#erpPickShowBlocked').on('change', renderErpPick);
+            $('#erpPickRows').on('change', '.erp-pick', function () {
+                var id = String($(this).data('id'));
+                if ($(this).is(':checked')) erpPickChecked[id] = true; else delete erpPickChecked[id];
+                syncErpPickAll(visibleErpPickRows());
+            });
+            // 전체선택은 지금 화면에 보이는(검색된) 생성 가능 건만 대상
+            $('#erpPickAll').on('change', function () {
+                var on = $(this).is(':checked');
+                visibleErpPickRows().forEach(function (r) {
+                    if (!r.creatable) return;
+                    if (on) erpPickChecked[r.id] = true; else delete erpPickChecked[r.id];
+                });
+                renderErpPick();
+            });
             $('#btnEb14Confirm').click(doReceiveEb14);
             $('#btnEb14Cancel').click(function () {
                 $('#modalEb14').hide();

@@ -2602,6 +2602,18 @@ public class CmsMemberService {
     public Map<String, Object> changeAccount(Long memberId, String newBankCode,
                                              String newBankAccount, String newAccountHolder,
                                              String userId) {
+        return changeAccount(memberId, newBankCode, newBankAccount, newAccountHolder, null, userId);
+    }
+
+    /**
+     * 계좌변경 — 새 계좌의 식별번호(사업자번호/생년월일)를 따로 받는다.
+     *  식별번호는 회원이 아니라 '출금계좌 예금주' 를 따른다. 계좌가 바뀌면 예금주도 바뀔 수 있으므로
+     *   · 해지행(구계좌)  = 기존 식별번호  ← 은행 원장에 등록된 값이라 반드시 그대로
+     *   · 신규행(신계좌)  = 새 식별번호    ← 비우면 기존 값 사용
+     */
+    public Map<String, Object> changeAccount(Long memberId, String newBankCode,
+                                             String newBankAccount, String newAccountHolder,
+                                             String newIdNumber, String userId) {
         String spjangcd = TenantContext.get();
 
         Map<String, Object> member = sqlRunner.getRow(/* skip_tenant_check */
@@ -2627,9 +2639,17 @@ public class CmsMemberService {
         String memberNo   = str(member.get("member_no"));
         String oldBankCode    = str(member.get("bank_code"));
         String oldBankAccount = str(member.get("bank_account"));
-        String idNumber   = str(member.get("id_number"));
+        String idNumber   = str(member.get("id_number"));          // 구계좌(해지행) 식별번호
         String memberType = str(member.get("member_type"));
         String memberName = str(member.get("member_name"));
+
+        // 신계좌 식별번호: 입력값(숫자만), 없으면 기존 값
+        String cleanNewId = newIdNumber == null ? "" : newIdNumber.replaceAll("[^0-9]", "");
+        if (StringUtils.hasText(cleanNewId) && cleanNewId.length() != 6 && cleanNewId.length() != 10) {
+            return Map.of("success", false,
+                    "message", "새 계좌 식별번호는 사업자 10자리 또는 생년월일 6자리입니다.");
+        }
+        String newIdNo = StringUtils.hasText(cleanNewId) ? cleanNewId : idNumber;
 
         // 구계좌가 없으면 계좌변경이 아니라 신규 등록 대상 → 막는다.
         if (!StringUtils.hasText(oldBankAccount)) {
@@ -2696,7 +2716,7 @@ public class CmsMemberService {
         //   납부자번호는 은행코드 3 + 식별번호 뒤5 + 순번 2 구조라 은행이 바뀌면 앞자리도 바뀐다.
         //   같은 번호를 재사용하면 해지 확정 후 재신청이 되어 A016(이중신청)으로 거절된다.
         //   해지행은 은행 원장 조회 기준이므로 반드시 기존 번호(memberNo)를 그대로 유지할 것.
-        String newMemberNo = generateMemberNo(spjangcd, newBankCode, idNumber);
+        String newMemberNo = generateMemberNo(spjangcd, newBankCode, newIdNo);
 
         // 2) 신규행('1') - 신계좌. EI13(동의자료)을 타야 하므로 ei13_status=PENDING.
         //    동의서(agree_file_path)는 이후 '출금이체 인증 관리'에서 첨부 → EI13 전송.
@@ -2724,7 +2744,7 @@ public class CmsMemberService {
                         .addValue("bankCode",      newBankCode)
                         .addValue("bankAccount",   newBankAccount)
                         .addValue("accountHolder", StringUtils.hasText(newAccountHolder) ? newAccountHolder : memberName)
-                        .addValue("idNumber",      idNumber)
+                        .addValue("idNumber",      newIdNo)      // ★ 신규행 = 새 계좌 예금주 식별번호
                         .addValue("memberType",    memberType)
                         .addValue("pairId",        pairId)      // ★ 해지행 id = 세트키
                         .addValue("userId",        userId));
@@ -2747,6 +2767,7 @@ public class CmsMemberService {
                     bank_code      = :bankCode,
                     bank_account   = :bankAccount,
                     account_holder = COALESCE(:accountHolder, account_holder),
+                    id_number      = :newIdNo,
                     agree_yn       = 'N',
                     agree_method   = NULL,
                     _modifier_id   = :userId,
@@ -2757,6 +2778,7 @@ public class CmsMemberService {
                         .addValue("spjangcd", spjangcd)
                         .addValue("userId", userId)
                         .addValue("newMemberNo",   newMemberNo)
+                        .addValue("newIdNo",       newIdNo)
                         .addValue("bankCode",      newBankCode)
                         .addValue("bankAccount",   newBankAccount)
                         .addValue("accountHolder", StringUtils.hasText(newAccountHolder) ? newAccountHolder : null));

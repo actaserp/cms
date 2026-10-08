@@ -147,7 +147,7 @@ public class CmsAccountRegisterService {
     @Transactional
     public Map<String, Object> cancelPending(List<Long> ids, String userId) {
         if (ids == null || ids.isEmpty()) {
-            return Map.of("deleted", 0, "failed", 0, "message", "취소할 항목을 선택하세요.");
+            return Map.of("deleted", 0, "failed", 0, "message", "삭제할 항목을 선택하세요.");
         }
         String spjangcd = TenantContext.get();
 
@@ -176,12 +176,12 @@ public class CmsAccountRegisterService {
 
             if (!"PENDING".equals(status)) {
                 failed++;
-                msg.append(name).append(": 대기 상태가 아니라 취소할 수 없습니다(").append(status).append("). ");
+                msg.append(name).append(": 대기 상태가 아니라 삭제할 수 없습니다(").append(status).append("). ");
                 continue;
             }
             if ("SENT".equals(eb13)) {
                 failed++;
-                msg.append(name).append(": 이미 금결원에 신청이 전송되어 취소할 수 없습니다. ")
+                msg.append(name).append(": 이미 금결원에 신청이 전송되어 삭제할 수 없습니다. ")
                         .append("결과(EB14) 수신 후 재신청으로 처리하세요. ");
                 continue;
             }
@@ -200,14 +200,14 @@ public class CmsAccountRegisterService {
                         new MapSqlParameterSource("spjangcd", spjangcd).addValue("memberId", memberId));
                 if (sentRow != null && ((Number) sentRow.get("cnt")).longValue() > 0) {
                     failed++;
-                    msg.append(name).append(": 계좌변경 세트 중 일부가 이미 전송되어 취소할 수 없습니다. ");
+                    msg.append(name).append(": 계좌변경 세트 중 일부가 이미 전송되어 삭제할 수 없습니다. ");
                     continue;
                 }
 
                 // ★ 삭제 전에 구계좌를 확보한다 (해지행에 보존돼 있음). 삭제 후엔 못 읽는다.
                 Map<String, Object> oldRow = sqlRunner.getRow(/* skip_tenant_check */
                         """
-                        SELECT bank_code, bank_account, account_holder
+                        SELECT bank_code, bank_account, account_holder, id_number, member_no
                         FROM cms_account_register
                         WHERE spjangcd = :spjangcd AND member_id = :memberId
                           AND change_flag = 'Y' AND apply_type = '3' AND status = 'PENDING'
@@ -240,6 +240,9 @@ public class CmsAccountRegisterService {
                                 bank_code      = :oldBankCode,
                                 bank_account   = :oldBankAccount,
                                 account_holder = COALESCE(:oldHolder, account_holder),
+                                -- 계좌변경 시 함께 바뀐 식별번호·납부자번호도 구계좌 기준으로 되돌린다
+                                id_number      = COALESCE(:oldIdNumber, id_number),
+                                member_no      = COALESCE(:oldMemberNo, member_no),
                                 agree_yn       = 'Y',
                                 _modifier_id   = :userId,
                                 _modified      = NOW()
@@ -250,7 +253,11 @@ public class CmsAccountRegisterService {
                                     .addValue("oldBankCode",    str(oldRow.get("bank_code")))
                                     .addValue("oldBankAccount", str(oldRow.get("bank_account")))
                                     .addValue("oldHolder",      StringUtils.hasText(str(oldRow.get("account_holder")))
-                                            ? str(oldRow.get("account_holder")) : null));
+                                            ? str(oldRow.get("account_holder")) : null)
+                                    .addValue("oldIdNumber",    StringUtils.hasText(str(oldRow.get("id_number")))
+                                            ? str(oldRow.get("id_number")) : null)
+                                    .addValue("oldMemberNo",    StringUtils.hasText(str(oldRow.get("member_no")))
+                                            ? str(oldRow.get("member_no")) : null));
                     log.info("[RegisterCancel] 계좌변경 취소 memberId={} 삭제={}행 계좌 원복 {} agree_yn=Y",
                             memberId, n, str(oldRow.get("bank_account")));
                 } else {
@@ -299,8 +306,8 @@ public class CmsAccountRegisterService {
         }
 
         String message = deleted > 0
-                ? "취소 " + deleted + "건" + (failed > 0 ? " / 실패 " + failed + "건 — " + msg : "")
-                : (msg.length() > 0 ? msg.toString() : "취소된 건이 없습니다.");
+                ? "삭제 " + deleted + "건" + (failed > 0 ? " / 실패 " + failed + "건 — " + msg : "")
+                : (msg.length() > 0 ? msg.toString() : "삭제된 건이 없습니다.");
 
         return Map.of("deleted", deleted, "failed", failed, "message", message);
     }
@@ -559,11 +566,59 @@ public class CmsAccountRegisterService {
                         .addValue("spjangcd", spjangcd));
     }
 
-    public Map<String, Object> createFromErpMembers(String userId) {
+    /**
+     * 미인증 불러오기 미리보기 — 생성 대상 후보를 보여주고 담당자가 골라서 가져오게 한다.
+     *  대상: 미인증(agree_yn='N') + 활성 + ERP 연동 코드 있음 + 등록 행 없음
+     *  계좌·식별번호가 없는 납부자는 생성해도 save() 에서 빠지므로 '생성 불가' 로 표시만 한다.
+     */
+    public List<Map<String, Object>> previewErpMembers() {
         String spjangcd = TenantContext.get();
-        int created = 0;
+        List<Map<String, Object>> rows = sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT m.id, m.member_no, m.member_name, m.bank_code, bc.bank_name,
+                       m.bank_account, m.account_holder, m.id_number, m.member_type,
+                       m.actcd, m.cltcd, m._created
+                FROM cms_member m
+                LEFT JOIN cms_bank_code bc ON bc.bank_code = m.bank_code
+                WHERE m.spjangcd = :spjangcd
+                  AND m.agree_yn = 'N'
+                  AND m.status = 'ACTIVE'
+                  AND (m.actcd IS NOT NULL OR m.cltcd IS NOT NULL)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM cms_account_register r
+                      WHERE r.member_id = m.id AND r.spjangcd = m.spjangcd
+                  )
+                ORDER BY m.member_name, m.id
+                """,
+                new MapSqlParameterSource("spjangcd", spjangcd));
 
-        // agree_yn = 'N'이고 아직 register가 없는 멤버만
+        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (Map<String, Object> r : rows) {
+            Map<String, Object> m = new java.util.HashMap<>(r);
+            String reason = "";
+            if (!StringUtils.hasText(str(r.get("bank_account")))) reason = "계좌 없음";
+            else if (!StringUtils.hasText(str(r.get("id_number")))) reason = "식별번호 없음";
+            m.put("creatable", reason.isEmpty());
+            m.put("block_reason", reason);
+            out.add(m);
+        }
+        return out;
+    }
+
+    /** 기존 호출 호환 — 대상 전체 생성 */
+    public Map<String, Object> createFromErpMembers(String userId) {
+        return createFromErpMembers(userId, null);
+    }
+
+    /**
+     * 미인증 납부자 계좌등록 신청 생성.
+     *  memberIds 가 있으면 그 납부자만, 없으면 대상 전체.
+     *  화면에서 고른 id 라도 조건을 다시 확인한다(그사이 등록 행이 생겼거나 인증됐을 수 있음).
+     */
+    public Map<String, Object> createFromErpMembers(String userId, List<Long> memberIds) {
+        String spjangcd = TenantContext.get();
+        boolean picked = memberIds != null && !memberIds.isEmpty();
+
         List<Map<String, Object>> members = sqlRunner.getRows(/* skip_tenant_check */
                 """
                 SELECT m.id
@@ -577,17 +632,22 @@ public class CmsAccountRegisterService {
                     WHERE r.member_id = m.id
                     AND r.spjangcd = m.spjangcd
                 )
-                """,
-                new MapSqlParameterSource("spjangcd", spjangcd));
+                """ + (picked ? " AND m.id IN (:ids)" : ""),
+                new MapSqlParameterSource("spjangcd", spjangcd)
+                        .addValue("ids", picked ? memberIds : List.of(-1L)));
 
+        int created = 0, skipped = 0;
         for (Map<String, Object> m : members) {
             Long memberId = ((Number) m.get("id")).longValue();
-            save(memberId, "1", null, null, userId);
-            created++;
+            // save() 는 계좌·식별번호가 없으면 null 을 돌려주고 만들지 않는다
+            if (save(memberId, "1", null, null, userId) != null) created++;
+            else skipped++;
         }
+        if (picked) skipped += Math.max(0, memberIds.size() - members.size());   // 그사이 대상에서 빠진 건
 
-        log.info("[ERP미인증등록] spjangcd={} 생성={}", spjangcd, created);
-        return Map.of("created", created);
+        log.info("[ERP미인증등록] spjangcd={} 요청={} 생성={} 제외={}",
+                spjangcd, picked ? memberIds.size() : "전체", created, skipped);
+        return Map.of("created", created, "skipped", skipped);
     }
 
     // ===== EB11 (은행접수 해지내역) 수신 =====
@@ -808,6 +868,100 @@ public class CmsAccountRegisterService {
         return Long.parseLong(date + String.format("%04d", seq % 10000));
     }
 
+    /**
+     * 강제 완료 — 다른 곳(타 시스템·은행 창구 등)에서 이미 등록/해지가 끝난 건을 여기서도 완료로 맞춘다.
+     * 금결원에는 아무것도 보내지 않는다. 실제 은행 원장 상태는 담당자가 확인한 것으로 본다.
+     *
+     *  · 신규행('1') → APPROVED + 회원 인증완료(agree_yn='Y', agree_method='MANUAL')
+     *  · 해지행('3') → CANCELLED
+     *  · 계좌변경 세트는 해지행·신규행을 함께 완료한다(한쪽만 끝내면 세트가 어긋난다).
+     *  · 금결원 계류 중(EB13 SENT + EB14 미수신)인 건은 막는다 — 결과가 나중에 와서 덮어쓰게 된다.
+     *  · eb14_received_at 을 채워 EB14 수신 스케줄러가 더 찾지 않게 한다.
+     */
+    @Transactional
+    public Map<String, Object> forceApprove(List<Long> ids, String reason, String userId) {
+        String spjangcd = TenantContext.get();
+        if (ids == null || ids.isEmpty()) {
+            return Map.of("done", 0, "failed", 0, "message", "완료 처리할 항목을 선택하세요.");
+        }
+
+        // 계좌변경 세트는 짝까지 함께 대상에 넣는다
+        List<Map<String, Object>> rows = sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT r.id, r.member_id, r.member_name, r.apply_type, r.status,
+                       r.eb13_status, r.eb14_received_at, r.pair_id
+                FROM cms_account_register r
+                WHERE r.spjangcd = :spjangcd
+                  AND (r.id IN (:ids)
+                       OR (r.pair_id IS NOT NULL AND r.pair_id IN (
+                              SELECT x.pair_id FROM cms_account_register x
+                              WHERE x.spjangcd = :spjangcd AND x.id IN (:ids) AND x.pair_id IS NOT NULL)))
+                ORDER BY r.id
+                """,
+                new MapSqlParameterSource("spjangcd", spjangcd).addValue("ids", ids));
+
+        String memo = "[강제완료 " + java.time.LocalDate.now() + "] "
+                + (StringUtils.hasText(reason) ? reason.trim() : "외부 처리 완료");
+
+        int done = 0, failed = 0;
+        StringBuilder msg = new StringBuilder();
+
+        for (Map<String, Object> r : rows) {
+            long   id        = ((Number) r.get("id")).longValue();
+            String name      = str(r.get("member_name"));
+            String applyType = str(r.get("apply_type"));
+            String status    = str(r.get("status"));
+
+            if ("APPROVED".equals(status) || "CANCELLED".equals(status)) continue;   // 이미 끝난 건
+            if ("SENT".equals(str(r.get("eb13_status"))) && r.get("eb14_received_at") == null) {
+                failed++;
+                msg.append(name).append(": 금결원 결과 대기 중이라 강제 완료할 수 없습니다. ");
+                continue;
+            }
+
+            boolean isCancel = "3".equals(applyType);
+            sqlRunner.execute(/* skip_tenant_check */
+                    """
+                    UPDATE cms_account_register
+                    SET status           = :newStatus,
+                        eb14_result      = 'Y',
+                        eb14_fail_code   = NULL,
+                        eb14_received_at = COALESCE(eb14_received_at, NOW()),
+                        send_method      = 'MANUAL',
+                        memo             = NULLIF(TRIM(:memo || COALESCE(' / [이전] ' || memo, '')), ''),
+                        _modifier_id     = :userId,
+                        _modified        = NOW()
+                    WHERE id = :id AND spjangcd = :spjangcd
+                    """,
+                    new MapSqlParameterSource("id", id).addValue("spjangcd", spjangcd)
+                            .addValue("newStatus", isCancel ? "CANCELLED" : "APPROVED")
+                            .addValue("memo", memo).addValue("userId", userId));
+
+            if (!isCancel && r.get("member_id") != null) {
+                sqlRunner.execute(/* skip_tenant_check */
+                        """
+                        UPDATE cms_member SET
+                            agree_yn     = 'Y',
+                            agree_date   = COALESCE(agree_date, CAST(NOW() AS DATE)),
+                            agree_method = 'MANUAL',
+                            _modifier_id = :userId,
+                            _modified    = NOW()
+                        WHERE id = :memberId AND spjangcd = :spjangcd
+                        """,
+                        new MapSqlParameterSource("memberId", ((Number) r.get("member_id")).longValue())
+                                .addValue("spjangcd", spjangcd).addValue("userId", userId));
+            }
+            done++;
+            log.info("[RegisterForce] 강제완료 id={} applyType={} {} -> {} by {}",
+                    id, applyType, status, isCancel ? "CANCELLED" : "APPROVED", userId);
+        }
+
+        String message = done > 0
+                ? "완료 처리 " + done + "건" + (failed > 0 ? " / 실패 " + failed + "건 — " + msg : "")
+                : (msg.length() > 0 ? msg.toString() : "완료 처리할 건이 없습니다.");
+        return Map.of("done", done, "failed", failed, "message", message);
+    }
+
     /** 해지 완료 상태 — 실시간 성공(APPROVED) 또는 파일 EB14 해지 완료(CANCELLED) */
     private static boolean isCancelDone(String status) {
         return "APPROVED".equals(status) || "CANCELLED".equals(status);
@@ -841,6 +995,7 @@ public class CmsAccountRegisterService {
                        c.member_no    AS cancel_member_no,
                        c.bank_code    AS cancel_bank_code,
                        c.bank_account AS cancel_bank_account,
+                       c.id_number    AS cancel_id_number,
                        c.status       AS cancel_status,
                        cb.bank_name   AS cancel_bank_name
                 FROM cms_account_register r
@@ -943,7 +1098,8 @@ public class CmsAccountRegisterService {
                             spjangcd,
                             str(job.get("cancel_bank_code")),
                             str(job.get("cancel_bank_account")).replaceAll("[^0-9]", ""),
-                            str(job.get("id_number")).replaceAll("[^0-9]", ""),
+                            // ★ 구계좌 해지는 구계좌 예금주 식별번호로 (은행 원장 등록값)
+                            str(job.get("cancel_id_number")).replaceAll("[^0-9]", ""),
                             str(job.get("cancel_member_no")),
                             tracking);
 

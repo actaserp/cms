@@ -1577,8 +1577,150 @@ public class CmsBillingService {
      * ERP(TB_DA023 미수원장) 미수금 후보를 조회해서 cms_member와 매칭한 목록을 리턴한다. (INSERT 안 함)
      * 모달에서 사용자가 선택할 목록을 만드는 용도.
      * 각 행 status: OK(생성 가능) / DUP(이미 청구됨) / NOT_AGREED(미인증)
+     *              / NO_SITE_MEMBER(현장 CMS 납부자 미등록) / ACCOUNT_DIFF(ERP 출금계좌와 납부자 계좌 불일치)
      * ※ cms_member 미등록 건(구 NO_MEMBER)은 목록에서 제외한다.
      */
+    // ══════════════════════════════════════════════════════════════════
+    //  ERP 청구 오매칭 점검 (읽기 전용)
+    //   이미 만들어진 ERP 청구(erp_mis_key 있음)를 ERP 미수원장과 다시 대조해서,
+    //   청구에 들어간 계좌가 'ERP가 그 미수를 빼려는 계좌'와 다른 건을 뽑는다.
+    //    · 현장이 CMS 사용(E101.cmsflag=1) → 현장 계좌
+    //    · 아니면                         → 거래처 계좌(XCLIENT.accnum)
+    //   DB 를 바꾸지 않는다. 사업장별 ERP 접속정보(tb_xa012_erp)로 각각 조회한다.
+    // ══════════════════════════════════════════════════════════════════
+    public List<Map<String, Object>> auditErpMismatch(String fromDate, String onlySpjangcd) {
+        String from = StringUtils.hasText(fromDate) ? fromDate.replace("-", "") : "20260101";
+
+        List<Map<String, Object>> erps = sqlRunner.getRows(/* skip_tenant_check */
+                "SELECT spjangcd, host, port, db_name, username, password, custcd FROM tb_xa012_erp"
+                        + (StringUtils.hasText(onlySpjangcd) ? " WHERE spjangcd = :sp" : "")
+                        + " ORDER BY spjangcd",
+                new MapSqlParameterSource("sp", onlySpjangcd));
+
+        try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
+        catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
+
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map<String, Object> erp : erps) {
+            String sp     = str(erp.get("spjangcd"));
+            String custcd = str(erp.get("custcd"));
+
+            List<Map<String, Object>> bills = sqlRunner.getRows(/* skip_tenant_check */
+                    """
+                    SELECT b.id, b.erp_mis_key, b.member_id, b.member_name, m.member_no,
+                           m.actcd AS m_actcd, m.cltcd AS m_cltcd,
+                           b.bank_code, b.bank_account, b.billing_amount,
+                           b.deduct_date, b.status
+                    FROM cms_billing b
+                    LEFT JOIN cms_member m ON m.id = b.member_id
+                    WHERE b.spjangcd = :sp
+                      AND b.erp_mis_key IS NOT NULL
+                      AND b.deduct_date >= :from
+                    ORDER BY b.erp_mis_key, b.id
+                    """,
+                    new MapSqlParameterSource("sp", sp).addValue("from", from));
+            if (bills.isEmpty()) continue;
+
+            // 청구에 쓰인 미수의 최소 일자부터 ERP 미수를 한 번에 읽는다
+            String misFrom = bills.stream().map(b -> str(b.get("erp_mis_key")))
+                    .filter(k -> k.length() >= 8).map(k -> k.substring(0, 8))
+                    .min(String::compareTo).orElse(from);
+
+            Map<String, Map<String, Object>> erpByKey = new HashMap<>();
+            String dbUrl = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
+                    str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
+            try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
+                    dbUrl, str(erp.get("username")), str(erp.get("password")));
+                 java.sql.PreparedStatement ps = conn.prepareStatement(
+                         """
+                         SELECT A.misdate, A.misnum, A.cltcd, A.actcd,
+                                C.cltnm, F.actnm,
+                                CASE WHEN EXISTS (SELECT 1 FROM TB_E101 e3 WITH(NOLOCK)
+                                                   WHERE e3.custcd = A.custcd AND e3.spjangcd = A.spjangcd
+                                                     AND e3.actcd = A.actcd AND e3.cmsflag = 1
+                                                     AND ISNULL(e3.contg,'') <> '04')
+                                     THEN 1 ELSE 0 END AS site_cms,
+                                E.accnum AS site_accnum,
+                                C.accnum AS clt_accnum
+                         FROM TB_DA023 A WITH(NOLOCK)
+                         LEFT JOIN TB_XCLIENT C WITH(NOLOCK) ON C.custcd = A.custcd AND C.cltcd = A.cltcd
+                         LEFT JOIN TB_E601 F WITH(NOLOCK)    ON F.custcd = A.custcd AND F.actcd = A.actcd
+                         OUTER APPLY (
+                             SELECT TOP 1 e.accnum FROM TB_E101 e WITH(NOLOCK)
+                             WHERE e.custcd = A.custcd AND e.spjangcd = A.spjangcd AND e.actcd = A.actcd
+                               AND e.contg <> '04'
+                               AND NULLIF(LTRIM(RTRIM(e.accnum)),'') IS NOT NULL
+                             ORDER BY e.stdate DESC
+                         ) E
+                         WHERE A.custcd = ? AND A.misdate >= ?
+                         """)) {
+                ps.setString(1, custcd);
+                ps.setString(2, misFrom);
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        Map<String, Object> e = new HashMap<>();
+                        boolean siteCms = rs.getInt("site_cms") == 1;
+                        e.put("cltcd", str(rs.getString("cltcd")));
+                        e.put("actcd", str(rs.getString("actcd")));
+                        e.put("cltnm", str(rs.getString("cltnm")));
+                        e.put("actnm", str(rs.getString("actnm")));
+                        e.put("site_cms", siteCms);
+                        e.put("erp_accnum", digits(siteCms ? rs.getString("site_accnum") : rs.getString("clt_accnum")));
+                        erpByKey.put(str(rs.getString("misdate")) + str(rs.getString("misnum")), e);
+                    }
+                }
+            } catch (Exception ex) {
+                log.error("[ERP오매칭점검] {} ERP 조회 실패: {}", sp, ex.getMessage());
+                Map<String, Object> err = new HashMap<>();
+                err.put("spjangcd", sp);
+                err.put("kind", "ERP_조회실패");
+                err.put("detail", ex.getMessage());
+                out.add(err);
+                continue;
+            }
+
+            for (Map<String, Object> b : bills) {
+                String key  = str(b.get("erp_mis_key"));
+                Map<String, Object> e = erpByKey.get(key);
+                String kind = null, detail = "";
+                String billAcc = digits(str(b.get("bank_account")));
+
+                if (e == null) {
+                    kind = "ERP_미수없음";            // 미수가 지워졌거나 키가 안 맞음 — 확인 필요
+                } else if (!StringUtils.hasText(str(e.get("erp_accnum")))) {
+                    kind = "ERP_계좌없음";
+                } else if (!str(e.get("erp_accnum")).equals(billAcc)) {
+                    boolean siteCms = Boolean.TRUE.equals(e.get("site_cms"));
+                    boolean memberIsSite = StringUtils.hasText(str(b.get("m_actcd")));
+                    kind = (siteCms && !memberIsSite) ? "오매칭_현장건이_거래처납부자로" : "계좌불일치";
+                    detail = "ERP " + e.get("erp_accnum") + " / 청구 " + billAcc;
+                }
+                if (kind == null) continue;
+
+                Map<String, Object> row = new HashMap<>(b);
+                row.put("spjangcd", sp);
+                row.put("kind", kind);
+                row.put("detail", detail);
+                if (e != null) {
+                    row.put("erp_cltcd", e.get("cltcd"));
+                    row.put("erp_actcd", e.get("actcd"));
+                    row.put("erp_cltnm", e.get("cltnm"));
+                    row.put("erp_actnm", e.get("actnm"));
+                    row.put("erp_site_cms", e.get("site_cms"));
+                    row.put("erp_accnum", e.get("erp_accnum"));
+                }
+                out.add(row);
+            }
+            log.info("[ERP오매칭점검] {} 청구 {}건 점검", sp, bills.size());
+        }
+        return out;
+    }
+
+    /** 계좌 비교용 — 숫자만 남긴다 */
+    private static String digits(String v) {
+        return v == null ? "" : v.replaceAll("[^0-9]", "");
+    }
+
     public List<Map<String, Object>> previewErpBilling(String billingYm) {
         return previewErpBilling(billingYm, "REP");
     }
@@ -1647,6 +1789,15 @@ public class CmsBillingService {
                     F.actnm                           AS member_name_site,
                     COALESCE(NULLIF(LTRIM(RTRIM(C.autoflag)),''),
                              NULLIF(LTRIM(RTRIM(E.autoflag)),'')) AS autoflag,
+                    -- ★ 오매칭 방지용: ERP가 보는 '이 미수를 뺄 계좌'
+                    --   현장이 자기 계좌로 CMS 를 쓰면(E101.cmsflag=1) 현장 계좌, 아니면 거래처 계좌.
+                    CASE WHEN EXISTS (SELECT 1 FROM TB_E101 e3 WITH(NOLOCK)
+                                       WHERE e3.custcd = A.custcd AND e3.spjangcd = A.spjangcd
+                                         AND e3.actcd = A.actcd AND e3.cmsflag = 1
+                                         AND ISNULL(e3.contg,'') <> '04')
+                         THEN 1 ELSE 0 END             AS site_cms,
+                    E.accnum                           AS site_accnum,
+                    C.accnum                           AS clt_accnum,
                     (A.misamt - ISNULL(A.bamt,0)   - ISNULL(A.jamt,0)  - ISNULL(A.sunamt,0)
                               - ISNULL(A.gamt,0)   - ISNULL(A.csamt,0) - ISNULL(A.cmar,0)
                               - ISNULL(A.dcamt,0)) AS billing_amount
@@ -1782,8 +1933,21 @@ public class CmsBillingService {
                         //  검단센트럴시티 00756), 현장에 CMS 회원이 있으면 그 회원이,
                         //  없으면(cmsflag 미사용) 거래처가 대납하는 구조다.
                         Map<String, Object> member = null;
-                        if (StringUtils.hasText(actcd)) member = memberByActcd.get(actcd);
-                        if (member == null && StringUtils.hasText(cltcd)) member = memberByCltcd.get(cltcd);
+                        boolean siteCms = rs.getInt("site_cms") == 1;
+                        boolean bySite  = false;
+                        if (StringUtils.hasText(actcd)) {
+                            member = memberByActcd.get(actcd);
+                            bySite = member != null;
+                        }
+                        // ★ 거래처 대납 폴백은 '현장이 CMS 를 안 쓸 때'만 허용한다.
+                        //   현장이 자기 계좌로 CMS 를 쓰는데 우리 쪽에 현장 납부자가 없으면,
+                        //   같은 거래처의 다른 납부자에게 붙이면 남의 계좌에서 출금된다(정우 연남동엘르빌 0827 사례).
+                        boolean siteMemberMissing = StringUtils.hasText(actcd) && member == null && siteCms;
+                        if (member == null && !siteMemberMissing && StringUtils.hasText(cltcd)) {
+                            member = memberByCltcd.get(cltcd);
+                        }
+                        // ERP 기준 출금계좌 (숫자만)
+                        String erpAccnum = digits(siteCms ? rs.getString("site_accnum") : rs.getString("clt_accnum"));
 
                         // 당월/익월 판단: cms_member.deduct_month_type 우선, 없으면 ERP XCLIENT.autoflag 폴백
                         //  익월(NEXT / autoflag=2) → 전월 발생 미수를 이번 달 청구, 그 외 → 당월 미수
@@ -1802,17 +1966,28 @@ public class CmsBillingService {
                         // ★ cms_member 에 매칭되는 납부자가 없는 건은 목록에서 아예 제외한다.
                         //   CMS 대상이 아닌 ERP 거래처까지 노출되어 "이건 왜 나오냐"는 혼선이 생김.
                         //   (생성 대상이 아니므로 제외해도 결과는 동일하다.)
-                        if (member == null) continue;
+                        if (member == null && !siteMemberMissing) continue;
 
                         // ★ 표시명은 실제 청구가 들어갈 납부자(cms_member) 기준으로 낸다.
                         //   ERP 원본명(거래처/현장)을 그대로 쓰면, 한 거래처 밑 현장이 여럿일 때
                         //   서로 다른 납부자로 나가는 건이 같은 이름으로 보여 구분이 안 된다.
-                        if (StringUtils.hasText(str(member.get("member_name")))) {
+                        if (member != null && StringUtils.hasText(str(member.get("member_name")))) {
                             dispName = str(member.get("member_name"));
                         }
 
+                        // 매칭된 납부자 계좌가 ERP 출금계좌와 다르면 오매칭 의심 → 생성 막음
+                        boolean accountDiff = member != null && StringUtils.hasText(erpAccnum)
+                                && !erpAccnum.equals(digits(str(member.get("bank_account"))));
+
                         if (existingMisKeys.contains(misKey)) {
                             rowStatus = "DUP";
+                        } else if (siteMemberMissing) {
+                            rowStatus = "NO_SITE_MEMBER";      // 현장 CMS 납부자 미등록 — 대납 폴백 금지
+                            dispName  = nameSite;
+                        } else if (accountDiff) {
+                            rowStatus = "ACCOUNT_DIFF";        // ERP 출금계좌 ≠ 납부자 계좌
+                            memberId  = member.get("id");
+                            bankAccount = str(member.get("bank_account"));
                         } else if (!"Y".equals(str(member.get("agree_yn")))) {
                             rowStatus = "NOT_AGREED";
                             memberId  = member.get("id");
@@ -1841,6 +2016,8 @@ public class CmsBillingService {
                         row.put("deduct_day",     deductDay);
                         row.put("deduct_date",    deductDate);
                         row.put("row_status",     rowStatus);
+                        row.put("erp_accnum",     erpAccnum);
+                        row.put("match_by",       bySite ? "SITE" : "CLIENT");
                         list.add(row);
                     }
                 }
@@ -1914,7 +2091,7 @@ public class CmsBillingService {
             String memberName = str(c.get("member_name"));
 
             if (!"OK".equals(rowStatus)) {
-                // DUP / NOT_AGREED 는 생성 안 함
+                // DUP / NOT_AGREED / NO_SITE_MEMBER / ACCOUNT_DIFF 는 생성 안 함
                 notFound.add(Map.of("cltcd", str(c.get("cltcd")),
                         "member_name", memberName + "(" + rowStatus + ")"));
                 skipped++;

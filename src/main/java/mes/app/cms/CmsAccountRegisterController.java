@@ -145,7 +145,7 @@ public class CmsAccountRegisterController {
         AjaxResult result = new AjaxResult();
         if (ids.isEmpty()) {
             result.success = false;
-            result.message = "취소할 항목을 선택하세요.";
+            result.message = "삭제할 항목을 선택하세요.";
             return result;
         }
         try {
@@ -156,7 +156,33 @@ public class CmsAccountRegisterController {
             if (deleted == 0) result.success = false;
         } catch (Exception e) {
             result.success = false;
-            result.message = "취소 실패: " + e.getMessage();
+            result.message = "삭제 실패: " + e.getMessage();
+        }
+        return result;
+    }
+
+    /** 강제 완료 — 다른 곳에서 이미 등록/해지가 끝난 건을 완료로 맞춘다(금결원 전송 없음) */
+    @PostMapping("/force-approve")
+    public AjaxResult forceApprove(@RequestParam("ids") String idsStr,
+                                   @RequestParam(value = "reason", required = false) String reason,
+                                   Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        List<Long> ids = parseIds(idsStr);
+        AjaxResult result = new AjaxResult();
+        if (ids.isEmpty()) {
+            result.success = false;
+            result.message = "완료 처리할 항목을 선택하세요.";
+            return result;
+        }
+        try {
+            Map<String, Object> res = cmsAccountRegisterService.forceApprove(ids, reason, user.getUsername());
+            int done = res.get("done") != null ? ((Number) res.get("done")).intValue() : 0;
+            result.data = res;
+            result.message = (String) res.get("message");
+            if (done == 0) result.success = false;
+        } catch (Exception e) {
+            result.success = false;
+            result.message = "완료 처리 실패: " + e.getMessage();
         }
         return result;
     }
@@ -178,14 +204,29 @@ public class CmsAccountRegisterController {
         return result;
     }
 
+    /** 미인증 불러오기 — 생성 후보 미리보기 */
+    @GetMapping("/erp-candidates")
+    public AjaxResult erpCandidates() {
+        AjaxResult result = new AjaxResult();
+        try {
+            result.data = cmsAccountRegisterService.previewErpMembers();
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
     @PostMapping("/create-from-erp")
     @ResponseBody
-    public AjaxResult createFromErp(Authentication auth) {
+    public AjaxResult createFromErp(@RequestParam(value = "member_ids", required = false) String memberIdsStr,
+                                    Authentication auth) {
         User user = (User) auth.getPrincipal();
         String userId = String.valueOf(user.getId());
         AjaxResult result = new AjaxResult();
         try {
-            Map<String, Object> res = cmsAccountRegisterService.createFromErpMembers(userId);
+            List<Long> memberIds = (memberIdsStr == null || memberIdsStr.isBlank()) ? null : parseIds(memberIdsStr);
+            Map<String, Object> res = cmsAccountRegisterService.createFromErpMembers(userId, memberIds);
             result.success = true;
             result.data = res;
         } catch (Exception e) {

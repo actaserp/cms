@@ -55,7 +55,7 @@
                              현재월을 담는 hidden으로 유지한다(init에서 세팅). -->
                         <input type="hidden" id="srchBillingYm">
                         <dl>
-                            <dt><label>기준</label></dt>
+                            <dt><label>조회</label></dt>
                             <dd>
                                 <select class="form-control2" id="srchDateType" style="width:120px;">
                                     <option value="SEND" selected>출금신청일</option>
@@ -103,7 +103,7 @@
                             <button type="button" class="btn-default" id="btnErpImport"
                                     style="background:#e67e22; color:#fff; width: 120px;display: none;">ERP 청구생성</button>
                             <button type="button" class="btn-default" id="btnGenerate" style="background:#4a6cf7; color:#fff;">청구생성</button>
-<!--                            <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>-->
+                            <button type="button" class="btn-default" id="btnCancel" style="background:#6c757d; color:#fff;">청구취소</button>
                             <button type="button" class="btn-default" id="btnResend" style="background:#8e44ad; color:#fff;">재청구</button>
                             <button type="button" class="btn-default" id="btnSendNow"
                                     style="background:#27ae60; color:#fff;">즉시전송</button>
@@ -2601,7 +2601,10 @@
             OK: {label: '생성가능', color: '#155724', bg: '#d4edda'},
             DUP: {label: '이미청구됨', color: '#721c24', bg: '#f8d7da'},
             NO_MEMBER: {label: '납부자없음', color: '#856404', bg: '#fff3cd'},
-            NOT_AGREED: {label: '미인증', color: '#6a0dad', bg: '#f0d0ff'}
+            NOT_AGREED: {label: '미인증', color: '#6a0dad', bg: '#f0d0ff'},
+            // 오매칭 방지 — 둘 다 생성 불가
+            NO_SITE_MEMBER: {label: '현장납부자없음', color: '#fff', bg: '#c0392b'},
+            ACCOUNT_DIFF: {label: '계좌불일치', color: '#fff', bg: '#e67e22'}
         };
 
         function openErpImportModal() {
@@ -2788,7 +2791,8 @@
                     + (canSelect ? ' checked' : ' disabled') + '>'
                     + '</td>'
                     + '<td style="padding:6px 8px; border:1px solid #eee; text-align:left; padding-left:22px;">'
-                    + '<span class="erp-name" title="' + escAttr('ERP 거래처: ' + (r.member_name_rep || '-') + ' / 현장: ' + (r.member_name_site || '-')) + '">'
+                    + '<span class="erp-name" title="' + escAttr('ERP 거래처: ' + (r.member_name_rep || '-') + ' / 현장: ' + (r.member_name_site || '-')
+                        + ' / ERP 출금계좌: ' + (r.erp_accnum || '-')) + '">'
                     + escAttr(r.member_name || '')
                     + '</span>'
                     + '</td>'
@@ -2796,6 +2800,12 @@
                     + '<td class="erp-dd" style="padding:6px 8px; border:1px solid #eee; text-align:center;">' + ddDisp + '</td>'
                     + '<td style="padding:6px 8px; border:1px solid #eee; text-align:center;">'
                     + '<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; color:' + st.color + '; background:' + st.bg + ';">' + st.label + '</span>'
+                    + (r.row_status === 'ACCOUNT_DIFF'
+                        ? '<div style="font-size:11px; color:#c0392b; margin-top:2px;">ERP ' + escAttr(r.erp_accnum || '-')
+                        + '<br>납부자 ' + escAttr(r.bank_account || '-') + '</div>'
+                        : (r.row_status === 'NO_SITE_MEMBER'
+                            ? '<div style="font-size:11px; color:#c0392b; margin-top:2px;">현장 CMS 계좌 ' + escAttr(r.erp_accnum || '-') + '</div>'
+                            : ''))
                     + '</td>'
                     + '</tr>';
             });

@@ -518,6 +518,24 @@ public class CmsBillingController {
         return result;
     }
 
+    /**
+     * ERP 청구 오매칭 점검 (읽기 전용) — 이미 만든 ERP 청구의 계좌를 ERP 미수원장과 대조.
+     *  예) /api/cms/billing/audit-erp-mismatch?from=20260601            → 전 사업장
+     *      /api/cms/billing/audit-erp-mismatch?from=20260601&spjangcd=J1 → 한 사업장
+     */
+    @GetMapping("/audit-erp-mismatch")
+    public AjaxResult auditErpMismatch(@RequestParam(value = "from", required = false) String from,
+                                       @RequestParam(value = "spjangcd", required = false) String spjangcd) {
+        AjaxResult result = new AjaxResult();
+        try {
+            result.data = cmsBillingService.auditErpMismatch(from, spjangcd);
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
     /** ERP 미수금 후보 조회 (모달 목록) — INSERT 안 함 */
     @GetMapping("/erp-preview")
     public AjaxResult erpPreview(
