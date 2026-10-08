@@ -1716,6 +1716,201 @@ public class CmsBillingService {
         return out;
     }
 
+    // ══════════════════════════════════════════════════════════════════
+    //  전송 전 경고 (오출금 방지)
+    //   EB21/EC21 파일을 만들기 직전에 같은 출금일의 대기 청구를 검사한다.
+    //   경고가 있는 건은 담당자가 '확인 승인' 해야 파일에 실린다.
+    //   승인하지 않은 건은 파일에서 빠지고 대기(PENDING)로 남는다(스케줄러 포함 모든 경로 공통).
+    //
+    //   AMOUNT_SPIKE  : 평소 금액(약정금액, 없으면 최근 성공 3회 평균)의 3배 초과
+    //   MULTI         : 같은 출금일에 한 납부자에게 2건 이상
+    //   ACCOUNT_CHANGED: 청구 계좌 ≠ 현재 납부자 계좌 (생성 후 계좌가 바뀜)
+    //   ERP_ACCOUNT   : ERP 청구인데 ERP가 그 미수를 빼려는 계좌와 다름 (오매칭 의심)
+    //
+    //   승인은 '그때의 경고 내용 + 금액 + 계좌' 서명으로 저장한다.
+    //   승인 후 금액·계좌가 바뀌면 서명이 달라져 다시 승인해야 한다.
+    //   필요 DDL:
+    //     ALTER TABLE cms_billing ADD COLUMN IF NOT EXISTS warn_ack_sig VARCHAR(500);
+    //     ALTER TABLE cms_billing ADD COLUMN IF NOT EXISTS warn_ack_by  VARCHAR(50);
+    //     ALTER TABLE cms_billing ADD COLUMN IF NOT EXISTS warn_ack_at  TIMESTAMP;
+    // ══════════════════════════════════════════════════════════════════
+    private static final double SPIKE_RATIO = 3.0;
+
+    public List<Map<String, Object>> getSendWarnings(String spjangcd, String deductDate, String deductType) {
+        String type = "EC".equalsIgnoreCase(deductType) ? "EC" : "EB";
+        List<Map<String, Object>> bills = sqlRunner.getRows(/* skip_tenant_check */
+                """
+                SELECT b.id, b.member_id, b.member_name, b.billing_amount, b.bank_code, b.bank_account,
+                       b.erp_mis_key, b.warn_ack_sig, b.warn_ack_by, b.warn_ack_at,
+                       m.member_no, m.member_name AS payer_name, m.bank_account AS member_account,
+                       m.deduct_amount,
+                       (SELECT AVG(x.billing_amount) FROM (
+                            SELECT h.billing_amount FROM cms_billing h
+                            WHERE h.spjangcd = b.spjangcd AND h.member_id = b.member_id
+                              AND h.status = 'SUCCESS' AND h.id <> b.id
+                            ORDER BY h.deduct_date DESC LIMIT 3) x) AS recent_avg,
+                       COUNT(*) OVER (PARTITION BY b.member_id) AS same_day_cnt
+                FROM cms_billing b
+                LEFT JOIN cms_member m ON m.id = b.member_id
+                WHERE b.spjangcd = :sp AND b.deduct_date = :dd
+                  AND b.deduct_type = :tp AND b.status = 'PENDING'
+                ORDER BY b.member_id, b.id
+                """,
+                new MapSqlParameterSource("sp", spjangcd).addValue("dd", deductDate).addValue("tp", type));
+        if (bills.isEmpty()) return new ArrayList<>();
+
+        Map<String, String> erpAcc = erpExpectedAccounts(spjangcd, bills);
+
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map<String, Object> b : bills) {
+            List<String> codes = new ArrayList<>();
+            List<String> texts = new ArrayList<>();
+            long amount = b.get("billing_amount") != null ? ((Number) b.get("billing_amount")).longValue() : 0L;
+
+            // 1) 금액 급증
+            long ref = 0;
+            if (b.get("deduct_amount") != null && ((Number) b.get("deduct_amount")).longValue() > 0) {
+                ref = ((Number) b.get("deduct_amount")).longValue();
+            } else if (b.get("recent_avg") != null) {
+                ref = Math.round(((Number) b.get("recent_avg")).doubleValue());
+            }
+            if (ref > 0 && amount > ref * SPIKE_RATIO) {
+                codes.add("AMOUNT_SPIKE");
+                texts.add(String.format("평소 %,d원의 %.1f배", ref, (double) amount / ref));
+            }
+            // 2) 같은 날 다건
+            long cnt = b.get("same_day_cnt") != null ? ((Number) b.get("same_day_cnt")).longValue() : 1;
+            if (b.get("member_id") != null && cnt > 1) {
+                codes.add("MULTI");
+                texts.add("같은 출금일에 이 납부자 " + cnt + "건");
+            }
+            // 3) 생성 후 납부자 계좌 변경
+            String billAcc = digits(str(b.get("bank_account")));
+            String memAcc  = digits(str(b.get("member_account")));
+            if (StringUtils.hasText(memAcc) && !memAcc.equals(billAcc)) {
+                codes.add("ACCOUNT_CHANGED");
+                texts.add("납부자 계좌가 바뀜 (현재 " + memAcc + ")");
+            }
+            // 4) ERP 출금계좌 불일치
+            String key = str(b.get("erp_mis_key"));
+            if (StringUtils.hasText(key) && erpAcc.containsKey(key)) {
+                String e = erpAcc.get(key);
+                if (StringUtils.hasText(e) && !e.equals(billAcc)) {
+                    codes.add("ERP_ACCOUNT");
+                    texts.add("ERP 출금계좌 " + e + " 와 다름 (오매칭 의심)");
+                }
+            }
+            if (codes.isEmpty()) continue;
+
+            String sig = String.join(",", codes) + "|" + amount + "|" + billAcc;
+            Map<String, Object> row = new HashMap<>();
+            row.put("id", b.get("id"));
+            row.put("member_no", b.get("member_no"));
+            row.put("member_name", b.get("member_name"));
+            row.put("payer_name", b.get("payer_name"));
+            row.put("billing_amount", amount);
+            row.put("bank_code", b.get("bank_code"));
+            row.put("bank_account", billAcc);
+            row.put("warn_codes", codes);
+            row.put("warn_texts", texts);
+            row.put("sig", sig);
+            row.put("acked", sig.equals(str(b.get("warn_ack_sig"))));
+            row.put("ack_by", b.get("warn_ack_by"));
+            row.put("ack_at", b.get("warn_ack_at"));
+            out.add(row);
+        }
+        return out;
+    }
+
+    /** 파일에서 뺄 청구 — 경고가 있는데 승인되지 않은 건 */
+    public List<Long> findUnackedWarningIds(String spjangcd, String deductDate, String deductType) {
+        List<Long> ids = new ArrayList<>();
+        for (Map<String, Object> w : getSendWarnings(spjangcd, deductDate, deductType)) {
+            if (!Boolean.TRUE.equals(w.get("acked"))) ids.add(((Number) w.get("id")).longValue());
+        }
+        return ids;
+    }
+
+    /** 경고 확인 승인 — 지금 경고 내용 그대로 서명을 저장한다 */
+    public int ackSendWarnings(String spjangcd, String deductDate, String deductType,
+                               List<Long> ids, String userId) {
+        Set<Long> want = new HashSet<>(ids);
+        int n = 0;
+        for (Map<String, Object> w : getSendWarnings(spjangcd, deductDate, deductType)) {
+            long id = ((Number) w.get("id")).longValue();
+            if (!want.contains(id)) continue;
+            n += sqlRunner.execute(/* skip_tenant_check */
+                    """
+                    UPDATE cms_billing
+                    SET warn_ack_sig = :sig, warn_ack_by = :uid, warn_ack_at = NOW(), _modified = NOW()
+                    WHERE id = :id AND spjangcd = :sp AND status = 'PENDING'
+                    """,
+                    new MapSqlParameterSource("id", id).addValue("sp", spjangcd)
+                            .addValue("sig", str(w.get("sig"))).addValue("uid", userId));
+            log.info("[전송경고승인] id={} {} by {}", id, w.get("warn_texts"), userId);
+        }
+        return n;
+    }
+
+    /** ERP 청구의 '미수 → ERP 기준 출금계좌'. ERP 연결이 없거나 실패하면 빈 맵(이 항목만 건너뜀). */
+    private Map<String, String> erpExpectedAccounts(String spjangcd, List<Map<String, Object>> bills) {
+        Map<String, String> out = new HashMap<>();
+        List<String> keys = bills.stream().map(b -> str(b.get("erp_mis_key")))
+                .filter(k -> k.length() >= 8).distinct().collect(Collectors.toList());
+        if (keys.isEmpty()) return out;
+
+        Map<String, Object> erp = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT host, port, db_name, username, password, custcd FROM tb_xa012_erp WHERE spjangcd = :sp",
+                new MapSqlParameterSource("sp", spjangcd));
+        if (erp == null) return out;
+
+        String from = keys.stream().map(k -> k.substring(0, 8)).min(String::compareTo).get();
+        String to   = keys.stream().map(k -> k.substring(0, 8)).max(String::compareTo).get();
+        Set<String> want = new HashSet<>(keys);
+        String dbUrl = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
+                str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
+        try {
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
+                    dbUrl, str(erp.get("username")), str(erp.get("password")));
+                 java.sql.PreparedStatement ps = conn.prepareStatement(
+                         """
+                         SELECT A.misdate, A.misnum,
+                                CASE WHEN EXISTS (SELECT 1 FROM TB_E101 e3 WITH(NOLOCK)
+                                                   WHERE e3.custcd = A.custcd AND e3.spjangcd = A.spjangcd
+                                                     AND e3.actcd = A.actcd AND e3.cmsflag = 1
+                                                     AND ISNULL(e3.contg,'') <> '04')
+                                     THEN 1 ELSE 0 END AS site_cms,
+                                E.accnum AS site_accnum, C.accnum AS clt_accnum
+                         FROM TB_DA023 A WITH(NOLOCK)
+                         LEFT JOIN TB_XCLIENT C WITH(NOLOCK) ON C.custcd = A.custcd AND C.cltcd = A.cltcd
+                         OUTER APPLY (
+                             SELECT TOP 1 e.accnum FROM TB_E101 e WITH(NOLOCK)
+                             WHERE e.custcd = A.custcd AND e.spjangcd = A.spjangcd AND e.actcd = A.actcd
+                               AND e.contg <> '04' AND NULLIF(LTRIM(RTRIM(e.accnum)),'') IS NOT NULL
+                             ORDER BY e.stdate DESC
+                         ) E
+                         WHERE A.custcd = ? AND A.misdate >= ? AND A.misdate <= ?
+                         """)) {
+                ps.setString(1, str(erp.get("custcd")));
+                ps.setString(2, from);
+                ps.setString(3, to);
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String k = str(rs.getString("misdate")) + str(rs.getString("misnum"));
+                        if (!want.contains(k)) continue;
+                        boolean siteCms = rs.getInt("site_cms") == 1;
+                        out.put(k, digits(siteCms ? rs.getString("site_accnum") : rs.getString("clt_accnum")));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // ERP 장애로 전송 전체를 막지 않는다. 나머지 경고(금액·다건·계좌변경)는 그대로 동작.
+            log.error("[전송경고] {} ERP 계좌 대조 실패 — 이 항목만 건너뜀: {}", spjangcd, e.getMessage());
+        }
+        return out;
+    }
+
     /** 계좌 비교용 — 숫자만 남긴다 */
     private static String digits(String v) {
         return v == null ? "" : v.replaceAll("[^0-9]", "");
@@ -1726,6 +1921,44 @@ public class CmsBillingService {
     }
 
     public List<Map<String, Object>> previewErpBilling(String billingYm, String nameTypeParam) {
+        return previewErpBilling(billingYm, nameTypeParam, null);
+    }
+
+    /**
+     * 청구 누락 추적 — 지정한 미수번호가 청구생성 각 단계에서 어디서 왜 빠지는지 돌려준다.
+     *  파워빌더 수납 여부는 추적 대상에 한해 무시하고 표시만 해서, 그 전 시점 상황을 재현한다.
+     */
+    public List<Map<String, Object>> traceErpBilling(String billingYm, List<String> keys) {
+        Map<String, List<String>> trace = new LinkedHashMap<>();
+        for (String k : keys) trace.put(k.trim(), new ArrayList<>());
+        List<Map<String, Object>> rows = previewErpBilling(billingYm, "REP", trace);
+        Map<String, Map<String, Object>> byKey = new HashMap<>();
+        for (Map<String, Object> r : rows) byKey.put(str(r.get("erp_mis_key")), r);
+
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map.Entry<String, List<String>> e : trace.entrySet()) {
+            Map<String, Object> t = new LinkedHashMap<>();
+            t.put("erp_mis_key", e.getKey());
+            List<String> steps = e.getValue();
+            if (steps.isEmpty()) steps.add("ERP 조회 조건에서 탈락 (기간·CMS사용·계좌·식별번호·수납/이월/상계·잔액 중 하나)");
+            Map<String, Object> r = byKey.get(e.getKey());
+            if (r != null) {
+                t.put("result", r.get("row_status"));
+                t.put("member_id", r.get("member_id"));
+                t.put("member_name", r.get("member_name"));
+                t.put("match_by", r.get("match_by"));
+                t.put("billing_amount", r.get("billing_amount"));
+            } else {
+                t.put("result", "목록에서 빠짐");
+            }
+            t.put("steps", steps);
+            out.add(t);
+        }
+        return out;
+    }
+
+    private List<Map<String, Object>> previewErpBilling(String billingYm, String nameTypeParam,
+                                                        Map<String, List<String>> trace) {
         String spjangcd = TenantContext.get();
 
         Map<String, Object> erp = sqlRunner.getRow(/* skip_tenant_check */
@@ -1915,7 +2148,12 @@ public class CmsBillingService {
                         String misnum        = rs.getString("misnum");
                         String misKey        = misdate + misnum;
                         // 파워빌더 CMS 로 이미 걷은 건 (기존 SQL 의 EB21/EC21 NOT EXISTS 대체)
-                        if (pbPaidKeys.contains(misKey)) continue;
+                        List<String> tr = (trace != null) ? trace.get(misKey) : null;
+                        if (tr != null) tr.add("ERP 조회 통과 (cltcd=" + rs.getString("cltcd") + ", actcd=" + rs.getString("actcd") + ")");
+                        if (pbPaidKeys.contains(misKey)) {
+                            if (tr == null) continue;
+                            tr.add("파워빌더(MS) 수납됨 — 평소엔 여기서 빠짐, 추적이라 계속 진행");
+                        }
                         long   billingAmount = rs.getLong("billing_amount");   // DA023 잔액(부분입금 차감 후)
                         String autoflag      = str(rs.getString("autoflag"));
                         String misYm         = (misdate != null && misdate.length() >= 6) ? misdate.substring(0, 6) : "";
@@ -1926,7 +2164,7 @@ public class CmsBillingService {
                         // 기관 기본값(SITE/REP)에 따른 기본 표시명. 화면 토글이 site/rep로 전환.
                         String memberName    = "SITE".equalsIgnoreCase(nameType) ? nameSite : nameRep;
 
-                        if (billingAmount <= 0) continue;
+                        if (billingAmount <= 0) { if (tr != null) tr.add("잔액 0 이하로 탈락"); continue; }
 
                         // 현장(actcd) 우선 → 없으면 거래처(cltcd).
                         //  한 거래처 밑에 현장이 여럿일 수 있고(지원에셋 00811 ← CS메디컬 00779 +
@@ -1955,7 +2193,10 @@ public class CmsBillingService {
                                 ? str(member.get("deduct_month_type"))
                                 : ("2".equals(autoflag) ? "NEXT" : "CURRENT");
                         String expectYm  = "NEXT".equalsIgnoreCase(monthType) ? prevYm : billingYm;
-                        if (!expectYm.equals(misYm)) continue;
+                        if (!expectYm.equals(misYm)) {
+                            if (tr != null) tr.add("청구월 불일치로 탈락 (납부자 " + monthType + " → 기대 " + expectYm + ", 미수월 " + misYm + ")");
+                            continue;
+                        }
 
                         String rowStatus;
                         Object memberId = null;
@@ -1966,6 +2207,9 @@ public class CmsBillingService {
                         // ★ cms_member 에 매칭되는 납부자가 없는 건은 목록에서 아예 제외한다.
                         //   CMS 대상이 아닌 ERP 거래처까지 노출되어 "이건 왜 나오냐"는 혼선이 생김.
                         //   (생성 대상이 아니므로 제외해도 결과는 동일하다.)
+                        if (tr != null) tr.add(member != null
+                                ? "납부자 매칭: " + str(member.get("member_name")) + " (id=" + member.get("id") + ", " + (bySite ? "현장코드" : "거래처코드") + ")"
+                                : (siteMemberMissing ? "현장 CMS 납부자 없음" : "납부자 못 찾음 (현장 " + actcd + " / 거래처 " + cltcd + ")"));
                         if (member == null && !siteMemberMissing) continue;
 
                         // ★ 표시명은 실제 청구가 들어갈 납부자(cms_member) 기준으로 낸다.
@@ -2018,6 +2262,7 @@ public class CmsBillingService {
                         row.put("row_status",     rowStatus);
                         row.put("erp_accnum",     erpAccnum);
                         row.put("match_by",       bySite ? "SITE" : "CLIENT");
+                        if (tr != null) tr.add("판정: " + rowStatus);
                         list.add(row);
                     }
                 }

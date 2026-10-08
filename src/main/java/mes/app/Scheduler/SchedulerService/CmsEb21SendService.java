@@ -185,6 +185,19 @@ public class CmsEb21SendService {
         if (validBillings.isEmpty()) throw new IllegalStateException("유효한 PENDING 청구 건 없음");
         billings = validBillings;
 
+        // ★ 전송 전 경고 — 승인 안 된 경고 건은 파일에서 빼고 대기로 남긴다 (오출금 방지)
+        List<Long> blocked = cmsBillingService.findUnackedWarningIds(spjangcd, targetDate, "EB");
+        if (!blocked.isEmpty()) {
+            java.util.Set<Long> bset = new java.util.HashSet<>(blocked);
+            billings = billings.stream()
+                    .filter(b -> !bset.contains(((Number) b.get("id")).longValue()))
+                    .collect(java.util.stream.Collectors.toList());
+            log.warn("[CmsEb21] 경고 미승인 {}건 제외(대기 유지) spjangcd={} date={} ids={}",
+                    blocked.size(), spjangcd, targetDate, blocked);
+        }
+        if (billings.isEmpty()) throw new IllegalStateException(
+                "전송 전 경고를 확인·승인하지 않은 건만 남아 있습니다. 즉시전송 화면에서 경고를 확인하세요.");
+
         // 2. EB21 생성
         byte[] fileBytes = buildEb21File(spjangcd, billings, institutionCode, targetDate);
         // 파일명: EB21{MMDD}_{YYYY} (금결원 규격)

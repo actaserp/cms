@@ -259,6 +259,42 @@
         </div>
     </div>
 
+    <!-- 전송 전 경고 모달 (오출금 방지) -->
+    <div id="modalSendWarn" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+         background:rgba(0,0,0,0.45); z-index:1060; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:22px 26px; width:900px; max-width:95vw; max-height:85vh;
+             display:flex; flex-direction:column; box-shadow:0 4px 24px rgba(0,0,0,0.25);">
+            <h3 style="margin:0 0 6px; font-size:15px; color:#c0392b;">전송 전 확인 필요</h3>
+            <div style="font-size:12px; color:#555; margin-bottom:10px; line-height:1.6;">
+                아래 건은 잘못 출금될 수 있는 신호가 있습니다. 납부자·금액·계좌를 한 번 확인하세요.<br>
+                <span style="color:#888;">이상이 있으면 [전송 취소] 후 해당 청구를 수정·삭제하고 다시 전송하세요.</span>
+            </div>
+            <div style="overflow-y:auto; flex:1; border:1px solid #eee;">
+                <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                    <thead>
+                    <tr style="background:#f5f6fa; color:#555; position:sticky; top:0;">
+                        <th style="padding:6px; border:1px solid #dde0ea;">출금일</th>
+                        <th style="padding:6px; border:1px solid #dde0ea; text-align:left;">청구명 / 납부자</th>
+                        <th style="padding:6px; border:1px solid #dde0ea; text-align:right;">금액</th>
+                        <th style="padding:6px; border:1px solid #dde0ea;">출금계좌</th>
+                        <th style="padding:6px; border:1px solid #dde0ea; text-align:left;">경고</th>
+                    </tr>
+                    </thead>
+                    <tbody id="sendWarnRows"></tbody>
+                </table>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+                <span id="sendWarnSummary" style="font-size:12px; color:#555;"></span>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" id="btnSendWarnConfirm"
+                            style="background:#c0392b; color:#fff; padding:6px 16px; border:none; border-radius:4px; cursor:pointer; font-size:13px;">확인했습니다, 전송</button>
+                    <button type="button" id="btnSendWarnCancel"
+                            style="background:#f5f6fa; color:#333; padding:6px 16px; border:1px solid #dde0ea; border-radius:4px; cursor:pointer; font-size:13px;">전송 취소</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 즉시전송 모달 -->
     <div id="modalSendNow" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
          background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
@@ -895,6 +931,84 @@
             $('#sendNowRows').html(html);
         }
 
+
+        // ── 전송 전 경고 (오출금 방지) ───────────────────────────────
+        //  출금일별로 서버에 경고를 물어 보고, 승인 안 된 경고가 있으면 모달로 보여 준다.
+        //  체크한 건만 승인(서명 저장) → 그다음 전송. 체크 안 한 건은 서버가 파일에서 뺀다.
+        var sendWarnPending = null;   // {dates, rows, next}
+
+        function checkSendWarnings(deductDates, next) {
+            var reqs = deductDates.map(function (d) {
+                return $.ajax({url: withCtx('/api/cms/billing/send-check'), type: 'GET',
+                    data: {deduct_date: d, deduct_type: 'EC'}})
+                    .then(function (r) {
+                        return ((r && r.success !== false) ? (r.data || []) : []).map(function (x) {
+                            x.deduct_date = d; return x;
+                        });
+                    });
+            });
+            AjaxUtil.showLoading();
+            $.when.apply($, reqs).then(function () {
+                AjaxUtil.hideLoading();
+                var lists = reqs.length === 1 ? [arguments[0]] : Array.prototype.slice.call(arguments);
+                var rows = [];
+                lists.forEach(function (l) { rows = rows.concat(l || []); });
+                var open = rows.filter(function (r) { return !r.acked; });
+                if (!open.length) { next(); return; }
+                sendWarnPending = {dates: deductDates, rows: open, next: next};
+                renderSendWarn(open);
+                $('#modalSendWarn').css('display', 'flex');
+            }, function () {
+                AjaxUtil.hideLoading();
+                Alert.alert('오류', '전송 전 점검에 실패해 전송하지 않았습니다. 다시 시도하세요.');
+            });
+        }
+
+        function renderSendWarn(rows) {
+            var td = 'padding:6px; border:1px solid #eee;';
+            $('#sendWarnRows').html(rows.map(function (r) {
+                var dd = String(r.deduct_date || '');
+                var ddFmt = dd.length === 8 ? dd.substring(0,4)+'-'+dd.substring(4,6)+'-'+dd.substring(6,8) : dd;
+                var names = escAttr(r.member_name || '')
+                    + ((r.payer_name && r.payer_name !== r.member_name)
+                        ? '<div style="color:#c0392b;">납부자: ' + escAttr(r.payer_name) + ' (' + escAttr(r.member_no || '') + ')</div>'
+                        : '<div style="color:#888;">' + escAttr(r.member_no || '') + '</div>');
+                return '<tr>'
+                    + '<td style="' + td + ' text-align:center;">' + ddFmt + '</td>'
+                    + '<td style="' + td + '">' + names + '</td>'
+                    + '<td style="' + td + ' text-align:right; font-weight:600;">' + Number(r.billing_amount || 0).toLocaleString() + '</td>'
+                    + '<td style="' + td + ' text-align:center;">' + escAttr(r.bank_account || '') + '</td>'
+                    + '<td style="' + td + ' color:#c0392b;">' + (r.warn_texts || []).map(escAttr).join('<br>') + '</td>'
+                    + '</tr>';
+            }).join(''));
+            $('#sendWarnSummary').text('확인 필요 ' + rows.length + '건');
+        }
+
+        function confirmSendWarn() {
+            if (!sendWarnPending) return;
+            // 경고는 알림용 — 확인 버튼 한 번으로 전부 승인하고 그대로 전송한다.
+            var byDate = {};
+            sendWarnPending.rows.forEach(function (r) {
+                var dd = String(r.deduct_date);
+                (byDate[dd] = byDate[dd] || []).push(r.id);
+            });
+            var acks = Object.keys(byDate).map(function (dd) {
+                return $.ajax({url: withCtx('/api/cms/billing/send-ack'), type: 'POST',
+                    data: {deduct_date: dd, deduct_type: 'EC', ids: byDate[dd].join(','),
+                        _csrf: $('[name=_csrf]').val()}});
+            });
+            var next = sendWarnPending.next;
+            sendWarnPending = null;
+            $('#modalSendWarn').hide();
+            $.when.apply($, acks).then(function () { next(); },
+                function () { Alert.alert('오류', '확인 기록 저장에 실패해 전송하지 않았습니다.'); });
+        }
+
+        function escAttr(v) {
+            return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+                .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
         function doSendNow() {
             var deductDates = [];
             $('.sendnow-check:checked').each(function() {
@@ -904,7 +1018,11 @@
             if (deductDates.length === 0) { Alert.alert('', '전송할 출금일을 선택하세요.'); return; }
 
             $('#modalSendNow').hide();
+            // ★ 전송 전 경고를 먼저 확인한다. 경고가 없거나 승인되면 실제 전송.
+            checkSendWarnings(deductDates, function () { executeSendNow(deductDates); });
+        }
 
+        function executeSendNow(deductDates) {
             var promises = deductDates.map(function(deductDate) {
                 return $.ajax({
                     url: withCtx('/api/cms/billing/send-now'),
@@ -1116,6 +1234,8 @@
             $('#btnDel').click(deleteBilling);
             $('#btnSendNow').click(sendNow);
             $('#btnSendNowConfirm').click(doSendNow);
+            $('#btnSendWarnConfirm').click(confirmSendWarn);
+            $('#btnSendWarnCancel').click(function () { sendWarnPending = null; $('#modalSendWarn').hide(); });
             $('#btnRechargeConfirm').click(doRecharge);
             $('#btnRechargeCancel').click(function () {
                 $('#modalRecharge').hide();

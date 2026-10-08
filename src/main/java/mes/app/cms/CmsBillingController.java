@@ -370,6 +370,40 @@ public class CmsBillingController {
         return result;
     }
 
+    /** 전송 전 경고 조회 — 즉시전송 전에 화면에서 확인용 */
+    @GetMapping("/send-check")
+    public AjaxResult sendCheck(@RequestParam("deduct_date") String deductDate,
+                                @RequestParam(value = "deduct_type", defaultValue = "EB") String deductType) {
+        AjaxResult result = new AjaxResult();
+        try {
+            result.data = cmsBillingService.getSendWarnings(TenantContext.get(), deductDate, deductType);
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    /** 전송 전 경고 확인 승인 — 승인한 건만 파일에 실린다 */
+    @PostMapping("/send-ack")
+    public AjaxResult sendAck(@RequestParam("deduct_date") String deductDate,
+                              @RequestParam(value = "deduct_type", defaultValue = "EB") String deductType,
+                              @RequestParam("ids") String idsStr,
+                              Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        try {
+            List<Long> ids = java.util.Arrays.stream(idsStr.split(","))
+                    .map(String::trim).filter(x -> !x.isEmpty()).map(Long::parseLong)
+                    .collect(java.util.stream.Collectors.toList());
+            String uid = auth != null ? auth.getName() : "unknown";
+            result.data = cmsBillingService.ackSendWarnings(TenantContext.get(), deductDate, deductType, ids, uid);
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
     @GetMapping("/sendable-dates")
     public AjaxResult getSendableDates(
             @RequestParam("billing_ym") String billingYm,
@@ -529,6 +563,24 @@ public class CmsBillingController {
         AjaxResult result = new AjaxResult();
         try {
             result.data = cmsBillingService.auditErpMismatch(from, spjangcd);
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    /**
+     * 청구 누락 추적 — 미수번호별로 청구생성 어느 단계에서 빠지는지 확인 (읽기 전용)
+     *  예) /api/cms/billing/erp-trace?billing_ym=202609&keys=202609300726,202609300912
+     */
+    @GetMapping("/erp-trace")
+    public AjaxResult erpTrace(@RequestParam("billing_ym") String billingYm,
+                               @RequestParam("keys") String keys) {
+        AjaxResult result = new AjaxResult();
+        try {
+            result.data = cmsBillingService.traceErpBilling(billingYm.replace("-", ""),
+                    java.util.Arrays.asList(keys.split(",")));
         } catch (Exception e) {
             result.success = false;
             result.message = e.getMessage();
