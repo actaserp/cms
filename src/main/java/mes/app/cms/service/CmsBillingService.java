@@ -1979,18 +1979,31 @@ public class CmsBillingService {
         catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
 
         // 이미 가져온 erp_mis_key (중복 표시용)
+        //  ★ 청구월 판정이 귀속년월/매출일자 둘 다 허용이라, 같은 미수가 인접한 달 청구에서
+        //    다시 후보가 될 수 있다. 앞뒤 한 달 청구분까지 봐서 이중 생성을 막는다.
         List<Map<String, Object>> existingKeys = sqlRunner.getRows(/* skip_tenant_check */
                 """
-                SELECT erp_mis_key FROM cms_billing
-                WHERE spjangcd = :spjangcd
-                AND billing_ym = :billingYm
-                AND erp_mis_key IS NOT NULL
+                SELECT b.erp_mis_key, m.cltcd
+                FROM cms_billing b
+                LEFT JOIN cms_member m ON m.id = b.member_id
+                WHERE b.spjangcd = :spjangcd
+                AND b.billing_ym IN (:prevYm, :billingYm, :nextYm)
+                AND b.erp_mis_key IS NOT NULL
                 """,
                 new MapSqlParameterSource("spjangcd", spjangcd)
-                        .addValue("billingYm", billingYm));
-        Set<String> existingMisKeys = existingKeys.stream()
-                .map(r -> str(r.get("erp_mis_key")))
-                .collect(Collectors.toSet());
+                        .addValue("billingYm", billingYm)
+                        .addValue("prevYm", prevYyyymm(billingYm))
+                        .addValue("nextYm", nextYyyymm(billingYm)));
+        // ★ 미수번호는 거래처가 달라도 겹칠 수 있어 '미수키|거래처코드'로 중복을 본다.
+        //   납부자 거래처코드가 비어 있는 옛 청구건은 판단할 수 없으니 미수키만으로 본다(안전 쪽).
+        Set<String> existingMisKeys   = new HashSet<>();   // 미수키|거래처
+        Set<String> existingKeyOnly   = new HashSet<>();   // 거래처 모르는 미수키
+        for (Map<String, Object> r : existingKeys) {
+            String k = str(r.get("erp_mis_key"));
+            String c = str(r.get("cltcd"));
+            if (StringUtils.hasText(c)) existingMisKeys.add(k + "|" + c.toUpperCase());
+            else                         existingKeyOnly.add(k);
+        }
 
         List<Map<String, Object>> list = new ArrayList<>();
 
@@ -2018,6 +2031,7 @@ public class CmsBillingService {
                     A.actcd,
                     A.misdate,
                     A.misnum,
+                    A.yyyymm,                          -- 귀속년월 (몇 월분 매출인지)
                     C.cltnm                           AS member_name_rep,
                     F.actnm                           AS member_name_site,
                     COALESCE(NULLIF(LTRIM(RTRIM(C.autoflag)),''),
@@ -2031,9 +2045,11 @@ public class CmsBillingService {
                          THEN 1 ELSE 0 END             AS site_cms,
                     E.accnum                           AS site_accnum,
                     C.accnum                           AS clt_accnum,
-                    (A.misamt - ISNULL(A.bamt,0)   - ISNULL(A.jamt,0)  - ISNULL(A.sunamt,0)
-                              - ISNULL(A.gamt,0)   - ISNULL(A.csamt,0) - ISNULL(A.cmar,0)
-                              - ISNULL(A.dcamt,0)) AS billing_amount
+                    -- ★ 금액 컬럼이 float 라 88000 이 87999.9999... 로 계산될 수 있다.
+                    --   그대로 getLong 하면 소수점이 잘려 1원이 빠지므로 반올림해서 정수로 넘긴다.
+                    CAST(ROUND(A.misamt - ISNULL(A.bamt,0)   - ISNULL(A.jamt,0)  - ISNULL(A.sunamt,0)
+                                        - ISNULL(A.gamt,0)   - ISNULL(A.csamt,0) - ISNULL(A.cmar,0)
+                                        - ISNULL(A.dcamt,0), 0) AS BIGINT) AS billing_amount
                 FROM TB_DA023 A WITH(NOLOCK)
                 INNER JOIN TB_XCLIENT C WITH(NOLOCK)
                     ON A.cltcd = C.cltcd
@@ -2081,7 +2097,11 @@ public class CmsBillingService {
             // 기간은 [전월 1일, 익월 1일) 반개구간으로 준다. LEFT(misdate,6) 처럼
             // 컬럼에 함수를 씌우지 않아야 misdate 인덱스를 시크로 쓴다.
             String misFrom = prevYm + "01";                     // 포함
-            String misTo   = nextYyyymm(billingYm) + "01";      // 미포함
+            // ★ 청구월은 매출일자가 아니라 귀속년월(yyyymm)로 판단한다.
+            //   말일이 주말이면 'N월분' 매출이 다음 달 첫 영업일 날짜로 잡힌다
+            //   (정우 로즈힐 등: 10월분 매출이 20261102). 그래서 조회 범위는
+            //   매출일자 기준으로 한 달 더 넓혀 두고, 월 판정은 아래에서 yyyymm 으로 한다.
+            String misTo   = nextYyyymm(nextYyyymm(billingYm)) + "01";  // 미포함
 
             // ★ 파워빌더 CMS 출금 성공분(EB21/EC21) 은 SQL 의 NOT EXISTS 로 걸지 않고
             //   해당 기간 키만 한 번 읽어 메모리에서 거른다.
@@ -2154,9 +2174,14 @@ public class CmsBillingService {
                             if (tr == null) continue;
                             tr.add("파워빌더(MS) 수납됨 — 평소엔 여기서 빠짐, 추적이라 계속 진행");
                         }
-                        long   billingAmount = rs.getLong("billing_amount");   // DA023 잔액(부분입금 차감 후)
+                        long   billingAmount = Math.round(rs.getDouble("billing_amount"));   // DA023 잔액(부분입금 차감 후), 반올림
                         String autoflag      = str(rs.getString("autoflag"));
+                        // 청구월 판정: 매출일자 월 또는 귀속년월 중 하나라도 맞으면 대상.
+                        //  - 매출일자 월: 기존 동작 그대로 (다른 업체 영향 없음)
+                        //  - 귀속년월: 말일이 주말이라 다음 달 날짜로 잡힌 'N월분' 매출 구제
                         String misYm         = (misdate != null && misdate.length() >= 6) ? misdate.substring(0, 6) : "";
+                        String acctYmRaw     = digits(rs.getString("yyyymm"));
+                        String acctYm        = acctYmRaw.length() >= 6 ? acctYmRaw.substring(0, 6) : "";
                         String nameRep       = rs.getString("member_name_rep");   // 대표거래처명(XCLIENT.cltnm)
                         String nameSite      = rs.getString("member_name_site");  // 현장명(E601.actnm)
                         if (!StringUtils.hasText(nameSite)) nameSite = nameRep;    // 현장명 없으면 대표명
@@ -2175,6 +2200,17 @@ public class CmsBillingService {
                         boolean bySite  = false;
                         if (StringUtils.hasText(actcd)) {
                             member = memberByActcd.get(actcd);
+                            // ★ 현장코드로 찾은 납부자가 다른 거래처 소속이면 쓰지 않는다.
+                            //   현장코드와 거래처코드는 번호 체계가 달라 겹칠 수 있어서,
+                            //   소속 거래처까지 같아야 같은 현장으로 본다(남의 계좌 출금 방지).
+                            if (member != null) {
+                                String mClt = str(member.get("cltcd"));
+                                if (StringUtils.hasText(mClt) && StringUtils.hasText(cltcd)
+                                        && !mClt.equalsIgnoreCase(cltcd)) {
+                                    if (tr != null) tr.add("현장코드 " + actcd + " 납부자가 다른 거래처(" + mClt + ") 소속이라 제외");
+                                    member = null;
+                                }
+                            }
                             bySite = member != null;
                         }
                         // ★ 거래처 대납 폴백은 '현장이 CMS 를 안 쓸 때'만 허용한다.
@@ -2193,8 +2229,8 @@ public class CmsBillingService {
                                 ? str(member.get("deduct_month_type"))
                                 : ("2".equals(autoflag) ? "NEXT" : "CURRENT");
                         String expectYm  = "NEXT".equalsIgnoreCase(monthType) ? prevYm : billingYm;
-                        if (!expectYm.equals(misYm)) {
-                            if (tr != null) tr.add("청구월 불일치로 탈락 (납부자 " + monthType + " → 기대 " + expectYm + ", 미수월 " + misYm + ")");
+                        if (!expectYm.equals(misYm) && !expectYm.equals(acctYm)) {
+                            if (tr != null) tr.add("청구월 불일치로 탈락 (납부자 " + monthType + " → 기대 " + expectYm + ", 미수월 " + misYm + ", 귀속년월 " + acctYm + ")");
                             continue;
                         }
 
@@ -2223,7 +2259,7 @@ public class CmsBillingService {
                         boolean accountDiff = member != null && StringUtils.hasText(erpAccnum)
                                 && !erpAccnum.equals(digits(str(member.get("bank_account"))));
 
-                        if (existingMisKeys.contains(misKey)) {
+                        if (existingMisKeys.contains(misKey + "|" + str(cltcd).toUpperCase()) || existingKeyOnly.contains(misKey)) {
                             rowStatus = "DUP";
                         } else if (siteMemberMissing) {
                             rowStatus = "NO_SITE_MEMBER";      // 현장 CMS 납부자 미등록 — 대납 폴백 금지
@@ -2323,14 +2359,19 @@ public class CmsBillingService {
             fixedDeductDate = cmsHolidayService.getNextBusinessDay(deductDateOverride.replace("-", ""));
         }
 
-        Set<String> wanted = new HashSet<>(selectedKeys);
+        Set<String> wanted = new HashSet<>();
+        for (String k : selectedKeys) wanted.add(k == null ? "" : k.trim().toUpperCase());
 
         // preview로 후보를 다시 만들어 선택분만 신뢰성 있게 생성 (금액/회원 재검증)
         List<Map<String, Object>> candidates = previewErpBilling(billingYm, nameTypeParam);
 
         for (Map<String, Object> c : candidates) {
             String misKey = str(c.get("erp_mis_key"));
-            if (!wanted.contains(misKey)) continue;
+            // ★ 미수번호(매출일자+번호)는 거래처가 달라도 겹칠 수 있다(정우 정진빌딩·뉴명지빌딩 202610120630).
+            //   화면은 '미수키|거래처코드'로 보내므로 거래처까지 맞는 건만 생성한다.
+            //   (구버전 화면이 미수키만 보내면 예전처럼 미수키로만 비교)
+            String selKey = misKey + "|" + str(c.get("cltcd")).toUpperCase();
+            if (!wanted.contains(selKey) && !wanted.contains(misKey)) continue;
 
             String rowStatus = str(c.get("row_status"));
             String memberName = str(c.get("member_name"));
