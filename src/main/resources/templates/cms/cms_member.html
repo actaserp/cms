@@ -756,14 +756,15 @@
                     </td>
                 </tr>
                 <tr>
-                    <th style="padding:7px; text-align:left; color:#555;">식별번호</th>
+                    <th style="padding:7px; text-align:left; color:#555;"><span style="color:#e53935;">*</span>식별번호</th>
                     <td style="padding:7px;">
                         <input type="text" id="chgIdNumber" maxlength="10" inputmode="numeric"
-                               placeholder="사업자 10자리 / 개인 생년월일 6자리"
+                               placeholder="새 계좌 신청서의 생년월일 6자리 / 사업자번호 10자리"
                                style="width:100%; padding:5px; border:1px solid #dde0ea; border-radius:4px;">
                         <div style="font-size:11px; color:#888; margin-top:3px;">
-                            새 계좌 <b>예금주</b> 기준입니다. 예금주가 바뀌지 않으면 그대로 두세요.
-                            (기존 계좌 해지는 기존 번호로 처리됩니다)
+                            <b>새 계좌 신청서</b>에 적힌 <b>예금주</b>의 생년월일 또는 사업자번호를 직접 입력하세요.
+                            예금주가 같아도 다시 입력합니다. 틀리면 0014로 반려되고 기존 계좌도 해지됩니다.
+                            <span id="chgOldIdHint"></span>
                         </div>
                     </td>
                 </tr>
@@ -1838,7 +1839,8 @@
                 $('#chgBankCode').val('');
                 $('#chgBankAccount').val('');
                 $('#chgAccountHolder').val(m.account_holder || m.member_name || '');
-                $('#chgIdNumber').val(m.id_number || '');
+                // ★ 식별번호는 미리 채우지 않는다. 옛 예금주 번호가 그대로 나가 0014 반려된 사고(화정상가·기정메이아파트).
+                setChgOldValues(m.id_number || '', m.account_holder || m.member_name || '');
                 $('#modalChangeAccount').css('display', 'flex');
             });
 
@@ -1851,9 +1853,18 @@
                 $('#chgBankCode').val('');
                 $('#chgBankAccount').val('');
                 $('#chgAccountHolder').val($('#account_holder').val() || $(this).data('memberName') || '');
-                $('#chgIdNumber').val($('#id_number').val() || '');
+                // ★ 식별번호는 미리 채우지 않는다(위 목록 경로 주석 참조).
+                setChgOldValues($('#id_number').val() || '', $('#account_holder').val() || $(this).data('memberName') || '');
                 $('#modalChangeAccount').css('display', 'flex');
             });
+            /** 계좌변경 모달: 기존 식별번호·예금주를 보관만 하고 입력칸은 비운다. */
+            function setChgOldValues(oldId, oldHolder) {
+                var id = (oldId || '').replace(/[^0-9]/g, '');
+                $('#chgIdNumber').val('').data('oldId', id);
+                $('#chgAccountHolder').data('oldHolder', (oldHolder || '').replace(/\s+/g, ''));
+                $('#chgOldIdHint').text(id ? '(기존 계좌 식별번호: ' + id + ')' : '');
+            }
+
             $('#btnChgClose').click(function () {
                 $('#modalChangeAccount').hide();
             });
@@ -1888,7 +1899,19 @@
                     return;
                 }
 
-                Alert.confirm('', '기존 계좌 해지 + 새 계좌 신규 신청이 함께 접수됩니다.\n계속하시겠습니까?', function () {
+                // ★ 예금주를 바꿨는데 식별번호가 기존과 같으면 한 번 더 확인한다.
+                var oldId = $('#chgIdNumber').data('oldId') || '';
+                var oldHolder = $('#chgAccountHolder').data('oldHolder') || '';
+                var holderChanged = oldHolder && (accountHolder || '').replace(/\s+/g, '') !== oldHolder;
+                var confirmMsg = '기존 계좌 해지 + 새 계좌 신규 신청이 함께 접수됩니다.\n계속하시겠습니까?';
+                if (holderChanged && oldId && idNumber === oldId) {
+                    confirmMsg = '예금주가 바뀌었는데 식별번호(' + idNumber + ')가 기존 계좌와 같습니다.\n'
+                        + '새 예금주의 생년월일/사업자번호가 맞습니까?\n'
+                        + '(틀리면 0014로 반려되고 기존 계좌도 해지되어 출금이 중단됩니다)\n\n'
+                        + confirmMsg;
+                }
+
+                Alert.confirm('', confirmMsg, function () {
                     AjaxUtil.postAsyncData('/api/cms/member/change-account',
                         {
                             member_id: memberId,

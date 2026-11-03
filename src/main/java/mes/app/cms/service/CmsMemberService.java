@@ -452,13 +452,30 @@ public class CmsMemberService {
     }
 
     /**
-     * 납부자 삭제 (soft delete)
+     * 납부자 삭제
      */
     public boolean deleteMember(Long id) {
         String spjangcd = TenantContext.get();
         var param = new MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("spjangcd", spjangcd);
+
+        // 0. 이 회원과 연결된 파일 id를 먼저 잡아둔다(매핑을 지우면 찾을 수 없으므로).
+        //    ★ 예전에는 사업장 전체에서 매핑 없는 파일을 지웠다. EB22/EB14 같은 수신 파일은
+        //      원래 매핑이 없어서 납부자 한 명만 지워도 결과 파일이 전부 삭제됐다(정우 J1).
+        //      EB22 행이 사라지면 스케줄러가 같은 결과 파일을 매일 다시 받는 부작용도 있었다.
+        List<Long> linkedFileIds = sqlRunner.getRows(
+                        """
+                        SELECT fb.file_id FROM cms_file_billing fb
+                        JOIN cms_billing b ON b.id = fb.billing_id
+                        WHERE b.member_id = :id AND b.spjangcd = :spjangcd
+                        UNION
+                        SELECT fr.file_id FROM cms_file_register fr
+                        JOIN cms_account_register r ON r.id = fr.register_id
+                        WHERE r.member_id = :id AND r.spjangcd = :spjangcd
+                        """, param).stream()
+                .map(r -> ((Number) r.get("file_id")).longValue())
+                .collect(java.util.stream.Collectors.toList());
 
         // 1. 매핑 테이블
         sqlRunner.execute("DELETE FROM cms_file_billing WHERE billing_id IN (SELECT id FROM cms_billing WHERE member_id = :id AND spjangcd = :spjangcd)", param);
@@ -468,14 +485,18 @@ public class CmsMemberService {
         sqlRunner.execute("DELETE FROM cms_billing WHERE member_id = :id AND spjangcd = :spjangcd", param);
         sqlRunner.execute("DELETE FROM cms_account_register WHERE member_id = :id AND spjangcd = :spjangcd", param);
 
-        // 3. cms_file — 해당 member 관련 파일 (다른 member 파일과 공유될 수 있으니 고아 파일만)
-        // cms_file은 여러 member가 공유할 수 있어서 file_register/file_billing 없는 것만 삭제
-        sqlRunner.execute("""
-    DELETE FROM cms_file 
-    WHERE spjangcd = :spjangcd
-      AND id NOT IN (SELECT file_id FROM cms_file_billing)
-      AND id NOT IN (SELECT file_id FROM cms_file_register)
-    """, param);
+        // 3. 이 회원과 연결돼 있던 송신 파일 중, 이제 아무 건도 남지 않은 것만 삭제.
+        //    수신 파일(EB22/EB14/EC22 등)과 다른 회원 파일은 건드리지 않는다.
+        //    NOT IN 대신 NOT EXISTS: 매핑에 NULL file_id 가 섞이면 NOT IN 은 아무것도 안 지운다.
+        if (!linkedFileIds.isEmpty()) {
+            sqlRunner.execute("""
+                DELETE FROM cms_file f
+                WHERE f.spjangcd = :spjangcd
+                  AND f.id IN (:fileIds)
+                  AND NOT EXISTS (SELECT 1 FROM cms_file_billing  fb WHERE fb.file_id = f.id)
+                  AND NOT EXISTS (SELECT 1 FROM cms_file_register fr WHERE fr.file_id = f.id)
+                """, new MapSqlParameterSource("spjangcd", spjangcd).addValue("fileIds", linkedFileIds));
+        }
 
         // 4. 마지막
         return sqlRunner.execute("DELETE FROM cms_member WHERE id = :id AND spjangcd = :spjangcd", param) > 0;
@@ -2592,24 +2613,16 @@ public class CmsMemberService {
     }
 
     /**
-     * 계좌변경 신청.
-     * 구계좌(cms_member 현재 계좌)로 해지행('3'), 신계좌(입력값)로 신규행('1')을
-     * 같은 납부자번호로 생성한다. 두 행 모두 change_flag='Y'로 표시하여
-     * EB13 전송 시 한 파일에 함께 담기고, 신규행은 EI13을 스킵하고 바로 EB13 대상이 된다.
-     * cms_member의 계좌는 여기서 바로 바꾸지 않고, 신규행이 EB14 정상 승인된 뒤 갱신한다.
-     * 동의상태는 미신청으로 되돌려 재인증 흐름을 태운다.
-     */
-    public Map<String, Object> changeAccount(Long memberId, String newBankCode,
-                                             String newBankAccount, String newAccountHolder,
-                                             String userId) {
-        return changeAccount(memberId, newBankCode, newBankAccount, newAccountHolder, null, userId);
-    }
-
-    /**
      * 계좌변경 — 새 계좌의 식별번호(사업자번호/생년월일)를 따로 받는다.
      *  식별번호는 회원이 아니라 '출금계좌 예금주' 를 따른다. 계좌가 바뀌면 예금주도 바뀔 수 있으므로
      *   · 해지행(구계좌)  = 기존 식별번호  ← 은행 원장에 등록된 값이라 반드시 그대로
-     *   · 신규행(신계좌)  = 새 식별번호    ← 비우면 기존 값 사용
+     *   · 신규행(신계좌)  = 새 식별번호    ← 필수. 예금주가 같아도 다시 입력받는다.
+     *
+     *  ★ 예전에는 새 식별번호가 비면 기존 값(옛 예금주)으로 대체했다. 그 결과 예금주가 바뀐
+     *    계좌변경이 옛 식별번호로 신청되어 0014(생년월일/사업자번호 오류)로 반려되고,
+     *    구계좌는 해지되어 출금 불가 상태가 됐다. (정우 화정상가 9/11, 기정메이아파트 9/15)
+     *    납부자번호도 옛 식별번호로 채번됐다(0814120501 ← 441205).
+     *    조용히 대체하지 않고 입력을 강제한다.
      */
     public Map<String, Object> changeAccount(Long memberId, String newBankCode,
                                              String newBankAccount, String newAccountHolder,
@@ -2643,13 +2656,17 @@ public class CmsMemberService {
         String memberType = str(member.get("member_type"));
         String memberName = str(member.get("member_name"));
 
-        // 신계좌 식별번호: 입력값(숫자만), 없으면 기존 값
+        // ★ 신계좌 식별번호: 필수. 비어 있어도 기존 값으로 대체하지 않는다.
         String cleanNewId = newIdNumber == null ? "" : newIdNumber.replaceAll("[^0-9]", "");
-        if (StringUtils.hasText(cleanNewId) && cleanNewId.length() != 6 && cleanNewId.length() != 10) {
+        if (!StringUtils.hasText(cleanNewId)) {
+            return Map.of("success", false,
+                    "message", "새 계좌 예금주의 식별번호(생년월일 6자리 / 사업자번호 10자리)를 입력하세요.");
+        }
+        if (cleanNewId.length() != 6 && cleanNewId.length() != 10) {
             return Map.of("success", false,
                     "message", "새 계좌 식별번호는 사업자 10자리 또는 생년월일 6자리입니다.");
         }
-        String newIdNo = StringUtils.hasText(cleanNewId) ? cleanNewId : idNumber;
+        String newIdNo = cleanNewId;
 
         // 구계좌가 없으면 계좌변경이 아니라 신규 등록 대상 → 막는다.
         if (!StringUtils.hasText(oldBankAccount)) {
