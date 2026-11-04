@@ -1638,6 +1638,7 @@ public class CmsBillingService {
                                 CASE WHEN EXISTS (SELECT 1 FROM TB_E101 e3 WITH(NOLOCK)
                                                    WHERE e3.custcd = A.custcd AND e3.spjangcd = A.spjangcd
                                                      AND e3.actcd = A.actcd AND e3.cmsflag = 1
+                                                     AND e3.stdate <= A.misdate AND ISNULL(NULLIF(e3.enddate,''),'99991231') >= A.misdate
                                                      AND ISNULL(e3.contg,'') <> '04')
                                      THEN 1 ELSE 0 END AS site_cms,
                                 E.accnum AS site_accnum,
@@ -1879,6 +1880,7 @@ public class CmsBillingService {
                                 CASE WHEN EXISTS (SELECT 1 FROM TB_E101 e3 WITH(NOLOCK)
                                                    WHERE e3.custcd = A.custcd AND e3.spjangcd = A.spjangcd
                                                      AND e3.actcd = A.actcd AND e3.cmsflag = 1
+                                                     AND e3.stdate <= A.misdate AND ISNULL(NULLIF(e3.enddate,''),'99991231') >= A.misdate
                                                      AND ISNULL(e3.contg,'') <> '04')
                                      THEN 1 ELSE 0 END AS site_cms,
                                 E.accnum AS site_accnum, C.accnum AS clt_accnum
@@ -2038,9 +2040,13 @@ public class CmsBillingService {
                              NULLIF(LTRIM(RTRIM(E.autoflag)),'')) AS autoflag,
                     -- ★ 오매칭 방지용: ERP가 보는 '이 미수를 뺄 계좌'
                     --   현장이 자기 계좌로 CMS 를 쓰면(E101.cmsflag=1) 현장 계좌, 아니면 거래처 계좌.
+                    --   ★ 현장 CMS 여부는 '미수일자에 유효한 계약'만 본다. 끝난 옛 계약의 cmsflag=1 까지 보면
+                    --     갱신하면서 CMS 를 뺀 현장(=거래처 대납)이 NO_SITE_MEMBER 로 막힌다.
+                    --     (정우 거성리젠시 신사동21-14 022566, 한주파크빌 022504)
                     CASE WHEN EXISTS (SELECT 1 FROM TB_E101 e3 WITH(NOLOCK)
                                        WHERE e3.custcd = A.custcd AND e3.spjangcd = A.spjangcd
                                          AND e3.actcd = A.actcd AND e3.cmsflag = 1
+                                                     AND e3.stdate <= A.misdate AND ISNULL(NULLIF(e3.enddate,''),'99991231') >= A.misdate
                                          AND ISNULL(e3.contg,'') <> '04')
                          THEN 1 ELSE 0 END             AS site_cms,
                     E.accnum                           AS site_accnum,
@@ -2089,7 +2095,8 @@ public class CmsBillingService {
                    OR EXISTS (SELECT 1 FROM TB_E101 e2 WITH(NOLOCK)
                                WHERE e2.custcd = A.custcd AND e2.spjangcd = A.spjangcd
                                  AND e2.actcd = A.actcd
-                                 AND e2.cmsflag = 1 AND ISNULL(e2.contg,'') <> '04') )
+                                 AND e2.cmsflag = 1 AND ISNULL(e2.contg,'') <> '04'
+                                 AND e2.stdate <= A.misdate AND ISNULL(NULLIF(e2.enddate,''),'99991231') >= A.misdate) )
                 ORDER BY A.cltcd, A.misdate
                 """;
 
