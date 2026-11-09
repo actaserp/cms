@@ -44,6 +44,7 @@
             color: #333;
             font-weight: 700;
         }
+        .summary-card .card-note { font-size: 12px; color: #888; }
         .summary-card.success { border-top: 3px solid #28a745; }
         .summary-card.fail    { border-top: 3px solid #dc3545; }
         .summary-card.rate    { border-top: 3px solid #4a6cf7; }
@@ -111,6 +112,7 @@
                     <div class="card-value" id="cardSuccessCount">0건</div>
                     <div class="card-sub" id="cardSuccessAmt">0원</div>
                 </div>
+                <div class="card-note" id="cardSuccessNote">입금 0원 (수수료 0원)</div>
             </div>
             <div class="summary-card fail">
                 <div class="card-label">실패 건수</div>
@@ -118,6 +120,7 @@
                     <div class="card-value" id="cardFailCount">0건</div>
                     <div class="card-sub" id="cardFailAmt">0원</div>
                 </div>
+                <div class="card-note" id="cardFailNote">수수료 0원</div>
             </div>
             <div class="summary-card rate">
                 <div class="card-label">수납률</div>
@@ -209,9 +212,10 @@
                                    background:#f5f6fa; cursor:pointer;">☰</button>
                 </div>
                 <div class="grid-summary">
-                    <div>전체: <span id="summaryTotal">0</span>건 &nbsp; 페이지 합계: <span id="summaryPageAmt">0</span>원</div>
-                    <div>페이지 성공: <span id="summarySuccessCount">0</span>건 &nbsp; <span id="summarySuccessAmt">0</span>원</div>
-                    <div>페이지 실패: <span id="summaryFailCount">0</span>건 &nbsp; <span id="summaryFailAmt">0</span>원</div>
+                    <div>전체 <span id="summaryTotal">0</span>건 (성공 <span id="summarySuccessCount">0</span> / 실패 <span id="summaryFailCount">0</span>)</div>
+                    <div>청구금액 합계: <span id="summaryBillingAmt">0</span>원</div>
+                    <div>수수료 합계: <span id="summaryFeeAmt">0</span>원</div>
+                    <div>입금금액 합계: <span id="summaryDepositAmt">0</span>원</div>
                 </div>
             </div>
         </section>
@@ -264,13 +268,11 @@
                 cellTemplate: function(ctx) {
                     return ctx.value != null ? Number(ctx.value).toLocaleString() : '';
                 }},
-            {binding: 'billing_amount', header: '입금금액', width: 110, align: 'right',
+            {binding: 'deposit_amount', header: '입금금액', width: 110, align: 'right',
+                // 성공: 청구금액-수수료 / 불능: -의뢰수수료 / 재청구 불능: '-'
+                // 서버 계산값을 바인딩해야 엑셀에도 같은 값이 나간다(cellTemplate은 엑셀에 적용 안 됨)
                 cellTemplate: function(ctx) {
-                    var item = ctx.row.dataItem;
-                    if (item.status !== 'SUCCESS') return '-';
-                    var billing = Number(item.billing_amount) || 0;
-                    var fee = Number(item.fee_total) || 0;
-                    return (billing - fee).toLocaleString();
+                    return ctx.value != null ? Number(ctx.value).toLocaleString() : '-';
                 }},
             {binding: 'deduct_date',  header: '출금일자',  width: 100, align: 'center',
                 cellTemplate: function(ctx) {
@@ -304,6 +306,16 @@
                     return '';
                 }},
         ];
+
+        // 엑셀 전용 컬럼 — 사업자번호·주민번호는 화면에 상시 노출하지 않고
+        // 다운로드 파일에만 포함한다(개인정보 노출 최소화). 수납결과조회와 동일.
+        var EXPORT_EXTRA_COLUMNS = [
+            { binding: 'biz_no',      header: '사업자번호', width: 130, align: 'center' },
+            { binding: 'resident_no', header: '주민번호',   width: 140, align: 'center' }
+        ];
+        function buildExportColumns() {
+            return columns.concat(EXPORT_EXTRA_COLUMNS);
+        }
 
         document.readyState === 'complete' ? init() : window.onload = init;
 
@@ -511,38 +523,34 @@
             // ── 상단 요약 카드: 검색조건 전체 기준 (서버 집계값, 페이지 넘겨도 안 바뀜) ──
             var totalSuccessCount   = Number(d.successCount) || 0;
             var totalFailCount      = Number(d.failCount) || 0;
-            var totalSuccessAmt     = Number(d.successAmount) || 0;          // 성공 입금금액(수수료 차감)
+            var totalSuccessDeposit = Number(d.successAmount) || 0;          // 성공 입금금액(수수료 차감)
             var totalFailAmt        = Number(d.failAmount) || 0;            // 실패 청구금액
-            var totalSuccessBilling = Number(d.successBillingAmount) || 0;   // 수납률 분자(성공 청구금액)
+            var totalSuccessBilling = Number(d.successBillingAmount) || 0;   // 성공 청구금액(수수료 전)
             var totalBillingAmt     = Number(d.totalAmount) || 0;           // 전체 청구금액
+            var totalFee            = Number(d.totalFee) || 0;              // 전체 수수료
+            var successFee          = totalSuccessBilling - totalSuccessDeposit;
+            var failFee             = totalFee - successFee;
             var rate = totalBillingAmt > 0 ? (totalSuccessBilling / totalBillingAmt * 100).toFixed(1) : '0.0';
 
+            // 성공: 큰 글씨 = 청구금액(ERP tran_amt 기준), 작은 글씨 = 실입금/수수료
             $('#cardSuccessCount').text(totalSuccessCount.toLocaleString() + '건');
-            $('#cardSuccessAmt').text(totalSuccessAmt.toLocaleString() + '원');
+            $('#cardSuccessAmt').text(totalSuccessBilling.toLocaleString() + '원');
+            $('#cardSuccessNote').text('입금 ' + totalSuccessDeposit.toLocaleString() + '원 (수수료 ' + successFee.toLocaleString() + '원)');
             $('#cardFailCount').text(totalFailCount.toLocaleString() + '건');
             $('#cardFailAmt').text(totalFailAmt.toLocaleString() + '원');
+            $('#cardFailNote').text('수수료 ' + failFee.toLocaleString() + '원');
             $('#cardRate').text(rate + '%');
             $('#cardRateSub').text(totalSuccessBilling.toLocaleString() + '원 / ' + totalBillingAmt.toLocaleString() + '원');
-
-            // ── 하단 grid-summary: 전체 합계 + 현재 페이지 기준 성공/실패 ──
-            var pageSuccessItems = data.filter(function(i) { return i.status === 'SUCCESS'; });
-            var pageFailItems    = data.filter(function(i) { return i.status === 'FAIL'; });
-            var pageSuccessAmt = pageSuccessItems.reduce(function(s, i) {
-                return s + (Number(i.billing_amount) || 0);
-            }, 0);
-            var pageFailAmt = pageFailItems.reduce(function(s, i) {
-                return s + (Number(i.billing_amount) || 0);
-            }, 0);
-            var pageTotalAmt = data.reduce(function(s, i) {
-                return s + (Number(i.billing_amount) || 0);
-            }, 0);
-
+            // ── 하단 grid-summary: 화면에 로드된 행 기준, 그리드 컬럼별 합계 ──
+            var sum = function (key) {
+                return data.reduce(function (s, i) { return s + (Number(i[key]) || 0); }, 0);
+            };
             $('#summaryTotal').text((d.totalCount || 0).toLocaleString());
-            $('#summaryPageAmt').text(pageTotalAmt.toLocaleString());
-            $('#summarySuccessCount').text(pageSuccessItems.length.toLocaleString());
-            $('#summarySuccessAmt').text(pageSuccessAmt.toLocaleString());
-            $('#summaryFailCount').text(pageFailItems.length.toLocaleString());
-            $('#summaryFailAmt').text(pageFailAmt.toLocaleString());
+            $('#summarySuccessCount').text(data.filter(function (i) { return i.status === 'SUCCESS'; }).length.toLocaleString());
+            $('#summaryFailCount').text(data.filter(function (i) { return i.status === 'FAIL'; }).length.toLocaleString());
+            $('#summaryBillingAmt').text(sum('billing_amount').toLocaleString());
+            $('#summaryFeeAmt').text(sum('fee_total').toLocaleString());
+            $('#summaryDepositAmt').text(sum('deposit_amount').toLocaleString());
         }
 
         /* ── 이벤트 바인딩 ── */
@@ -564,7 +572,7 @@
                     host.style.width = '1200px'; host.style.height = '400px';
                     document.body.appendChild(host);
                     var tmp = new wijmo.grid.FlexGrid(host, {
-                        autoGenerateColumns: false, columns: columns, isReadOnly: true,
+                        autoGenerateColumns: false, columns: buildExportColumns(), isReadOnly: true,
                         itemsSource: new wijmo.collections.CollectionView(rows)
                     });
                     var cleanup = function () { try { tmp.dispose(); } catch (e) {} if (host.parentNode) host.parentNode.removeChild(host); };

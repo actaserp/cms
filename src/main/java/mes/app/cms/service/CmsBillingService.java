@@ -1110,6 +1110,7 @@ public class CmsBillingService {
                 "SELECT COUNT(*) AS cnt," +
                         "       COALESCE(SUM(b.billing_amount),0) AS total_amount," +
                         "       COALESCE(SUM(CASE WHEN b.status='SUCCESS' THEN b.fee_request+b.fee_success" +
+                        "                         WHEN b.status='FAIL' AND COALESCE(b.is_recharge,'N') = 'Y' THEN 0" +
                         "                         WHEN b.status='FAIL'    THEN b.fee_request ELSE 0 END),0) AS total_fee," +
                         "       COUNT(CASE WHEN b.status='SUCCESS' THEN 1 END) AS success_count," +
                         "       COUNT(CASE WHEN b.status='FAIL'    THEN 1 END) AS fail_count," +
@@ -1134,7 +1135,14 @@ public class CmsBillingService {
                         "       b.memo," +
                         "       b.fee_request, b.fee_success," +
                         "       CASE WHEN b.status='SUCCESS' THEN b.fee_request+b.fee_success" +
+                        "            WHEN b.status='FAIL' AND COALESCE(b.is_recharge,'N') = 'Y' THEN 0" +
                         "            WHEN b.status='FAIL'    THEN b.fee_request ELSE 0 END AS fee_total," +
+                        "       CASE WHEN b.status='SUCCESS'" +
+                        "            THEN b.billing_amount - (COALESCE(b.fee_request,0) + COALESCE(b.fee_success,0))" +
+                        "            WHEN b.status='FAIL' AND COALESCE(b.is_recharge,'N') = 'Y' THEN NULL" +
+                        "            WHEN b.status='FAIL' THEN -COALESCE(b.fee_request,0)" +
+                        "            ELSE NULL END AS deposit_amount," +
+                        "       COALESCE(b.is_recharge,'N') AS is_recharge," +
                         "       CASE WHEN EXISTS (SELECT 1 FROM cms_billing rb WHERE rb.spjangcd=b.spjangcd" +
                         "              AND rb.id > b.id AND rb.status <> 'CANCEL'" +
                         "              AND ( (b.erp_mis_key IS NOT NULL AND rb.erp_mis_key = b.erp_mis_key)" +
@@ -1346,6 +1354,7 @@ public class CmsBillingService {
         String baseWhere =
                 "  FROM cms_billing b" +
                         "  LEFT JOIN cms_bank_code bc ON bc.bank_code = b.bank_code" +
+                        "  LEFT JOIN cms_member m ON m.id = b.member_id" +
                         "  WHERE b.spjangcd = :spjangcd" +
                         "    AND b.deduct_date BETWEEN :startDate AND :endDate";
 
@@ -1371,6 +1380,7 @@ public class CmsBillingService {
                 "SELECT COUNT(*) AS cnt," +
                         "       COALESCE(SUM(b.billing_amount),0) AS total_amount," +
                         "       COALESCE(SUM(CASE WHEN b.status='SUCCESS' THEN b.fee_request+b.fee_success" +
+                        "                         WHEN b.status='FAIL' AND COALESCE(b.is_recharge,'N') = 'Y' THEN 0" +
                         "                         WHEN b.status='FAIL'    THEN b.fee_request ELSE 0 END),0) AS total_fee," +
                         "       COUNT(CASE WHEN b.status='SUCCESS' THEN 1 END) AS success_count," +
                         "       COUNT(CASE WHEN b.status='FAIL'    THEN 1 END) AS fail_count," +
@@ -1390,6 +1400,7 @@ public class CmsBillingService {
 
         String dataSql =
                 "SELECT b.id, b.billing_seq, b.deduct_type AS billing_type, b.member_name," +
+                        "       m.id_number, m.biz_no, m.resident_no," +
                         "       b.bank_code, bc.bank_name, b.bank_account, b.billing_amount, b.deduct_date," +
                         "       b.status, b.result_code, b.result_msg, b.result_date," +
                         "       CASE WHEN EXISTS (SELECT 1 FROM cms_billing rb WHERE rb.spjangcd=b.spjangcd" +
@@ -1400,7 +1411,14 @@ public class CmsBillingService {
                         "                     AND rb.deduct_date > b.deduct_date) )" +
                         "              ) THEN 'Y' ELSE 'N' END AS recharged_yn," +
                         "       CASE WHEN b.status='SUCCESS' THEN b.fee_request+b.fee_success" +
-                        "            WHEN b.status='FAIL'    THEN b.fee_request ELSE 0 END AS fee_total" +
+                        "            WHEN b.status='FAIL' AND COALESCE(b.is_recharge,'N') = 'Y' THEN 0" +
+                        "            WHEN b.status='FAIL'    THEN b.fee_request ELSE 0 END AS fee_total," +
+                        "       CASE WHEN b.status='SUCCESS'" +
+                        "            THEN b.billing_amount - (COALESCE(b.fee_request,0) + COALESCE(b.fee_success,0))" +
+                        "            WHEN b.status='FAIL' AND COALESCE(b.is_recharge,'N') = 'Y' THEN NULL" +
+                        "            WHEN b.status='FAIL' THEN -COALESCE(b.fee_request,0)" +
+                        "            ELSE NULL END AS deposit_amount," +
+                        "       COALESCE(b.is_recharge,'N') AS is_recharge" +
                         baseWhere + filters +
                         " ORDER BY b.deduct_date DESC, b.billing_seq LIMIT :pgSize OFFSET :pgOffset";
 
