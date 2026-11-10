@@ -1392,7 +1392,7 @@ public class CmsMemberService {
                             str(erpRow.get("erp_actcd")), str(erpRow.get("erp_cltcd")));
                     if (terminatedId != null) {
                         erpRow.put("reregister_member_id", terminatedId);
-                        erpRow.put("row_note", "해지 완료 회원 — 납부자 관리에서 '재등록'으로 처리하세요");
+                        erpRow.put("row_note", "해지 완료 회원 — 반영하면 같은 회원으로 재등록(새 납부자번호, 인증 다시 받음)");
                     }
                     newRows.add(erpRow);
                     continue;
@@ -1683,7 +1683,7 @@ public class CmsMemberService {
         try { Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver"); }
         catch (ClassNotFoundException e) { throw new IllegalStateException("MSSQL 드라이버 없음"); }
 
-        int inserted = 0, updated = 0, skipped = 0, failed = 0;
+        int inserted = 0, updated = 0, skipped = 0, failed = 0, reRegisteredCnt = 0;
 
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
                 url, str(erp.get("username")), str(erp.get("password")))) {
@@ -1741,11 +1741,29 @@ public class CmsMemberService {
                     p.addValue("deductMonthType", erpRow.get("deduct_month_type"));
                     p.addValue("userId",       userId);
 
-                    if (existing == null && findTerminatedMemberId(spjangcd,
-                            str(erpRow.get("erp_actcd")), str(erpRow.get("erp_cltcd"))) != null) {
-                        log.info("[ERP반영] 해지 완료 회원 존재 → 신규 생성 안 함(재등록 대상) key={}", actcd);
-                        skipped++;
-                        continue;
+                    // ★ 해지 완료 회원이 있으면 새로 만들지 않고 그 회원으로 재등록한다.
+                    //   (cltcd/이력 유지 → ERP 미수 매칭 유지. 새 납부자번호·인증 다시 받음)
+                    if (existing == null) {
+                        Long termId = findTerminatedMemberId(spjangcd,
+                                str(erpRow.get("erp_actcd")), str(erpRow.get("erp_cltcd")));
+                        if (termId != null) {
+                            Map<String, Object> rr = reRegisterMember(termId, str(erpRow.get("bank_code")),
+                                    str(erpRow.get("bank_account")), null, str(erpRow.get("id_number")), userId);
+                            if (!Boolean.TRUE.equals(rr.get("success"))) {
+                                log.warn("[ERP반영] 재등록 실패 key={} memberId={}: {}", actcd, termId, rr.get("message"));
+                                failed++;
+                                continue;
+                            }
+                            reRegisteredCnt++;
+                            existing = sqlRunner.getRow(/* skip_tenant_check */
+                                    "SELECT id, member_no, _modified FROM cms_member WHERE id = :id",
+                                    new MapSqlParameterSource("id", termId));
+                            // 아래 UPDATE 가 나머지 필드(금액·약정일 등)를 맞춘다.
+                            //  새 납부자번호 유지, EB13 옛 인증(Y)으로 되돌아가지 않게 N 고정.
+                            p.addValue("mid",      termId);
+                            p.addValue("memberNo", str(existing.get("member_no")));
+                            p.addValue("agreeYn",  "N");
+                        }
                     }
                     if (existing == null) {
                         sqlRunner.execute(/* skip_tenant_check */
@@ -1842,7 +1860,8 @@ public class CmsMemberService {
         }
 
         log.info("[ERP반영] 완료 spjangcd={} 신규={} 수정={} 스킵={} 실패={}", spjangcd, inserted, updated, skipped, failed);
-        return Map.of("inserted", inserted, "updated", updated, "skipped", skipped, "failed", failed);
+        return Map.of("inserted", inserted, "updated", updated, "skipped", skipped, "failed", failed,
+                "reregistered", reRegisteredCnt);
     }
 
     /** 필드별 선택 반영에서 허용하는 필드 → cms_member 컬럼 매핑 */
@@ -1934,11 +1953,21 @@ public class CmsMemberService {
                                 .addValue("mCltcd", erpRow.get("erp_cltcd")));
 
                 // 해지 완료 회원이 있으면 신규로 만들지 않는다(재등록 대상).
-                if (existing == null && findTerminatedMemberId(spjangcd,
-                        str(erpRow.get("erp_actcd")), str(erpRow.get("erp_cltcd"))) != null) {
-                    log.info("[ERP선택반영] 해지 완료 회원 존재 → 신규 생성 안 함(재등록 대상) cltcd={}", cltcd);
-                    failed++;
-                    continue;
+                if (existing == null) {
+                    Long termId = findTerminatedMemberId(spjangcd,
+                            str(erpRow.get("erp_actcd")), str(erpRow.get("erp_cltcd")));
+                    if (termId != null) {
+                        Map<String, Object> rr = reRegisterMember(termId, str(erpRow.get("bank_code")),
+                                str(erpRow.get("bank_account")), null, str(erpRow.get("id_number")), userId);
+                        if (Boolean.TRUE.equals(rr.get("success"))) {
+                            log.info("[ERP선택반영] 해지 회원 재등록 cltcd={} memberId={}", cltcd, termId);
+                            updated++;
+                        } else {
+                            log.warn("[ERP선택반영] 재등록 실패 cltcd={} memberId={}: {}", cltcd, termId, rr.get("message"));
+                            failed++;
+                        }
+                        continue;
+                    }
                 }
                 // 신규 회원: cms_member에 없으면 ERP 값 통짜 INSERT (필드선택 무의미)
                 if (existing == null) {
@@ -2908,6 +2937,60 @@ public class CmsMemberService {
                         .addValue("actcd", site ? actcd : null)
                         .addValue("cltcd", cltcd));
         return r != null ? ((Number) r.get("id")).longValue() : null;
+    }
+
+    /**
+     * 신규등록 전에 '예전에 해지된 같은 납부자' 후보를 찾는다.
+     *  식별번호는 예금주가 바뀌면 달라지므로(태성아트빌 671015 → 700726) 하나만 믿지 않는다.
+     *  이름(공백·(주)·주식회사 무시, 포함관계) / 식별번호·사업자·주민 / 계좌 중 하나라도 맞으면 후보.
+     *  식별자·계좌 일치가 이름 일치보다 앞에 온다. 해지 완료 회원만.
+     */
+    public List<Map<String, Object>> findTerminatedCandidates(String memberName, String idNumber,
+                                                              String bizNo, String residentNo, String bankAccount) {
+        String spjangcd = TenantContext.get();
+        String nm   = normName(memberName);
+        String id   = digits(idNumber);
+        String biz  = digits(bizNo);
+        String res  = digits(residentNo);
+        String acct = digits(bankAccount);
+        if (nm.length() < 2 && id.isEmpty() && biz.isEmpty() && res.isEmpty() && acct.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        return sqlRunner.getRows(
+                """
+                SELECT * FROM (
+                  SELECT m.id, m.member_name, m.member_no, m.bank_code, b.bank_name, m.bank_account,
+                         m.id_number, m.cltcd, m.actcd,
+                         (SELECT MAX(r.apply_date) FROM cms_account_register r
+                           WHERE r.member_id = m.id AND r.apply_type = '3'
+                             AND r.status IN ('CANCELLED','APPROVED')) AS cancel_date,
+                         CASE WHEN (:id  <> '' AND regexp_replace(COALESCE(m.id_number,''),'[^0-9]','','g') = :id)
+                                OR (:biz <> '' AND regexp_replace(COALESCE(m.biz_no,''),'[^0-9]','','g') = :biz)
+                                OR (:res <> '' AND regexp_replace(COALESCE(m.resident_no,''),'[^0-9]','','g') = :res)
+                                OR (:acct <> '' AND regexp_replace(COALESCE(m.bank_account,''),'[^0-9]','','g') = :acct)
+                              THEN 1 ELSE 2 END AS match_rank,
+                         regexp_replace(COALESCE(m.member_name,''), '(\\(주\\)|㈜|주식회사|\\s|\\(|\\))', '', 'g') AS nm
+                  FROM cms_member m
+                  LEFT JOIN cms_bank_code b ON b.bank_code = m.bank_code
+                  WHERE m.spjangcd = :spjangcd AND m.status = 'INACTIVE'
+                    AND EXISTS (SELECT 1 FROM cms_account_register r
+                                 WHERE r.member_id = m.id AND r.spjangcd = m.spjangcd
+                                   AND r.apply_type = '3' AND r.status IN ('CANCELLED','APPROVED'))
+                ) t
+                WHERE t.match_rank = 1
+                   OR (LENGTH(:nm) >= 2 AND LENGTH(t.nm) >= 2
+                       AND (t.nm LIKE '%' || :nm || '%' OR :nm LIKE '%' || t.nm || '%'))
+                ORDER BY t.match_rank, t.cancel_date DESC NULLS LAST
+                LIMIT 5
+                """,
+                new MapSqlParameterSource("spjangcd", spjangcd)
+                        .addValue("nm", nm).addValue("id", id).addValue("biz", biz)
+                        .addValue("res", res).addValue("acct", acct));
+    }
+
+    private static String digits(String v) { return v == null ? "" : v.replaceAll("[^0-9]", ""); }
+    private static String normName(String v) {
+        return v == null ? "" : v.replaceAll("(\\(주\\)|㈜|주식회사|\\s|\\(|\\))", "");
     }
 
     /**

@@ -293,6 +293,24 @@ public class CmsMemberController {
         return result;
     }
 
+    /** 신규등록 전 — 예전에 해지된 같은 납부자 후보 (이름/식별번호/계좌 중 하나라도 일치) */
+    @GetMapping("/terminated-candidates")
+    public AjaxResult terminatedCandidates(
+            @RequestParam(value = "member_name",  required = false) String memberName,
+            @RequestParam(value = "id_number",    required = false) String idNumber,
+            @RequestParam(value = "biz_no",       required = false) String bizNo,
+            @RequestParam(value = "resident_no",  required = false) String residentNo,
+            @RequestParam(value = "bank_account", required = false) String bankAccount) {
+        AjaxResult result = new AjaxResult();
+        try {
+            result.data = cmsMemberService.findTerminatedCandidates(memberName, idNumber, bizNo, residentNo, bankAccount);
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
     /** 재등록 — 해지 완료(INACTIVE) 회원을 같은 행으로 되살려 새 계좌 신규 신청 */
     @PostMapping("/re-register")
     @ResponseBody

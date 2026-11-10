@@ -1532,27 +1532,94 @@
             data.pause_end_date = fromDateInput(pauseEndDate);
             data.pause_reason = $('#pause_reason').val();
 
-            Alert.confirm('', '저장하시겠습니까?', function () {
-                AjaxUtil.postAsyncData('/api/cms/member/save', data, function (result) {
-                    if (result.success) {
-                        var savedId = result.data;
-                        // FILE 방식이고 업로더에 대기 파일이 있으면 먼저 업로드
-                        if (agreeUploader && data.agree_method === 'FILE') {
-                            // 업로더의 data_pk를 저장된 id 로 갱신
-                            agreeUploader.data_pk = savedId;
-                            agreeUploader.uploadNow(savedId, function () {
-                                Alert.alert('', '저장되었습니다.');
-                                searchList();
-                            });
-                        } else {
-                            Alert.alert('', '저장되었습니다.');
-                            searchList();
-                        }
+            // ★ 신규등록이면 먼저 '예전에 해지된 같은 납부자'가 있는지 본다.
+            //   있으면 그 회원으로 재등록(ERP 거래처 연결·이력 유지). 식별번호는 예금주가 바뀌면
+            //   달라지므로 이름·식별번호·계좌 중 하나라도 맞으면 후보로 띄운다.
+            if (!data.id) {
+                AjaxUtil.getAsyncData('/api/cms/member/terminated-candidates', {
+                    member_name: data.member_name, id_number: data.id_number, biz_no: data.biz_no,
+                    resident_no: data.resident_no, bank_account: data.bank_account
+                }, function (cr) {
+                    var list = (cr && cr.success && cr.data) ? cr.data : [];
+                    if (!list.length) { confirmAndSave(); return; }
+                    showTerminatedPicker(list, function (picked) { doReRegister(picked.id); }, confirmAndSave);
+                });
+                return;
+            }
+            confirmAndSave();
+
+            function doReRegister(memberId) {
+                AjaxUtil.postAsyncData('/api/cms/member/re-register', {
+                    member_id: memberId,
+                    bank_code: data.bank_code,
+                    bank_account: (data.bank_account || '').replace(/[^0-9]/g, ''),
+                    account_holder: data.account_holder,
+                    id_number: data.id_number
+                }, function (r) {
+                    if (r.success) {
+                        Alert.alert('', (r.message || '재등록이 접수되었습니다.')
+                            + '\n\n출금금액·약정일 등 나머지 정보는 납부자를 열어 확인해 주세요.');
+                        searchList();
                     } else {
-                        Alert.alert('저장 실패', result.message);
+                        Alert.alert('재등록 실패', r.message);
                     }
                 });
+            }
+
+            function confirmAndSave() {
+                Alert.confirm('', '저장하시겠습니까?', function () {
+                    AjaxUtil.postAsyncData('/api/cms/member/save', data, function (result) {
+                        if (result.success) {
+                            var savedId = result.data;
+                            // FILE 방식이고 업로더에 대기 파일이 있으면 먼저 업로드
+                            if (agreeUploader && data.agree_method === 'FILE') {
+                                // 업로더의 data_pk를 저장된 id 로 갱신
+                                agreeUploader.data_pk = savedId;
+                                agreeUploader.uploadNow(savedId, function () {
+                                    Alert.alert('', '저장되었습니다.');
+                                    searchList();
+                                });
+                            } else {
+                                Alert.alert('', '저장되었습니다.');
+                                searchList();
+                            }
+                        } else {
+                            Alert.alert('저장 실패', result.message);
+                        }
+                    });
+                });
+            }
+        }
+
+        /** 해지된 납부자 후보 선택 창 — [재등록] / [새 납부자로 등록] / [취소] */
+        function showTerminatedPicker(list, onReRegister, onNew) {
+            $('#modalTermPick').remove();
+            var esc = function (v) { return $('<div>').text(v == null ? '' : v).html(); };
+            var rows = list.map(function (x, i) {
+                return '<label style="display:block; padding:8px 10px; border:1px solid #e0e4ef; border-radius:4px; margin-bottom:6px; cursor:pointer;">'
+                    + '<input type="radio" name="termPick" value="' + i + '"' + (i === 0 ? ' checked' : '') + ' style="margin-right:6px;">'
+                    + '<b>' + esc(x.member_name) + '</b> &nbsp;' + esc(x.member_no)
+                    + '<div style="font-size:12px; color:#666; margin:3px 0 0 20px;">'
+                    + esc(x.bank_name || x.bank_code) + ' ' + esc(x.bank_account)
+                    + (x.cancel_date ? ' · ' + esc(x.cancel_date) + ' 해지' : '') + '</div></label>';
+            }).join('');
+            var $m = $('<div id="modalTermPick" style="position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:1060; display:flex; align-items:center; justify-content:center;">'
+                + '<div style="background:#fff; border-radius:8px; padding:20px 24px; width:480px; max-width:94vw; box-shadow:0 4px 24px rgba(0,0,0,.2);">'
+                + '<h3 style="margin:0 0 8px; font-size:15px;">예전에 해지된 납부자가 있습니다</h3>'
+                + '<div style="font-size:12px; color:#e67e22; margin-bottom:12px;">같은 납부자라면 <b>재등록</b>하세요. ERP 거래처 연결과 출금 이력이 이어집니다. 새 납부자번호가 부여되고 인증을 다시 받습니다.</div>'
+                + rows
+                + '<div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">'
+                + '<button type="button" id="btnTermRe" style="background:#6f42c1; color:#fff; padding:6px 16px; border:none; border-radius:4px; cursor:pointer;">선택한 납부자로 재등록</button>'
+                + '<button type="button" id="btnTermNew" style="background:#0d6efd; color:#fff; padding:6px 16px; border:none; border-radius:4px; cursor:pointer;">새 납부자로 등록</button>'
+                + '<button type="button" id="btnTermClose" style="background:#f5f6fa; color:#333; padding:6px 16px; border:1px solid #dde0ea; border-radius:4px; cursor:pointer;">취소</button>'
+                + '</div></div></div>');
+            $('body').append($m);
+            $m.on('click', '#btnTermRe', function () {
+                var idx = parseInt($m.find('input[name=termPick]:checked').val() || '0', 10);
+                $m.remove(); onReRegister(list[idx]);
             });
+            $m.on('click', '#btnTermNew', function () { $m.remove(); onNew(); });
+            $m.on('click', '#btnTermClose', function () { $m.remove(); });
         }
 
         function deleteMember() {
