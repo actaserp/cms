@@ -133,6 +133,8 @@ public class CmsMemberService {
         if (StringUtils.hasText(status)) {
             sql += " AND m.status = :status";
             param.addValue("status", status);
+        } else {
+            sql += " AND m.status <> 'DELETED'";   // 삭제(이력보존) 회원은 명시적으로 고를 때만
         }
 
         sql += " ORDER BY m.id DESC";
@@ -452,18 +454,83 @@ public class CmsMemberService {
     }
 
     /**
-     * 납부자 삭제
+     * 납부자 삭제.
+     *  · CMS 등록 중(인증완료, 해지 전)            → 막음. 해지 신청 먼저.
+     *  · 금결원에 나간 기록이 있음(청구/신청 전송·결과) → 비활성화(status='DELETED'), 이력 보존.
+     *  · 그 외(기록 없음, 미전송 대기건만)           → 대기건과 함께 실제 삭제.
+     *
+     *  ★ 예전엔 전송·성공 청구까지 지웠다. 그 뒤 ERP 동기화로 같은 회원이 새로 생기면서
+     *    출금된 기록이 통째로 사라졌다. (정우 J1 태성아트빌 11/02 출금건 8858, 2026-11-10)
+     *
+     * @return result = DELETED(실삭제) / SOFT(비활성화) / BLOCKED(차단), message
      */
-    public boolean deleteMember(Long id) {
+    public Map<String, Object> deleteMember(Long id) {
         String spjangcd = TenantContext.get();
         var param = new MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("spjangcd", spjangcd);
 
-        // 0. 이 회원과 연결된 파일 id를 먼저 잡아둔다(매핑을 지우면 찾을 수 없으므로).
-        //    ★ 예전에는 사업장 전체에서 매핑 없는 파일을 지웠다. EB22/EB14 같은 수신 파일은
-        //      원래 매핑이 없어서 납부자 한 명만 지워도 결과 파일이 전부 삭제됐다(정우 J1).
-        //      EB22 행이 사라지면 스케줄러가 같은 결과 파일을 매일 다시 받는 부작용도 있었다.
+        Map<String, Object> m = sqlRunner.getRow(
+                "SELECT id, member_name, status, agree_yn FROM cms_member WHERE id = :id AND spjangcd = :spjangcd", param);
+        if (m == null) return Map.of("result", "BLOCKED", "message", "회원을 찾을 수 없습니다.");
+        String name = str(m.get("member_name"));
+        String st   = str(m.get("status"));
+        if ("DELETED".equals(st)) return Map.of("result", "BLOCKED", "message", name + ": 이미 삭제된 회원입니다.");
+
+        // 1) CMS 등록 중이면 막는다 — 웹에서만 지우면 은행 원장엔 계좌가 살아 있다.
+        if ("Y".equals(str(m.get("agree_yn"))) && !"INACTIVE".equals(st)) {
+            return Map.of("result", "BLOCKED", "message",
+                    name + ": 출금이체 등록(인증완료)된 납부자입니다. 해지 신청 후 해지가 완료되면 삭제하세요.");
+        }
+        Map<String, Object> inFlight = sqlRunner.getRow(
+                """
+                SELECT COUNT(*) AS cnt FROM cms_account_register
+                WHERE member_id = :id AND spjangcd = :spjangcd
+                  AND status = 'PENDING' AND eb13_status = 'SENT'
+                """, param);
+        if (inFlight != null && ((Number) inFlight.get("cnt")).longValue() > 0) {
+            return Map.of("result", "BLOCKED", "message",
+                    name + ": 금결원 결과 대기 중인 신청이 있습니다. 결과(EB14) 수신 후 삭제하세요.");
+        }
+
+        // 2) 금결원에 나간 기록이 있으면 비활성화
+        Map<String, Object> hist = sqlRunner.getRow(
+                """
+                SELECT
+                  (SELECT COUNT(*) FROM cms_billing
+                    WHERE member_id = :id AND spjangcd = :spjangcd
+                      AND (status NOT IN ('PENDING','CANCEL') OR file_id IS NOT NULL)) AS billing_cnt,
+                  (SELECT COUNT(*) FROM cms_account_register
+                    WHERE member_id = :id AND spjangcd = :spjangcd
+                      AND (eb13_status = 'SENT' OR status IN ('APPROVED','CANCELLED','REJECTED','FAILED'))) AS register_cnt
+                """, param);
+        long billingCnt  = hist != null ? ((Number) hist.get("billing_cnt")).longValue()  : 0;
+        long registerCnt = hist != null ? ((Number) hist.get("register_cnt")).longValue() : 0;
+
+        if (billingCnt > 0 || registerCnt > 0) {
+            // 미전송 대기건은 정리(남겨두면 다음 청구/전송에 섞인다)
+            sqlRunner.execute("""
+                DELETE FROM cms_billing
+                WHERE member_id = :id AND spjangcd = :spjangcd
+                  AND status = 'PENDING' AND file_id IS NULL
+                  AND NOT EXISTS (SELECT 1 FROM cms_file_billing fb WHERE fb.billing_id = cms_billing.id)
+                """, param);
+            sqlRunner.execute("""
+                DELETE FROM cms_account_register
+                WHERE member_id = :id AND spjangcd = :spjangcd
+                  AND status = 'PENDING' AND COALESCE(eb13_status,'PENDING') <> 'SENT'
+                  AND NOT EXISTS (SELECT 1 FROM cms_file_register fr WHERE fr.register_id = cms_account_register.id)
+                """, param);
+            sqlRunner.execute("""
+                UPDATE cms_member SET status = 'DELETED', agree_yn = 'N', _modified = NOW()
+                WHERE id = :id AND spjangcd = :spjangcd
+                """, param);
+            log.info("[CmsMember] 소프트 삭제 id={} name={} 청구이력={} 신청이력={}", id, name, billingCnt, registerCnt);
+            return Map.of("result", "SOFT", "message",
+                    name + ": 출금/신청 이력이 있어 비활성(삭제됨)으로 처리했습니다. 이력은 보존됩니다.");
+        }
+
+        // 3) 기록 없음 → 실제 삭제 (미전송 대기건 포함)
         List<Long> linkedFileIds = sqlRunner.getRows(
                         """
                         SELECT fb.file_id FROM cms_file_billing fb
@@ -477,17 +544,10 @@ public class CmsMemberService {
                 .map(r -> ((Number) r.get("file_id")).longValue())
                 .collect(java.util.stream.Collectors.toList());
 
-        // 1. 매핑 테이블
         sqlRunner.execute("DELETE FROM cms_file_billing WHERE billing_id IN (SELECT id FROM cms_billing WHERE member_id = :id AND spjangcd = :spjangcd)", param);
         sqlRunner.execute("DELETE FROM cms_file_register WHERE register_id IN (SELECT id FROM cms_account_register WHERE member_id = :id AND spjangcd = :spjangcd)", param);
-
-        // 2. 본 테이블
         sqlRunner.execute("DELETE FROM cms_billing WHERE member_id = :id AND spjangcd = :spjangcd", param);
         sqlRunner.execute("DELETE FROM cms_account_register WHERE member_id = :id AND spjangcd = :spjangcd", param);
-
-        // 3. 이 회원과 연결돼 있던 송신 파일 중, 이제 아무 건도 남지 않은 것만 삭제.
-        //    수신 파일(EB22/EB14/EC22 등)과 다른 회원 파일은 건드리지 않는다.
-        //    NOT IN 대신 NOT EXISTS: 매핑에 NULL file_id 가 섞이면 NOT IN 은 아무것도 안 지운다.
         if (!linkedFileIds.isEmpty()) {
             sqlRunner.execute("""
                 DELETE FROM cms_file f
@@ -497,9 +557,9 @@ public class CmsMemberService {
                   AND NOT EXISTS (SELECT 1 FROM cms_file_register fr WHERE fr.file_id = f.id)
                 """, new MapSqlParameterSource("spjangcd", spjangcd).addValue("fileIds", linkedFileIds));
         }
-
-        // 4. 마지막
-        return sqlRunner.execute("DELETE FROM cms_member WHERE id = :id AND spjangcd = :spjangcd", param) > 0;
+        int n = sqlRunner.execute("DELETE FROM cms_member WHERE id = :id AND spjangcd = :spjangcd", param);
+        return n > 0 ? Map.of("result", "DELETED", "message", name + ": 삭제했습니다.")
+                : Map.of("result", "BLOCKED", "message", name + ": 삭제에 실패했습니다.");
     }
 
     public Map<String, Object> excelUpload(MultipartFile file, String userId) {
@@ -1269,7 +1329,7 @@ public class CmsMemberService {
 
         // cms_member 현재값
         List<Map<String, Object>> members = sqlRunner.getRows(/* skip_tenant_check */
-                "SELECT id, cltcd, actcd, member_no, member_name, member_type, id_number, resident_no, biz_no, bank_code, bank_account, deduct_amount, deduct_day, agree_yn, sync_confirmed_ref FROM cms_member WHERE spjangcd = :spjangcd AND status <> 'INACTIVE'",
+                "SELECT id, cltcd, actcd, member_no, member_name, member_type, id_number, resident_no, biz_no, bank_code, bank_account, deduct_amount, deduct_day, agree_yn, sync_confirmed_ref FROM cms_member WHERE spjangcd = :spjangcd AND status NOT IN ('INACTIVE','DELETED')",
                 new MapSqlParameterSource("spjangcd", spjangcd));
         // ★ 해지 회원은 제외한다. INACTIVE 행이 키를 점유하면 같은 코드의 신규가 영원히 가려진다.
         //   (2026-07-23 중복적재 건이 actcd 00882를 점유해 웨스턴팰리스호텔이 안 보이던 사고)
@@ -1326,6 +1386,14 @@ public class CmsMemberService {
                 Map<String, Object> matched = matchMember(erpRow, byActcd, byCltcd);
                 if (matched == null) {
                     // [1] 신규: ERP 활성이지만 cms_member에 없는 계정
+                    // ★ 해지 완료된 회원이 같은 코드로 있으면 '신규'가 아니라 '재등록' 대상이다.
+                    //   여기서 INSERT 하면 cltcd 가 같은 회원이 둘이 되고, 해지된 납부자번호·옛 인증값이 붙는다.
+                    Long terminatedId = findTerminatedMemberId(spjangcd,
+                            str(erpRow.get("erp_actcd")), str(erpRow.get("erp_cltcd")));
+                    if (terminatedId != null) {
+                        erpRow.put("reregister_member_id", terminatedId);
+                        erpRow.put("row_note", "해지 완료 회원 — 납부자 관리에서 '재등록'으로 처리하세요");
+                    }
                     newRows.add(erpRow);
                     continue;
                 }
@@ -1632,7 +1700,7 @@ public class CmsMemberService {
                             //  → cltcd 로 찾되, 같은 cltcd 에 현장 회원이 섞여 있으면
                             //    거래처 회원(actcd 없음)을 우선해 1건만 잡는다.
                             "SELECT id, member_no, _modified FROM cms_member "
-                                    + "WHERE spjangcd = :spjangcd AND status <> 'INACTIVE' AND "
+                                    + "WHERE spjangcd = :spjangcd AND status NOT IN ('INACTIVE','DELETED') AND "
                                     + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) ) ORDER BY CASE WHEN actcd IS NULL THEN 0 ELSE 1 END, id LIMIT 1",
                             new MapSqlParameterSource("spjangcd", spjangcd)
                                     .addValue("mActcd", erpRow.get("erp_actcd"))
@@ -1673,6 +1741,12 @@ public class CmsMemberService {
                     p.addValue("deductMonthType", erpRow.get("deduct_month_type"));
                     p.addValue("userId",       userId);
 
+                    if (existing == null && findTerminatedMemberId(spjangcd,
+                            str(erpRow.get("erp_actcd")), str(erpRow.get("erp_cltcd"))) != null) {
+                        log.info("[ERP반영] 해지 완료 회원 존재 → 신규 생성 안 함(재등록 대상) key={}", actcd);
+                        skipped++;
+                        continue;
+                    }
                     if (existing == null) {
                         sqlRunner.execute(/* skip_tenant_check */
                                 """
@@ -1853,12 +1927,19 @@ public class CmsMemberService {
                         // 거래처 경로는 cltcd 로 찾고, 같은 cltcd 에 현장 회원이 있으면
                         //  거래처 회원(actcd 없음)을 우선한다. (중복 생성 방지)
                         "SELECT id FROM cms_member "
-                                + "WHERE spjangcd = :spjangcd AND status <> 'INACTIVE' AND "
+                                + "WHERE spjangcd = :spjangcd AND status NOT IN ('INACTIVE','DELETED') AND "
                                 + "( (:mActcd IS NOT NULL AND actcd = :mActcd) OR (:mActcd IS NULL AND cltcd = :mCltcd) ) ORDER BY CASE WHEN actcd IS NULL THEN 0 ELSE 1 END, id LIMIT 1",
                         new MapSqlParameterSource("spjangcd", spjangcd)
                                 .addValue("mActcd", erpRow.get("erp_actcd"))
                                 .addValue("mCltcd", erpRow.get("erp_cltcd")));
 
+                // 해지 완료 회원이 있으면 신규로 만들지 않는다(재등록 대상).
+                if (existing == null && findTerminatedMemberId(spjangcd,
+                        str(erpRow.get("erp_actcd")), str(erpRow.get("erp_cltcd"))) != null) {
+                    log.info("[ERP선택반영] 해지 완료 회원 존재 → 신규 생성 안 함(재등록 대상) cltcd={}", cltcd);
+                    failed++;
+                    continue;
+                }
                 // 신규 회원: cms_member에 없으면 ERP 값 통짜 INSERT (필드선택 무의미)
                 if (existing == null) {
                     String memberNo = StringUtils.hasText(str(erpRow.get("member_no")))
@@ -2027,7 +2108,7 @@ public class CmsMemberService {
         // 2. cms_member 현재값 로드 (id 포함)
         List<Map<String, Object>> members = sqlRunner.getRows(/* skip_tenant_check */
                 "SELECT id, cltcd, actcd, member_no, member_name, id_number, bank_code, bank_account, agree_yn "
-                        + "FROM cms_member WHERE spjangcd = :spjangcd AND status <> 'INACTIVE' "
+                        + "FROM cms_member WHERE spjangcd = :spjangcd AND status NOT IN ('INACTIVE','DELETED') "
                         + "ORDER BY COALESCE(actcd, cltcd)",  // 표시 정렬용
                 new MapSqlParameterSource("spjangcd", spjangcd));
 
@@ -2802,6 +2883,150 @@ public class CmsMemberService {
 
         return Map.of("success", true,
                 "message", "계좌변경 신청이 접수되었습니다. '출금이체 인증 관리'에서 인증 등록 신청으로 전송하세요.");
+    }
+
+    /**
+     * 같은 ERP 키(현장이면 actcd, 거래처면 cltcd)로 '해지가 완료된' 회원 id.
+     *  INACTIVE 이면서 해지행('3')이 완료(CANCELLED/APPROVED)된 회원만 본다.
+     *  (중복 적재 등으로 그냥 INACTIVE 인 행은 대상 아님 — 그 행이 신규를 가리면 안 되므로)
+     */
+    private Long findTerminatedMemberId(String spjangcd, String actcd, String cltcd) {
+        boolean site = StringUtils.hasText(actcd);
+        if (!site && !StringUtils.hasText(cltcd)) return null;
+        Map<String, Object> r = sqlRunner.getRow(/* skip_tenant_check */
+                """
+                SELECT m.id FROM cms_member m
+                WHERE m.spjangcd = :spjangcd AND m.status = 'INACTIVE'
+                  AND ( (:site AND m.actcd = :actcd) OR (NOT :site AND m.actcd IS NULL AND m.cltcd = :cltcd) )
+                  AND EXISTS (SELECT 1 FROM cms_account_register r
+                               WHERE r.member_id = m.id AND r.spjangcd = m.spjangcd
+                                 AND r.apply_type = '3' AND r.status IN ('CANCELLED','APPROVED'))
+                ORDER BY m._modified DESC LIMIT 1
+                """,
+                new MapSqlParameterSource("spjangcd", spjangcd)
+                        .addValue("site", site)
+                        .addValue("actcd", site ? actcd : null)
+                        .addValue("cltcd", cltcd));
+        return r != null ? ((Number) r.get("id")).longValue() : null;
+    }
+
+    /**
+     * 재등록 — 해지가 끝난(INACTIVE) 회원을 같은 행으로 되살려 새 계좌로 신규 신청한다.
+     *  '해지 먼저, 완료 후 신규' 요청(계좌변경 세트로 묶지 않는 경우)용.
+     *
+     *  · 같은 회원 행을 쓴다 → cltcd/actcd·청구이력 유지 = ERP 미수 매칭 유지.
+     *    (신규등록으로 새 행을 만들면 cltcd 가 없어 ERP 청구생성에서 NO_MEMBER 가 된다)
+     *  · 납부자번호는 새로 채번 → 해지된 번호 재사용 시 A016(이중신청).
+     *  · 인증은 처음부터 다시: agree_yn='N', 신규행('1') ei13 PENDING → 동의서 첨부 후 EI13→EB13.
+     *  · 식별번호는 새 계좌 예금주 기준으로 필수 입력(changeAccount 와 동일 원칙).
+     */
+    public Map<String, Object> reRegisterMember(Long memberId, String bankCode, String bankAccount,
+                                                String accountHolder, String idNumber, String userId) {
+        String spjangcd = TenantContext.get();
+
+        Map<String, Object> member = sqlRunner.getRow(/* skip_tenant_check */
+                """
+                SELECT id, member_name, member_type, status, cltcd, actcd
+                FROM cms_member WHERE id = :memberId AND spjangcd = :spjangcd
+                """,
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+        if (member == null) return Map.of("success", false, "message", "회원을 찾을 수 없습니다.");
+        if (!"INACTIVE".equals(str(member.get("status")))) {
+            return Map.of("success", false, "message",
+                    "해지 완료(비활성) 회원만 재등록할 수 있습니다. 현재: " + str(member.get("status"))
+                            + "\n활성 회원의 계좌를 바꾸려면 '계좌변경'을 쓰세요.");
+        }
+
+        // 해지가 실제로 완료됐는지 — 해지 결과 전이면 같은 계좌가 은행 원장에 살아 있을 수 있다.
+        Map<String, Object> done = sqlRunner.getRow(/* skip_tenant_check */
+                """
+                SELECT COUNT(*) AS cnt FROM cms_account_register
+                WHERE member_id = :memberId AND spjangcd = :spjangcd
+                  AND apply_type = '3' AND status IN ('CANCELLED','APPROVED')
+                """,
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+        if (done == null || ((Number) done.get("cnt")).longValue() == 0) {
+            return Map.of("success", false, "message",
+                    "해지 완료 이력이 없습니다. 해지 결과(EB14)를 받은 뒤 재등록하세요.");
+        }
+
+        Map<String, Object> pending = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT COUNT(*) AS cnt FROM cms_account_register WHERE member_id = :memberId AND spjangcd = :spjangcd AND status = 'PENDING'",
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+        if (pending != null && ((Number) pending.get("cnt")).longValue() > 0) {
+            return Map.of("success", false, "message",
+                    "진행 중인 신청이 있습니다. '출금이체 인증 관리'에서 먼저 처리하세요.");
+        }
+
+        // 같은 ERP 코드로 이미 활성 회원이 있으면(동기화로 새로 생겼다든지) 둘이 되므로 막는다.
+        String actcd = str(member.get("actcd"));
+        String cltcd = str(member.get("cltcd"));
+        if (StringUtils.hasText(actcd) || StringUtils.hasText(cltcd)) {
+            boolean site = StringUtils.hasText(actcd);
+            Map<String, Object> dup = sqlRunner.getRow(/* skip_tenant_check */
+                    """
+                    SELECT id, member_name FROM cms_member
+                    WHERE spjangcd = :spjangcd AND id <> :memberId AND status NOT IN ('INACTIVE','DELETED')
+                      AND ( (:site AND actcd = :actcd) OR (NOT :site AND actcd IS NULL AND cltcd = :cltcd) )
+                    LIMIT 1
+                    """,
+                    new MapSqlParameterSource("spjangcd", spjangcd).addValue("memberId", memberId)
+                            .addValue("site", site).addValue("actcd", site ? actcd : null).addValue("cltcd", cltcd));
+            if (dup != null) {
+                return Map.of("success", false, "message",
+                        "같은 ERP 거래처로 활성 회원(" + str(dup.get("member_name")) + ", id " + str(dup.get("id"))
+                                + ")이 이미 있습니다. 중복 회원을 먼저 정리하세요.");
+            }
+        }
+
+        if (!StringUtils.hasText(bankCode) || !StringUtils.hasText(bankAccount)) {
+            return Map.of("success", false, "message", "새 계좌 정보(은행/계좌번호)를 입력하세요.");
+        }
+        String cleanAcct = bankAccount.replaceAll("[^0-9]", "");
+        String cleanId = idNumber == null ? "" : idNumber.replaceAll("[^0-9]", "");
+        if (cleanId.length() != 6 && cleanId.length() != 10) {
+            return Map.of("success", false, "message",
+                    "새 계좌 예금주의 식별번호(생년월일 6자리 / 사업자번호 10자리)를 입력하세요.");
+        }
+
+        String newMemberNo = generateMemberNo(spjangcd, bankCode, cleanId);
+        String holder = StringUtils.hasText(accountHolder) ? accountHolder : str(member.get("member_name"));
+
+        sqlRunner.execute(/* skip_tenant_check */
+                """
+                UPDATE cms_member SET
+                    status         = 'ACTIVE',
+                    member_no      = :memberNo,
+                    bank_code      = :bankCode,
+                    bank_account   = :bankAccount,
+                    account_holder = :holder,
+                    id_number      = :idNumber,
+                    agree_yn       = 'N',
+                    agree_date     = NULL,
+                    agree_method   = NULL,
+                    sync_confirmed_ref = NULL,
+                    _modifier_id   = :userId,
+                    _modified      = NOW()
+                WHERE id = :memberId AND spjangcd = :spjangcd
+                """,
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd)
+                        .addValue("memberNo", newMemberNo).addValue("bankCode", bankCode)
+                        .addValue("bankAccount", cleanAcct).addValue("holder", holder)
+                        .addValue("idNumber", cleanId).addValue("userId", userId));
+
+        // 신규 신청행 — 일반 신규와 같은 경로(동의서 첨부 → EI13 → EB13)
+        Long registerId = cmsAccountRegisterService.save(memberId, "1", null, null, userId);
+        if (registerId == null) {
+            log.warn("[CmsMember] 재등록 신청행 생성 실패 memberId={}", memberId);
+            return Map.of("success", false, "message",
+                    "회원은 재등록됐지만 신청행 생성에 실패했습니다. '출금이체 인증 관리'에서 확인하세요.");
+        }
+        log.info("[CmsMember] 재등록 memberId={} 새납부자번호={} 계좌={} registerId={}",
+                memberId, newMemberNo, cleanAcct, registerId);
+
+        return Map.of("success", true, "message",
+                "재등록이 접수되었습니다(새 납부자번호 " + newMemberNo + ").\n"
+                        + "'출금이체 인증 관리'에서 동의서를 첨부해 인증 등록 신청하세요.");
     }
 
     // ── 실시간 계좌조회 (금결원 예금주명 확인) ────────────────

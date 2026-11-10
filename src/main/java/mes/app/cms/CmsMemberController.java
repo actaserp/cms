@@ -115,15 +115,14 @@ public class CmsMemberController {
         return result;
     }
 
-    /** 삭제 (soft delete: status = INACTIVE) */
+    /** 삭제 — 이력 없으면 실삭제, 이력 있으면 status=DELETED, CMS 등록 중이면 차단 */
     @DeleteMapping("/{id}")
     public AjaxResult delete(@PathVariable Long id) {
         AjaxResult result = new AjaxResult();
-        boolean ok = cmsMemberService.deleteMember(id);
-        if (!ok) {
-            result.success = false;
-            result.message = "삭제에 실패했습니다.";
-        }
+        Map<String, Object> res = cmsMemberService.deleteMember(id);
+        result.data = res;
+        result.message = (String) res.get("message");
+        result.success = !"BLOCKED".equals(res.get("result"));
         return result;
     }
 
@@ -286,6 +285,29 @@ public class CmsMemberController {
                     member_id, bank_code, bank_account, account_holder, idNumber, userId);
             boolean ok = Boolean.TRUE.equals(res.get("success"));
             result.success = ok;
+            result.message = (String) res.get("message");
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    /** 재등록 — 해지 완료(INACTIVE) 회원을 같은 행으로 되살려 새 계좌 신규 신청 */
+    @PostMapping("/re-register")
+    @ResponseBody
+    public AjaxResult reRegister(@RequestParam Long member_id,
+                                 @RequestParam String bank_code,
+                                 @RequestParam String bank_account,
+                                 @RequestParam(required = false) String account_holder,
+                                 @RequestParam(value = "id_number", required = false) String idNumber,
+                                 Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        AjaxResult result = new AjaxResult();
+        try {
+            Map<String, Object> res = cmsMemberService.reRegisterMember(
+                    member_id, bank_code, bank_account, account_holder, idNumber, user.getUsername());
+            result.success = Boolean.TRUE.equals(res.get("success"));
             result.message = (String) res.get("message");
         } catch (Exception e) {
             result.success = false;

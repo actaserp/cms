@@ -262,6 +262,7 @@
                                     <option value="ACTIVE" selected>활성</option>
                                     <option value="INACTIVE">비활성</option>
                                     <option value="PENDING_CANCEL">해지신청중</option>
+                                    <option value="DELETED">삭제됨</option>
                                 </select>
                             </dd>
                         </dl>
@@ -659,6 +660,12 @@
                                                font-size:12px; cursor:pointer; height: 28px;">
                                             계좌변경
                                         </button>
+                                        <button type="button" id="btnReRegister"
+                                                style="display:none; margin-left:8px; padding:3px 10px;
+                                               background:#6f42c1; color:#fff; border:none; border-radius:4px;
+                                               font-size:12px; cursor:pointer; height: 28px;">
+                                            재등록
+                                        </button>
                                     </td>
                                 </tr>
                                 <tr>
@@ -720,11 +727,11 @@
         <div style="background:#fff; border-radius:8px; padding:22px 26px; min-width:440px;
              box-shadow:0 4px 24px rgba(0,0,0,0.2);">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-                <h3 style="margin:0; font-size:15px;">계좌변경 신청</h3>
+                <h3 id="chgTitle" style="margin:0; font-size:15px;">계좌변경 신청</h3>
                 <button type="button" id="btnChgClose"
                         style="background:none; border:none; font-size:20px; color:#888; cursor:pointer;">&times;</button>
             </div>
-            <div style="font-size:12px; color:#e67e22; margin-bottom:12px;">
+            <div id="chgNotice" style="font-size:12px; color:#e67e22; margin-bottom:12px;">
                 기존 계좌 해지와 새 계좌 신규 신청이 함께 접수됩니다. 새 계좌 정보를 정확히 입력하세요.
             </div>
             <input type="hidden" id="chgMemberId">
@@ -1028,7 +1035,7 @@
             {
                 binding: 'status', header: '상태', width: 65, align: 'center',
                 cellTemplate: function (ctx) {
-                    var map = {ACTIVE: '활성', INACTIVE: '비활성', PENDING_CANCEL: '해지신청중'};
+                    var map = {ACTIVE: '활성', INACTIVE: '비활성', PENDING_CANCEL: '해지신청중', DELETED: '삭제됨'};
                     return map[ctx.value] || ctx.value || '';
                 }
             },
@@ -1383,6 +1390,14 @@
             } else {
                 $('#btnChangeAccount').hide();
             }
+            // 재등록: 해지 완료(비활성) 회원 — 같은 회원 행을 살려 ERP 매칭(cltcd)을 유지한다.
+            if (item.status === 'INACTIVE') {
+                $('#btnReRegister').show()
+                    .data('memberId', item.id)
+                    .data('memberName', item.member_name);
+            } else {
+                $('#btnReRegister').hide();
+            }
 
             // 동의방식 라디오 복원
             var method = item.agree_method || 'LATER';
@@ -1573,6 +1588,7 @@
             Alert.confirm('', msg, function () {
                 var ok = 0;
                 var fail = [];
+                var soft = [];
 
                 // 순차 처리 — 동시 요청 시 cms_file 고아정리 쿼리가 서로 물릴 수 있음
                 (function next(i) {
@@ -1581,15 +1597,14 @@
                         clearForm();
                         searchList();
 
-                        if (fail.length === 0) {
+                        var msgs = soft.concat(fail.map(function (x) { return x.msg || (x.name || x.id); }));
+                        if (msgs.length === 0) {
                             Alert.alert('', ok + '건 삭제되었습니다.');
                         } else {
-                            var f = fail.slice(0, 5).map(function (x) {
-                                return x.name || x.id;
-                            }).join(', ');
-                            if (fail.length > 5) f += ' 외 ' + (fail.length - 5) + '건';
+                            var f = msgs.slice(0, 8).join('\n');
+                            if (msgs.length > 8) f += '\n외 ' + (msgs.length - 8) + '건';
                             Alert.alert('삭제 결과',
-                                '성공 ' + ok + '건 / 실패 ' + fail.length + '건\n실패: ' + f);
+                                '처리 ' + ok + '건 / 실패 ' + fail.length + '건\n\n' + f);
                         }
                         return;
                     }
@@ -1600,8 +1615,12 @@
                         type: 'DELETE',
                         headers: {'X-CSRF-TOKEN': $('[name=_csrf]').val()},
                         success: function (result) {
-                            if (result && result.success) ok++;
-                            else fail.push(t);
+                            if (result && result.success) {
+                                ok++;
+                                if (result.data && result.data.result === 'SOFT') soft.push(result.message);
+                            } else {
+                                fail.push({id: t.id, name: t.name, msg: result && result.message});
+                            }
                             next(i + 1);
                         },
                         error: function () {
@@ -1817,6 +1836,7 @@
 
             // 계좌변경 - 그리드 선택에서 모달 열기 (폼 안 거치지 않고 바로)
             $('#btnChangeAccountSelected').click(function () {
+                setChgMode('change');
                 var checked = getCheckedMembers();
                 if (checked.length !== 1) {
                     Alert.alert('', '계좌변경은 1건씩만 가능합니다. 한 건만 선택하세요.');
@@ -1844,8 +1864,37 @@
                 $('#modalChangeAccount').css('display', 'flex');
             });
 
+            /** 모달 모드: 'change'(계좌변경) / 'reregister'(재등록) */
+            function setChgMode(mode) {
+                $('#modalChangeAccount').data('mode', mode);
+                if (mode === 'reregister') {
+                    $('#chgTitle').text('재등록 신청');
+                    $('#chgNotice').text('해지 완료된 납부자를 새 계좌로 다시 등록합니다. 새 납부자번호가 부여되고, 동의서 첨부 후 인증을 다시 받아야 출금됩니다.');
+                    $('#btnChgSubmit').text('재등록 신청');
+                } else {
+                    $('#chgTitle').text('계좌변경 신청');
+                    $('#chgNotice').text('기존 계좌 해지와 새 계좌 신규 신청이 함께 접수됩니다. 새 계좌 정보를 정확히 입력하세요.');
+                    $('#btnChgSubmit').text('변경 신청');
+                }
+            }
+
+            // 재등록 - 모달 열기
+            $('#btnReRegister').click(function () {
+                var memberId = $(this).data('memberId');
+                if (!memberId) return;
+                setChgMode('reregister');
+                $('#chgMemberId').val(memberId);
+                $('#chgMemberName').text($(this).data('memberName') || '');
+                $('#chgBankCode').val('');
+                $('#chgBankAccount').val('');
+                $('#chgAccountHolder').val($('#account_holder').val() || $(this).data('memberName') || '');
+                setChgOldValues($('#id_number').val() || '', $('#account_holder').val() || $(this).data('memberName') || '');
+                $('#modalChangeAccount').css('display', 'flex');
+            });
+
             // 계좌변경 - 모달 열기 (폼 내 버튼)
             $('#btnChangeAccount').click(function () {
+                setChgMode('change');
                 var memberId = $(this).data('memberId');
                 if (!memberId) return;
                 $('#chgMemberId').val(memberId);
@@ -1903,7 +1952,10 @@
                 var oldId = $('#chgIdNumber').data('oldId') || '';
                 var oldHolder = $('#chgAccountHolder').data('oldHolder') || '';
                 var holderChanged = oldHolder && (accountHolder || '').replace(/\s+/g, '') !== oldHolder;
-                var confirmMsg = '기존 계좌 해지 + 새 계좌 신규 신청이 함께 접수됩니다.\n계속하시겠습니까?';
+                var isRe = $('#modalChangeAccount').data('mode') === 'reregister';
+                var confirmMsg = isRe
+                    ? '새 계좌로 재등록 신청합니다(새 납부자번호 부여, 인증 다시 받음).\n계속하시겠습니까?'
+                    : '기존 계좌 해지 + 새 계좌 신규 신청이 함께 접수됩니다.\n계속하시겠습니까?';
                 if (holderChanged && oldId && idNumber === oldId) {
                     confirmMsg = '예금주가 바뀌었는데 식별번호(' + idNumber + ')가 기존 계좌와 같습니다.\n'
                         + '새 예금주의 생년월일/사업자번호가 맞습니까?\n'
@@ -1912,7 +1964,7 @@
                 }
 
                 Alert.confirm('', confirmMsg, function () {
-                    AjaxUtil.postAsyncData('/api/cms/member/change-account',
+                    AjaxUtil.postAsyncData(isRe ? '/api/cms/member/re-register' : '/api/cms/member/change-account',
                         {
                             member_id: memberId,
                             bank_code: bankCode,
