@@ -1645,6 +1645,7 @@ public class CmsBillingService {
                     .min(String::compareTo).orElse(from);
 
             Map<String, Map<String, Object>> erpByKey = new HashMap<>();
+            Map<String, List<String>> erpCltByRaw = new HashMap<>();   // 미수키 → 그 키를 가진 거래처들
             String dbUrl = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
                     str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
             try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
@@ -1684,8 +1685,13 @@ public class CmsBillingService {
                         e.put("cltnm", str(rs.getString("cltnm")));
                         e.put("actnm", str(rs.getString("actnm")));
                         e.put("site_cms", siteCms);
-                        e.put("erp_accnum", digits(siteCms ? rs.getString("site_accnum") : rs.getString("clt_accnum")));
-                        erpByKey.put(str(rs.getString("misdate")) + str(rs.getString("misnum")), e);
+                        String siteAcc = digits(rs.getString("site_accnum"));
+                        e.put("erp_accnum", (siteCms || StringUtils.hasText(siteAcc))
+                                ? siteAcc : digits(rs.getString("clt_accnum")));
+                        // 미수번호는 거래처별 → 키에 cltcd 포함
+                        String rawKey = str(rs.getString("misdate")) + str(rs.getString("misnum"));
+                        erpByKey.put(rawKey + "|" + str(rs.getString("cltcd")), e);
+                        erpCltByRaw.computeIfAbsent(rawKey, x -> new ArrayList<>()).add(str(rs.getString("cltcd")));
                     }
                 }
             } catch (Exception ex) {
@@ -1699,12 +1705,16 @@ public class CmsBillingService {
             }
 
             for (Map<String, Object> b : bills) {
-                String key  = str(b.get("erp_mis_key"));
+                String key  = str(b.get("erp_mis_key")) + "|" + str(b.get("m_cltcd"));
                 Map<String, Object> e = erpByKey.get(key);
                 String kind = null, detail = "";
                 String billAcc = digits(str(b.get("bank_account")));
 
-                if (e == null) {
+                List<String> otherClts = erpCltByRaw.get(str(b.get("erp_mis_key")));
+                if (e == null && otherClts != null) {
+                    kind = "오매칭_거래처다름";        // 같은 미수키가 다른 거래처 미수에만 있음
+                    detail = "ERP 미수 거래처 " + otherClts + " / 납부자 거래처 " + str(b.get("m_cltcd"));
+                } else if (e == null) {
                     kind = "ERP_미수없음";            // 미수가 지워졌거나 키가 안 맞음 — 확인 필요
                 } else if (!StringUtils.hasText(str(e.get("erp_accnum")))) {
                     kind = "ERP_계좌없음";
@@ -1762,6 +1772,7 @@ public class CmsBillingService {
                 SELECT b.id, b.member_id, b.member_name, b.billing_amount, b.bank_code, b.bank_account,
                        b.erp_mis_key, b.warn_ack_sig, b.warn_ack_by, b.warn_ack_at,
                        m.member_no, m.member_name AS payer_name, m.bank_account AS member_account,
+                       m.cltcd AS member_cltcd,
                        m.deduct_amount,
                        (SELECT AVG(x.billing_amount) FROM (
                             SELECT h.billing_amount FROM cms_billing h
@@ -1778,7 +1789,7 @@ public class CmsBillingService {
                 new MapSqlParameterSource("sp", spjangcd).addValue("dd", deductDate).addValue("tp", type));
         if (bills.isEmpty()) return new ArrayList<>();
 
-        Map<String, String> erpAcc = erpExpectedAccounts(spjangcd, bills);
+        Map<String, Map<String, String>> erpAcc = erpExpectedAccounts(spjangcd, bills);
 
         List<Map<String, Object>> out = new ArrayList<>();
         for (Map<String, Object> b : bills) {
@@ -1811,12 +1822,23 @@ public class CmsBillingService {
                 texts.add("납부자 계좌가 바뀜 (현재 " + memAcc + ")");
             }
             // 4) ERP 출금계좌 불일치
+            //    미수번호는 거래처별로 매겨져 misdate+misnum이 다른 거래처와 겹칠 수 있다.
+            //    같은 키의 미수 중 납부자 거래처(cltcd)와 같은 것을 고르고,
+            //    같은 거래처 미수가 아예 없으면 진짜 오매칭으로 본다.
             String key = str(b.get("erp_mis_key"));
             if (StringUtils.hasText(key) && erpAcc.containsKey(key)) {
-                String e = erpAcc.get(key);
-                if (StringUtils.hasText(e) && !e.equals(billAcc)) {
+                Map<String, String> byClt = erpAcc.get(key);
+                String memClt = str(b.get("member_cltcd"));
+                if (byClt.containsKey(memClt)) {
+                    String e = byClt.get(memClt);
+                    if (StringUtils.hasText(e) && !e.equals(billAcc)) {
+                        codes.add("ERP_ACCOUNT");
+                        texts.add("ERP 출금계좌 " + e + " 와 다름 (오매칭 의심)");
+                    }
+                } else {
                     codes.add("ERP_ACCOUNT");
-                    texts.add("ERP 출금계좌 " + e + " 와 다름 (오매칭 의심)");
+                    texts.add("ERP 미수 거래처(" + String.join(",", byClt.keySet())
+                            + ")가 납부자 거래처(" + memClt + ")와 다름 (오매칭 의심)");
                 }
             }
             if (codes.isEmpty()) continue;
@@ -1872,8 +1894,9 @@ public class CmsBillingService {
     }
 
     /** ERP 청구의 '미수 → ERP 기준 출금계좌'. ERP 연결이 없거나 실패하면 빈 맵(이 항목만 건너뜀). */
-    private Map<String, String> erpExpectedAccounts(String spjangcd, List<Map<String, Object>> bills) {
-        Map<String, String> out = new HashMap<>();
+    /** 반환: 미수키(misdate+misnum) → { 거래처코드 → ERP 기준 출금계좌 } */
+    private Map<String, Map<String, String>> erpExpectedAccounts(String spjangcd, List<Map<String, Object>> bills) {
+        Map<String, Map<String, String>> out = new HashMap<>();
         List<String> keys = bills.stream().map(b -> str(b.get("erp_mis_key")))
                 .filter(k -> k.length() >= 8).distinct().collect(Collectors.toList());
         if (keys.isEmpty()) return out;
@@ -1885,6 +1908,8 @@ public class CmsBillingService {
 
         String from = keys.stream().map(k -> k.substring(0, 8)).min(String::compareTo).get();
         String to   = keys.stream().map(k -> k.substring(0, 8)).max(String::compareTo).get();
+        // TB_DA023 PK = custcd+spjangcd+cltcd+misgubun+misdate+misnum
+        // → misdate+misnum만으로는 다른 거래처 미수와 겹칠 수 있어 거래처별로 모두 담는다
         Set<String> want = new HashSet<>(keys);
         String dbUrl = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
                 str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
@@ -1894,7 +1919,7 @@ public class CmsBillingService {
                     dbUrl, str(erp.get("username")), str(erp.get("password")));
                  java.sql.PreparedStatement ps = conn.prepareStatement(
                          """
-                         SELECT A.misdate, A.misnum,
+                         SELECT A.misdate, A.misnum, A.cltcd,
                                 CASE WHEN EXISTS (SELECT 1 FROM TB_E101 e3 WITH(NOLOCK)
                                                    WHERE e3.custcd = A.custcd AND e3.spjangcd = A.spjangcd
                                                      AND e3.actcd = A.actcd AND e3.cmsflag = 1
@@ -1920,7 +1945,12 @@ public class CmsBillingService {
                         String k = str(rs.getString("misdate")) + str(rs.getString("misnum"));
                         if (!want.contains(k)) continue;
                         boolean siteCms = rs.getInt("site_cms") == 1;
-                        out.put(k, digits(siteCms ? rs.getString("site_accnum") : rs.getString("clt_accnum")));
+                        // 현장 계약에 계좌가 있으면 현장 계좌, 없으면 거래처 계좌
+                        String siteAcc = digits(rs.getString("site_accnum"));
+                        String acc = (siteCms || StringUtils.hasText(siteAcc))
+                                ? siteAcc : digits(rs.getString("clt_accnum"));
+                        out.computeIfAbsent(k, x -> new HashMap<>())
+                                .put(str(rs.getString("cltcd")), acc);
                     }
                 }
             }
