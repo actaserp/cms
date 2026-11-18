@@ -343,6 +343,11 @@
                                 </button>
                             </li>
                             <li>
+                                <button type="button" class="btn-default" id="btnErpCompare"
+                                        style="background:#0f9d8a; color:#fff; display:none;">ERP 비교
+                                </button>
+                            </li>
+                            <li>
                                 <button type="button" class="btn-danger" id="btnDel">삭제</button>
                             </li>
                             <li>
@@ -1412,9 +1417,21 @@
 
             $('#status').val(item.status || 'ACTIVE');
             $('#memo').val(item.memo || '');
+
+            // ★ 계좌변경 신청 진행 중이면 수정 저장 불가 (신청행 계좌가 덮이는 사고 방지)
+            if (item.change_in_progress) {
+                $('#btnSave').prop('disabled', true).css('opacity', .5)
+                    .attr('title', '계좌변경 신청 진행 중 — EB14 결과 수신 후 수정할 수 있습니다.');
+            } else {
+                $('#btnSave').prop('disabled', false).css('opacity', '').removeAttr('title');
+            }
+            if (item.id) $('#btnErpCompare').show().data('memberId', item.id);
+            else $('#btnErpCompare').hide();
         }
 
         function clearForm() {
+            $('#btnSave').prop('disabled', false).css('opacity', '').removeAttr('title');
+            $('#btnErpCompare').hide();
             $('#memberForm')[0].reset();
             $('#id').val('');
             $('input[name="member_type"][value="C"]').prop('checked', true);
@@ -1958,6 +1975,160 @@
                 setChgOldValues($('#id_number').val() || '', $('#account_holder').val() || $(this).data('memberName') || '');
                 $('#modalChangeAccount').css('display', 'flex');
             });
+
+            // ── 납부자 단건 ERP 비교 ─────────────────────────────────────
+            $('#btnErpCompare').click(function () {
+                var memberId = $(this).data('memberId');
+                if (!memberId) return;
+                AjaxUtil.getAsyncData('/api/cms/member/erp-compare', {member_id: memberId}, function (res) {
+                    if (!res.success) { Alert.alert('ERP 비교', res.message); return; }
+                    showErpCompare(res.data);
+                });
+            });
+
+            function showErpCompare(d) {
+                var esc = function (v) { return $('<div>').text(v == null ? '' : v).html(); };
+                if (!d.in_erp) {
+                    var noCode = !d.cltcd && !d.actcd;
+                    if (!noCode || !(d.candidates || []).length) {
+                        Alert.alert('ERP 비교', 'ERP CMS 대상(거래처 allchk=1 / 현장 cmsflag=1 / EB13 등록)에서 이 납부자를 찾지 못했습니다.\n\n'
+                            + 'CMS 거래처코드: ' + (d.cltcd || '-') + ' / 현장코드: ' + (d.actcd || '-') + ' / 납부자번호: ' + (d.member_no || '-') + '\n\n'
+                            + (noCode ? '계좌·이름이 비슷한 ERP 거래처/현장도 없습니다.'
+                                : 'ERP에서 CMS 대상이 아니거나, 약정일이 비어 있거나, 코드가 다르게 저장된 경우입니다.'));
+                        return;
+                    }
+                    showErpLink(d);
+                    return;
+                }
+                var locked = !!d.change_in_progress;
+                // 코드값을 사람이 읽는 값으로 (은행코드 → 은행명, 약정일 99 → 말일, 금액 콤마)
+                var disp = function (field, v) {
+                    if (v == null || v === '') return '';
+                    if (field === 'bank_code') {
+                        var b = (bankCodeList || []).filter(function (x) { return x.bank_code === String(v); })[0];
+                        return b ? b.bank_name : v;
+                    }
+                    if (field === 'deduct_day') {
+                        var n = parseInt(v, 10);
+                        return isNaN(n) ? v : (n === 99 ? '말일' : n + '일');
+                    }
+                    if (field === 'deduct_amount') {
+                        var a = Number(String(v).replace(/[^0-9]/g, ''));
+                        return isNaN(a) ? v : a.toLocaleString() + '원';
+                    }
+                    return v;
+                };
+                var rows = (d.fields || []).map(function (f) {
+                    var isAcc = f.kind === 'account';
+                    var chk = (!isAcc && f.diff && !locked)
+                        ? '<input type="checkbox" class="erp-cmp-chk" value="' + f.field + '" checked>' : '';
+                    var bg = f.diff ? 'background:#fff4e6;' : '';
+                    var note = isAcc && f.diff ? '<div style="font-size:11px;color:#a04000;">계좌변경으로 신청</div>'
+                        : (f.note ? '<div style="font-size:11px;color:#888;">' + esc(f.note) + '</div>' : '');
+                    return '<tr style="' + bg + '">'
+                        + '<td style="padding:6px;border:1px solid #ddd;text-align:center;">' + chk + '</td>'
+                        + '<td style="padding:6px;border:1px solid #ddd;">' + esc(f.label) + '</td>'
+                        + '<td style="padding:6px;border:1px solid #ddd;">' + esc(disp(f.field, f.cms)) + '</td>'
+                        + '<td style="padding:6px;border:1px solid #ddd;' + (f.diff ? 'color:#c0392b;font-weight:600;' : '') + '">' + esc(disp(f.field, f.erp)) + note + '</td>'
+                        + '</tr>';
+                }).join('');
+                var accDiff = (d.fields || []).some(function (f) { return f.kind === 'account' && f.diff; });
+                var evidence = '<div style="font-size:12px;color:#555;margin:8px 0;line-height:1.6;">'
+                    + '최근 출금 성공 계좌: <b>' + esc(d.last_success_account || '-') + '</b>'
+                    + (d.last_success_date ? ' (' + esc(String(d.last_success_date).replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3')) + ')' : '')
+                    + ' · CMS 인증: ' + esc(d.agree_yn === 'Y' ? '완료' : '미완료')
+                    + '</div>';
+                var warn = locked
+                    ? '<div style="padding:8px;background:#ffe0cc;color:#a04000;border-radius:4px;margin-bottom:8px;">계좌변경 신청이 진행 중이라 반영할 수 없습니다. EB14 결과 수신 후 다시 확인하세요.</div>' : '';
+                var canChg = accDiff && !locked && $('#btnChangeAccount').is(':visible');
+                var html = '<div id="erpCmpModal" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;display:flex;align-items:center;justify-content:center;">'
+                    + '<div style="background:#fff;border-radius:6px;width:640px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">'
+                    + '<div style="padding:20px 20px 10px;flex:none;">'
+                    + '<h3 style="margin:0 0 10px;">ERP 비교 — ' + esc(d.member_name) + '</h3>' + warn
+                    + (d.matched_by === 'member_no' ? '<div style="padding:8px;background:#fff3cd;color:#856404;border-radius:4px;margin-bottom:8px;">거래처/현장 코드로는 못 찾아 납부자번호로 찾은 결과입니다. ERP 코드: ' + esc(d.erp_actcd || d.erp_cltcd) + ' / CMS 코드: ' + esc(d.actcd || d.cltcd || '-') + '</div>' : '')
+                    + '</div><div style="flex:1;overflow:auto;padding:0 20px;">'
+                    + '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+                    + '<tr><th style="position:sticky;top:0;background:#f5f6fa;padding:6px;border:1px solid #ddd;width:40px;">반영</th><th style="position:sticky;top:0;background:#f5f6fa;padding:6px;border:1px solid #ddd;">항목</th><th style="position:sticky;top:0;background:#f5f6fa;padding:6px;border:1px solid #ddd;">CMS(현재)</th><th style="position:sticky;top:0;background:#f5f6fa;padding:6px;border:1px solid #ddd;">ERP</th></tr>'
+                    + rows + '</table></div>'
+                    + '<div style="flex:none;padding:6px 20px 16px;border-top:1px solid #eee;">' + evidence
+                    + '<div style="font-size:12px;color:#888;">은행·계좌·식별번호는 금결원 등록값이라 바로 바꾸지 않습니다. ERP 값이 맞으면 [ERP 계좌로 변경 신청]을 누르세요.</div>'
+                    + '<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:12px;">'
+                    + (canChg ? '<button type="button" id="btnErpCmpChg" style="background:#0d6efd;color:#fff;padding:6px 14px;border:none;border-radius:4px;cursor:pointer;">ERP 계좌로 변경 신청</button>' : '')
+                    + (locked ? '' : '<button type="button" id="btnErpCmpApply" style="background:#ff7f00;color:#fff;padding:6px 14px;border:none;border-radius:4px;cursor:pointer;">선택 항목 반영</button>')
+                    + '<button type="button" id="btnErpCmpClose" style="background:#f5f6fa;color:#333;padding:6px 14px;border:1px solid #dde0ea;border-radius:4px;cursor:pointer;">닫기</button>'
+                    + '</div></div></div></div>';
+                var $m = $(html).appendTo('body');
+                $m.on('click', '#btnErpCmpClose', function () { $m.remove(); });
+                $m.on('click', '#btnErpCmpApply', function () {
+                    var fields = $m.find('.erp-cmp-chk:checked').map(function () { return this.value; }).get();
+                    if (!fields.length) { Alert.alert('', '반영할 항목을 선택하세요.'); return; }
+                    Alert.confirm('', '선택한 ' + fields.length + '개 항목을 ERP 값으로 반영하시겠습니까?', function () {
+                        AjaxUtil.postAsyncData('/api/cms/member/erp-apply',
+                            {member_id: d.member_id, fields: fields.join(',')}, function (r) {
+                                if (!r.success) { Alert.alert('반영 실패', r.message); return; }
+                                $m.remove();
+                                Alert.alert('', '반영되었습니다.');
+                                searchList();
+                            });
+                    });
+                });
+                $m.on('click', '#btnErpCmpChg', function () {
+                    var get = function (k) { var f = (d.fields || []).filter(function (x) { return x.field === k; })[0]; return f ? f.erp : ''; };
+                    $m.remove();
+                    $('#btnChangeAccount').trigger('click');
+                    $('#chgBankCode').val(get('bank_code') || '');
+                    $('#chgBankAccount').val(String(get('bank_account') || '').replace(/[^0-9]/g, ''));
+                });
+            }
+
+            // ERP 코드가 없는 납부자 → 후보를 골라 연결
+            function showErpLink(d) {
+                var esc = function (v) { return $('<div>').text(v == null ? '' : v).html(); };
+                var rows = d.candidates.map(function (c, i) {
+                    var why = [c.acc_hit ? '계좌 일치' : '', c.name_hit ? '이름 유사' : ''].filter(Boolean).join(', ');
+                    var code = c.erp_actcd ? ('현장 ' + c.erp_actcd + ' (거래처 ' + c.erp_cltcd + ')') : ('거래처 ' + c.erp_cltcd);
+                    return '<tr' + (c.used ? ' style="color:#aaa;"' : '') + '>'
+                        + '<td style="padding:6px;border:1px solid #ddd;text-align:center;">'
+                        + (c.used ? '' : '<input type="radio" name="erpLinkPick" value="' + i + '"' + (i === 0 ? ' checked' : '') + '>') + '</td>'
+                        + '<td style="padding:6px;border:1px solid #ddd;">' + esc(c.member_name) + (c.used ? '<div style="font-size:11px;">다른 납부자에 연결됨</div>' : '') + '</td>'
+                        + '<td style="padding:6px;border:1px solid #ddd;">' + esc(code) + '</td>'
+                        + '<td style="padding:6px;border:1px solid #ddd;">' + esc(c.bank_account) + '</td>'
+                        + '<td style="padding:6px;border:1px solid #ddd;">' + esc(why) + '</td></tr>';
+                }).join('');
+                var html = '<div id="erpLinkModal" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;display:flex;align-items:center;justify-content:center;">'
+                    + '<div style="background:#fff;border-radius:6px;width:720px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">'
+                    + '<div style="padding:20px 20px 10px;flex:none;">'
+                    + '<h3 style="margin:0 0 10px;">ERP 연결 — ' + esc(d.member_name) + '</h3>'
+                    + '<div style="font-size:13px;color:#555;margin-bottom:8px;">이 납부자는 ERP 거래처/현장 코드가 없습니다. 같은 곳을 골라 연결하면 ERP 비교·동기화 대상이 됩니다.</div>'
+                    + '</div><div style="flex:1;overflow:auto;padding:0 20px;">'
+                    + '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+                    + '<tr><th style="position:sticky;top:0;background:#f5f6fa;padding:6px;border:1px solid #ddd;width:40px;">선택</th><th style="position:sticky;top:0;background:#f5f6fa;padding:6px;border:1px solid #ddd;">ERP 이름</th><th style="position:sticky;top:0;background:#f5f6fa;padding:6px;border:1px solid #ddd;">코드</th><th style="position:sticky;top:0;background:#f5f6fa;padding:6px;border:1px solid #ddd;">계좌</th><th style="position:sticky;top:0;background:#f5f6fa;padding:6px;border:1px solid #ddd;">근거</th></tr>'
+                    + rows + '</table></div>'
+                    + '<div style="flex:none;padding:12px 20px 16px;border-top:1px solid #eee;">'
+                    + '<div style="display:flex;gap:6px;justify-content:flex-end;">'
+                    + '<button type="button" id="btnErpLinkDo" style="background:#0f9d8a;color:#fff;padding:6px 14px;border:none;border-radius:4px;cursor:pointer;">연결</button>'
+                    + '<button type="button" id="btnErpLinkClose" style="background:#f5f6fa;color:#333;padding:6px 14px;border:1px solid #dde0ea;border-radius:4px;cursor:pointer;">닫기</button>'
+                    + '</div></div></div></div>';
+                var $m = $(html).appendTo('body');
+                $m.on('click', '#btnErpLinkClose', function () { $m.remove(); });
+                $m.on('click', '#btnErpLinkDo', function () {
+                    var i = $m.find('input[name="erpLinkPick"]:checked').val();
+                    if (i == null) { Alert.alert('', '연결할 ERP 거래처/현장을 선택하세요.'); return; }
+                    var c = d.candidates[+i];
+                    Alert.confirm('', '"' + d.member_name + '" 을(를) ERP "' + c.member_name + '"에 연결하시겠습니까?', function () {
+                        AjaxUtil.postAsyncData('/api/cms/member/erp-link',
+                            {member_id: d.member_id, erp_cltcd: c.erp_cltcd, erp_actcd: c.erp_actcd || ''}, function (r) {
+                                if (!r.success) { Alert.alert('연결 실패', r.message); return; }
+                                $m.remove();
+                                AjaxUtil.getAsyncData('/api/cms/member/erp-compare', {member_id: d.member_id}, function (res) {
+                                    if (res.success && res.data.in_erp) showErpCompare(res.data);
+                                    else Alert.alert('', '연결되었습니다.');
+                                });
+                                searchList();
+                            });
+                    });
+                });
+            }
 
             // 계좌변경 - 모달 열기 (폼 내 버튼)
             $('#btnChangeAccount').click(function () {

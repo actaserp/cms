@@ -86,14 +86,22 @@ public class CmsMemberController {
 
         User user = (User) auth.getPrincipal();
 
-        Long savedId = cmsMemberService.saveMember(
-                id, memberType, memberName, memberNo, idNumber, residentNo, bizNo,
-                phone, email, zipcd, adresa, adresb,
-                bankCode, bankAccount, accountHolder,
-                deductDay, deductAmount, cycleType, cycleMonths, deductMonthType, startDate, endDate,
-                pauseStartDate, pauseEndDate, pauseReason,  // 추가됨
-                agreeYn, agreeMethod, status, memo,
-                user.getUsername());
+        Long savedId;
+        try {
+            savedId = cmsMemberService.saveMember(
+                    id, memberType, memberName, memberNo, idNumber, residentNo, bizNo,
+                    phone, email, zipcd, adresa, adresb,
+                    bankCode, bankAccount, accountHolder,
+                    deductDay, deductAmount, cycleType, cycleMonths, deductMonthType, startDate, endDate,
+                    pauseStartDate, pauseEndDate, pauseReason,  // 추가됨
+                    agreeYn, agreeMethod, status, memo,
+                    user.getUsername());
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            AjaxResult err = new AjaxResult();
+            err.success = false;
+            err.message = e.getMessage();
+            return err;
+        }
 
         AjaxResult result = new AjaxResult();
         if (savedId == null) {
@@ -139,6 +147,54 @@ public class CmsMemberController {
         cmsMemberService.downloadTemplate(response);
     }
 
+
+    /** 납부자 단건 ERP 비교 (읽기 전용) */
+    @GetMapping("/erp-compare")
+    public AjaxResult erpCompare(@RequestParam("member_id") Long memberId) {
+        AjaxResult result = new AjaxResult();
+        try {
+            result.data = cmsMemberService.compareErp(memberId);
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    /** 납부자에 ERP 코드 연결 (코드가 비어 있는 납부자만) */
+    @PostMapping("/erp-link")
+    public AjaxResult erpLink(@RequestParam("member_id") Long memberId,
+                              @RequestParam("erp_cltcd") String erpCltcd,
+                              @RequestParam(value = "erp_actcd", required = false) String erpActcd,
+                              Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        try {
+            result.data = cmsMemberService.linkErp(memberId, erpCltcd, erpActcd, user.getUsername());
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
+
+    /** 납부자 단건 ERP 반영 — 정보성 필드만 (fields: 콤마 구분) */
+    @PostMapping("/erp-apply")
+    public AjaxResult erpApply(@RequestParam("member_id") Long memberId,
+                               @RequestParam("fields") String fields,
+                               Authentication auth) {
+        AjaxResult result = new AjaxResult();
+        User user = (User) auth.getPrincipal();
+        try {
+            java.util.List<String> list = java.util.Arrays.stream(fields.split(","))
+                    .map(String::trim).filter(x -> !x.isEmpty()).collect(java.util.stream.Collectors.toList());
+            result.data = cmsMemberService.applyErp(memberId, list, user.getUsername());
+        } catch (Exception e) {
+            result.success = false;
+            result.message = e.getMessage();
+        }
+        return result;
+    }
 
     /** ERP 동기화 미리보기 (읽기 전용) */
     @GetMapping("/erp-sync-preview")

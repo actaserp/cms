@@ -106,6 +106,10 @@ public class CmsMemberService {
                            WHEN r.status = 'PENDING'                            THEN '신청대기'
                            ELSE '미신청'
                        END AS agree_status
+                     , EXISTS (SELECT 1 FROM cms_account_register x
+                               WHERE x.member_id = m.id AND x.spjangcd = m.spjangcd
+                                 AND x.change_flag = 'Y' AND x.status IN ('PENDING','FAILED')
+                       ) AS change_in_progress
                 FROM cms_member m
                 LEFT JOIN cms_bank_code b ON b.bank_code = m.bank_code
                 LEFT JOIN LATERAL (
@@ -303,6 +307,14 @@ public class CmsMemberService {
 
         // 수정
         else {
+            // ★ 계좌변경 신청(해지+신규 세트)이 진행 중이면 납부자 수정을 막는다.
+            //   수정 저장이 신청행(신규 '1')을 회원 현재값(=구계좌)으로 덮어써서
+            //   변경 전/후 계좌가 같아지는 사고가 있었다. (2026-11-18 영주동 미소지움)
+            if (hasChangeInProgress(spjangcd, id)) {
+                throw new IllegalStateException(
+                        "계좌변경 신청이 진행 중인 납부자는 수정할 수 없습니다.\n"
+                                + "EB14 결과 수신 후 수정하거나, 출금이체 인증 관리에서 신청을 취소한 뒤 수정하세요.");
+            }
             MapSqlParameterSource param = new MapSqlParameterSource();
             param.addValue("id",            id);
             param.addValue("memberNo", memberNo);
@@ -399,10 +411,364 @@ public class CmsMemberService {
                   --   해지는 금결원 원장에 등록된 기존 납부자번호·구계좌와 대조되므로,
                   --   회원 정보(새 번호·새 계좌)로 덮으면 0017(원장에 없음)로 영구 불능이 된다.
                   AND apply_type <> '3'
+                  -- ★ 계좌변경 세트의 신규행도 갱신하지 않는다. 신규행은 '새 계좌'를 담고 있는데
+                  --   회원 현재값(=구계좌)으로 덮으면 변경 전/후가 같아진다.
+                  AND COALESCE(change_flag,'N') <> 'Y'
                 """, param);
 
             return id;
         }
+    }
+
+    /** 계좌변경 신청(해지+신규 세트)이 아직 끝나지 않았는지 */
+    public boolean hasChangeInProgress(String spjangcd, Long memberId) {
+        Map<String, Object> r = sqlRunner.getRow(
+                """
+                SELECT COUNT(*) AS cnt FROM cms_account_register
+                WHERE member_id = :memberId AND spjangcd = :spjangcd
+                  AND change_flag = 'Y' AND status IN ('PENDING','FAILED')
+                """,
+                new MapSqlParameterSource("memberId", memberId).addValue("spjangcd", spjangcd));
+        return r != null && ((Number) r.get("cnt")).longValue() > 0;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  납부자 단건 ERP 비교 / 반영
+    //   - 전체 동기화(previewSync)와 같은 ERP 조회(fetchErpSyncRows)·매칭(matchMember)을 쓴다.
+    //   - 바로 반영: 납부자명·연락처·이메일·주소·약정일·금액
+    //   - 은행/계좌/식별번호는 금결원 등록값이라 직접 바꾸지 않는다 → 계좌변경 신청으로 안내.
+    //   - 계좌변경 신청 진행 중이면 반영 불가.
+    // ══════════════════════════════════════════════════════════════════
+    private static final java.util.LinkedHashMap<String, String> ERP_INFO_FIELDS = new java.util.LinkedHashMap<>();
+    private static final java.util.LinkedHashMap<String, String> ERP_ACCOUNT_FIELDS = new java.util.LinkedHashMap<>();
+    static {
+        ERP_INFO_FIELDS.put("member_name",   "납부자명");
+        ERP_INFO_FIELDS.put("phone",         "연락처");
+        ERP_INFO_FIELDS.put("email",         "이메일");
+        ERP_INFO_FIELDS.put("zipcd",         "우편번호");
+        ERP_INFO_FIELDS.put("adresa",        "주소");
+        ERP_INFO_FIELDS.put("deduct_day",    "약정일");
+        ERP_INFO_FIELDS.put("deduct_amount", "금액");
+        ERP_INFO_FIELDS.put("biz_no",        "사업자번호");
+        ERP_INFO_FIELDS.put("resident_no",   "주민번호");
+        ERP_ACCOUNT_FIELDS.put("bank_code",    "은행");
+        ERP_ACCOUNT_FIELDS.put("bank_account", "계좌번호");
+        ERP_ACCOUNT_FIELDS.put("id_number",    "식별번호");
+    }
+
+    /** 이 납부자에 대응하는 ERP 행 1건 (없으면 null) */
+    private Map<String, Object> fetchErpRowForMember(String spjangcd, Map<String, Object> member) {
+        return pickErpRowForMember(fetchErpRowsAll(spjangcd), member);
+    }
+
+    private Map<String, Object> pickErpRowForMember(List<Map<String, Object>> rows, Map<String, Object> member) {
+        List<Map<String, Map<String, Object>>> idx = indexMembers(List.of(member));
+        String memberNo = str(member.get("member_no"));
+        Map<String, Object> byPayer = null;
+        for (Map<String, Object> row : rows) {
+            if (matchMember(row, idx.get(0), idx.get(1)) != null) {
+                row.put("matched_by", "code");
+                return row;
+            }
+            // 코드(cltcd/actcd)가 비었거나 다르게 저장된 회원 → 납부자번호로 보조 매칭
+            if (byPayer == null && StringUtils.hasText(memberNo)
+                    && memberNo.equals(str(row.get("erp_member_no")))) {
+                byPayer = row;
+            }
+        }
+        if (byPayer != null) byPayer.put("matched_by", "member_no");
+        return byPayer;
+    }
+
+    /** ERP CMS 대상 전체 (동기화 제외목록 무시) */
+    private List<Map<String, Object>> fetchErpRowsAll(String spjangcd) {
+        Map<String, Object> erp = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT host, port, db_name, username, password, custcd, ms_spjangcd FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd));
+        if (erp == null) throw new IllegalStateException("ERP 접속정보가 없습니다.");
+        String custcd     = str(erp.get("custcd"));
+        String msSpjangcd = str(erp.get("ms_spjangcd"));
+
+        Map<String, Object> cms = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT amount_round_unit FROM tb_xa012_cms WHERE spjangcd = :spjangcd AND ms_spjangcd IS NOT DISTINCT FROM :msSpjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd)
+                        .addValue("msSpjangcd", msSpjangcd.isEmpty() ? null : msSpjangcd));
+        int roundUnit = cms != null && cms.get("amount_round_unit") != null
+                ? ((Number) cms.get("amount_round_unit")).intValue() : 1;
+
+        String url = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
+                str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
+        try {
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
+                    url, str(erp.get("username")), str(erp.get("password")))) {
+                // 동기화 제외(cms_member_sync_exclude) 회원도 비교는 보여준다 → 빈 제외목록
+                return fetchErpSyncRows(conn, spjangcd, custcd, roundUnit, new java.util.HashSet<>());
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("ERP 조회 실패: " + e.getMessage());
+        }
+    }
+
+    private Map<String, Object> loadMemberForErp(String spjangcd, Long memberId) {
+        Map<String, Object> m = sqlRunner.getRow(
+                """
+                SELECT id, cltcd, actcd, member_no, member_name, phone, email, zipcd, adresa,
+                       deduct_day, deduct_amount, biz_no, resident_no,
+                       bank_code, bank_account, id_number, status, agree_yn
+                FROM cms_member WHERE id = :id AND spjangcd = :spjangcd
+                """,
+                new MapSqlParameterSource("id", memberId).addValue("spjangcd", spjangcd));
+        if (m == null) throw new IllegalArgumentException("납부자를 찾을 수 없습니다.");
+        return m;
+    }
+
+    private static String normField(String field, Object v) {
+        String s = v == null ? "" : v.toString().trim();
+        if ("bank_account".equals(field) || "id_number".equals(field)
+                || "phone".equals(field) || "deduct_amount".equals(field)
+                || "biz_no".equals(field) || "resident_no".equals(field)) {
+            s = s.replaceAll("[^0-9]", "");
+        }
+        if ("deduct_day".equals(field) && s.matches("0\\d")) s = s.substring(1);
+        return s;
+    }
+
+    /**
+     * ERP 계약금액 — 거래처/EB13 경로는 동기화 행에 금액이 없어서(매출 기준) 따로 구한다.
+     * 오늘 유효한 계약(TB_E101, contg<>'04')의 amt.  현장은 그 현장, 거래처는 거래처 전체 합계.
+     */
+    private Map<String, Object> erpContractAmount(String spjangcd, String cltcd, String actcd) {
+        Map<String, Object> erp = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT host, port, db_name, username, password, custcd, ms_spjangcd FROM tb_xa012_erp WHERE spjangcd = :spjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd));
+        if (erp == null) return null;
+        String msSpjangcd = str(erp.get("ms_spjangcd"));
+        Map<String, Object> cms = sqlRunner.getRow(/* skip_tenant_check */
+                "SELECT amount_round_unit FROM tb_xa012_cms WHERE spjangcd = :spjangcd AND ms_spjangcd IS NOT DISTINCT FROM :msSpjangcd",
+                new MapSqlParameterSource("spjangcd", spjangcd)
+                        .addValue("msSpjangcd", msSpjangcd.isEmpty() ? null : msSpjangcd));
+        int roundUnit = cms != null && cms.get("amount_round_unit") != null
+                ? ((Number) cms.get("amount_round_unit")).intValue() : 1;
+        boolean site = StringUtils.hasText(actcd);
+        String sql = "SELECT SUM(e.amt) AS amt, COUNT(*) AS cnt FROM TB_E101 e WITH(NOLOCK)"
+                + " WHERE e.custcd = ? AND " + (site ? "e.actcd = ?" : "e.cltcd = ?")
+                + " AND ISNULL(e.contg,'') <> '04'"
+                + " AND e.stdate <= CONVERT(varchar(8),GETDATE(),112)"
+                + " AND ISNULL(NULLIF(e.enddate,''),'99991231') >= CONVERT(varchar(8),GETDATE(),112)";
+        String url = String.format("jdbc:sqlserver://%s:%s;databaseName=%s;encrypt=false",
+                str(erp.get("host")), str(erp.get("port")), str(erp.get("db_name")));
+        try {
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
+                    url, str(erp.get("username")), str(erp.get("password")));
+                 java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, str(erp.get("custcd")));
+                ps.setString(2, site ? actcd : cltcd);
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        double v = rs.getDouble("amt");
+                        if (rs.wasNull()) return null;
+                        Map<String, Object> r = new java.util.HashMap<>();
+                        r.put("amount", roundAmount(v, roundUnit));
+                        r.put("count", rs.getInt("cnt"));
+                        return r;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[ERP계약금액] 조회 실패 cltcd={} actcd={}: {}", cltcd, actcd, e.getMessage());
+        }
+        return null;
+    }
+
+    /** 금액이 비어 있는 ERP 행에 계약금액을 채운다 */
+    private void fillErpAmount(String spjangcd, Map<String, Object> e) {
+        if (e == null || e.get("deduct_amount") != null) return;
+        Map<String, Object> a = erpContractAmount(spjangcd, str(e.get("erp_cltcd")), str(e.get("erp_actcd")));
+        if (a != null) {
+            e.put("deduct_amount", a.get("amount"));
+            e.put("deduct_amount_note", "ERP 계약금액" + (((Number) a.get("count")).intValue() > 1
+                    ? " 합계(" + a.get("count") + "건)" : ""));
+        }
+    }
+
+    /** 단건 비교 — 읽기 전용 */
+    public Map<String, Object> compareErp(Long memberId) {
+        String spjangcd = TenantContext.get();
+        Map<String, Object> m = loadMemberForErp(spjangcd, memberId);
+        List<Map<String, Object>> erpRows = fetchErpRowsAll(spjangcd);
+        Map<String, Object> e = pickErpRowForMember(erpRows, m);
+
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("member_id", memberId);
+        out.put("member_name", m.get("member_name"));
+        out.put("in_erp", e != null);
+        out.put("change_in_progress", hasChangeInProgress(spjangcd, memberId));
+        out.put("cltcd",     m.get("cltcd"));
+        out.put("actcd",     m.get("actcd"));
+        out.put("member_no", m.get("member_no"));
+        if (e == null) {
+            out.put("candidates", findLinkCandidates(spjangcd, m, erpRows));
+            return out;
+        }
+        fillErpAmount(spjangcd, e);
+        out.put("matched_by", e.get("matched_by"));
+        out.put("erp_cltcd",  e.get("erp_cltcd"));
+        out.put("erp_actcd",  e.get("erp_actcd"));
+
+        List<Map<String, Object>> fields = new java.util.ArrayList<>();
+        java.util.function.BiConsumer<Map<String, String>, String> add = (defs, kind) -> {
+            for (Map.Entry<String, String> d : defs.entrySet()) {
+                String f = d.getKey();
+                Object cv = m.get(f), ev = e.get(f);
+                Map<String, Object> row = new java.util.LinkedHashMap<>();
+                row.put("field", f);
+                row.put("label", d.getValue());
+                row.put("kind",  kind);
+                row.put("cms",   cv);
+                row.put("erp",   ev);
+                boolean erpEmpty = normField(f, ev).isEmpty();
+                row.put("diff",  !erpEmpty && !normField(f, cv).equals(normField(f, ev)));
+                if ("deduct_amount".equals(f)) row.put("note", e.get("deduct_amount_note"));
+                fields.add(row);
+            }
+        };
+        add.accept(ERP_INFO_FIELDS, "info");
+        add.accept(ERP_ACCOUNT_FIELDS, "account");
+        out.put("fields", fields);
+
+        // 계좌 판단 근거 — 최근 출금 성공 계좌
+        Map<String, Object> lastOk = sqlRunner.getRow(
+                """
+                SELECT bank_account, deduct_date FROM cms_billing
+                WHERE member_id = :id AND spjangcd = :spjangcd AND status = 'SUCCESS'
+                ORDER BY deduct_date DESC NULLS LAST LIMIT 1
+                """,
+                new MapSqlParameterSource("id", memberId).addValue("spjangcd", spjangcd));
+        out.put("last_success_account", lastOk != null ? lastOk.get("bank_account") : null);
+        out.put("last_success_date",    lastOk != null ? lastOk.get("deduct_date") : null);
+        out.put("erp_agree_yn",         e.get("agree_yn"));
+        out.put("agree_yn",             m.get("agree_yn"));
+        return out;
+    }
+
+    private static String linkName(String v) {
+        return v == null ? "" : v.replaceAll("\\(.*?\\)", "").replaceAll("[^0-9A-Za-z가-힣]", "");
+    }
+
+    /** ERP 코드가 없는 납부자의 연결 후보 — 계좌가 같거나 이름이 겹치는 ERP CMS 대상 */
+    private List<Map<String, Object>> findLinkCandidates(String spjangcd, Map<String, Object> m,
+                                                         List<Map<String, Object>> erpRows) {
+        String acc  = digits(str(m.get("bank_account")));
+        String name = linkName(str(m.get("member_name")));
+        // 이미 다른 납부자에 연결된 코드 표시용
+        List<Map<String, Object>> others = sqlRunner.getRows(
+                "SELECT cltcd, actcd FROM cms_member WHERE spjangcd = :sp AND id <> :id AND status <> 'DELETED'",
+                new MapSqlParameterSource("sp", spjangcd).addValue("id", m.get("id")));
+        java.util.Set<String> usedAct = new java.util.HashSet<>(), usedClt = new java.util.HashSet<>();
+        for (Map<String, Object> o : others) {
+            if (StringUtils.hasText(str(o.get("actcd")))) usedAct.add(str(o.get("actcd")));
+            else if (StringUtils.hasText(str(o.get("cltcd")))) usedClt.add(str(o.get("cltcd")));
+        }
+        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (Map<String, Object> r : erpRows) {
+            String ea = str(r.get("erp_actcd")), ec = str(r.get("erp_cltcd"));
+            boolean used = StringUtils.hasText(ea) ? usedAct.contains(ea) : usedClt.contains(ec);
+            boolean accHit = !acc.isEmpty() && (acc.equals(digits(str(r.get("bank_account"))))
+                    || acc.equals(digits(str(r.get("xclient_account")))));
+            String en = linkName(str(r.get("member_name")));
+            boolean nameHit = name.length() >= 2 && en.length() >= 2 && (en.contains(name) || name.contains(en));
+            if (!accHit && !nameHit) continue;
+            Map<String, Object> c = new java.util.LinkedHashMap<>();
+            c.put("erp_cltcd", ec);
+            c.put("erp_actcd", ea);
+            c.put("member_name", r.get("member_name"));
+            c.put("bank_account", r.get("bank_account"));
+            c.put("erp_member_no", r.get("erp_member_no"));
+            c.put("acc_hit", accHit);
+            c.put("name_hit", nameHit);
+            c.put("used", used);
+            out.add(c);
+        }
+        out.sort((a, b) -> Integer.compare(
+                (Boolean.TRUE.equals(b.get("acc_hit")) ? 2 : 0) + (Boolean.TRUE.equals(b.get("name_hit")) ? 1 : 0),
+                (Boolean.TRUE.equals(a.get("acc_hit")) ? 2 : 0) + (Boolean.TRUE.equals(a.get("name_hit")) ? 1 : 0)));
+        return out.size() > 20 ? new java.util.ArrayList<>(out.subList(0, 20)) : out;
+    }
+
+    /** ERP 코드 연결 — 코드가 비어 있는 납부자에만. 거래처 단위는 cltcd, 현장 단위는 actcd+cltcd. */
+    public Map<String, Object> linkErp(Long memberId, String erpCltcd, String erpActcd, String userId) {
+        String spjangcd = TenantContext.get();
+        Map<String, Object> m = loadMemberForErp(spjangcd, memberId);
+        if (StringUtils.hasText(str(m.get("cltcd"))) || StringUtils.hasText(str(m.get("actcd")))) {
+            throw new IllegalStateException("이미 ERP 코드가 연결된 납부자입니다.");
+        }
+        String ec = str(erpCltcd), ea = str(erpActcd);
+        // 고른 코드가 실제 ERP CMS 대상인지 서버에서 다시 확인
+        boolean ok = fetchErpRowsAll(spjangcd).stream().anyMatch(r ->
+                str(r.get("erp_cltcd")).equals(ec) && str(r.get("erp_actcd")).equals(ea));
+        if (!ok) throw new IllegalArgumentException("ERP CMS 대상에서 해당 코드를 찾을 수 없습니다.");
+
+        boolean site = StringUtils.hasText(ea);
+        Map<String, Object> dup = sqlRunner.getRow(
+                site ? "SELECT id, member_name FROM cms_member WHERE spjangcd=:sp AND id<>:id AND status<>'DELETED' AND actcd=:a LIMIT 1"
+                        : "SELECT id, member_name FROM cms_member WHERE spjangcd=:sp AND id<>:id AND status<>'DELETED' AND cltcd=:c AND COALESCE(actcd,'')='' LIMIT 1",
+                new MapSqlParameterSource("sp", spjangcd).addValue("id", memberId)
+                        .addValue("a", ea).addValue("c", ec));
+        if (dup != null) {
+            throw new IllegalStateException("이미 다른 납부자(" + str(dup.get("member_name")) + ", id "
+                    + str(dup.get("id")) + ")에 연결된 코드입니다.");
+        }
+        int n = sqlRunner.execute(
+                """
+                UPDATE cms_member SET cltcd = :c, actcd = :a, _modifier_id = :uid, _modified = NOW()
+                WHERE id = :id AND spjangcd = :sp
+                  AND COALESCE(cltcd,'') = '' AND COALESCE(actcd,'') = ''
+                """,
+                new MapSqlParameterSource("c", ec).addValue("a", site ? ea : null)
+                        .addValue("uid", userId).addValue("id", memberId).addValue("sp", spjangcd));
+        log.info("[ERP연결] memberId={} cltcd={} actcd={} by {}", memberId, ec, ea, userId);
+        return Map.of("updated", n);
+    }
+
+    /** 단건 반영 — 정보성 필드만. 서버에서 ERP 를 다시 읽어 그 값으로 반영한다. */
+    public Map<String, Object> applyErp(Long memberId, List<String> fields, String userId) {
+        String spjangcd = TenantContext.get();
+        if (fields == null || fields.isEmpty()) throw new IllegalArgumentException("반영할 항목을 선택하세요.");
+        if (hasChangeInProgress(spjangcd, memberId)) {
+            throw new IllegalStateException("계좌변경 신청이 진행 중이라 반영할 수 없습니다. EB14 결과 수신 후 다시 시도하세요.");
+        }
+        for (String f : fields) {
+            if (ERP_ACCOUNT_FIELDS.containsKey(f)) {
+                throw new IllegalArgumentException("은행·계좌·식별번호는 바로 반영할 수 없습니다. [계좌변경]으로 신청하세요.");
+            }
+            if (!ERP_INFO_FIELDS.containsKey(f)) throw new IllegalArgumentException("반영할 수 없는 항목: " + f);
+        }
+        Map<String, Object> m = loadMemberForErp(spjangcd, memberId);
+        Map<String, Object> e = fetchErpRowForMember(spjangcd, m);
+        if (e == null) throw new IllegalStateException("ERP에서 이 납부자를 찾지 못했습니다.");
+        if (fields.contains("deduct_amount")) fillErpAmount(spjangcd, e);
+
+        StringBuilder set = new StringBuilder();
+        MapSqlParameterSource p = new MapSqlParameterSource("id", memberId)
+                .addValue("spjangcd", spjangcd).addValue("userId", userId);
+        List<String> applied = new java.util.ArrayList<>();
+        for (String f : fields) {
+            Object v = e.get(f);
+            if (v == null || v.toString().trim().isEmpty()) continue;   // ERP 빈값으로 지우지 않는다
+            set.append(f).append(" = :").append(f).append(", ");
+            p.addValue(f, "deduct_amount".equals(f) ? Long.valueOf(normField(f, v)) : v.toString().trim());
+            applied.add(f);
+        }
+        if (applied.isEmpty()) return Map.of("updated", 0, "applied", applied);
+
+        int n = sqlRunner.execute(
+                "UPDATE cms_member SET " + set + "_modifier_id = :userId, _modified = NOW() "
+                        + "WHERE id = :id AND spjangcd = :spjangcd", p);
+        log.info("[ERP단건반영] memberId={} fields={} by {} (전: {})", memberId, applied, userId,
+                applied.stream().map(f -> f + "=" + str(m.get(f))).collect(java.util.stream.Collectors.joining(", ")));
+        return Map.of("updated", n, "applied", applied);
     }
 
     /**
