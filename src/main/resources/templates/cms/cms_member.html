@@ -2020,11 +2020,12 @@
                 };
                 var rows = (d.fields || []).map(function (f) {
                     var isAcc = f.kind === 'account';
-                    var chk = (!isAcc && f.diff && !locked)
+                    var chk = (!isAcc && f.diff && !locked && !f.no_apply)
                         ? '<input type="checkbox" class="erp-cmp-chk" value="' + f.field + '" checked>' : '';
                     var bg = f.diff ? 'background:#fff4e6;' : '';
                     var note = isAcc && f.diff ? '<div style="font-size:11px;color:#a04000;">계좌변경으로 신청</div>'
-                        : (f.note ? '<div style="font-size:11px;color:#888;">' + esc(f.note) + '</div>' : '');
+                        : f.no_apply ? '<div style="font-size:11px;color:#a04000;">' + esc(f.note || '') + '</div>'
+                            : (f.note ? '<div style="font-size:11px;color:#888;">' + esc(f.note) + '</div>' : '');
                     return '<tr style="' + bg + '">'
                         + '<td style="padding:6px;border:1px solid #ddd;text-align:center;">' + chk + '</td>'
                         + '<td style="padding:6px;border:1px solid #ddd;">' + esc(f.label) + '</td>'

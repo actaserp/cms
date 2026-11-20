@@ -551,7 +551,15 @@ public class CmsMemberService {
         int roundUnit = cms != null && cms.get("amount_round_unit") != null
                 ? ((Number) cms.get("amount_round_unit")).intValue() : 1;
         boolean site = StringUtils.hasText(actcd);
-        String sql = "SELECT SUM(e.amt) AS amt, COUNT(*) AS cnt FROM TB_E101 e WITH(NOLOCK)"
+        // ★ 동기화 B경로(deduct_amount_raw)와 같은 공식 — 기성률(contyul) · 부가세(addyn=0 → ×1.1)
+        //   예) 동삼동 라온빌딩: 170,000 × 53% × 1.1 = 99,110
+        String sql = "SELECT SUM(CASE"
+                + "   WHEN e.contyul IS NOT NULL AND e.contyul>0 AND e.addyn=0 THEN e.amt*(e.contyul/100.0)*1.1"
+                + "   WHEN e.contyul IS NOT NULL AND e.contyul>0 THEN e.amt*(e.contyul/100.0)"
+                + "   WHEN e.addyn=0 THEN e.amt*1.1"
+                + "   ELSE e.amt END) AS amt,"
+                + " SUM(e.amt) AS base_amt, MAX(e.contyul) AS contyul, MAX(CASE WHEN e.addyn=0 THEN 1 ELSE 0 END) AS vat,"
+                + " COUNT(*) AS cnt FROM TB_E101 e WITH(NOLOCK)"
                 + " WHERE e.custcd = ? AND " + (site ? "e.actcd = ?" : "e.cltcd = ?")
                 + " AND ISNULL(e.contg,'') <> '04'"
                 + " AND e.stdate <= CONVERT(varchar(8),GETDATE(),112)"
@@ -572,6 +580,10 @@ public class CmsMemberService {
                         Map<String, Object> r = new java.util.HashMap<>();
                         r.put("amount", roundAmount(v, roundUnit));
                         r.put("count", rs.getInt("cnt"));
+                        r.put("base_amount", Math.round(rs.getDouble("base_amt")));
+                        double cy = rs.getDouble("contyul");
+                        r.put("contyul", rs.wasNull() ? null : cy);
+                        r.put("vat", rs.getInt("vat") == 1);
                         return r;
                     }
                 }
@@ -588,8 +600,24 @@ public class CmsMemberService {
         Map<String, Object> a = erpContractAmount(spjangcd, str(e.get("erp_cltcd")), str(e.get("erp_actcd")));
         if (a != null) {
             e.put("deduct_amount", a.get("amount"));
-            e.put("deduct_amount_note", "ERP 계약금액" + (((Number) a.get("count")).intValue() > 1
-                    ? " 합계(" + a.get("count") + "건)" : ""));
+            int cnt = ((Number) a.get("count")).intValue();
+            StringBuilder note = new StringBuilder("ERP 계약금액");
+            if (cnt > 1) note.append(" 합계(").append(cnt).append("건)");
+            // 계산 근거: 원 계약금액 × 기성률 (+VAT)
+            Object cy = a.get("contyul");
+            boolean hasRate = cy instanceof Number && ((Number) cy).doubleValue() > 0;
+            boolean vat = Boolean.TRUE.equals(a.get("vat"));
+            if (hasRate || vat) {
+                note.append(" — ").append(String.format("%,d", ((Number) a.get("base_amount")).longValue()));
+                if (hasRate && cnt == 1) {
+                    double r = ((Number) cy).doubleValue();
+                    note.append(" × 기성률 ").append(r == Math.floor(r) ? String.valueOf((long) r) : String.valueOf(r)).append("%");
+                } else if (hasRate) {
+                    note.append(" × 기성률");
+                }
+                if (vat) note.append(" × 1.1(VAT)");
+            }
+            e.put("deduct_amount_note", note.toString());
         }
     }
 
@@ -631,6 +659,13 @@ public class CmsMemberService {
                 boolean erpEmpty = normField(f, ev).isEmpty();
                 row.put("diff",  !erpEmpty && !normField(f, cv).equals(normField(f, ev)));
                 if ("deduct_amount".equals(f)) row.put("note", e.get("deduct_amount_note"));
+                if ("resident_no".equals(f) && erpEmpty && e.get("resident_no_invalid") != null) {
+                    String bad = str(e.get("resident_no_invalid"));
+                    row.put("erp", bad);
+                    row.put("diff", true);
+                    row.put("no_apply", true);
+                    row.put("note", "ERP 주민번호가 " + bad.length() + "자리입니다(13자리 아님). ERP 거래처의 주민번호를 고쳐 주세요.");
+                }
                 fields.add(row);
             }
         };
@@ -1282,6 +1317,38 @@ public class CmsMemberService {
     }
 
 
+    /** MS: 하이픈·공백 제거 */
+    private static String msDigits(String col) {
+        return "REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(" + col + ",''))),'-',''),' ','')";
+    }
+
+    /** MS: 13자리 숫자인지 */
+    private static String msIs13(String col) {
+        String d = msDigits(col);
+        return "(LEN(" + d + ")=13 AND PATINDEX('%[^0-9]%'," + d + ")=0)";
+    }
+
+    /**
+     * ERP 주민번호(resident_no) SELECT 식.
+     *  1) 거래처 prenum(주민번호 칸, rnumchk=1) — 하이픈/공백을 빼고 13자리면 사용
+     *     (예전엔 원문 LEN=13 만 봐서 '850101-1234567'(14자) 형태가 통째로 빠졌다. 초량동 한울하이츠 김귀영)
+     *  2) 개인 거래처(corpperclafi='0')면 CMS 실명번호(cmsrnum)가 13자리일 때 보조로 사용
+     *     — 현장 경로는 현장(E101) cmsrnum 을 먼저 본다.
+     *  ★ id_number(금결원 식별번호)는 건드리지 않는다. 내부 보관용 resident_no 만 해당.
+     */
+    private static String residentNoExpr(String clt, String site) {
+        StringBuilder sb = new StringBuilder(" CASE");
+        sb.append(" WHEN ").append(msIs13(clt + ".prenum")).append(" THEN ").append(msDigits(clt + ".prenum"));
+        if (site != null) {
+            sb.append(" WHEN ").append(clt).append(".corpperclafi='0' AND ").append(msIs13(site + ".cmsrnum"))
+                    .append(" THEN ").append(msDigits(site + ".cmsrnum"));
+        }
+        sb.append(" WHEN ").append(clt).append(".corpperclafi='0' AND ").append(msIs13(clt + ".cmsrnum"))
+                .append(" THEN ").append(msDigits(clt + ".cmsrnum"));
+        sb.append(" ELSE NULL END AS resident_no,");
+        return sb.toString();
+    }
+
     /**
      * ERP에서 동기화 대상 행을 계산해 반환 — DB 쓰기 없음.
      * previewSync / applySync 공용 헬퍼.
@@ -1333,9 +1400,7 @@ public class CmsMemberService {
                         + "        THEN REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-','')"
                         + "   ELSE NULL END AS id_number,"
                         // resident_no = 주민번호 전용(13자리). 사업자번호는 biz_no 로 분리한다.
-                        + " CASE WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum)))=13"
-                        + "      THEN LTRIM(RTRIM(C.prenum))"
-                        + "      ELSE NULL END AS resident_no,"
+                        + residentNoExpr("C", null)
                         + " NULLIF(REPLACE(LTRIM(RTRIM(COALESCE(C.saupnum,''))),'-',''),'') AS biz_no,"
                         + " LTRIM(RTRIM(COALESCE(B.bnkcode,''))) AS bank_code,"
                         + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(C.accnum,''))),'-',''),' ','') AS bank_account,"
@@ -1403,9 +1468,7 @@ public class CmsMemberService {
                         + "              NULLIF(REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-',''),''))"
                         + "   END AS id_number,"
                         // resident_no = 주민번호 전용(13자리). 사업자번호는 biz_no 로 분리한다.
-                        + " CASE WHEN C.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(C.prenum)))=13"
-                        + "      THEN LTRIM(RTRIM(C.prenum))"
-                        + "      ELSE NULL END AS resident_no,"
+                        + residentNoExpr("C", "E1")
                         + " NULLIF(REPLACE(LTRIM(RTRIM(COALESCE(C.saupnum,''))),'-',''),'') AS biz_no,"
                         // 계좌·은행은 같은 소스에서 짝으로 (E101 원장 우선, 없으면 XCLIENT)
                         + " CASE WHEN NULLIF(LTRIM(RTRIM(E1.accnum)),'') IS NOT NULL"
@@ -1471,9 +1534,7 @@ public class CmsMemberService {
                         + "          NULLIF(REPLACE(LTRIM(RTRIM(X.saupnum)),'-',''),''),"
                         + "          NULLIF(REPLACE(LTRIM(RTRIM(EB.SAUPNUM)),'-',''),'')) AS id_number,"
                         // resident_no = 주민번호 전용(13자리). 사업자번호는 biz_no 로 분리한다.
-                        + " CASE WHEN X.prenum IS NOT NULL AND LEN(LTRIM(RTRIM(X.prenum)))=13"
-                        + "      THEN LTRIM(RTRIM(X.prenum))"
-                        + "      ELSE NULL END AS resident_no,"
+                        + residentNoExpr("X", null)
                         + " NULLIF(REPLACE(LTRIM(RTRIM(COALESCE(X.saupnum,''))),'-',''),'') AS biz_no,"
                         + " LTRIM(RTRIM(COALESCE(XB2.bnkcode,''))) AS bank_code,"
                         + " REPLACE(REPLACE(LTRIM(RTRIM(COALESCE(X.accnum,''))),'-',''),' ','') AS bank_account,"
@@ -1643,6 +1704,16 @@ public class CmsMemberService {
                     row.put("member_type",   memberType);
                     row.put("id_number",     idNumber);
                     row.put("resident_no",   rs.getString("resident_no"));
+                    // 비교 화면용: prenum 이 13자리가 아니면(자릿수 누락 등) 원값을 보여준다.
+                    //  prenum 은 실데이터상 주민번호 전용 칸(rnumchk=1). 법인번호형 0건,
+                    //  corpperclafi=1(법인)인데 대표자 주민번호가 든 거래처도 있어 개인/법인으로 거르지 않는다.
+                    //  예) 초량동 한울하이츠(김귀영) 12자리, 부성원룸 10자리
+                    //  동기화·반영에는 쓰지 않는다(resident_no 는 13자리만).
+                    String prenumDigits = digits(str(rs.getString("prenum")));
+                    if (rs.getString("resident_no") == null
+                            && !prenumDigits.isEmpty() && prenumDigits.length() != 13) {
+                        row.put("resident_no_invalid", prenumDigits);
+                    }
                     row.put("biz_no",        rs.getString("biz_no"));
                     row.put("bank_code",     bankCode);
                     row.put("bank_account",  bankAccount);
