@@ -123,6 +123,9 @@
                                     <a id="btnExcelUpload" class="excel-menu-item"
                                        style="display:block; padding:8px 12px; font-size:13px; color:#333;
                                        cursor:pointer; white-space:nowrap; border-top:1px solid #eee;">⬆&nbsp; 업로드</a>
+                                    <a id="btnExcelCompare" class="excel-menu-item"
+                                       style="display:block; padding:8px 12px; font-size:13px; color:#333;
+                                       cursor:pointer; white-space:nowrap; border-top:1px solid #eee;">⇄&nbsp; 엑셀 대조</a>
                                 </div>
                                 <input type="file" id="excelUploadFile" accept=".xlsx,.xls" style="display:none;">
                             </div>
@@ -601,6 +604,56 @@
                     <button type="button" class="btn-default" id="btnExcelUploadConfirm"
                             style="background:#1e6b3f; color:#fff; display:none;">업로드 실행</button>
                     <button type="button" class="btn-default" id="btnExcelUploadCancel">닫기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 엑셀 대조: 담당자 엑셀(거래처명·금액) 붙여넣기 → 현재 조회조건의 청구와 비교 -->
+    <div id="modalExcelCompare" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+     background:rgba(0,0,0,0.4); z-index:1050; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:8px; padding:20px 24px; width:1000px; max-width:96vw;
+             max-height:92vh; display:flex; flex-direction:column; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 10px; font-size:15px;">엑셀 대조</h3>
+            <div style="font-size:12px; color:#555; margin-bottom:8px; line-height:1.7; background:#f7f9fc; border:1px solid #e3e8f0; border-radius:6px; padding:8px 12px;">
+                <div>· 엑셀에서 <strong>거래처명 · 금액</strong> 두 열을 복사해 아래에 붙여넣으세요. (머리글·합계 줄은 자동으로 건너뜁니다)</div>
+                <div>· 비교 대상: <strong id="cmpCondText">-</strong> (지금 화면의 검색 조건)</div>
+                <div style="color:#888;">· 이름이 조금 달라도 비슷한 것끼리 짝을 짓고, 금액이 같으면 우선 짝을 지어 줍니다. 짝이 애매한 건 '이름확인'으로 표시됩니다.</div>
+            </div>
+            <div id="cmpInputWrap">
+                <textarea id="cmpPaste" style="width:100%; height:220px; font-size:12px; font-family:monospace; border:1px solid #cfd6e4; border-radius:6px; padding:8px;"
+                          placeholder="거래처명&#9;금액&#10;OO빌딩&#9;77,000&#10;OO하우스 A동&#9;64,000"></textarea>
+                <label style="font-size:12px; margin-top:6px; display:inline-block;">
+                    <input type="checkbox" id="cmpExcludeCancel" checked> 취소 건은 비교에서 제외
+                </label>
+            </div>
+            <div id="cmpSummary" style="display:none; font-size:12px; margin:6px 0;"></div>
+            <div id="cmpFilterBar" style="display:none; font-size:12px; margin-bottom:6px;">
+                <label><input type="checkbox" id="cmpOnlyDiff" checked> 차이 나는 건만 보기</label>
+            </div>
+            <div id="cmpResultWrap" style="overflow:auto; border:1px solid #dde0ea; flex:1; min-height:200px; display:none;">
+                <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                    <thead style="position:sticky; top:0; background:#f1f4fa;">
+                    <tr>
+                        <th style="padding:6px; border:1px solid #dde0ea; width:110px;">결과</th>
+                        <th style="padding:6px; border:1px solid #dde0ea;">엑셀 거래처명</th>
+                        <th style="padding:6px; border:1px solid #dde0ea; width:100px;">엑셀 금액</th>
+                        <th style="padding:6px; border:1px solid #dde0ea;">CMS 납부자명</th>
+                        <th style="padding:6px; border:1px solid #dde0ea; width:100px;">CMS 금액</th>
+                        <th style="padding:6px; border:1px solid #dde0ea; width:90px;">차이(엑셀-CMS)</th>
+                        <th style="padding:6px; border:1px solid #dde0ea; width:90px;">출금일</th>
+                        <th style="padding:6px; border:1px solid #dde0ea; width:60px;">상태</th>
+                    </tr>
+                    </thead>
+                    <tbody id="cmpRows"></tbody>
+                </table>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:12px;">
+                <a id="btnCmpReset" style="font-size:12px; color:#4a6cf7; cursor:pointer; text-decoration:underline; display:none;">다시 붙여넣기</a>
+                <span></span>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" class="btn-default" id="btnCmpRun" style="background:#1e6b3f; color:#fff;">비교</button>
+                    <button type="button" class="btn-default" id="btnCmpClose">닫기</button>
                 </div>
             </div>
         </div>
@@ -3001,6 +3054,223 @@
                     }
                 });
         }
+
+        // ───────── 엑셀 대조 ─────────
+        //  담당자가 가진 엑셀(거래처명·금액)과 현재 조회조건의 청구를 비교한다.
+        //  이름은 완전히 같지 않아서 정규화 + 유사도로 짝을 짓고, 금액이 같으면 우선 짝을 짓는다.
+        var cmpCmsRows = [];
+        var cmpResult = [];
+
+        /** 비교용 이름 정규화 — (분담)·법인표기·괄호·공백·기호 제거 */
+        function cmpNorm(s) {
+            s = String(s == null ? '' : s).toLowerCase();
+            s = s.replace(/\(분담\)|\(주\)|㈜|주식회사|유한회사|\(유\)|\(재\)|재단법인|사단법인/g, '');
+            return s.replace(/[^0-9a-z가-힣]/g, '');
+        }
+
+        function cmpBigrams(s) {
+            var m = {};
+            for (var i = 0; i < s.length - 1; i++) {
+                var g = s.substr(i, 2);
+                m[g] = (m[g] || 0) + 1;
+            }
+            return m;
+        }
+
+        /** 0~1 유사도. 같으면 1, 한쪽이 다른 쪽을 포함하면 0.85 이상, 그 외는 2글자 조각(Dice) 비교 */
+        function cmpSim(a, b) {
+            if (!a || !b) return 0;
+            if (a === b) return 1;
+            var shortS = a.length <= b.length ? a : b, longS = a.length <= b.length ? b : a;
+            if (shortS.length >= 2 && longS.indexOf(shortS) >= 0) return 0.85 + 0.15 * shortS.length / longS.length;
+            if (a.length < 2 || b.length < 2) return 0;
+            var ga = cmpBigrams(a), gb = cmpBigrams(b), inter = 0, na = 0, nb = 0, k;
+            for (k in ga) { na += ga[k]; if (gb[k]) inter += Math.min(ga[k], gb[k]); }
+            for (k in gb) nb += gb[k];
+            return (2 * inter) / (na + nb);
+        }
+
+        /** 금액 문자열 → 숫자. 숫자가 아니면 null */
+        function cmpAmount(v) {
+            var t = String(v == null ? '' : v).replace(/[,원\s₩]/g, '');
+            if (!/^-?\d+(\.\d+)?$/.test(t)) return null;
+            return Math.round(Number(t));
+        }
+
+        /** 붙여넣은 텍스트 → [{name, amount, line}] (머리글·합계·빈 줄은 건너뜀) */
+        function cmpParsePaste(text) {
+            var out = [];
+            (text || '').split(/\r?\n/).forEach(function (line, idx) {
+                if (!line.trim()) return;
+                var cells = line.split('\t').map(function (c) { return c.trim(); });
+                var amtIdx = -1;
+                for (var i = cells.length - 1; i >= 0; i--) {
+                    if (cmpAmount(cells[i]) !== null) { amtIdx = i; break; }
+                }
+                if (amtIdx < 0) return;                       // 금액 없는 줄(머리글 등)
+                var name = '';
+                for (var j = 0; j < cells.length; j++) {
+                    if (j !== amtIdx && cells[j] && cmpAmount(cells[j]) === null) { name = cells[j]; break; }
+                }
+                if (!name || /^(합계|총계|소계|계)$/.test(name.replace(/\s/g, ''))) return;
+                out.push({name: name, amount: cmpAmount(cells[amtIdx]), line: idx + 1});
+            });
+            return out;
+        }
+
+        function openExcelCompare() {
+            var p = buildSearchParams(0, 10000);
+            if (!p) { Alert.alert('', '청구년월을 선택하세요.'); return; }
+            var cond = p.billing_ym.substring(0, 4) + '-' + p.billing_ym.substring(4) + ' 청구';
+            if (p.send_date_from || p.send_date_to) {
+                cond += ', ' + ($('#srchDateType option:selected').text() || '') + ' '
+                    + (p.send_date_from || '') + ' ~ ' + (p.send_date_to || '');
+            }
+            if (p.member_name) cond += ', 납부자명 "' + p.member_name + '"';
+            if (p.status) cond += ', 상태 ' + $('#srchStatus option:selected').text();
+            $('#cmpCondText').text(cond);
+            cmpResetView();
+            $('#modalExcelCompare').css('display', 'flex');
+            setTimeout(function () { $('#cmpPaste').focus(); }, 50);
+        }
+
+        function cmpResetView() {
+            $('#cmpInputWrap').show();
+            $('#cmpSummary, #cmpFilterBar, #cmpResultWrap, #btnCmpReset').hide();
+            $('#btnCmpRun').show();
+        }
+
+        function runExcelCompare() {
+            var excel = cmpParsePaste($('#cmpPaste').val());
+            if (!excel.length) { Alert.alert('', '거래처명과 금액이 있는 줄을 찾지 못했습니다.'); return; }
+            var p = buildSearchParams(0, 10000);
+            if (!p) { Alert.alert('', '청구년월을 선택하세요.'); return; }
+            AjaxUtil.showLoading();
+            $.ajax({
+                url: withCtx('/api/cms/billing/list'), type: 'GET', data: p,
+                success: function (result) {
+                    AjaxUtil.hideLoading();
+                    if (!result || !result.success) { Alert.alert('', '청구 목록을 불러오지 못했습니다.'); return; }
+                    var rows = (result.data && result.data.data) || [];
+                    if ($('#cmpExcludeCancel').is(':checked')) {
+                        rows = rows.filter(function (r) { return r.status !== 'CANCEL'; });
+                    }
+                    cmpCmsRows = rows;
+                    cmpResult = cmpMatch(excel, rows);
+                    cmpRender();
+                },
+                error: function () { AjaxUtil.hideLoading(); Alert.alert('', '청구 목록을 불러오지 못했습니다.'); }
+            });
+        }
+
+        /** 엑셀↔CMS 1:1 짝짓기. 점수 = 이름유사도 + 금액 보너스(같으면 +0.3, 끝자리 차이면 +0.2), 높은 순으로 확정 */
+        function cmpMatch(excel, cms) {
+            var en = excel.map(function (e) { return cmpNorm(e.name); });
+            var cn = cms.map(function (c) { return cmpNorm(c.member_name); });
+            var pairs = [];
+            for (var i = 0; i < excel.length; i++) {
+                for (var j = 0; j < cms.length; j++) {
+                    var sim = cmpSim(en[i], cn[j]);
+                    if (sim < 0.45) continue;
+                    var diff = Math.abs(excel[i].amount - Number(cms[j].billing_amount || 0));
+                    var bonus = diff === 0 ? 0.3 : (diff < 10 ? 0.2 : 0);
+                    pairs.push({i: i, j: j, sim: sim, score: sim + bonus});
+                }
+            }
+            pairs.sort(function (a, b) { return b.score - a.score || b.sim - a.sim; });
+            var usedE = {}, usedC = {}, out = [];
+            pairs.forEach(function (pr) {
+                if (usedE[pr.i] || usedC[pr.j]) return;
+                usedE[pr.i] = usedC[pr.j] = true;
+                out.push(cmpRow(excel[pr.i], cms[pr.j], pr.sim));
+            });
+            excel.forEach(function (e, i) { if (!usedE[i]) out.push(cmpRow(e, null, 0)); });
+            cms.forEach(function (c, j) { if (!usedC[j]) out.push(cmpRow(null, c, 0)); });
+            return out;
+        }
+
+        function cmpRow(e, c, sim) {
+            var r = {excel: e, cms: c, sim: sim, diff: null, kind: ''};
+            if (e && c) {
+                r.diff = e.amount - Number(c.billing_amount || 0);
+                var ad = Math.abs(r.diff);
+                r.kind = ad === 0 ? 'OK' : (ad < 10 ? 'TAIL' : 'DIFF');
+                r.nameCheck = sim < 0.85;
+            } else {
+                r.kind = e ? 'EXCEL_ONLY' : 'CMS_ONLY';
+            }
+            return r;
+        }
+
+        var CMP_KIND = {
+            OK:         {label: '일치',        bg: '#d4edda', color: '#155724', ord: 9},
+            TAIL:       {label: '끝자리 차이', bg: '#fff3cd', color: '#856404', ord: 3},
+            DIFF:       {label: '금액 차이',   bg: '#f8d7da', color: '#721c24', ord: 2},
+            EXCEL_ONLY: {label: '엑셀에만',    bg: '#e67e22', color: '#fff',    ord: 0},
+            CMS_ONLY:   {label: 'CMS에만',     bg: '#8e44ad', color: '#fff',    ord: 1}
+        };
+
+        function cmpRender() {
+            var cnt = {OK: 0, TAIL: 0, DIFF: 0, EXCEL_ONLY: 0, CMS_ONLY: 0}, nameCheck = 0;
+            var exSum = 0, cmSum = 0, exCnt = 0, cmCnt = cmpCmsRows.length;
+            cmpCmsRows.forEach(function (c) { cmSum += Number(c.billing_amount || 0); });
+            cmpResult.forEach(function (r) {
+                cnt[r.kind]++;
+                if (r.nameCheck) nameCheck++;
+                if (r.excel) { exSum += r.excel.amount; exCnt++; }
+            });
+            var fmt = function (n) { return Number(n || 0).toLocaleString(); };
+            $('#cmpSummary').html(
+                '엑셀 <strong>' + exCnt + '건 ' + fmt(exSum) + '원</strong> / CMS <strong>' + cmCnt + '건 ' + fmt(cmSum) + '원</strong>'
+                + ' (차이 <strong style="color:' + (exSum - cmSum ? '#c0392b' : '#155724') + ';">' + fmt(exSum - cmSum) + '원</strong>)'
+                + '<br>일치 ' + cnt.OK + ' · <span style="color:#856404;">끝자리 차이 ' + cnt.TAIL + '</span>'
+                + ' · <span style="color:#c0392b;">금액 차이 ' + cnt.DIFF + '</span>'
+                + ' · 엑셀에만 ' + cnt.EXCEL_ONLY + ' · CMS에만 ' + cnt.CMS_ONLY
+                + (nameCheck ? ' · <span style="color:#4a6cf7;">이름확인 ' + nameCheck + '</span>' : '')
+            ).show();
+
+            var onlyDiff = $('#cmpOnlyDiff').is(':checked');
+            var list = cmpResult.filter(function (r) { return !onlyDiff || r.kind !== 'OK' || r.nameCheck; });
+            list.sort(function (a, b) {
+                var d = CMP_KIND[a.kind].ord - CMP_KIND[b.kind].ord;
+                if (d) return d;
+                var na = (a.excel ? a.excel.name : a.cms.member_name) || '', nb = (b.excel ? b.excel.name : b.cms.member_name) || '';
+                return na.localeCompare(nb);
+            });
+            var td = 'padding:5px 6px; border:1px solid #eee;';
+            var html = list.map(function (r) {
+                var k = CMP_KIND[r.kind];
+                var dd = r.cms && r.cms.deduct_date ? String(r.cms.deduct_date) : '';
+                if (dd.length === 8) dd = dd.substring(4, 6) + '-' + dd.substring(6);
+                return '<tr>'
+                    + '<td style="' + td + ' text-align:center;"><span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:' + k.bg + '; color:' + k.color + ';">' + k.label + '</span>'
+                    + (r.nameCheck ? '<div style="font-size:10px; color:#4a6cf7; margin-top:2px;">이름확인</div>' : '') + '</td>'
+                    + '<td style="' + td + '">' + (r.excel ? escAttr(r.excel.name) : '') + '</td>'
+                    + '<td style="' + td + ' text-align:right;">' + (r.excel ? fmt(r.excel.amount) : '') + '</td>'
+                    + '<td style="' + td + '">' + (r.cms ? escAttr(r.cms.member_name) : '') + '</td>'
+                    + '<td style="' + td + ' text-align:right;">' + (r.cms ? fmt(r.cms.billing_amount) : '') + '</td>'
+                    + '<td style="' + td + ' text-align:right; font-weight:600; color:' + (r.diff ? '#c0392b' : '#999') + ';">' + (r.diff === null ? '' : (r.diff > 0 ? '+' : '') + fmt(r.diff)) + '</td>'
+                    + '<td style="' + td + ' text-align:center;">' + dd + '</td>'
+                    + '<td style="' + td + ' text-align:center;">' + (r.cms ? (STATUS_LABEL_CMP(r.cms.status)) : '') + '</td>'
+                    + '</tr>';
+            }).join('');
+            $('#cmpRows').html(html || '<tr><td colspan="8" style="padding:20px; text-align:center; color:#155724;">모두 일치합니다.</td></tr>');
+            $('#cmpInputWrap, #btnCmpRun').hide();
+            $('#cmpFilterBar, #cmpResultWrap, #btnCmpReset').show();
+        }
+
+        function STATUS_LABEL_CMP(s) {
+            var m = {PENDING: '대기', REQUESTED: '출금요청', SUCCESS: '성공', FAIL: '불능', CANCEL: '취소', ERROR: '오류'};
+            return m[s] || (s || '');
+        }
+
+        $(function () {
+            $('#btnExcelCompare').click(function () { $('#excelMenuDropdown').hide(); openExcelCompare(); });
+            $('#btnCmpRun').click(runExcelCompare);
+            $('#btnCmpReset').click(cmpResetView);
+            $('#btnCmpClose').click(function () { $('#modalExcelCompare').hide(); });
+            $(document).on('change', '#cmpOnlyDiff', function () { if (cmpResult.length) cmpRender(); });
+        });
     </script>
 </th:block>
 
