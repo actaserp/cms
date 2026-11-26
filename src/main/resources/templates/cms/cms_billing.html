@@ -2717,10 +2717,14 @@
             DUP: {label: '이미청구됨', color: '#721c24', bg: '#f8d7da'},
             NO_MEMBER: {label: '납부자없음', color: '#856404', bg: '#fff3cd'},
             NOT_AGREED: {label: '미인증', color: '#6a0dad', bg: '#f0d0ff'},
-            // 오매칭 방지 — 둘 다 생성 불가
+            // 오매칭 방지 — 생성 불가
             NO_SITE_MEMBER: {label: '현장납부자없음', color: '#fff', bg: '#c0392b'},
+            // ERP 계좌와 납부자 계좌가 다름 — 경고만, 생성 가능(납부자 계좌로 출금)
             ACCOUNT_DIFF: {label: '계좌불일치', color: '#fff', bg: '#e67e22'}
         };
+
+        /** 생성 가능한 상태 — OK 와 계좌불일치(경고) */
+        function isErpCreatable(s) { return s === 'OK' || s === 'ACCOUNT_DIFF'; }
 
         function openErpImportModal() {
             var t = new Date();
@@ -2827,7 +2831,7 @@
             var send = ($('#erpSendDate').val() || '').replace(/-/g, '');
             if (!send) return;
             var past = (rows || []).filter(function (r) {
-                return r.row_status === 'OK' && r.deduct_date && r.deduct_date <= send;
+                return isErpCreatable(r.row_status) && r.deduct_date && r.deduct_date <= send;
             });
             if (past.length) {
                 $('#erpDeductHint').html('<span style="color:#c00;">약정일이 이미 지난 건 '
@@ -2844,10 +2848,10 @@
             // 생성 가능한 건(OK)만 기본 노출.
             //  DUP/AMBIGUOUS/NOT_AGREED 는 어차피 생성에서 제외되는데 목록만 길어져
             //  정작 확인해야 할 건이 묻힌다. 필요하면 체크박스로 펼쳐 본다.
-            var skipped = erpAllRows.filter(function (r) { return r.row_status !== 'OK'; });
+            var skipped = erpAllRows.filter(function (r) { return !isErpCreatable(r.row_status); });
             $('#erpSkippedCnt').text(skipped.length ? '(' + skipped.length + '건)' : '');
             if (!$('#erpShowSkipped').is(':checked')) {
-                rows = erpAllRows.filter(function (r) { return r.row_status === 'OK'; });
+                rows = erpAllRows.filter(function (r) { return isErpCreatable(r.row_status); });
             } else {
                 rows = erpAllRows.slice();
             }
@@ -2875,7 +2879,7 @@
 
             rows.forEach(function (r) {
                 var st = ERP_STATUS[r.row_status] || {label: r.row_status, color: '#555', bg: '#eee'};
-                var canSelect = (r.row_status === 'OK');
+                var canSelect = isErpCreatable(r.row_status);
                 if (canSelect) okCount++;
 
                 var dd = r.deduct_date || '';
@@ -2886,7 +2890,7 @@
                 if (ddKey !== prevDD) {
                     prevDD = ddKey;
                     var grpOkCount = rows.filter(function (x) {
-                        return (x.deduct_date || 'NONE') === ddKey && x.row_status === 'OK';
+                        return (x.deduct_date || 'NONE') === ddKey && isErpCreatable(x.row_status);
                     }).length;
                     html += '<tr style="background:#eef2fb;">'
                         + '<td style="padding:6px 8px; border:1px solid #dde0ea; text-align:center;">'

@@ -2277,6 +2277,17 @@ public class CmsBillingService {
                         }
                         // ERP 기준 출금계좌 (숫자만)
                         String erpAccnum = digits(siteCms ? rs.getString("site_accnum") : rs.getString("clt_accnum"));
+                        // ★ 현장 CMS 인데 현장 납부자가 없어도, 거래처 납부자 계좌가 현장 CMS 계좌와 같으면
+                        //   같은 계좌에서 빠지는 것이니 거래처 납부자로 붙인다(현서 부강주택관리 3차 130715 사례).
+                        //   계좌가 다르면 남의 계좌 출금 위험이라 여전히 NO_SITE_MEMBER 로 둔다.
+                        if (siteMemberMissing && StringUtils.hasText(cltcd) && StringUtils.hasText(erpAccnum)) {
+                            Map<String, Object> cm = memberByCltcd.get(cltcd);
+                            if (cm != null && erpAccnum.equals(digits(str(cm.get("bank_account"))))) {
+                                member = cm;
+                                siteMemberMissing = false;
+                                if (tr != null) tr.add("현장 CMS 납부자 없음 → 거래처 납부자 계좌가 현장 계좌와 같아 거래처 납부자로 연결");
+                            }
+                        }
 
                         // 당월/익월 판단: cms_member.deduct_month_type 우선, 없으면 ERP XCLIENT.autoflag 폴백
                         //  익월(NEXT / autoflag=2) → 전월 발생 미수를 이번 달 청구, 그 외 → 당월 미수
@@ -2310,7 +2321,9 @@ public class CmsBillingService {
                             dispName = str(member.get("member_name"));
                         }
 
-                        // 매칭된 납부자 계좌가 ERP 출금계좌와 다르면 오매칭 의심 → 생성 막음
+                        // 매칭된 납부자 계좌가 ERP 출금계좌와 다르면 '계좌불일치' 경고. 생성은 막지 않는다.
+                        //  (고객이 계좌를 바꿨는데 ERP 반영이 늦는 경우가 많아, 막으면 청구가 누락된다.
+                        //   출금은 납부자(cms_member)의 등록 계좌로 나간다.)
                         boolean accountDiff = member != null && StringUtils.hasText(erpAccnum)
                                 && !erpAccnum.equals(digits(str(member.get("bank_account"))));
 
@@ -2319,15 +2332,12 @@ public class CmsBillingService {
                         } else if (siteMemberMissing) {
                             rowStatus = "NO_SITE_MEMBER";      // 현장 CMS 납부자 미등록 — 대납 폴백 금지
                             dispName  = nameSite;
-                        } else if (accountDiff) {
-                            rowStatus = "ACCOUNT_DIFF";        // ERP 출금계좌 ≠ 납부자 계좌
-                            memberId  = member.get("id");
-                            bankAccount = str(member.get("bank_account"));
                         } else if (!"Y".equals(str(member.get("agree_yn")))) {
                             rowStatus = "NOT_AGREED";
                             memberId  = member.get("id");
                         } else {
-                            rowStatus     = "OK";
+                            // ACCOUNT_DIFF: ERP 출금계좌 ≠ 납부자 계좌 — 경고 표시만, OK 와 같이 생성 가능
+                            rowStatus     = accountDiff ? "ACCOUNT_DIFF" : "OK";
                             memberId      = member.get("id");
                             deductDay     = str(member.get("deduct_day"));
                             deductDate    = calcDeductDate(billingYm, deductDay);
@@ -2431,8 +2441,8 @@ public class CmsBillingService {
             String rowStatus = str(c.get("row_status"));
             String memberName = str(c.get("member_name"));
 
-            if (!"OK".equals(rowStatus)) {
-                // DUP / NOT_AGREED / NO_SITE_MEMBER / ACCOUNT_DIFF 는 생성 안 함
+            if (!"OK".equals(rowStatus) && !"ACCOUNT_DIFF".equals(rowStatus)) {
+                // DUP / NOT_AGREED / NO_SITE_MEMBER 는 생성 안 함 (ACCOUNT_DIFF 는 경고만, 생성함)
                 notFound.add(Map.of("cltcd", str(c.get("cltcd")),
                         "member_name", memberName + "(" + rowStatus + ")"));
                 skipped++;
